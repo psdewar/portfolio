@@ -23,7 +23,7 @@ export default function Page() {
   return (
     <section className="mb-40">
       <h1 className="mb-4 text-2xl font-medium">
-        {`Want to collaborate? `}
+        {`Want to collaborate?`}
         <p className="text-base text-neutral-400">
           <a className="email" href="mailto:psdewar2@gmail.com">
             Send me
