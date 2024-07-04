@@ -120,7 +120,7 @@ export default function Page() {
         </div>
         <div className="prose-neutral dark:prose-invert mb-4">
           <p>
-            {`I came up with Lyrist while writing to a YouTube instrumental and saw that people were
+            {`I came up with Lyrist while crafting verses to instrumentals on YouTube and saw that people were
           commenting entire songs. This was during my #4BarFridays when Damian Lillard was still
           playing for the Portland Trail Blazers. Either I just confused you or unlocked a fond memory:`}
           </p>
