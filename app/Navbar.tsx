@@ -5,10 +5,10 @@ const navItems = {
     name: "home",
   },
   "/music": {
-    name: "music & faith",
+    name: "music",
   },
   "/idea": {
-    name: "i have an app idea",
+    name: "submit your app idea",
   },
 };
 

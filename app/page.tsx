@@ -120,11 +120,9 @@ export default function Page() {
         </div>
         <div className="prose-neutral dark:prose-invert mb-4">
           <p>
-            {`I came up with `}
-            <LyristIcon />
-            {` while writing to a YouTube instrumental and saw that people were
+            {`I came up with Lyrist while writing to a YouTube instrumental and saw that people were
           commenting entire songs. This was during my #4BarFridays when Damian Lillard was still
-          playing for the Portland Trail Blazers. Either you're confused or you remember:`}
+          playing for the Portland Trail Blazers. Either I just confused you or unlocked a fond memory:`}
           </p>
         </div>
         <EmbedLillard />
@@ -132,22 +130,19 @@ export default function Page() {
         <div className="prose-neutral dark:prose-invert my-4">
           <p>
             {`I wanted to support iOS and Android without writing separate code for each platform and found React Native as a cross-platform solution, the evolution of which I have observed and experienced. 
-          Expo has become the standard React Native framework for creating new apps. Upgrading to newer versions of React Native is less of a pain. Its collaborative and innovative ecosystem has made building apps like `}
-            <LyristIcon />
-            {` enjoyable. Bringing others that same joy sounds fun.`}
+          Expo has become the standard React Native framework for creating new apps. Upgrading to newer versions of React Native is less of a pain. Its collaborative and innovative ecosystem has made building apps like Lyrist enjoyable. Bringing others that same joy sounds fun.`}
           </p>
         </div>
         <PageLink name="💡 Tell me your idea" slug="idea" />
         <div className="prose-neutral dark:prose-invert my-4">
           <p>
-            {`Now that I've spent more than a decade coding, solopreneurship intrigues me. 
-          I would like to get as good at promoting things I make. If you are a
+            {`Now that I've spent more than a decade coding, solopreneurship intrigues me. If you are a
           content creator or a social media manager or someone who tells yourself "I'll figure it out", 
           please don't hesitate to `}
             <a className="email" href="mailto:psdewar2@gmail.com">
               send me an email
             </a>
-            {`! Before you leave, here's some 2021 Microsoft wordplay (last slide):`}
+            {`! Before you leave, here's a carousel from my five-year anniversary at Microsoft featuring some clever wordplay:`}
           </p>
         </div>
         <EmbedMicrosoft />

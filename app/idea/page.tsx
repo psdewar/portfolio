@@ -178,6 +178,10 @@ export default function Page() {
           <h2 className="mt-8 font-normal text-xl">
             Describe at least one way you plan to reach customers.
           </h2>
+          <p>
+            Knowing who you want your customers to be 1. provides insights into prioritizing
+            features, and 2. helps define what success looks like.
+          </p>
           <div className="mt-4">
             <label htmlFor="plan" className="block text-sm font-medium">
               At least 50 characters
