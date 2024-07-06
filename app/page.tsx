@@ -120,24 +120,24 @@ export default function Page() {
         </div>
         <div className="prose-neutral dark:prose-invert mb-4">
           <p>
-            {`I came up with Lyrist while crafting verses to instrumentals on YouTube and saw that people were commenting their lyrics for entire songs. This was when I participated in #4BarFridays, a weekly Instagram rap challenge hosted by Damian Lillard who was still playing for the Portland Trail Blazers:`}
+            {`I have been able to blend my love for music with my skills in app development as founder of Lyrist, which I conceived while crafting verses to instrumentals on YouTube and saw that people were commenting their lyrics for entire songs. This was when I participated in #4BarFridays, a weekly Instagram rap challenge hosted by Damian Lillard who was still playing for the Portland Trail Blazers:`}
           </p>
         </div>
         <EmbedLillard />
         <PageLink name="🎵 Check out my music" slug="music" />
         <div className="prose-neutral dark:prose-invert my-4">
           <p>
-            {`I wanted to support iOS and Android without writing separate code for each platform and found React Native as a cross-platform solution, the evolution of which I have observed and experienced. Expo has become the standard React Native framework for creating new apps. Upgrading to newer versions of React Native is less of a pain. Its collaborative and innovative ecosystem has made building apps like Lyrist enjoyable. Bringing others that same joy sounds fun.`}
+            {`I wanted to support iOS and Android without writing separate code for each platform and found React Native as a cross-platform solution, the evolution of which I have observed and experienced. Expo has become the standard React Native framework for creating new apps. Upgrading to newer versions of React Native is less of a pain. Its collaborative and innovative ecosystem has made building apps like Lyrist enjoyable. Sharing that same joy with others is fun and impactful.`}
           </p>
         </div>
         <PageLink name="💡 Tell me your idea" slug="idea" />
         <div className="prose-neutral dark:prose-invert my-4">
           <p>
-            {`With over a decade of coding experience under my belt, solopreneurship intrigues me. If you're a content creator, a social media manager, or someone who thrives on the mantra "I'll figure it out", `}
+            {`Drawing from a lifetime of coding and musical experience, I am pursuing solopreneurship to help others bring their vision to life. If you create content, manage social media, make music, or build apps, `}
             <a className="email" href="mailto:psdewar2@gmail.com">
-              send me an email
+              {`let's connect`}
             </a>
-            {` to collaborate! Before you leave, here's a carousel from my five-year anniversary at Microsoft featuring some clever wordplay:`}
+            {` and innovate! Before you leave, here's a carousel from my five-year anniversary at Microsoft featuring some clever wordplay:`}
           </p>
         </div>
         <EmbedMicrosoft />
