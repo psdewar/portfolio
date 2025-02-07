@@ -26,9 +26,8 @@ export default function Page() {
         {`Want to collaborate?`}
         <p className="text-base text-neutral-400">
           <a className="email" href="mailto:psdewar2@gmail.com">
-            Send me
+            Send me a beat or concept
           </a>
-          {` a beat or concept`}
         </p>
       </h1>
       <PageLink
@@ -68,7 +67,7 @@ export default function Page() {
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-4">
         <InstagramEmbed
-          url={"https://www.instagram.com/p/Cx0f3j0L2Fq"}
+          url={"https://www.instagram.com/p/C2ItiXWSiMN"}
           width={col}
           height={"100%"}
         />

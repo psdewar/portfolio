@@ -34,27 +34,12 @@ export default function Page() {
         <p className="prose-neutral dark:prose-invert mb-4">
           {`Friends call me Peyt. Family calls me Peyt Spencer. I'm a full-stack software engineer, hip-hop artist, and Baha'i. I founded `}
           <LyristIcon />
-          {`, the all-in-one toolkit for songwriters. I also work at Microsoft on `}
-          <span className="not-prose">
-            <Badge href="https://learn.microsoft.com/en-us/office/dev/scripts">
-              <svg
-                width="13"
-                height="11"
-                role="img"
-                aria-label="Office Scripts logo"
-                className="mr-1"
-              >
-                <use href="/sprite.svg#scripts" />
-              </svg>
-              Office Scripts
-            </Badge>
-          </span>
-          {` and was an early contributor to its public release.`}
+          {`, a smart toolkit for songwriters to find beats, get suggestions, and overcome writer's block. I also work at Microsoft on the Azure team helping revamp our web and mobile on-call platform.`}
         </p>
         <PageLink
           newTab
-          name={"💻 '24Resume.pdf"}
-          slug="https://1drv.ms/b/s!AoIPBhqDp9yHlzw9Nu0ulxhGd7UX"
+          name={"💻 '25Resume.pdf"}
+          slug="https://1drv.ms/b/s!AoIPBhqDp9yHmA9fBA23hBAHNHv-"
         />
         <div className="grid grid-cols-2 grid-rows-4 sm:grid-rows-3 sm:grid-cols-3 gap-4 my-4">
           <div className="relative row-span-2">
