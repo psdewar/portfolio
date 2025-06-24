@@ -5,7 +5,7 @@ import hike from "public/images/home/hike.jpg";
 import lunch from "public/images/home/lunch.jpg";
 import summer from "public/images/home/summer.jpg";
 import tennis from "public/images/home/tennis.jpg";
-import { EmbedLillard, EmbedMicrosoft } from "./Embed";
+import { EmbedLillard, EmbedTroglodyte } from "./Embed";
 import { Badge } from "./Badge";
 import { PageLink } from "./PageLink";
 import { Footer } from "./Footer";
@@ -122,10 +122,10 @@ export default function Page() {
             <a className="email" href="mailto:psdewar2@gmail.com">
               {`let's connect`}
             </a>
-            {` and innovate! Before you leave, here's a carousel from my five-year anniversary at Microsoft featuring some clever wordplay:`}
+            {` and innovate! Before you leave, here are some vulnerable thoughts from a modern man:`}
           </p>
         </div>
-        <EmbedMicrosoft />
+        <EmbedTroglodyte />
       </section>
       <Footer />
     </>

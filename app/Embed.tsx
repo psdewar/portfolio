@@ -16,14 +16,14 @@ function EmbedLillardUnmemoized() {
 
 export const EmbedLillard = memo(EmbedLillardUnmemoized);
 
-export function EmbedMicrosoftUnmemoized() {
+export function EmbedTroglodyteUnmemoized() {
   const [isClient, setIsClient] = useState(false);
   useEffect(() => setIsClient(true), []);
   return isClient ? (
     <div className="grid grid-cols-1 md:place-items-center">
-      <InstagramEmbed captioned url={"https://www.instagram.com/p/CTSINr3FI3D"} />
+      <InstagramEmbed captioned url={"https://www.instagram.com/p/DKAtDTHTI_A"} />
     </div>
   ) : null;
 }
 
-export const EmbedMicrosoft = memo(EmbedMicrosoftUnmemoized);
+export const EmbedTroglodyte = memo(EmbedTroglodyteUnmemoized);
