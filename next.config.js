@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const BASE = "https://distrokid.com/hyperfollow/peytspencer";
-const slugs = ["where-i-wanna-be", "right-one", "safe"];
+const slugs = ["where-i-wanna-be", "right-one", "safe", "patience"];
 
 const nextConfig = {
   redirects() {
