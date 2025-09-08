@@ -4,12 +4,22 @@ const slugs = ["where-i-wanna-be", "right-one", "safe", "patience"];
 
 const nextConfig = {
   redirects() {
-    return slugs.map((slug) => ({
+    const others = [
+      {
+        source: "/resume",
+        destination: "https://1drv.ms/b/s!AoIPBhqDp9yHmA9fBA23hBAHNHv-",
+        permanent: false,
+        basePath: false,
+      },
+    ];
+    const slugRedirects = slugs.map((slug) => ({
       source: `/${slug}`,
       destination: `${BASE}/${slug}`,
       permanent: false,
       basePath: false,
     }));
+
+    return [...others, ...slugRedirects];
   },
 };
 

@@ -36,11 +36,7 @@ export default function Page() {
           <LyristIcon />
           {`, a smart toolkit for songwriters to find beats, get suggestions, and overcome writer's block. I also work at Microsoft on the Azure team helping revamp our web and mobile on-call platform.`}
         </p>
-        <PageLink
-          newTab
-          name={"💻 '25Resume.pdf"}
-          slug="https://1drv.ms/b/s!AoIPBhqDp9yHmA9fBA23hBAHNHv-"
-        />
+        <PageLink newTab name={"💻 '25Resume.pdf"} slug="/resume" />
         <div className="grid grid-cols-2 grid-rows-4 sm:grid-rows-3 sm:grid-cols-3 gap-4 my-4">
           <div className="relative row-span-2">
             <Image
