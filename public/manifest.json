@@ -1,0 +1,22 @@
+{
+  "name": "Peyt Spencer - Portfolio",
+  "short_name": "Peyt Spencer",
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "I write raps · I build apps.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "Support my music", "short_name": "Music", "url": "/music" },
+    { "name": "Hire me to build your app", "short_name": "Idea", "url": "/idea" }
+  ],
+  "categories": ["music", "portfolio", "personal"]
+}

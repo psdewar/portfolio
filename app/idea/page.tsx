@@ -1,6 +1,6 @@
 "use client";
-import { IdeaFormData } from "app/IdeaFormData";
-import { processFormData } from "app/actions";
+import { IdeaFormData } from "../IdeaFormData";
+import { processFormData } from "../actions";
 import { ChangeEvent, useState } from "react";
 
 export default function Page() {
@@ -68,8 +68,8 @@ export default function Page() {
     <section className="mb-40">
       <div className="prose-neutral dark:prose-invert">
         <h1 className="font-medium text-2xl mb-8">
-          Apply for me to build your app
-          <p className="text-base text-neutral-400">Expect my response within 48 hours</p>
+          Tell me more about your idea
+          <p className="text-base text-neutral-400">I will respond to you within 48 hours</p>
         </h1>
 
         <form action={handleSubmit}>
@@ -129,7 +129,7 @@ export default function Page() {
               onChange={handleSetInput}
             />
           </div>
-          <h2 className="mt-8 font-normal text-xl">
+          <h2 className="mt-8 font-medium text-xl">
             What are the absolute minimum requirements for your product to be viable?
           </h2>
           <p className="mt-1">
@@ -152,7 +152,7 @@ export default function Page() {
               />
             </div>
           ))}
-          <h2 className="mt-8 font-normal text-xl">App Type</h2>
+          <h2 className="mt-8 font-medium text-xl">App Type</h2>
           <div className="mt-4 flex flex-col gap-2">
             <label className="inline-flex items-center gap-2">
               <input
@@ -175,12 +175,15 @@ export default function Page() {
               Mobile
             </label>
           </div>
-          <h2 className="mt-8 font-normal text-xl">
+          <h2 className="mt-8 font-medium text-xl">
             Describe at least one way you plan to reach customers.
           </h2>
           <p>
-            Knowing who you want your customers to be 1. provides insights into prioritizing
-            features, and 2. helps define what success looks like.
+            Knowing who you want your customers to be
+            <br />
+            1. provides insights into prioritizing features, and
+            <br />
+            2. helps define what success looks like for you.
           </p>
           <div className="mt-4">
             <label htmlFor="plan" className="block text-sm font-medium">

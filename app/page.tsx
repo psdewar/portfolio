@@ -1,129 +1,228 @@
+"use client";
+import { useState, useRef } from "react";
 import Image from "next/image";
-import concert from "public/images/home/concert.jpg";
-import happy from "public/images/home/happy.jpg";
-import hike from "public/images/home/hike.jpg";
-import lunch from "public/images/home/lunch.jpg";
-import summer from "public/images/home/summer.jpg";
-import tennis from "public/images/home/tennis.jpg";
-import { EmbedLillard, EmbedTroglodyte } from "./Embed";
-import { Badge } from "./Badge";
-import { PageLink } from "./PageLink";
-import { Footer } from "./Footer";
-
-function LyristIcon() {
-  return (
-    <span className="not-prose">
-      <Badge href="https://lyrist.app">
-        <svg width="13" height="11" role="img" aria-label="Lyrist logo" className="mr-0.5">
-          <use href="/sprite.svg#lyrist" />
-        </svg>
-        Lyrist
-      </Badge>
-    </span>
-  );
-}
+import Link from "next/link";
+import { useAudio } from "./contexts/AudioContext";
 
 export default function Page() {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { currentTrack } = useAudio();
+
+  const imgClass = (i: number, alwaysColor = false) => {
+    const base = "object-cover transform transition duration-300 ease-out";
+    if (alwaysColor) {
+      // happy: colored when nothing else is highlighted or when itself is highlighted;
+      // become gray when some other photo is highlighted
+      const isColored = hovered === null || hovered === i;
+      const colorClass = isColored ? "grayscale-0" : "grayscale";
+      const scaleClass = hovered === i ? "scale-105" : "";
+      return `${base} ${colorClass} ${scaleClass}`.trim();
+    }
+    if (hovered === null) return `${base} grayscale`;
+    return hovered === i ? `${base} grayscale-0 scale-105` : `${base} grayscale`;
+  };
+
+  const imgHandlers = (i: number) => ({
+    onMouseEnter: () => {
+      setHovered(i);
+      // Mute video when hovering other images
+      if (i !== 3 && videoRef.current && !isMuted) {
+        videoRef.current.muted = true;
+        setIsMuted(true);
+      }
+    },
+    onMouseLeave: () => setHovered(null),
+    onTouchStart: () => {
+      setHovered(i);
+      // Mute video when tapping other images
+      if (i !== 3 && videoRef.current && !isMuted) {
+        videoRef.current.muted = true;
+        setIsMuted(true);
+      }
+    },
+    onTouchEnd: () => setHovered(null),
+  });
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
+
   return (
-    <>
-      <section className="mb-40">
-        <h1 className="mb-4 text-2xl font-medium">
-          {`What's up! 🤓`}
-          <p className="text-base text-neutral-400">peyt rhymes with heat</p>
-        </h1>
-        <p className="prose-neutral dark:prose-invert mb-4">
-          {`Friends call me Peyt. Family calls me Peyt Spencer. I'm a full-stack software engineer, hip-hop artist, and Baha'i. I founded `}
-          <LyristIcon />
-          {`, a smart toolkit for songwriters to find beats, get suggestions, and overcome writer's block. I also work at Microsoft on the Azure team helping revamp our web and mobile on-call platform.`}
-        </p>
-        <PageLink newTab name={"💻 '25Resume.pdf"} slug="/resume" />
-        <div className="grid grid-cols-2 grid-rows-4 sm:grid-rows-3 sm:grid-cols-3 gap-4 my-4">
-          <div className="relative row-span-2">
+    <main
+      className={`fixed inset-0 m-0 bg-neutral-50 dark:bg-neutral-900 overflow-hidden ${
+        currentTrack ? "pb-16 sm:pb-20" : ""
+      }`}
+    >
+      {/* Layer 1: images (z-0) - grayscale by default, color + slight scale on hover/tap */}
+      <div className="absolute inset-0 z-0">
+        <div
+          className={`h-full grid grid-cols-2 grid-rows-4 sm:grid-rows-6 sm:grid-cols-3 gap-0 ${
+            currentTrack ? "pb-16 sm:pb-20" : ""
+          }`}
+        >
+          <div className="relative row-span-3 sm:row-span-6 overflow-hidden" {...imgHandlers(1)}>
             <Image
-              alt="My tennis racquet"
-              src={tennis}
+              alt="newera"
+              src={"/images/home/new-era-1.jpg"}
               fill
-              sizes="(max-width: 768px) 213px, 33vw"
+              className={imgClass(1)}
               priority
-              className="rounded-lg object-cover sm:object-center"
+            />
+            <div
+              className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-300 ${
+                hovered === 1 ? "opacity-0" : "opacity-100 bg-black/50"
+              }`}
             />
           </div>
-          <div className="relative h-40">
+          <div className="relative row-span-1 sm:row-span-3 overflow-hidden" {...imgHandlers(2)}>
             <Image
-              alt="Me sitting with a smile at a conference"
-              src={happy}
+              alt="bio"
+              src={"/images/home/bio.jpeg"}
               fill
-              sizes="(max-width: 768px) 213px, 33vw"
-              priority
-              className="rounded-lg object-cover"
+              className={imgClass(2, true)}
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+            {/* happy image: becomes grayed when another photo is highlighted */}
+            <div
+              className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-300 ${
+                hovered === null || hovered === 2 ? "opacity-0" : "opacity-100 bg-black/50"
+              }`}
             />
           </div>
-          <div className="relative row-span-2">
-            <Image
-              alt="Me wearing an oversized white hat in New York"
-              src={summer}
-              fill
-              sizes="(max-width: 768px) 213px, 33vw"
-              priority
-              className="rounded-lg object-cover"
+          <div className="relative row-span-3 sm:row-span-6 overflow-hidden" {...imgHandlers(3)}>
+            <video
+              ref={videoRef}
+              className={`${imgClass(3)} absolute inset-0 w-full h-full object-cover`}
+              loop
+              muted
+              autoPlay
+            >
+              <source src={"./windstock.mp4"} type="video/mp4" />
+            </video>
+            <div
+              className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-300 ${
+                hovered === 3 ? "opacity-0" : "opacity-100 bg-black/50"
+              }`}
             />
+            {/* Volume control icon */}
+            <button
+              onClick={toggleMute}
+              className="absolute top-4 right-4 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors duration-200 text-white pointer-events-auto"
+              aria-label={isMuted ? "Unmute video" : "Mute video"}
+            >
+              {isMuted ? (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  />
+                </svg>
+              )}
+            </button>
           </div>
-          <div className="relative sm:row-span-2 row-span-1">
+          <div className="relative row-span-3 sm:row-span-6 overflow-hidden" {...imgHandlers(4)}>
             <Image
-              alt="Me wearing sunglasses at lunch"
-              src={lunch}
+              alt="openmic"
+              src={"/images/home/openmic.jpg"}
               fill
-              sizes="(max-width: 768px) 213px, 33vw"
+              className={imgClass(4)}
               priority
-              className="rounded-lg object-cover object-bottom sm:object-top"
             />
-          </div>
-          <div className="relative">
-            <Image
-              alt="Me rapping on stage at the Eastside Baha'i Center"
-              src={concert}
-              fill
-              sizes="(max-width: 768px) 213px, 33vw"
-              priority
-              className="rounded-lg object-cover"
-            />
-          </div>
-          <div className="relative h-40">
-            <Image
-              alt="Me on a hike"
-              src={hike}
-              fill
-              sizes="(max-width: 768px) 213px, 33vw"
-              priority
-              className="rounded-lg object-cover"
+            <div
+              className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-300 ${
+                hovered === 4 ? "opacity-0" : "opacity-100 bg-black/50"
+              }`}
             />
           </div>
         </div>
-        <div className="prose-neutral dark:prose-invert mb-4">
-          <p>
-            {`I have been able to blend my love for music with my skills in app development as founder of Lyrist, which I conceived while crafting verses to instrumentals on YouTube and saw that people were commenting their lyrics for entire songs. This was when I participated in #4BarFridays, a weekly Instagram rap challenge hosted by Damian Lillard who was still playing for the Portland Trail Blazers:`}
-          </p>
+      </div>
+
+      {/* Centered title with labels underneath */}
+      <div
+        className={`absolute inset-0 z-20 pointer-events-none ${
+          currentTrack ? "mb-16 sm:mb-20" : ""
+        }`}
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center relative">
+            {/* compact panel sized to the title so it reads correctly */}
+            <div className="relative inline-block z-20">
+              <div
+                className={`absolute inset-0 rounded-lg transition-colors duration-300 pointer-events-none ${
+                  hovered ? "bg-black/50 backdrop-blur-sm" : "bg-black/20 backdrop-blur-sm"
+                }`}
+              />
+              <div className="relative px-4 py-4 flex flex-col gap-2 justify-between pointer-events-auto">
+                <div className="flex-1 flex items-center justify-center">
+                  <h1
+                    className="text-white font-semibold text-3xl lg:text-6xl leading-tight"
+                    title="Peyt rhymes with heat"
+                  >
+                    PEYT SPENCER
+                  </h1>
+                </div>
+                <div className="flex items-center justify-center text-white text-lg md:text-xl lg:text-2xl font-semibold">
+                  <Link
+                    className={`text-lg md:text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white`}
+                    href="/music"
+                  >
+                    <span>I write raps</span>
+                  </Link>
+                  <span className="mx-1 sm:mx-2 lg:mx-4 text-white">·</span>
+                  <Link
+                    className={`text-lg md:text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white`}
+                    href="resume.pdf"
+                    target="_blank"
+                  >
+                    <span>I build apps</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <EmbedLillard />
-        <PageLink name="🎵 Check out my music" slug="music" />
-        <div className="prose-neutral dark:prose-invert my-4">
-          <p>
-            {`I wanted to support iOS and Android without writing separate code for each platform and found React Native as a cross-platform solution, the evolution of which I have observed and experienced. Expo has become the standard React Native framework for creating new apps. Upgrading to newer versions of React Native is less of a pain. Its collaborative and innovative ecosystem has made building apps like Lyrist enjoyable. Sharing that same joy with others is fun and impactful.`}
-          </p>
-        </div>
-        <PageLink name="💡 Tell me your idea" slug="idea" />
-        <div className="prose-neutral dark:prose-invert my-4">
-          <p>
-            {`Drawing from a lifetime of coding and musical experience, I am pursuing solopreneurship to help others bring their vision to life. If you create content, manage social media, make music, or build apps, `}
-            <a className="email" href="mailto:psdewar2@gmail.com">
-              {`let's connect`}
-            </a>
-            {` and innovate! Before you leave, here are some vulnerable thoughts from a modern man:`}
-          </p>
-        </div>
-        <EmbedTroglodyte />
-      </section>
-      <Footer />
-    </>
+      </div>
+    </main>
   );
 }
