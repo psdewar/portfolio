@@ -109,7 +109,7 @@ export function Navbar() {
                 >
                   Have an app idea? Let&apos;s talk.
                 </Link>
-                <Social isHomePage={isHomePage} />
+                <Social />
                 {isMusicPage ? (
                   <div className="flex flex-col items-center pt-4 gap-4 w-full">
                     <Link
@@ -221,7 +221,7 @@ export function Navbar() {
             >
               Have an app idea? Let&apos;s talk.
             </Link>
-            <Social isHomePage={isHomePage} />
+            <Social isMobilePanel />
           </div>
         </div>
         {isMusicPage ? (

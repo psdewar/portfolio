@@ -1,12 +1,12 @@
 interface SocialProps {
-  isHomePage?: boolean;
+  isMobilePanel?: boolean;
 }
 
-export function Social({ isHomePage = false }: SocialProps) {
+export function Social({ isMobilePanel = false }: SocialProps) {
   const iconClasses = `${
-    isHomePage
-      ? "text-white hover:text-[#FFFFFF]"
-      : "text-black dark:text-white hover:text-black dark:hover:text-[#FFFFFF]"
+    isMobilePanel
+      ? "text-neutral-800 dark:text-white hover:text-neutral-800 dark:hover:text-white"
+      : "text-white hover:text-[#FFFFFF]"
   } hover:scale-110 transition-all duration-200`;
 
   return (

@@ -96,7 +96,11 @@ export default function Page() {
               }`}
             />
           </div>
-          <div className="relative row-span-3 sm:row-span-6 overflow-hidden" {...imgHandlers(3)}>
+          <div
+            className="relative row-span-3 sm:row-span-6 overflow-hidden"
+            {...imgHandlers(3)}
+            onClick={toggleMute}
+          >
             <video
               ref={videoRef}
               className={`${imgClass(3)} absolute inset-0 w-full h-full object-cover`}
@@ -113,7 +117,6 @@ export default function Page() {
             />
             {/* Volume control icon */}
             <button
-              onClick={toggleMute}
               className="absolute top-4 right-4 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors duration-200 text-white pointer-events-auto"
               aria-label={isMuted ? "Unmute video" : "Mute video"}
             >
