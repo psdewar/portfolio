@@ -268,29 +268,9 @@ export default function Page() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-col sm:flex-row items-center gap-4 w-full">
-        <a
-          href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-          className="w-full sm:flex-1 inline-flex justify-center items-center gap-1 px-4 py-2 bg-slate-800 text-white rounded-md font-medium hover:bg-slate-900"
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          Feature me on your next song <ArrowIcon />
-        </a>
-        <a
-          href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full sm:flex-1 inline-flex justify-center items-center gap-1 px-4 py-2 bg-rose-600 text-white rounded-md font-medium hover:bg-rose-700"
-        >
-          Contribute $20 to fuel my independence
-          <ArrowIcon />
-        </a>
-      </div>
-
       <main className="pb-32">
         <div className="w-full">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-0">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-0">
             {TRACKS.map((t) => {
               const isCurrentTrack = currentTrack?.id === t.id;
               const isCurrentlyPlaying = isCurrentTrack && isPlaying;
@@ -325,7 +305,7 @@ export default function Page() {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 flex items-center">
-                    <div className="w-full flex flex-col gap-1 p-2">
+                    <div className="w-full flex flex-col gap-2 p-4">
                       {isPatienceTrack ? (
                         <>
                           <button

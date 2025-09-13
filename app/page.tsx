@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAudio } from "./contexts/AudioContext";
+import { ArrowIcon } from "./ArrowIcon";
 
 export default function Page() {
   const [hovered, setHovered] = useState<number | null>(null);
@@ -185,39 +186,44 @@ export default function Page() {
         }`}
       >
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center relative">
-            {/* compact panel sized to the title so it reads correctly */}
-            <div className="relative inline-block z-20">
-              <div
-                className={`absolute inset-0 rounded-lg transition-colors duration-300 pointer-events-none ${
-                  hovered ? "bg-black/50 backdrop-blur-sm" : "bg-black/20 backdrop-blur-sm"
-                }`}
-              />
-              <div className="relative px-4 py-4 flex flex-col gap-2 justify-between pointer-events-auto">
-                <div className="flex-1 flex items-center justify-center">
-                  <h1
-                    className="text-white font-semibold text-3xl lg:text-6xl leading-tight"
-                    title="Peyt rhymes with heat"
-                  >
-                    PEYT SPENCER
-                  </h1>
-                </div>
-                <div className="flex items-center justify-center text-white text-lg md:text-xl lg:text-2xl font-semibold">
-                  <Link
-                    className={`text-lg md:text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white`}
-                    href="/music"
-                  >
-                    <span>I write raps</span>
-                  </Link>
-                  <span className="mx-1 sm:mx-2 lg:mx-4 text-white">·</span>
-                  <Link
-                    className={`text-lg md:text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white`}
-                    href="resume.pdf"
-                    target="_blank"
-                  >
-                    <span>I build apps</span>
-                  </Link>
-                </div>
+          <div className="relative inline-block z-20">
+            <div
+              className={`absolute inset-0 rounded-lg transition-colors duration-300 pointer-events-none ${
+                hovered ? "bg-black/50 backdrop-blur-sm" : "bg-black/20 backdrop-blur-sm"
+              }`}
+            />
+            <div className="relative px-4 py-4 flex flex-col lg:gap-2 justify-between pointer-events-auto">
+              <h1
+                className="text-white font-semibold text-4xl lg:text-7xl leading-tight"
+                title="Peyt rhymes with heat"
+                aria-label="Peyt rhymes with heat"
+              >
+                PEYT SPENCER
+              </h1>
+              <div className="flex flex-col lg:flex-row items-center w-full">
+                <Link
+                  title="Support my music"
+                  aria-label="Support my music"
+                  className={`w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-center`}
+                  href="/music"
+                >
+                  <span>Here, I rap lyrics</span>
+                </Link>
+                <span className="mx-1 sm:mx-2 lg:mx-4 text-white font-semibold text-lg md:text-xl lg:text-2xl hidden lg:inline">
+                  ·
+                </span>
+                <Link
+                  title="Find beats, beat writer's block"
+                  aria-label="Find beats, beat writer's block"
+                  className={`w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-center`}
+                  href="https://lyrist.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="inline-flex items-center gap-2 justify-center">
+                    Here&apos;s my app, Lyrist <ArrowIcon />
+                  </span>
+                </Link>
               </div>
             </div>
           </div>

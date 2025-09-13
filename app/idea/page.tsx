@@ -65,152 +65,153 @@ export default function Page() {
   };
 
   return (
-    <section className="mb-40">
-      <div className="prose-neutral dark:prose-invert">
-        <h1 className="font-medium text-2xl mb-8">
-          Tell me more about your idea
-          <p className="text-base text-neutral-400">I will respond to you within 48 hours</p>
-        </h1>
-
-        <form action={handleSubmit}>
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium">
-              Your Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              id="name"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-              value={name}
-              onChange={handleSetInput}
-              required
-            />
-          </div>
-          <div className="mt-4">
-            <label htmlFor="email" className="block text-sm font-medium">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              id="email"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-              value={email}
-              onChange={handleSetInput}
-              required
-            />
-          </div>
-          <div className="mt-4">
-            <label htmlFor="pitch" className="block text-sm font-medium">
-              Pitch your idea in 50 characters or less
-            </label>
-            <input
-              type="text"
-              name="pitch"
-              id="pitch"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-              value={pitch}
-              onChange={handleSetInput}
-              maxLength={50}
-              required
-            />
-          </div>
-          <div className="mt-4">
-            <label htmlFor="appName" className="block text-sm font-medium">
-              App Name (optional)
-            </label>
-            <input
-              type="text"
-              name="appName"
-              id="appName"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-              value={appName}
-              onChange={handleSetInput}
-            />
-          </div>
-          <h2 className="mt-8 font-medium text-xl">
-            What are the absolute minimum requirements for your product to be viable?
-          </h2>
-          <p className="mt-1">
-            Format each requirement as “[intended audience] [intended action] [intended outcome]”.
-            Requirement 1 should be your highest priority.
-          </p>
-          {requirements.map((req, index) => (
-            <div key={index} className="mt-4">
-              <label htmlFor={`requirement-${index}`} className="block text-sm font-medium">
-                Requirement {index + 1}
+    <main className="flex justify-center mb-32">
+      <div className="max-w-2xl px-4">
+        <div className="prose-neutral dark:prose-invert">
+          <h1 className="font-medium text-2xl mb-4">
+            Tell me more about your idea
+            <p className="text-base text-neutral-400">I will respond to you within 48 hours</p>
+          </h1>
+          <form action={handleSubmit}>
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium">
+                Your Name
               </label>
               <input
                 type="text"
-                name={`requirement-${index}`}
-                id={`requirement-${index}`}
+                name="name"
+                id="name"
                 className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-                value={requirements[index]}
+                value={name}
                 onChange={handleSetInput}
-                required={index === 0}
+                required
               />
             </div>
-          ))}
-          <h2 className="mt-8 font-medium text-xl">App Type</h2>
-          <div className="mt-4 flex flex-col gap-2">
-            <label className="inline-flex items-center gap-2">
+            <div className="mt-4">
+              <label htmlFor="email" className="block text-sm font-medium">
+                Email
+              </label>
               <input
-                className="h-6 w-6 rounded-md accent-indigo-600"
-                type="checkbox"
-                name="web"
-                checked={appType.web}
-                onChange={handleSetOptions}
+                type="email"
+                name="email"
+                id="email"
+                className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                value={email}
+                onChange={handleSetInput}
+                required
               />
-              Web
-            </label>
-            <label className="inline-flex items-center gap-2">
+            </div>
+            <div className="mt-4">
+              <label htmlFor="pitch" className="block text-sm font-medium">
+                Pitch your idea in 50 characters or less
+              </label>
               <input
-                className="h-6 w-6 rounded-md accent-indigo-600"
-                type="checkbox"
-                name="mobile"
-                checked={appType.mobile}
-                onChange={handleSetOptions}
+                type="text"
+                name="pitch"
+                id="pitch"
+                className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                value={pitch}
+                onChange={handleSetInput}
+                maxLength={50}
+                required
               />
-              Mobile
-            </label>
-          </div>
-          <h2 className="mt-8 font-medium text-xl">
-            Describe at least one way you plan to reach customers.
-          </h2>
-          <p>
-            Knowing who you want your customers to be
-            <br />
-            1. provides insights into prioritizing features, and
-            <br />
-            2. helps define what success looks like for you.
-          </p>
-          <div className="mt-4">
-            <label htmlFor="plan" className="block text-sm font-medium">
-              At least 50 characters
-            </label>
-            <textarea
-              name="plan"
-              id="plan"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
-              value={plan}
-              onChange={handleSetTextArea}
-              minLength={50}
-              rows={4}
-              required
-            />
-          </div>
-          <button
-            disabled={pending || !!error}
-            type="submit"
-            className="my-4 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            Submit
-          </button>
-          {error && <p>❌ {error.message}</p>}
-          {success && <p>✅ {success}</p>}
-        </form>
+            </div>
+            <div className="mt-4">
+              <label htmlFor="appName" className="block text-sm font-medium">
+                App Name (optional)
+              </label>
+              <input
+                type="text"
+                name="appName"
+                id="appName"
+                className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                value={appName}
+                onChange={handleSetInput}
+              />
+            </div>
+            <h2 className="mt-8 font-medium text-xl">
+              What are the absolute minimum requirements for your product to be viable?
+            </h2>
+            <p className="mt-1">
+              Format each requirement as “[intended audience] [intended action] [intended outcome]”.
+              Requirement 1 should be your highest priority.
+            </p>
+            {requirements.map((req, index) => (
+              <div key={index} className="mt-4">
+                <label htmlFor={`requirement-${index}`} className="block text-sm font-medium">
+                  Requirement {index + 1}
+                </label>
+                <input
+                  type="text"
+                  name={`requirement-${index}`}
+                  id={`requirement-${index}`}
+                  className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                  value={requirements[index]}
+                  onChange={handleSetInput}
+                  required={index === 0}
+                />
+              </div>
+            ))}
+            <h2 className="mt-8 font-medium text-xl">App Type</h2>
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  className="h-6 w-6 rounded-md accent-indigo-600"
+                  type="checkbox"
+                  name="web"
+                  checked={appType.web}
+                  onChange={handleSetOptions}
+                />
+                Web
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  className="h-6 w-6 rounded-md accent-indigo-600"
+                  type="checkbox"
+                  name="mobile"
+                  checked={appType.mobile}
+                  onChange={handleSetOptions}
+                />
+                Mobile
+              </label>
+            </div>
+            <h2 className="mt-8 font-medium text-xl">
+              Describe at least one way you plan to reach customers.
+            </h2>
+            <p>
+              Knowing who you want your customers to be
+              <br />
+              1. provides insights into prioritizing features, and
+              <br />
+              2. helps define what success looks like for you.
+            </p>
+            <div className="mt-4">
+              <label htmlFor="plan" className="block text-sm font-medium">
+                At least 50 characters
+              </label>
+              <textarea
+                name="plan"
+                id="plan"
+                className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                value={plan}
+                onChange={handleSetTextArea}
+                minLength={50}
+                rows={4}
+                required
+              />
+            </div>
+            <button
+              disabled={pending || !!error}
+              type="submit"
+              className="my-4 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Submit
+            </button>
+            {error && <p>❌ {error.message}</p>}
+            {success && <p>✅ {success}</p>}
+          </form>
+        </div>
       </div>
-    </section>
+    </main>
   );
 }

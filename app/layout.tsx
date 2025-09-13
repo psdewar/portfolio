@@ -118,10 +118,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased max-w-4xl flex flex-col md:flex-row mx-4 mt-8 lg:mx-auto">
+      <body className="antialiased flex flex-col md:flex-row lg:mx-auto">
         <AudioProvider>
           <Navbar />
-          <main className="flex-auto min-w-0 flex flex-col px-2 md:px-0 pt-8">
+          <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4">
             {children}
             <Analytics />
             <SpeedInsights />

@@ -2,6 +2,7 @@
 import React, { MouseEvent } from "react";
 import Image from "next/image";
 import { useAudio } from "../contexts/AudioContext";
+import { usePathname } from "next/navigation";
 
 const PlayIcon = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -36,6 +37,9 @@ const NextIcon = () => (
 );
 
 export const GlobalAudioPlayer: React.FC = () => {
+  const pathname = usePathname() ?? "/";
+  const isIdeaPage = pathname === "/idea";
+
   const {
     currentTrack,
     isPlaying,
@@ -52,8 +56,8 @@ export const GlobalAudioPlayer: React.FC = () => {
     playlist,
   } = useAudio();
 
-  // Don't render if no track is loaded
-  if (!currentTrack) return null;
+  // Don't render if no track is loaded or if on idea page
+  if (!currentTrack || isIdeaPage) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -65,7 +69,7 @@ export const GlobalAudioPlayer: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-neutral-200 dark:border-neutral-800 z-50 px-3 sm:px-4 py-2 sm:py-3 safe-area-inset-bottom">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-50 px-3 sm:px-4 py-2 sm:py-3 safe-area-inset-bottom">
       <div className="max-w-4xl mx-auto">
         {/* Main player controls */}
         <div className="flex items-center gap-2 sm:gap-4">
