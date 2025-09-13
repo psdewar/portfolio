@@ -204,7 +204,7 @@ export default function Page() {
                 <Link
                   title="Support my music"
                   aria-label="Support my music"
-                  className={`w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-center`}
+                  className="w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-white text-center"
                   href="/music"
                 >
                   <span>Here, I rap lyrics</span>
@@ -215,7 +215,7 @@ export default function Page() {
                 <Link
                   title="Find beats, beat writer's block"
                   aria-label="Find beats, beat writer's block"
-                  className={`w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-center`}
+                  className="w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-white text-center"
                   href="https://lyrist.app"
                   target="_blank"
                   rel="noopener noreferrer"

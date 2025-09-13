@@ -56,9 +56,11 @@ export function Navbar() {
                 <Link
                   title="PEYT SPENCER"
                   aria-label="PEYT SPENCER"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white ${
-                    pathname === "/" ? "bg-white/10 text-white" : ""
-                  }`}
+                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  } ${pathname === "/" ? "bg-white/10" : ""}`}
                   href="/"
                   aria-current={pathname === "/" ? "page" : undefined}
                 >
@@ -67,9 +69,11 @@ export function Navbar() {
                 <Link
                   title="Here, I rap lyrics"
                   aria-label="Here, I rap lyrics"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white ${
-                    pathname === "/music" ? "bg-white/10 text-white" : ""
-                  }`}
+                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  } ${pathname === "/music" ? "bg-white/10" : ""}`}
                   href="/music"
                   aria-current={pathname === "/music" ? "page" : undefined}
                 >
@@ -78,7 +82,11 @@ export function Navbar() {
                 <Link
                   title="Here's my app, Lyrist"
                   aria-label="Here's my app, Lyrist"
-                  className="group text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md inline-flex items-center space-x-2 transition transform hover:scale-105 hover:bg-white/10 hover:text-white"
+                  className={`group text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md inline-flex items-center space-x-2 transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  }`}
                   href="https://lyrist.app"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -91,22 +99,24 @@ export function Navbar() {
                 <Link
                   title="Tell me more about your idea"
                   aria-label="Tell me more about your idea"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white ${
-                    pathname === "/idea" ? "bg-white/10 text-white" : ""
-                  }`}
+                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  } ${pathname === "/idea" ? "bg-white/10" : ""}`}
                   href="/idea"
                   aria-current={pathname === "/idea" ? "page" : undefined}
                 >
                   Have an app idea? Let&apos;s talk.
                 </Link>
-                <Social />
+                <Social isHomePage={isHomePage} />
                 {isMusicPage ? (
                   <div className="flex flex-col items-center pt-4 gap-4 w-full">
                     <Link
                       title="SoundBetter"
                       aria-label="SoundBetter"
                       href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter text-lg pointer-events-auto"
+                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
                       rel="noopener noreferrer"
                       target="_blank"
                     >
@@ -120,7 +130,7 @@ export function Navbar() {
                       href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo text-lg pointer-events-auto"
+                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo/80 text-lg pointer-events-auto"
                     >
                       <span className="inline-flex items-center gap-2">
                         Contribute $20 to fuel my independence
@@ -135,7 +145,7 @@ export function Navbar() {
                       title="Founder at Lyrist, Software Engineer at Microsoft"
                       aria-label="Founder at Lyrist, Software Engineer at Microsoft"
                       href={"resume.pdf"}
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist text-lg pointer-events-auto"
+                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist/80 text-lg pointer-events-auto"
                       rel="noopener noreferrer"
                       target="_blank"
                     >
@@ -211,7 +221,7 @@ export function Navbar() {
             >
               Have an app idea? Let&apos;s talk.
             </Link>
-            <Social />
+            <Social isHomePage={isHomePage} />
           </div>
         </div>
         {isMusicPage ? (
@@ -220,7 +230,7 @@ export function Navbar() {
               title="SoundBetter"
               aria-label="SoundBetter"
               href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter text-lg pointer-events-auto"
+              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
               rel="noopener noreferrer"
               target="_blank"
             >
@@ -234,7 +244,7 @@ export function Navbar() {
               href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo text-lg pointer-events-auto"
+              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo/80 text-lg pointer-events-auto"
             >
               <span className="inline-flex items-center gap-2">
                 Contribute $20 to fuel my independence
@@ -249,7 +259,7 @@ export function Navbar() {
               title="Founder at Lyrist, Software Engineer at Microsoft"
               aria-label="Founder at Lyrist, Software Engineer at Microsoft"
               href={"resume.pdf"}
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist text-lg pointer-events-auto"
+              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist/80 text-lg pointer-events-auto"
               rel="noopener noreferrer"
               target="_blank"
             >

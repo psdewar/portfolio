@@ -1,4 +1,14 @@
-export function Social() {
+interface SocialProps {
+  isHomePage?: boolean;
+}
+
+export function Social({ isHomePage = false }: SocialProps) {
+  const iconClasses = `${
+    isHomePage
+      ? "text-white hover:text-[#FFFFFF]"
+      : "text-black dark:text-white hover:text-black dark:hover:text-[#FFFFFF]"
+  } hover:scale-110 transition-all duration-200`;
+
   return (
     <div className="flex-1 flex items-center pl-3 pt-3 pointer-events-auto">
       <div className="flex items-center gap-6 w-full max-w-sm">
@@ -6,7 +16,7 @@ export function Social() {
           href="https://instagram.com/peytspencer"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-black dark:text-white hover:text-[#FFFFFF] hover:scale-110 transition-all duration-200"
+          className={iconClasses}
           aria-label="Instagram"
         >
           <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -18,7 +28,7 @@ export function Social() {
           href="https://tiktok.com/@peytspencer"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-black dark:text-white hover:text-[#FFFFFF] hover:scale-110 transition-all duration-200 "
+          className={iconClasses}
           aria-label="TikTok"
         >
           <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -30,7 +40,7 @@ export function Social() {
           href="https://youtube.com/@peytspencer"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-black dark:text-white hover:text-[#FFFFFF] hover:scale-110 transition-all duration-200 "
+          className={iconClasses}
           aria-label="YouTube"
         >
           <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -42,7 +52,7 @@ export function Social() {
           href="https://twitter.com/peytspencer"
           target="_blank"
           rel="noopener noreferrer"
-          className="light:text-black dark:text-white text-black dark:text-white hover:text-[#FFFFFF] hover:scale-110 transition-all duration-200 "
+          className={iconClasses}
           aria-label="Twitter"
         >
           <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -54,7 +64,7 @@ export function Social() {
           href="https://facebook.com/9psd2"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-black dark:text-white hover:text-[#FFFFFF] hover:scale-110 transition-all duration-200 "
+          className={iconClasses}
           aria-label="Facebook"
         >
           <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="currentColor" viewBox="0 0 24 24">
