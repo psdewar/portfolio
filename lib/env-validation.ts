@@ -17,7 +17,7 @@ export function validateEnvironment() {
   }
 
   // Warn about missing optional variables
-  const optionalVars = ["NEXT_PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"];
+  const optionalVars = ["NEXT_PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN", "STRIPE_WEBHOOK_SECRET"];
 
   optionalVars.forEach((varName) => {
     if (!process.env[varName]) {
@@ -35,7 +35,7 @@ export function getSecureEnv(key: string): string {
   }
 
   // Don't log sensitive keys
-  const sensitiveKeys = ["STRIPE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN"];
+  const sensitiveKeys = ["STRIPE_SECRET_KEY", "BLOB_READ_WRITE_TOKEN", "STRIPE_WEBHOOK_SECRET"];
   if (process.env.NODE_ENV === "development" && !sensitiveKeys.includes(key)) {
     console.debug(`Environment variable ${key} loaded successfully`);
   }

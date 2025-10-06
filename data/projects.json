@@ -1,0 +1,23 @@
+{
+  "flight-to-boise": {
+    "slug": "flight-to-boise",
+    "title": "Help Me Recoup My Flight To Boise",
+    "tagline": "Opening for rapper and producer Mark Battles",
+    "details": "Covers round trip, a room, and meals.",
+    "startDate": "2025-10-06",
+    "goalCents": 75000,
+    "storyWhat": "I just hit 100 monthly listeners on Spotify...and if you’ve ever been to a house concert, a hundred people is a packed crowd. So, thank you. Since streaming has yet to pay the bills, I ask my supporters to help me cover this trip as proof that I can monetize my work. I recently won a “Submit Your Music” competition to open for Mark Battles, an internationally touring rapper and producer from Indiana. On Tuesday evening, October 14th, I’ll perform a 15-minute set in front of many new faces, a once-in-a-lifetime chance to share my music and message. I plan to film the experience and bring everyone along for the ride. Thanks again for your contributions to my independent artistry!",
+    "risks": "Flight prices may change quickly; any excess will go toward future projects.",
+    "faq": [
+      {
+        "q": "When’s the show?",
+        "a": "October 14th 2025, part of Mark Battles’ tour stop in Boise."
+      },
+      {
+        "q": "How can I support?",
+        "a": "Any contribution helps cover the flight."
+      }
+    ],
+    "contributeTitle": "From Bellevue to Boise"
+  }
+}

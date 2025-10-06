@@ -4,7 +4,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 
 /** @type {import('next').NextConfig} */
 const BASE = "https://distrokid.com/hyperfollow/peytspencer";
-const slugs = require("./data/slugs.json");
+const singles = require("./data/singles.json");
 const customUrls = {
   bahai: "cWLQ",
 };
@@ -48,7 +48,7 @@ const nextConfig = {
     ];
   },
   redirects() {
-    return slugs.map((slug) => ({
+    return singles.map((slug) => ({
       source: `/${slug}`,
       destination: `${BASE}/${customUrls[slug] || slug}`,
       permanent: false,

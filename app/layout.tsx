@@ -97,6 +97,7 @@ export default function RootLayout({
     jobTitle: ["Father", "Founder", "Rapper"],
     worksFor: [{ "@type": "Organization", name: "Lyrist", url: "https://lyrist.app" }],
     knowsAbout: [
+      "Hip-Hop",
       "Rapping",
       "Software Engineering",
       "Building Apps",
@@ -107,7 +108,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en" className={myFont.className}>
+    <html lang="en" className={`${myFont.className} bg-white dark:bg-gray-900`}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -118,7 +119,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased flex flex-col md:flex-row lg:mx-auto">
+      <body className="antialiased flex flex-col md:flex-row lg:mx-auto bg-white dark:bg-gray-900">
         <AudioProvider>
           <Navbar />
           <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4">

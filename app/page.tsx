@@ -205,8 +205,8 @@ export default function Page() {
               </h1>
               <div className="flex flex-col lg:flex-row items-center w-full">
                 <Link
-                  title="Support my music"
-                  aria-label="Support my music"
+                  title="Listen to my music"
+                  aria-label="Listen to my music"
                   className="w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-white text-center"
                   href="/music"
                 >

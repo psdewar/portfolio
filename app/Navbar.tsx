@@ -11,6 +11,12 @@ export function Navbar() {
   const isHomePage = pathname === "/";
   const isMusicPage = pathname === "/music";
   const isIdeaPage = pathname === "/idea";
+  const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie/");
+
+  // Hide navbar on indie funding pages
+  if (isIndieSection) {
+    return null;
+  }
 
   return (
     <>
@@ -20,7 +26,6 @@ export function Navbar() {
         }`}
       >
         <div className="flex items-center justify-start p-4 pointer-events-none">
-          {/* mobile: hamburger on the left */}
           <div className="md:hidden">
             <button
               onClick={() => setMenuOpen((s) => !s)}
@@ -49,7 +54,6 @@ export function Navbar() {
             </button>
           </div>
 
-          {/* desktop menu (lg+) aligned left */}
           <nav className="hidden md:block pointer-events-auto">
             <div className="grid gap-y-2 text-left">
               <div className="flex flex-col space-y-2">
@@ -77,7 +81,20 @@ export function Navbar() {
                   href="/music"
                   aria-current={pathname === "/music" ? "page" : undefined}
                 >
-                  Support my music
+                  Listen to my music
+                </Link>
+                <Link
+                  title="Fund my indie journey"
+                  aria-label="Fund my indie journey"
+                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  } ${pathname === "/indie" ? "bg-white/10" : ""}`}
+                  href="/indie"
+                  aria-current={pathname === "/indie" ? "page" : undefined}
+                >
+                  Fund my indie journey
                 </Link>
                 <Link
                   title="Here's my app, Lyrist"
@@ -191,7 +208,21 @@ export function Navbar() {
               onClick={() => setMenuOpen(false)}
               aria-current={pathname === "/music" ? "page" : undefined}
             >
-              Support my music
+              Listen to my music
+            </Link>
+            <Link
+              title="Fund my indie journey"
+              aria-label="Fund my indie journey"
+              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
+                pathname === "/indie"
+                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
+                  : ""
+              }`}
+              href="/indie"
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname === "/indie" ? "page" : undefined}
+            >
+              Fund my indie journey
             </Link>
             <Link
               title="Here's my app, Lyrist"

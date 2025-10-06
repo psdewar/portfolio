@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
-import slugs from "../../data/slugs.json";
+import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useAudio } from "../contexts/AudioContext";
 import { TRACK_DATA } from "../data/tracks";
@@ -46,7 +46,7 @@ const PaymentModal = dynamic(
 //   })),
 // };
 
-const TRACKS = slugs.filter(Boolean).map((s) => {
+const TRACKS = singles.filter(Boolean).map((s) => {
   const thumbs: Record<string, string> = {
     patience:
       "https://distrokid.imgix.net/http%3A%2F%2Fgather.fandalism.com%2F817413--E7719B6C-A78A-4FA3-A3856E05A0DECA92--0--5534194--Patience.jpg?fm=jpg&q=75&w=800&s=80a8ec48e54fa6a4272145fbe4f8cc8d",
