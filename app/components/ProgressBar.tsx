@@ -9,8 +9,10 @@ export function ProgressBar({ current, goal }: { current: number; goal: number }
         />
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
-        <span className="text-gray-900 dark:text-white">${(current / 100).toLocaleString()}</span>
-        <span className="text-gray-500 dark:text-gray-400">
+        <span className="text-gray-900 dark:text-white tabular-nums">
+          ${(current / 100).toLocaleString()}
+        </span>
+        <span className="text-gray-500 dark:text-gray-400 tabular-nums">
           ${(goal / 100).toLocaleString()} goal · {pct}%
         </span>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import { DualVideoImageToggle } from "app/components/DualVideoImageToggle";
 import { FundingCard } from "app/components/projects/FundingCard";
 import { SuccessModal } from "app/components/SuccessModal";
 import { useAudio } from "app/contexts/AudioContext";
@@ -20,6 +20,7 @@ export interface ProjectData {
 interface FundingStats {
   raisedCents: number;
   backers: number;
+  tierCounts: Record<string, number>;
 }
 
 export function ProjectView({
@@ -77,6 +78,7 @@ export function ProjectView({
             raisedCents={stats.raisedCents}
             goalCents={project.goalCents}
             backers={stats.backers}
+            tierCounts={stats.tierCounts}
             title={project.title}
             projectId={project.slug}
             contributeTitle={project.contributeTitle || null}
@@ -92,32 +94,21 @@ export function ProjectView({
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-300">{project.tagline}</p>
             </div>
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-0 lg:flex">
-              <div className="relative aspect-square lg:flex-1 overflow-hidden rounded-lg lg:rounded-l-lg lg:rounded-r-none min-h-[240px]">
-                <Image
-                  src="/images/home/mb1.jpeg"
-                  alt="Mark Battles artist photo"
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              </div>
-              <div className="relative aspect-square lg:flex-1 overflow-hidden rounded-lg lg:rounded-r-lg lg:rounded-l-none min-h-[240px]">
-                <Image
-                  src="/images/home/new-era-3-square.jpeg"
-                  alt="Peyt Spencer artist photo"
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              </div>
-            </div>
+            <DualVideoImageToggle
+              left={{ src: "/images/home/mb1.jpeg", alt: "Mark Battles artist photo" }}
+              right={{
+                src: "/images/home/new-era-3-square.jpeg",
+                alt: "Peyt Spencer artist photo",
+              }}
+              videoSrc="/boise-fund-60sec.mov" // TODO: replace with actual combined video
+            />
           </div>
           <div className="hidden lg:block">
             <FundingCard
               raisedCents={stats.raisedCents}
               goalCents={project.goalCents}
               backers={stats.backers}
+              tierCounts={stats.tierCounts}
               title={project.title}
               projectId={project.slug}
               contributeTitle={project.contributeTitle || null}
@@ -126,8 +117,8 @@ export function ProjectView({
           </div>
         </div>
 
-        <div className="mt-8 mb-8 flex flex-col">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-left mb-4">
+        <div className="mt-8 mb-8 flex flex-col gap-4">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-left">
             Thanks for your support
           </h2>
           <div className="items-center">

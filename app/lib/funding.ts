@@ -6,6 +6,7 @@ const CACHE_TTL = 60_000;
 interface CacheEntry {
   raisedCents: number;
   backers: number;
+  tierCounts: Record<string, number>;
   fetchedAt: number;
 }
 
@@ -25,11 +26,15 @@ function getStripe() {
 
 export async function getFundingStats(
   projectId: string
-): Promise<{ raisedCents: number; backers: number }> {
+): Promise<{ raisedCents: number; backers: number; tierCounts: Record<string, number> }> {
   const now = Date.now();
   const cached = cache[projectId];
   if (cached && now - cached.fetchedAt < CACHE_TTL) {
-    return { raisedCents: cached.raisedCents, backers: cached.backers };
+    return {
+      raisedCents: cached.raisedCents,
+      backers: cached.backers,
+      tierCounts: cached.tierCounts,
+    };
   }
   try {
     const stripe = getStripe();
@@ -39,10 +44,24 @@ export async function getFundingStats(
     );
     const raisedCents = relevant.reduce((sum, s) => sum + (s.amount_total ?? 0), 0);
     const backers = relevant.length;
-    cache[projectId] = { raisedCents, backers, fetchedAt: now };
-    return { raisedCents, backers };
+    // Compute tier counts based on amount_total (in cents)
+    const tierCounts: Record<string, number> = { "1000": 0, "2500": 0, "5000": 0, custom: 0 };
+    for (const s of relevant) {
+      const amt = s.amount_total ?? 0;
+      if (amt === 1000 || amt === 2500 || amt === 5000) {
+        tierCounts[String(amt)] = (tierCounts[String(amt)] || 0) + 1;
+      } else {
+        tierCounts.custom += 1;
+      }
+    }
+    cache[projectId] = { raisedCents, backers, tierCounts, fetchedAt: now };
+    return { raisedCents, backers, tierCounts };
   } catch (e) {
     console.error("Failed to fetch funding stats", e);
-    return { raisedCents: 0, backers: 0 };
+    return {
+      raisedCents: 0,
+      backers: 0,
+      tierCounts: { "1000": 0, "2500": 0, "5000": 0, custom: 0 },
+    };
   }
 }

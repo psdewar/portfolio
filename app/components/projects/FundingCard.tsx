@@ -8,6 +8,7 @@ interface FundingCardProps {
   raisedCents: number;
   goalCents: number;
   backers: number;
+  tierCounts?: Record<string, number>;
   title: string;
   projectId: string;
   contributeTitle: string | null;
@@ -18,6 +19,7 @@ export function FundingCard({
   raisedCents,
   goalCents,
   backers,
+  tierCounts,
   title,
   projectId,
   contributeTitle,
@@ -92,10 +94,10 @@ export function FundingCard({
   return (
     <div className="bg-white dark:bg-gray-800 transition-colors rounded-lg p-6">
       <div className="mb-4">
-        <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
+        <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1 tabular-nums">
           ${(raisedCents / 100).toLocaleString()}
         </div>
-        <div className="text-gray-600 dark:text-gray-300">
+        <div className="text-gray-600 dark:text-gray-300 tabular-nums">
           raised out of ${(goalCents / 100).toLocaleString()} · {details}
         </div>
       </div>
@@ -105,7 +107,9 @@ export function FundingCard({
       </div>
 
       <div className="mb-6">
-        <div className="text-2xl font-bold text-gray-900 dark:text-white">{backers}</div>
+        <div className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
+          {backers}
+        </div>
         <div className="text-gray-600 dark:text-gray-300">backers</div>
       </div>
 
@@ -116,45 +120,60 @@ export function FundingCard({
       </div>
 
       <div className="space-y-3 mb-4">
-        {paymentOptions.map(({ amount, label }) => (
-          <button
-            key={amount}
-            onClick={() => handlePayment(amount)}
-            disabled={isLoading}
-            className={`w-full p-3 text-left rounded-lg border-2 transition-colors font-medium ${
-              selectedAmount === amount
-                ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isLoading && selectedAmount === amount ? "Processing..." : label}
-          </button>
-        ))}
+        {paymentOptions.map(({ amount, label }) => {
+          const count = tierCounts ? tierCounts[String(amount)] || 0 : 0;
+          return (
+            <button
+              key={amount}
+              onClick={() => handlePayment(amount)}
+              disabled={isLoading}
+              className={`relative w-full flex items-center justify-between gap-4 p-3 rounded-lg border-2 transition-colors font-medium text-left ${
+                selectedAmount === amount
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <span className="pr-2 truncate tabular-nums">
+                {isLoading && selectedAmount === amount ? "Processing..." : label}
+              </span>
+              <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold tabular-nums">
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-3">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              $
-            </span>
-            <input
-              type="number"
-              placeholder="10.00"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(Number(e.target.value).toFixed(2))}
-              min="15"
-              step="5.00"
-              disabled={isLoading}
-              className="w-full pl-8 pr-3 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50"
-            />
+        <div className="flex gap-2 items-stretch">
+          <div className="flex-1 flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                $
+              </span>
+              <input
+                type="number"
+                placeholder="10.00"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(Number(e.target.value).toFixed(2))}
+                min="15"
+                step="5.00"
+                disabled={isLoading}
+                className="w-full pl-8 pr-10 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
+              />
+              {tierCounts && (
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 inline-flex items-center px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold whitespace-nowrap tabular-nums">
+                  {tierCounts.custom || 0}
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={handleCustomAmount}
             disabled={isLoading || !customAmount}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            className="relative px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
           >
-            {isLoading && selectedAmount === null ? "Processing..." : "Contribute"}
+            <span>{isLoading && selectedAmount === null ? "Processing..." : "Contribute"}</span>
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center">Name your price</p>
