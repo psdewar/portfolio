@@ -136,7 +136,7 @@ export function FundingCard({
               <span className="pr-2 truncate tabular-nums">
                 {isLoading && selectedAmount === amount ? "Processing..." : label}
               </span>
-              <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold tabular-nums">
+              <span className="ml-auto inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
                 {count}
               </span>
             </button>
@@ -162,7 +162,7 @@ export function FundingCard({
                 className="w-full pl-8 pr-10 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
               />
               {tierCounts && (
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 inline-flex items-center px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold whitespace-nowrap tabular-nums">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
                   {tierCounts.custom || 0}
                 </span>
               )}
