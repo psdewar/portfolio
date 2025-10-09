@@ -18,6 +18,11 @@
         "a": "Any contribution helps cover the flight."
       }
     ],
-    "contributeTitle": "From Bellevue to Boise"
+    "contributeTitle": "From Bellevue to Boise",
+    "stretch": {
+      "threshold": 0.8,
+      "contributeTitle": "Fund my next single",
+      "goalCents": 150000
+    }
   }
 }

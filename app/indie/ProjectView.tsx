@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DualVideoImageToggle } from "app/components/DualVideoImageToggle";
 import { FundingCard } from "app/components/projects/FundingCard";
 import { SuccessModal } from "app/components/SuccessModal";
-import { useAudio } from "app/contexts/AudioContext";
-import { TRACK_DATA } from "app/data/tracks";
 
 export interface ProjectData {
   slug: string;
@@ -34,26 +32,7 @@ export function ProjectView({
   success?: boolean;
   sessionId?: string | null;
 }) {
-  const { loadPlaylist, playlist } = useAudio();
   const [showSuccess, setShowSuccess] = useState(!!success);
-
-  useEffect(() => {
-    if (playlist.length === 0) {
-      const patienceTrack = TRACK_DATA.find((track) => track.id === "patience");
-      if (patienceTrack) {
-        loadPlaylist([
-          {
-            id: patienceTrack.id,
-            title: patienceTrack.title,
-            artist: patienceTrack.artist,
-            src: patienceTrack.audioUrl,
-            thumbnail: patienceTrack.thumbnail,
-            duration: patienceTrack.duration,
-          },
-        ]);
-      }
-    }
-  }, [loadPlaylist, playlist.length]);
 
   return (
     <main className="min-h-screen transition-colors">
@@ -72,7 +51,7 @@ export function ProjectView({
           sessionId={sessionId || null}
         />
       )}
-      <div className="w-full px-6 py-6 pb-32 flex flex-col">
+      <div className="w-full px-6 py-6 pb-12 flex flex-col min-h-screen">
         <div className="block lg:hidden mb-6">
           <FundingCard
             raisedCents={stats.raisedCents}
@@ -83,48 +62,55 @@ export function ProjectView({
             projectId={project.slug}
             contributeTitle={project.contributeTitle || null}
             details={project.details}
+            stretch={project.stretch || null}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 flex flex-col">
             <div className="text-left mb-6">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-4xl font-semibold text-gray-900 dark:text-white mb-2">
                 {project.title}
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-300">{project.tagline}</p>
+              <p className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
+                {project.tagline}
+              </p>
             </div>
-            <DualVideoImageToggle
-              left={{ src: "/images/home/mb1.jpeg", alt: "Mark Battles artist photo" }}
-              right={{
-                src: "/images/home/new-era-3-square.jpeg",
-                alt: "Peyt Spencer artist photo",
-              }}
-              videoSrc="/boise-fund-60sec.mov" // TODO: replace with actual combined video
-            />
+            <div className="mb-6">
+              <DualVideoImageToggle
+                left={{ src: "/images/home/mb1.jpeg", alt: "Mark Battles artist photo" }}
+                right={{
+                  src: "/images/home/new-era-3-square.jpeg",
+                  alt: "Peyt Spencer artist photo",
+                }}
+                videoSrc="/boise-fund-60sec.mov"
+              />
+            </div>
+            <div className="flex flex-col gap-4">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white text-left">
+                Thanks for your support
+              </h2>
+              <div className="items-center">
+                <p className="text-base lg:text-xl text-gray-700 dark:text-gray-300 leading-relaxed max-w-none">
+                  {project.storyWhat}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="hidden lg:block">
-            <FundingCard
-              raisedCents={stats.raisedCents}
-              goalCents={project.goalCents}
-              backers={stats.backers}
-              tierCounts={stats.tierCounts}
-              title={project.title}
-              projectId={project.slug}
-              contributeTitle={project.contributeTitle || null}
-              details={project.details}
-            />
-          </div>
-        </div>
-
-        <div className="mt-8 mb-8 flex flex-col gap-4">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-left">
-            Thanks for your support
-          </h2>
-          <div className="items-center">
-            <p className="text-xl lg:text-2xl text-gray-700 dark:text-gray-300 leading-relaxed max-w-none">
-              {project.storyWhat}
-            </p>
+            <div className="sticky top-6">
+              <FundingCard
+                raisedCents={stats.raisedCents}
+                goalCents={project.goalCents}
+                backers={stats.backers}
+                tierCounts={stats.tierCounts}
+                title={project.title}
+                projectId={project.slug}
+                contributeTitle={project.contributeTitle || null}
+                details={project.details}
+                stretch={project.stretch || null}
+              />
+            </div>
           </div>
         </div>
       </div>

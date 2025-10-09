@@ -32,10 +32,10 @@ export function DualVideoImageToggle({
   return (
     <div className={`relative w-full min-h-[240px] h-full ${className}`}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-0 lg:flex h-full">
-        <div className="relative aspect-square lg:aspect-auto lg:h-full lg:flex-1 overflow-hidden rounded-lg lg:rounded-l-lg lg:rounded-r-none">
+        <div className="relative aspect-square lg:flex-1 lg:h-full overflow-hidden rounded-lg lg:rounded-l-lg lg:rounded-r-none">
           <Image src={left.src} alt={left.alt} fill priority className="object-cover" />
         </div>
-        <div className="relative aspect-square lg:aspect-auto lg:h-full lg:flex-1 overflow-hidden rounded-lg lg:rounded-r-lg lg:rounded-l-none">
+        <div className="relative aspect-square lg:flex-1 lg:h-full overflow-hidden rounded-lg lg:rounded-r-lg lg:rounded-l-none">
           <Image src={right.src} alt={right.alt} fill priority className="object-cover" />
         </div>
       </div>
