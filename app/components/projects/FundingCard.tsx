@@ -112,8 +112,8 @@ export function FundingCard({
           <div className="text-3xl lg:text-4xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
             ${(raisedCents / 100).toLocaleString()}
           </div>
-          <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300 tabular-nums">
-            {details.toLocaleLowerCase()}
+          <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
+            of ${(goalCents / 100).toLocaleString()} goal
           </div>
         </div>
         <div className="text-right col-span-1">

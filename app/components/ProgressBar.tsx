@@ -20,9 +20,7 @@ export function ProgressBar({
         />
       </div>
       <div className="mt-2 flex items-center justify-between text-sm">
-        <span className="text-gray-500 dark:text-gray-400 tabular-nums">
-          ${(goal / 100).toLocaleString()} goal · {pct}% raised
-        </span>
+        <span className="text-gray-500 dark:text-gray-400 tabular-nums">{pct}% raised</span>
         {hitPrimary && stretch && (
           <div className="px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full whitespace-nowrap">
             Stretch goal: ${(stretch.goalCents / 100).toLocaleString()}
