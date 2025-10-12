@@ -182,7 +182,7 @@ export function FundingCard({
                 className="text-2xl lg:text-3xl font-semibold w-full pl-5 lg:pl-6 pr-10 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
               />
               {tierCounts && (
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
                   {tierCounts.custom || 0}
                 </span>
               )}
@@ -191,12 +191,12 @@ export function FundingCard({
           <button
             onClick={handleCustomAmount}
             disabled={isLoading || !customAmount}
-            className="relative px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+            className="relative px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
           >
             <span>{isLoading && selectedAmount === null ? "Processing..." : "Contribute"}</span>
           </button>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <p className="w-1/2 text-xs text-gray-900 dark:text-white">Name your price</p>
           <p className="w-1/2 text-xs text-gray-600 dark:text-gray-400 text-right">
             Your contribution helps with processing fees
