@@ -32,9 +32,9 @@ export function FundingCard({
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
   const paymentOptions = [
-    { amount: 1000, label: "$10 - keep going" },
-    { amount: 2500, label: "$25 - your music is great" },
-    { amount: 5000, label: "$50 - you're a top-notch artist" },
+    { amount: 2500, label: "$25 - keep going" },
+    { amount: 5000, label: "$50 - your music is great" },
+    { amount: 10000, label: "$100 - I went to the live show / you're a top-notch artist" },
   ];
 
   const handlePayment = async (amountInCents: number) => {
@@ -137,16 +137,16 @@ export function FundingCard({
               key={amount}
               onClick={() => handlePayment(amount)}
               disabled={isLoading}
-              className={`relative w-full flex items-center justify-between gap-4 p-3 rounded-lg border-2 transition-colors font-medium text-left ${
+              className={`relative w-full flex items-center justify-between gap-2 p-3 rounded-lg border-2 transition-colors font-medium text-left ${
                 selectedAmount === amount
                   ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
                   : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <span className="text-base lg:text-xl pr-2 truncate tabular-nums">
+              <span className="text-sm lg:text-xl flex-1 tabular-nums">
                 {isLoading && selectedAmount === amount ? "Processing..." : label}
               </span>
-              <span className="ml-auto inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-base lg:text-xl font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
+              <span className="ml-auto inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-base font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
                 {count}
               </span>
             </button>
