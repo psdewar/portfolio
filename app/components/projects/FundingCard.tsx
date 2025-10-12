@@ -28,13 +28,16 @@ export function FundingCard({
   stretch,
 }: FundingCardProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [customAmount, setCustomAmount] = useState("15.00");
+  const [customAmount, setCustomAmount] = useState("15");
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
   const paymentOptions = [
-    { amount: 2500, label: "$25 - keep going" },
-    { amount: 5000, label: "$50 - your music is great" },
-    { amount: 10000, label: "$100 - I went to the live show / you're a top-notch artist" },
+    { amount: 2500, label: "your music is great" },
+    { amount: 5000, label: "you're a top-notch artist" },
+    {
+      amount: 10000,
+      label: "your live show is must-see 🔥",
+    },
   ];
 
   const handlePayment = async (amountInCents: number) => {
@@ -106,7 +109,7 @@ export function FundingCard({
       </div>
       <div className="mb-6 grid grid-cols-3 items-start">
         <div className="col-span-2">
-          <div className="text-3xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
+          <div className="text-3xl lg:text-4xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
             ${(raisedCents / 100).toLocaleString()}
           </div>
           <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300 tabular-nums">
@@ -114,7 +117,7 @@ export function FundingCard({
           </div>
         </div>
         <div className="text-right col-span-1">
-          <div className="text-3xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
+          <div className="text-3xl lg:text-4xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
             {backers}
           </div>
           <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300">backers</div>
@@ -137,18 +140,25 @@ export function FundingCard({
               key={amount}
               onClick={() => handlePayment(amount)}
               disabled={isLoading}
-              className={`relative w-full flex items-center justify-between gap-2 p-3 rounded-lg border-2 transition-colors font-medium text-left ${
+              className={`relative w-full flex flex-col items-start gap-1 p-2 rounded-lg border-2 transition-colors text-left ${
                 selectedAmount === amount
-                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 text-gray-900 dark:text-white hover:bg-green-50 dark:hover:bg-green-900/20"
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <span className="text-sm lg:text-xl flex-1 tabular-nums">
-                {isLoading && selectedAmount === amount ? "Processing..." : label}
-              </span>
-              <span className="ml-auto inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-base font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
-                {count}
-              </span>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl lg:text-3xl font-semibold text-gray-900 dark:text-white tabular-nums">
+                    ${(amount / 100).toFixed(0)}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 leading-snug">
+                    {isLoading && selectedAmount === amount ? "Processing..." : label}
+                  </span>
+                </div>
+                <span className="inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
+                  {count}
+                </span>
+              </div>
             </button>
           );
         })}
@@ -163,11 +173,11 @@ export function FundingCard({
               </span>
               <input
                 type="number"
-                placeholder="10.00"
+                placeholder="15"
                 value={customAmount}
-                onChange={(e) => setCustomAmount(Number(e.target.value).toFixed(2))}
+                onChange={(e) => setCustomAmount(e.target.value)}
                 min="15"
-                step="5.00"
+                step="5"
                 disabled={isLoading}
                 className="text-base lg:text-xl w-full pl-8 pr-10 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
               />
@@ -186,7 +196,12 @@ export function FundingCard({
             <span>{isLoading && selectedAmount === null ? "Processing..." : "Contribute"}</span>
           </button>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">Name your price</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-900 dark:text-white">Name your price</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
+            Your contribution helps with processing fees
+          </p>
+        </div>
       </div>
 
       <div className="pt-6 mt-6">
