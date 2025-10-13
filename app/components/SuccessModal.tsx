@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 
 interface SuccessModalProps {
   show: boolean;
@@ -9,13 +8,7 @@ interface SuccessModalProps {
 }
 
 export function SuccessModal({ show, onClose, amountCents, sessionId }: SuccessModalProps) {
-  const [visible, setVisible] = useState(show);
-
-  useEffect(() => {
-    setVisible(show);
-  }, [show]);
-
-  if (!visible) return null;
+  if (!show) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

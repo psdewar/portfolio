@@ -16,6 +16,8 @@ interface VideoPlayButtonWithContextProps {
 
 export function VideoPlayButtonWithContext({
   videoId,
+  videoSrc,
+  instagramUrl,
   children,
   ...props
 }: VideoPlayButtonWithContextProps) {
@@ -24,8 +26,10 @@ export function VideoPlayButtonWithContext({
   return (
     <VideoPlayButton
       {...props}
+      videoSrc={videoSrc}
+      instagramUrl={instagramUrl}
       isOpen={videoState.isOpen && videoState.videoId === videoId}
-      onOpen={() => openVideo(videoId)}
+      onOpen={() => openVideo(videoId, videoSrc, instagramUrl)}
       onClose={closeVideo}
       startTime={videoState.videoId === videoId ? videoState.startTime : 0}
     >
