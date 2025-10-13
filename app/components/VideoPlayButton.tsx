@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, ReactNode } from "react";
+import { useCallback, useState, useEffect, useRef, ReactNode } from "react";
 import Image from "next/image";
 
 interface VideoPlayButtonProps {
@@ -10,6 +10,10 @@ interface VideoPlayButtonProps {
   className?: string;
   instagramUrl?: string;
   children?: ReactNode;
+  isOpen?: boolean;
+  onOpen?: () => void;
+  onClose?: () => void;
+  startTime?: number;
 }
 
 export function VideoPlayButton({
@@ -19,15 +23,48 @@ export function VideoPlayButton({
   className = "",
   instagramUrl,
   children,
+  isOpen = false,
+  onOpen,
+  onClose,
+  startTime = 0,
 }: VideoPlayButtonProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const handleEnded = useCallback(() => setIsPlaying(false), []);
+  const [isPlaying, setIsPlaying] = useState(isOpen);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const handleEnded = useCallback(() => {
+    setIsPlaying(false);
+    onClose?.();
+  }, [onClose]);
+
+  useEffect(() => {
+    setIsPlaying(isOpen);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isPlaying && videoRef.current) {
+      videoRef.current.currentTime = startTime;
+    }
+  }, [isPlaying, startTime]);
+
+  const handleClick = () => {
+    setIsPlaying(true);
+    onOpen?.();
+  };
+
+  const handleClose = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    onClose?.();
+  };
 
   if (isPlaying) {
     return (
       <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-8">
-        <div className="absolute inset-0" onClick={() => setIsPlaying(false)} />
+        <div className="absolute inset-0" onClick={handleClose} />
         <video
+          ref={videoRef}
           src={videoSrc}
           controls
           autoPlay
@@ -39,7 +76,7 @@ export function VideoPlayButton({
         <div>
           <button
             aria-label="Close video"
-            onClick={() => setIsPlaying(false)}
+            onClick={handleClose}
             className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl font-bold"
           >
             ✕
@@ -65,7 +102,7 @@ export function VideoPlayButton({
   return (
     <div
       className={`relative group cursor-pointer rounded-lg overflow-hidden ${className}`}
-      onClick={() => setIsPlaying(true)}
+      onClick={handleClick}
     >
       {children
         ? children

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
 import { stripePromise } from "app/lib/stripe";
-import { VideoPlayButton } from "app/components/VideoPlayButton";
+import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
 
 interface FundingCardProps {
   raisedCents: number;
@@ -207,9 +207,10 @@ export function FundingCard({
             <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
               &quot;What&apos;s next after Boise?&quot;
             </h3>
-            <VideoPlayButton
+            <VideoPlayButtonWithContext
               thumbnailSrc="/boise-stretch-cover-2.jpg"
               videoSrc="/boise-stretch-45sec.mp4"
+              videoId="boise-stretch"
               alt="Next single preview"
               className="mb-3 aspect-video"
               // instagramUrl="https://www.instagram.com/peytspencer/reel/DPg61j5EWb8" TODO: add new link here
