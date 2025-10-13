@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useRef,
+  useCallback,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 interface VideoContextType {
@@ -11,6 +19,7 @@ interface VideoContextType {
   };
   openVideo: (videoId: string, videoSrc: string, instagramUrl?: string) => void;
   closeVideo: () => void;
+  registerVideo: (videoId: string, videoSrc: string, instagramUrl?: string) => void;
 }
 
 const VideoContext = createContext<VideoContextType | null>(null);
@@ -35,7 +44,15 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     videoSrc: string;
     instagramUrl?: string;
   } | null>(null);
+
+  const videoRegistryRef = useRef<Map<string, { videoSrc: string; instagramUrl?: string }>>(
+    new Map()
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const registerVideo = useCallback((videoId: string, videoSrc: string, instagramUrl?: string) => {
+    videoRegistryRef.current.set(videoId, { videoSrc, instagramUrl });
+  }, []);
 
   useEffect(() => {
     const videoParam = searchParams.get("video");
@@ -46,6 +63,10 @@ export function VideoProvider({ children }: { children: ReactNode }) {
         videoId: videoParam,
         startTime: timeParam ? parseInt(timeParam, 10) : 0,
       });
+      const videoData = videoRegistryRef.current.get(videoParam);
+      if (videoData) {
+        setModalData(videoData);
+      }
     }
   }, [searchParams]);
 
@@ -83,10 +104,9 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   }, [closeVideo]);
 
   return (
-    <VideoContext.Provider value={{ videoState, openVideo, closeVideo }}>
+    <VideoContext.Provider value={{ videoState, openVideo, closeVideo, registerVideo }}>
       {children}
-      
-      {/* Centralized video modal - only ONE instance for entire app */}
+
       {videoState.isOpen && modalData && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-8">
           <div className="absolute inset-0" onClick={closeVideo} />

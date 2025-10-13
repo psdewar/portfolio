@@ -2,7 +2,7 @@
 
 import { VideoPlayButton } from "./VideoPlayButton";
 import { useVideo } from "app/contexts/VideoContext";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 
 interface VideoPlayButtonWithContextProps {
   videoId: string;
@@ -21,7 +21,11 @@ export function VideoPlayButtonWithContext({
   children,
   ...props
 }: VideoPlayButtonWithContextProps) {
-  const { videoState, openVideo, closeVideo } = useVideo();
+  const { videoState, openVideo, closeVideo, registerVideo } = useVideo();
+
+  useEffect(() => {
+    registerVideo(videoId, videoSrc, instagramUrl);
+  }, [videoId, videoSrc, instagramUrl, registerVideo]);
 
   return (
     <VideoPlayButton
