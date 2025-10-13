@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
 import { stripePromise } from "app/lib/stripe";
+import { VideoPlayButton } from "app/components/VideoPlayButton";
 
 interface FundingCardProps {
   raisedCents: number;
@@ -36,7 +37,7 @@ export function FundingCard({
     { amount: 5000, label: "you're a top-notch artist" },
     {
       amount: 10000,
-      label: "your live show is must-see 🔥",
+      label: "your live show is must-see",
     },
   ];
 
@@ -124,13 +125,9 @@ export function FundingCard({
         </div>
       </div>
 
-      <div className="mb-6 flex items-center justify-between">
-        <div className="">
-          <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {hitPrimary && stretch ? stretch.contributeTitle : contributeTitle}
-          </h3>
-        </div>
-      </div>
+      <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+        {hitPrimary && stretch ? stretch.contributeTitle : contributeTitle}
+      </h3>
 
       <div className="space-y-3 mb-3">
         {paymentOptions.map(({ amount, label }) => {
@@ -151,7 +148,7 @@ export function FundingCard({
                   <span className="text-2xl lg:text-3xl font-semibold text-gray-900 dark:text-white tabular-nums">
                     ${(amount / 100).toFixed(0)}
                   </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300 leading-snug">
+                  <span className="text-sm lg:text-lg text-gray-600 dark:text-gray-300 leading-snug">
                     {isLoading && selectedAmount === amount ? "Processing..." : label}
                   </span>
                 </div>
@@ -207,40 +204,21 @@ export function FundingCard({
       <div className="pt-6 mt-6">
         {hitPrimary && (
           <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            <h4 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 leading-relaxed">
+            <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
               &quot;What&apos;s next after Boise?&quot;
-            </h4>
-            <p className="text-base lg:text-xl text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
+            </h3>
+            <VideoPlayButton
+              thumbnailSrc="/boise-stretch-cover-2.jpg"
+              videoSrc="/boise-stretch-45sec.mp4"
+              alt="Next single preview"
+              className="mb-3 aspect-video"
+              // instagramUrl="https://www.instagram.com/peytspencer/reel/DPg61j5EWb8" TODO: add new link here
+            />
+            <p className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
               Thank you for your generosity! Since we reached our initial goal within just one week,
               let&apos;s stretch the goal to $1,500. I invite your support to bring my next single
-              to life, which involves:
+              to life.
             </p>
-            <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Recording
-              </li>
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Mixing & mastering
-              </li>
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Cover artwork
-              </li>
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Distribution
-              </li>
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Visuals
-              </li>
-              <li className="flex items-center gap-2 text-base lg:text-xl">
-                <span className="w-1.5 h-1.5 bg-green-600 rounded-full flex-shrink-0"></span>
-                Promotion
-              </li>
-            </ul>
           </div>
         )}
 

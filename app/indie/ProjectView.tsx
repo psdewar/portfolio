@@ -83,18 +83,16 @@ export function ProjectView({
                   src: "/images/home/new-era-3-square.jpeg",
                   alt: "Peyt Spencer artist photo",
                 }}
-                videoSrc="/boise-fund-60sec.mov"
+                videoSrc="/boise-fund-60sec.mp4"
               />
             </div>
-            <div className="flex flex-col gap-4">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white text-left">
+            <div className="flex flex-col">
+              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
                 Thanks for your support
-              </h2>
-              <div className="items-center">
-                <p className="text-base lg:text-xl text-gray-700 dark:text-gray-300 leading-relaxed max-w-none">
-                  {project.storyWhat}
-                </p>
-              </div>
+              </h3>
+              <p className="text-base lg:text-xl text-gray-700 dark:text-gray-300 max-w-none">
+                {project.storyWhat}
+              </p>
             </div>
           </div>
           <div className="hidden lg:block">
