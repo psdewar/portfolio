@@ -43,6 +43,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   const [modalData, setModalData] = useState<{
     videoSrc: string;
     instagramUrl?: string;
+    fromUrl?: boolean; // Track if video was opened via URL parameter
   } | null>(null);
 
   const videoRegistryRef = useRef<Map<string, { videoSrc: string; instagramUrl?: string }>>(
@@ -65,7 +66,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       });
       const videoData = videoRegistryRef.current.get(videoParam);
       if (videoData) {
-        setModalData(videoData);
+        setModalData({ ...videoData, fromUrl: true }); // Mark as loaded from URL
       }
     }
   }, [searchParams]);
@@ -83,7 +84,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     url.searchParams.set("video", videoId);
     router.replace(url.pathname + url.search);
     setVideoState({ isOpen: true, videoId, startTime: 0 });
-    setModalData({ videoSrc, instagramUrl });
+    setModalData({ videoSrc, instagramUrl, fromUrl: false }); // User-initiated, not from URL
   };
 
   const closeVideo = useCallback(() => {
@@ -115,6 +116,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
             src={modalData.videoSrc}
             controls
             autoPlay
+            muted={modalData.fromUrl} // Mute only when loaded from URL parameter
             className="relative h-full max-h-screen w-auto max-w-full object-contain rounded"
             onEnded={handleEnded}
             playsInline
