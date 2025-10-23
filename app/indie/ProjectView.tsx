@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { DualVideoImageToggle } from "app/components/DualVideoImageToggle";
 import { FundingCard } from "app/components/projects/FundingCard";
 import { SuccessModal } from "app/components/SuccessModal";
@@ -22,6 +22,24 @@ interface FundingStats {
   tierCounts: Record<string, number>;
 }
 
+// Hook to read initial state from URL once on mount
+function useInitialFromURL() {
+  const [initial, setInitial] = useState<{ size: string; color: string }>({
+    size: "M",
+    color: "black",
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setInitial({
+      size: params.get("size") ?? "M",
+      color: params.get("color") ?? "black",
+    });
+  }, []);
+
+  return initial;
+}
+
 export function ProjectView({
   project,
   stats,
@@ -34,6 +52,40 @@ export function ProjectView({
   sessionId?: string | null;
 }) {
   const [showSuccess, setShowSuccess] = useState(!!success);
+
+  // 1) Read initial values from URL once on mount
+  const init = useInitialFromURL();
+
+  // 2) Use local state for instant updates
+  const [selectedSize, setSelectedSize] = useState(init.size);
+  const [selectedColor, setSelectedColor] = useState(init.color);
+
+  // 3) Sync local state with URL initial values
+  useEffect(() => {
+    setSelectedSize(init.size);
+    setSelectedColor(init.color);
+  }, [init.size, init.color]);
+
+  // Memoized arrays to prevent recreation
+  const sizes = useMemo(() => ["S", "M", "L"], []);
+  const colors = useMemo(
+    () => [
+      { name: "Black", value: "black" },
+      { name: "White", value: "white" },
+    ],
+    []
+  );
+
+  // 4) Mirror to URL without triggering navigation
+  const mirrorURL = useCallback((updates: { size?: string; color?: string }) => {
+    const url = new URL(window.location.href);
+    if (updates.size) url.searchParams.set("size", updates.size);
+    if (updates.color) url.searchParams.set("color", updates.color);
+    // Use replaceState to avoid route transitions
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
+  // 5) Handlers that update local state + URL
 
   return (
     <VideoProvider>

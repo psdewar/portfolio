@@ -12,9 +12,10 @@ export function Navbar() {
   const isMusicPage = pathname === "/music";
   const isIdeaPage = pathname === "/idea";
   const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie/");
+  const isMerchPage = pathname === "/merch";
 
   // Hide navbar on indie funding pages
-  if (isIndieSection) {
+  if (isIndieSection || isMerchPage) {
     return null;
   }
 
