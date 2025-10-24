@@ -12,7 +12,7 @@ interface CacheEntry {
 
 const cache: Record<string, CacheEntry> = {};
 
-type TierKey = "2500" | "5000" | "10000" | "custom";
+type TierKey = "1000" | "2500" | "5000" | "10000" | "custom";
 type Offsets = {
   raisedCents?: number;
   backers?: number;
@@ -20,7 +20,7 @@ type Offsets = {
 };
 // TODO: figure out how to get refund data from API before removing
 const manualOffsets: Record<string, Offsets> = {
-  "flight-to-boise": { raisedCents: -5000, backers: -1, tierCounts: { "5000": -1 } },
+  "flight-to-boise": { raisedCents: 500000, backers: -1, tierCounts: { "5000": -1 } },
 };
 
 export function setFundingOffsets(projectId: string, offsets: Offsets) {
@@ -94,6 +94,7 @@ export async function getFundingStats(
     const backers = relevant.length;
 
     const tierCounts: Record<TierKey, number> = {
+      "1000": 0,
       "2500": 0,
       "5000": 0,
       "10000": 0,
@@ -101,7 +102,7 @@ export async function getFundingStats(
     };
     for (const s of relevant) {
       const amt = s.amount_total ?? 0;
-      if (amt === 2500 || amt === 5000 || amt === 10000) {
+      if (amt === 1000 || amt === 2500 || amt === 5000 || amt === 10000) {
         tierCounts[String(amt) as TierKey] = (tierCounts[String(amt) as TierKey] || 0) + 1;
       } else {
         tierCounts.custom += 1;
@@ -113,7 +114,10 @@ export async function getFundingStats(
     return applyOffsets(projectId, { raisedCents, backers, tierCounts });
   } catch (e) {
     console.error("Failed to fetch funding stats", e);
-    const zero = { "2500": 0, "5000": 0, "10000": 0, custom: 0 } as Record<TierKey, number>;
+    const zero = { "1000": 0, "2500": 0, "5000": 0, "10000": 0, custom: 0 } as Record<
+      TierKey,
+      number
+    >;
     return applyOffsets(projectId, { raisedCents: 0, backers: 0, tierCounts: zero });
   }
 }

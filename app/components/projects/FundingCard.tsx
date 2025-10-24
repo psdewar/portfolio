@@ -33,6 +33,7 @@ export function FundingCard({
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
 
   const paymentOptions = [
+    { amount: 1000, label: "keep going" },
     { amount: 2500, label: "your music is great" },
     { amount: 5000, label: "you're a top-notch artist" },
     {
@@ -100,7 +101,7 @@ export function FundingCard({
   const hitPrimary = raisedCents >= goalCents;
 
   return (
-    <div className="bg-white dark:bg-gray-800 transition-colors rounded-lg p-6 min-h-[600px]">
+    <div className="bg-white dark:bg-gray-800 transition-colors rounded-lg p-6 min-h-[600px] max-w-[600px]">
       <div className="mb-6">
         <ProgressBar
           current={raisedCents}

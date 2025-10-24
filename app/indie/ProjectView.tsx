@@ -68,8 +68,8 @@ export function ProjectView({
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 flex flex-col">
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+            {/* <div className="lg:col-span-2 flex flex-col">
               <div className="text-left mb-6">
                 <h1 className="text-4xl font-semibold text-gray-900 dark:text-white mb-2">
                   {project.title}
@@ -97,8 +97,8 @@ export function ProjectView({
                   {project.storyWhat}
                 </p>
               </div>
-            </div>
-            <div className="hidden lg:block">
+            </div> */}
+            <div className="hidden lg:flex justify-center">
               <div className="sticky top-6">
                 <FundingCard
                   raisedCents={stats.raisedCents}

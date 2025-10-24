@@ -50,6 +50,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     new Map()
   );
   const videoRef = useRef<HTMLVideoElement>(null);
+  const handledVideoFromUrlRef = useRef<string | null>(null);
 
   const registerVideo = useCallback((videoId: string, videoSrc: string, instagramUrl?: string) => {
     videoRegistryRef.current.set(videoId, { videoSrc, instagramUrl });
@@ -58,16 +59,23 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const videoParam = searchParams.get("video");
     const timeParam = searchParams.get("t");
+    const lastHandled = handledVideoFromUrlRef.current;
+
     if (videoParam) {
-      setVideoState({
-        isOpen: true,
-        videoId: videoParam,
-        startTime: timeParam ? parseInt(timeParam, 10) : 0,
-      });
-      const videoData = videoRegistryRef.current.get(videoParam);
-      if (videoData) {
-        setModalData({ ...videoData, fromUrl: true }); // Mark as loaded from URL
+      if (videoParam !== lastHandled) {
+        handledVideoFromUrlRef.current = videoParam;
+        setVideoState({
+          isOpen: true,
+          videoId: videoParam,
+          startTime: timeParam ? parseInt(timeParam, 10) : 0,
+        });
+        const videoData = videoRegistryRef.current.get(videoParam);
+        if (videoData) {
+          setModalData({ ...videoData, fromUrl: true });
+        }
       }
+    } else if (lastHandled) {
+      handledVideoFromUrlRef.current = null;
     }
   }, [searchParams]);
 
@@ -83,6 +91,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     const url = new URL(window.location.href);
     url.searchParams.set("video", videoId);
     router.replace(url.pathname + url.search);
+    handledVideoFromUrlRef.current = videoId;
     setVideoState({ isOpen: true, videoId, startTime: 0 });
     setModalData({ videoSrc, instagramUrl, fromUrl: false }); // User-initiated, not from URL
   };
