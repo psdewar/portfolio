@@ -20,7 +20,7 @@ type Offsets = {
 };
 // TODO: figure out how to get refund data from API before removing
 const manualOffsets: Record<string, Offsets> = {
-  "flight-to-boise": { raisedCents: 500000, backers: -1, tierCounts: { "5000": -1 } },
+  "flight-to-boise": { raisedCents: -5000, backers: -1, tierCounts: { "5000": -1 } },
 };
 
 export function setFundingOffsets(projectId: string, offsets: Offsets) {
