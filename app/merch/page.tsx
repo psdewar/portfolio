@@ -305,13 +305,15 @@ export default function Page() {
         </div>
 
         {/* Sticky Footer - Appears when original buy section scrolls out of view */}
-        {isSticky && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-2xl">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
-              <BuySectionContent />
-            </div>
+        <div
+          className={`fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-4xl transition-all duration-300 ease-in-out ${
+            isSticky ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          }`}
+        >
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
+            <BuySectionContent />
           </div>
-        )}
+        </div>
       </div>
     </VideoProvider>
   );
