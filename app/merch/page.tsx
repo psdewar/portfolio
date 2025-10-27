@@ -276,7 +276,7 @@ export default function Page() {
               {/* Video Title Overlay */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 sm:p-4 pointer-events-none">
                 <h3 className="text-white font-semibold text-sm lg:text-base">
-                  Rocking my white tee with a live band
+                  Rocking the stage with my live band
                 </h3>
                 <p className="text-white/90 text-xs lg:text-sm">Gainesville, FL · Fall 2015</p>
               </div>

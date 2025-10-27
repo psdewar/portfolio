@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
-  validateOriginStrict,
+  validateOrigin,
   sanitizeCheckoutData,
   logDevError,
   extractIpAddress,
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     // }
 
-    // Verify origin (strict validation for checkout)
-    if (!validateOriginStrict(request)) {
+    // Verify origin (validation for checkout)
+    if (!validateOrigin(request)) {
       const origin = request.headers.get("origin");
       return NextResponse.json({ error: `Invalid origin ${origin}` }, { status: 403 });
     }
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
             currency: currency as string,
             product_data: {
               name: "From The Archives: Exhibit PSD",
-              description: `100% cotton t-shirt (${metadata?.size || "M"}, ${
-                metadata?.color || "Black"
-              })`,
+              description: `${metadata?.size || "Medium"} ${
+                metadata?.color.toLowerCase() || "black"
+              } 100% cotton t-shirt`,
               metadata: {
                 productId,
                 type: "merchandise",
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       // Collect shipping address for merchandise purchases
       ...(isProduct && {
         shipping_address_collection: {
-          allowed_countries: ["US", "CA"], // Add more countries as needed
+          allowed_countries: ["US"], // Add more countries as needed
         },
         phone_number_collection: {
           enabled: true,
