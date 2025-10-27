@@ -70,7 +70,7 @@ export const GlobalAudioPlayer: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-50 px-3 sm:px-4 py-2 sm:py-3 safe-area-inset-bottom">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-40 px-3 sm:px-4 py-2 sm:py-3 safe-area-inset-bottom">
       <div className="max-w-4xl mx-auto">
         {/* Main player controls */}
         <div className="flex items-center gap-2 sm:gap-4">

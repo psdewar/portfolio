@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { validateOrigin } from "../../shared/audio-utils";
-import { getSecureEnv } from "../../../../lib/env-validation";
+import { stripe } from "../../shared/stripe-utils";
 
 export const dynamic = "force-dynamic";
-
-const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
-  apiVersion: "2025-08-27.basil",
-});
 
 export async function GET(request: Request) {
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getSecureEnv } from "../../../../lib/env-validation";
+import { stripe } from "../../shared/stripe-utils";
 import {
   sanitizeTrackId,
   validateOrigin,
@@ -12,10 +12,6 @@ import {
   createDownloadHeaders,
   logDevError,
 } from "../../shared/audio-utils";
-
-const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
-  apiVersion: "2025-08-27.basil",
-});
 
 export async function GET(request: NextRequest, { params }: { params: { trackId: string } }) {
   try {

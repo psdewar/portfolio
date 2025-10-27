@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSecureEnv } from "../../../../lib/env-validation";
+import { stripe } from "../../shared/stripe-utils";
 import fs from "fs";
 import path from "path";
-
-const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
-  apiVersion: "2025-08-27.basil",
-});
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

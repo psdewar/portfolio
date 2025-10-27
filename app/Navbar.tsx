@@ -150,7 +150,7 @@ export function Navbar() {
                         Feature me on your next song <ArrowIcon />
                       </span>
                     </Link>
-                    <Link
+                    {/* <Link
                       title="Venmo"
                       aria-label="Venmo"
                       href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
@@ -162,7 +162,7 @@ export function Navbar() {
                         Contribute $20 to fuel my independence
                         <ArrowIcon />
                       </span>
-                    </Link>
+                    </Link> */}
                   </div>
                 ) : null}
                 {isIdeaPage ? (
@@ -292,7 +292,7 @@ export function Navbar() {
                 Feature me on your next song <ArrowIcon />
               </span>
             </Link>
-            <Link
+            {/* <Link
               title="Venmo"
               aria-label="Venmo"
               href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
@@ -304,7 +304,7 @@ export function Navbar() {
                 Contribute $20 to fuel my independence
                 <ArrowIcon />
               </span>
-            </Link>
+            </Link> */}
           </div>
         ) : null}
         {isIdeaPage ? (

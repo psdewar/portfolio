@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getSecureEnv } from "../../../lib/env-validation";
 import {
   validateOriginStrict,
   sanitizeCheckoutData,
   logDevError,
   extractIpAddress,
 } from "../shared/audio-utils";
-
-const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
-  apiVersion: "2025-08-27.basil",
-});
+import { stripe, getBaseUrl, getSessionExpiry, createBaseMetadata } from "../shared/stripe-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,18 +25,70 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Sanitize and validate checkout data
-    const checkoutData = sanitizeCheckoutData(body);
-    if (!checkoutData) {
-      return NextResponse.json({ error: "Invalid or missing required fields" }, { status: 400 });
+    // Validate required fields
+    const { amount, mode, currency, productId, trackId, trackTitle, metadata } = body;
+
+    if (!amount || !mode || !currency) {
+      return NextResponse.json(
+        { error: "Missing required fields: amount, mode, currency" },
+        { status: 400 }
+      );
     }
 
-    const { amount, trackId, trackTitle, mode, currency } = checkoutData;
+    // Determine product type and build appropriate metadata
+    const isProduct = !!productId;
+    const isTrack = !!trackId && !!trackTitle;
 
-    // Create checkout session with secure metadata
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
+    if (!isProduct && !isTrack) {
+      return NextResponse.json(
+        { error: "Must provide either productId or trackId+trackTitle" },
+        { status: 400 }
+      );
+    }
+
+    // Build line items based on product type
+    let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+    let sessionMetadata: Record<string, string>;
+    let successUrl: string;
+    let cancelUrl: string;
+
+    if (isProduct) {
+      // Merchandise purchase (using dynamic product creation)
+      lineItems = [
+        {
+          price_data: {
+            currency: currency as string,
+            product_data: {
+              name: "From The Archives: Exhibit PSD",
+              description: `100% cotton t-shirt (${metadata?.size || "M"}, ${
+                metadata?.color || "Black"
+              })`,
+              metadata: {
+                productId,
+                type: "merchandise",
+              },
+            },
+            unit_amount: amount,
+          },
+          quantity: 1,
+        },
+      ];
+      sessionMetadata = {
+        productId,
+        mode,
+        ...createBaseMetadata(ip),
+        ...(metadata || {}), // Include size, color, etc.
+      };
+      successUrl = `${getBaseUrl()}/merch?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      cancelUrl = `${getBaseUrl()}/merch?canceled=true`;
+    } else {
+      // Track download (dynamic product)
+      const checkoutData = sanitizeCheckoutData(body);
+      if (!checkoutData) {
+        return NextResponse.json({ error: "Invalid track data" }, { status: 400 });
+      }
+
+      lineItems = [
         {
           price_data: {
             currency: currency as string,
@@ -59,22 +107,35 @@ export async function POST(request: NextRequest) {
           },
           quantity: 1,
         },
-      ],
+      ];
+      sessionMetadata = {
+        trackId,
+        trackTitle,
+        mode,
+        ...createBaseMetadata(ip),
+      };
+      successUrl = `${getBaseUrl()}/music?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      cancelUrl = `${getBaseUrl()}/music?canceled=true`;
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: lineItems,
       mode: "payment",
-      success_url: `${
-        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-      }/music?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${
-        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-      }/music?canceled=true`,
-      metadata: {
-        trackId: trackId,
-        trackTitle: trackTitle,
-        mode: mode,
-        ip: ip,
-        timestamp: new Date().toISOString(),
-      },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 minutes expiry
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: sessionMetadata,
+      expires_at: getSessionExpiry(),
+      // Collect shipping address for merchandise purchases
+      ...(isProduct && {
+        shipping_address_collection: {
+          allowed_countries: ["US", "CA"], // Add more countries as needed
+        },
+        phone_number_collection: {
+          enabled: true,
+        },
+      }),
     });
 
     return NextResponse.json({ sessionId: session.id });
