@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import {
-  validateOrigin,
-  sanitizeCheckoutData,
-  logDevError,
-  extractIpAddress,
-} from "../shared/audio-utils";
+import { sanitizeCheckoutData, logDevError, extractIpAddress } from "../shared/audio-utils";
 import { stripe, getBaseUrl, getSessionExpiry, createBaseMetadata } from "../shared/stripe-utils";
 
 export async function POST(request: NextRequest) {
@@ -16,12 +11,6 @@ export async function POST(request: NextRequest) {
     // if (!checkCheckoutRateLimit(ip)) {
     //   return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     // }
-
-    // Verify origin (validation for checkout)
-    if (!validateOrigin(request)) {
-      const origin = request.headers.get("origin");
-      return NextResponse.json({ error: `Invalid origin ${origin}` }, { status: 403 });
-    }
 
     const body = await request.json();
 
