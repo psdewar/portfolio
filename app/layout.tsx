@@ -122,12 +122,14 @@ export default function RootLayout({
       <body className="antialiased flex flex-col md:flex-row lg:mx-auto bg-white dark:bg-gray-900">
         <AudioProvider>
           <Navbar />
-          <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4">
+          <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4 pb-24 lg:pb-32">
             {children}
             <Analytics />
             <SpeedInsights />
           </main>
-          <GlobalAudioPlayer />
+          <div className="h-24 lg:h-32">
+            <GlobalAudioPlayer />
+          </div>
         </AudioProvider>
       </body>
     </html>

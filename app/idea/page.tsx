@@ -65,7 +65,7 @@ export default function Page() {
   };
 
   return (
-    <main className="flex justify-center mb-32">
+    <div className="flex justify-center mb-32">
       <div className="max-w-2xl px-4">
         <div className="prose-neutral dark:prose-invert">
           <h1 className="font-medium text-2xl mb-4">
@@ -212,6 +212,6 @@ export default function Page() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

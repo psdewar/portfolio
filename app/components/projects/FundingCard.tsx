@@ -101,7 +101,7 @@ export function FundingCard({
   const hitPrimary = raisedCents >= goalCents;
 
   return (
-    <div className="bg-white dark:bg-gray-800 transition-colors rounded-lg p-6 min-h-[600px] max-w-[600px]">
+    <div className="bg-white dark:bg-gray-800 transition-colors rounded-lg p-6 min-h-[600px]">
       <div className="mb-6">
         <ProgressBar
           current={raisedCents}
@@ -130,7 +130,7 @@ export function FundingCard({
         {hitPrimary && stretch ? stretch.contributeTitle : contributeTitle}
       </h3>
 
-      <div className="space-y-3 mb-3">
+      <div className="grid grid-cols-2 gap-3 mb-3">
         {paymentOptions.map(({ amount, label }) => {
           const count = tierCounts ? tierCounts[String(amount)] || 0 : 0;
           return (
@@ -138,25 +138,23 @@ export function FundingCard({
               key={amount}
               onClick={() => handlePayment(amount)}
               disabled={isLoading}
-              className={`relative w-full flex flex-col items-start gap-1 p-2 rounded-lg border-2 transition-colors text-left ${
+              className={`relative flex flex-col items-start gap-1 p-2 rounded-lg border-2 transition-colors text-left ${
                 selectedAmount === amount
                   ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                   : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl lg:text-3xl font-semibold text-gray-900 dark:text-white tabular-nums">
-                    ${(amount / 100).toFixed(0)}
-                  </span>
-                  <span className="text-sm lg:text-lg text-gray-600 dark:text-gray-300 leading-snug">
-                    {isLoading && selectedAmount === amount ? "Processing..." : label}
-                  </span>
-                </div>
+                <span className="text-2xl lg:text-3xl font-semibold text-gray-900 dark:text-white tabular-nums">
+                  ${(amount / 100).toFixed(0)}
+                </span>
                 <span className="inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
                   {count}
                 </span>
               </div>
+              <span className="text-sm lg:text-base text-gray-600 dark:text-gray-300 leading-snug">
+                {isLoading && selectedAmount === amount ? "Processing..." : label}
+              </span>
             </button>
           );
         })}

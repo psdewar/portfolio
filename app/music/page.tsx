@@ -253,102 +253,89 @@ export default function Page() {
 
   return (
     <>
-      {/* Structured Data for Music */}
-      {/* <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(musicStructuredData),
-        }}
-      /> */}
-
       {/* Stay Connected Modal */}
       {showStayConnected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />
         </div>
       )}
+      <div className="w-full grid grid-cols-2 lg:grid-cols-3">
+        {TRACKS.map((t) => {
+          const isCurrentTrack = currentTrack?.id === t.id;
+          const isCurrentlyPlaying = isCurrentTrack && isPlaying;
 
-      <main className="pb-32">
-        <div className="w-full">
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-0">
-            {TRACKS.map((t) => {
-              const isCurrentTrack = currentTrack?.id === t.id;
-              const isCurrentlyPlaying = isCurrentTrack && isPlaying;
+          // Only patience gets full functionality
+          const isPatienceTrack = t.id === "patience";
 
-              // Only patience gets full functionality
-              const isPatienceTrack = t.id === "patience";
+          return (
+            <div
+              key={t.href}
+              className="relative overflow-hidden aspect-square group cursor-pointer"
+              onClick={() => (isPatienceTrack ? handlePlayTrack(t.id) : null)}
+            >
+              {/* Album art */}
+              <Image
+                alt={t.id}
+                src={t.src}
+                fill
+                className="object-cover absolute inset-0"
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
 
-              return (
-                <div
-                  key={t.href}
-                  className="relative overflow-hidden aspect-square group cursor-pointer"
-                  onClick={() => (isPatienceTrack ? handlePlayTrack(t.id) : null)}
-                >
-                  {/* Album art */}
-                  <Image
-                    alt={t.id}
-                    src={t.src}
-                    fill
-                    className="object-cover absolute inset-0"
-                    loading="lazy"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-
-                  {/* Play state indicator - only for patience */}
-                  {isPatienceTrack && isCurrentTrack && (
-                    <div className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center">
-                      {isCurrentlyPlaying ? (
-                        <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                      ) : (
-                        <div className="w-3 h-3 bg-white rounded-full" />
-                      )}
-                    </div>
+              {/* Play state indicator - only for patience */}
+              {isPatienceTrack && isCurrentTrack && (
+                <div className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center">
+                  {isCurrentlyPlaying ? (
+                    <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                  ) : (
+                    <div className="w-3 h-3 bg-white rounded-full" />
                   )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 flex items-center">
-                    <div className="w-full flex flex-col gap-2 p-4">
-                      {isPatienceTrack ? (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePlayTrack(t.id);
-                            }}
-                            className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium text-lg transition-colors shadow-lg"
-                            aria-label={isCurrentlyPlaying ? `Pause ${t.id}` : `Play ${t.id}`}
-                          >
-                            {isCurrentlyPlaying ? "PAUSE" : "PLAY"}
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openPaymentModal(t.id);
-                            }}
-                            className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-lg transition-colors shadow-lg"
-                            aria-label={`Download ${t.id}`}
-                          >
-                            DOWNLOAD
-                          </button>
-                        </>
-                      ) : null}
-                      <Link
-                        href={t.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 py-2 bg-white/90 hover:bg-white text-black rounded font-medium text-lg transition-colors shadow-lg text-center flex items-center justify-center gap-2"
-                        aria-label={`Stream ${t.id} externally`}
-                      >
-                        STREAM <ArrowIcon />
-                      </Link>
-                    </div>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </main>
+              )}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 flex items-center">
+                <div className="w-full flex flex-col gap-2 p-4">
+                  {isPatienceTrack ? (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayTrack(t.id);
+                        }}
+                        className="flex-1 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium text-lg transition-colors shadow-lg"
+                        aria-label={isCurrentlyPlaying ? `Pause ${t.id}` : `Play ${t.id}`}
+                      >
+                        {isCurrentlyPlaying ? "PAUSE" : "PLAY"}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPaymentModal(t.id);
+                        }}
+                        className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-lg transition-colors shadow-lg"
+                        aria-label={`Download ${t.id}`}
+                      >
+                        DOWNLOAD
+                      </button>
+                    </>
+                  ) : null}
+                  <Link
+                    href={t.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 py-2 bg-white/90 hover:bg-white text-black rounded font-medium text-lg transition-colors shadow-lg text-center flex items-center justify-center gap-2"
+                    aria-label={`Stream ${t.id} externally`}
+                  >
+                    STREAM <ArrowIcon />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
       <PaymentModal
         isOpen={paymentModal.isOpen}
         onClose={closePaymentModal}

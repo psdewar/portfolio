@@ -1,6 +1,6 @@
 export default function CancelPage() {
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <div className="mb-8">
           <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -44,6 +44,6 @@ export default function CancelPage() {
           </a>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

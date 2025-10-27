@@ -54,7 +54,7 @@ export default function Page() {
   };
 
   return (
-    <main
+    <div
       className={`fixed inset-0 m-0 bg-neutral-50 dark:bg-neutral-900 overflow-hidden ${
         currentTrack ? "pb-16 sm:pb-20" : ""
       }`}
@@ -232,6 +232,6 @@ export default function Page() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
