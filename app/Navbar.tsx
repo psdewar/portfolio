@@ -11,13 +11,14 @@ export function Navbar() {
   const isHomePage = pathname === "/";
   const isMusicPage = pathname === "/music";
   const isIdeaPage = pathname === "/idea";
-  const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie");
+  const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie/");
+  const isMerchPage = pathname === "/merch";
 
   return (
     <>
       <header
         className={`top-0 left-0 right-0 z-40 pointer-events-none ${
-          isMusicPage || isIdeaPage || isIndieSection ? "relative" : "absolute"
+          isMusicPage || isIdeaPage || isIndieSection || isMerchPage ? "relative" : "absolute"
         }`}
       >
         <div className="flex items-center justify-start p-4 pointer-events-none">
@@ -85,11 +86,24 @@ export function Navbar() {
                     isHomePage
                       ? "text-white hover:bg-white/10 hover:text-white"
                       : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname.startsWith("/indie") ? "bg-white/10" : ""}`}
+                  } ${pathname === "/indie" ? "bg-white/10" : ""}`}
                   href="/indie"
-                  aria-current={pathname.startsWith("/indie") ? "page" : undefined}
+                  aria-current={pathname === "/indie" ? "page" : undefined}
                 >
                   Fund my indie journey
+                </Link>
+                <Link
+                  title="Get my debut t-shirt"
+                  aria-label="Get my debut t-shirt"
+                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
+                    isHomePage
+                      ? "text-white hover:bg-white/10 hover:text-white"
+                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  } ${pathname === "/merch" ? "bg-black/10 dark:bg-white/10" : ""}`}
+                  href="/merch"
+                  aria-current={pathname === "/merch" ? "page" : undefined}
+                >
+                  Shop my first t-shirt drop
                 </Link>
                 <Link
                   title="Here's my app, Lyrist"
@@ -136,7 +150,7 @@ export function Navbar() {
                         Feature me on your next song <ArrowIcon />
                       </span>
                     </Link>
-                    {/* <Link
+                    <Link
                       title="Venmo"
                       aria-label="Venmo"
                       href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
@@ -148,7 +162,7 @@ export function Navbar() {
                         Contribute $20 to fuel my independence
                         <ArrowIcon />
                       </span>
-                    </Link> */}
+                    </Link>
                   </div>
                 ) : null}
                 {isIdeaPage ? (
@@ -163,22 +177,6 @@ export function Navbar() {
                     >
                       <span className="inline-flex items-center gap-2">
                         Resume.pdf <ArrowIcon />
-                      </span>
-                    </Link>
-                  </div>
-                ) : null}
-                {isIndieSection ? (
-                  <div className="flex flex-col items-center pt-4 w-full">
-                    <Link
-                      title="SoundBetter"
-                      aria-label="SoundBetter"
-                      href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        Feature me on your next song <ArrowIcon />
                       </span>
                     </Link>
                   </div>
@@ -225,15 +223,29 @@ export function Navbar() {
               title="Fund my indie journey"
               aria-label="Fund my indie journey"
               className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname.startsWith("/indie")
+                pathname === "/indie"
                   ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
                   : ""
               }`}
               href="/indie"
               onClick={() => setMenuOpen(false)}
-              aria-current={pathname.startsWith("/indie") ? "page" : undefined}
+              aria-current={pathname === "/indie" ? "page" : undefined}
             >
               Fund my indie journey
+            </Link>
+            <Link
+              title="Get my debut t-shirt"
+              aria-label="Get my debut t-shirt"
+              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
+                pathname === "/merch"
+                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
+                  : ""
+              }`}
+              href="/merch"
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname === "/merch" ? "page" : undefined}
+            >
+              Shop my first t-shirt drop
             </Link>
             <Link
               title="Here's my app, Lyrist"
@@ -280,7 +292,7 @@ export function Navbar() {
                 Feature me on your next song <ArrowIcon />
               </span>
             </Link>
-            {/* <Link
+            <Link
               title="Venmo"
               aria-label="Venmo"
               href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
@@ -292,7 +304,7 @@ export function Navbar() {
                 Contribute $20 to fuel my independence
                 <ArrowIcon />
               </span>
-            </Link> */}
+            </Link>
           </div>
         ) : null}
         {isIdeaPage ? (
