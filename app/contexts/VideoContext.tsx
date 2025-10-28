@@ -8,6 +8,7 @@ import {
   ReactNode,
   useRef,
   useCallback,
+  Suspense,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getVideoMetadata } from "app/lib/videos.config";
@@ -33,8 +34,31 @@ export const useVideo = () => {
   return context;
 };
 
-export function VideoProvider({ children }: { children: ReactNode }) {
+function VideoParamsHandler({
+  onVideoFromUrl,
+}: {
+  onVideoFromUrl: (videoId: string, startTime: number) => void;
+}) {
   const searchParams = useSearchParams();
+  const handledVideoFromUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const videoParam = searchParams.get("video");
+    const timeParam = searchParams.get("t");
+    const lastHandled = handledVideoFromUrlRef.current;
+
+    if (videoParam && videoParam !== lastHandled) {
+      handledVideoFromUrlRef.current = videoParam;
+      onVideoFromUrl(videoParam, timeParam ? parseInt(timeParam, 10) : 0);
+    } else if (!videoParam && lastHandled) {
+      handledVideoFromUrlRef.current = null;
+    }
+  }, [searchParams, onVideoFromUrl]);
+
+  return null;
+}
+
+export function VideoProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [videoState, setVideoState] = useState<{
     isOpen: boolean;
@@ -57,40 +81,29 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     videoRegistryRef.current.set(videoId, { videoSrc, instagramUrl });
   }, []);
 
-  useEffect(() => {
-    const videoParam = searchParams.get("video");
-    const timeParam = searchParams.get("t");
-    const lastHandled = handledVideoFromUrlRef.current;
+  const handleVideoFromUrl = useCallback((videoId: string, startTime: number) => {
+    setVideoState({
+      isOpen: true,
+      videoId,
+      startTime,
+    });
 
-    if (videoParam) {
-      if (videoParam !== lastHandled) {
-        handledVideoFromUrlRef.current = videoParam;
-        setVideoState({
-          isOpen: true,
-          videoId: videoParam,
-          startTime: timeParam ? parseInt(timeParam, 10) : 0,
-        });
+    // Try registry first, then fall back to manual registration
+    const registryData = getVideoMetadata(videoId);
+    const manualData = videoRegistryRef.current.get(videoId);
 
-        // Try registry first, then fall back to manual registration
-        const registryData = getVideoMetadata(videoParam);
-        const manualData = videoRegistryRef.current.get(videoParam);
-
-        if (registryData) {
-          setModalData({
-            videoSrc: registryData.src,
-            instagramUrl: registryData.instagramUrl,
-            fromUrl: true,
-          });
-        } else if (manualData) {
-          setModalData({ ...manualData, fromUrl: true });
-        } else {
-          console.warn(`Video "${videoParam}" not found in registry or manual registrations`);
-        }
-      }
-    } else if (lastHandled) {
-      handledVideoFromUrlRef.current = null;
+    if (registryData) {
+      setModalData({
+        videoSrc: registryData.src,
+        instagramUrl: registryData.instagramUrl,
+        fromUrl: true,
+      });
+    } else if (manualData) {
+      setModalData({ ...manualData, fromUrl: true });
+    } else {
+      console.warn(`Video "${videoId}" not found in registry or manual registrations`);
     }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     if (videoState.isOpen && videoRef.current && videoState.startTime > 0) {
@@ -104,7 +117,6 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     const url = new URL(window.location.href);
     url.searchParams.set("video", videoId);
     router.replace(url.pathname + url.search);
-    handledVideoFromUrlRef.current = videoId;
     setVideoState({ isOpen: true, videoId, startTime: 0 });
     setModalData({ videoSrc, instagramUrl, fromUrl: false }); // User-initiated, not from URL
   };
@@ -128,6 +140,9 @@ export function VideoProvider({ children }: { children: ReactNode }) {
 
   return (
     <VideoContext.Provider value={{ videoState, openVideo, closeVideo, registerVideo }}>
+      <Suspense fallback={null}>
+        <VideoParamsHandler onVideoFromUrl={handleVideoFromUrl} />
+      </Suspense>
       {children}
 
       {videoState.isOpen && modalData && (
