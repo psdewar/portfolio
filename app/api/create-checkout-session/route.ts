@@ -121,6 +121,11 @@ export async function POST(request: NextRequest) {
         shipping_address_collection: {
           allowed_countries: ["US"], // Add more countries as needed
         },
+        shipping_options: [
+          {
+            shipping_rate: "shr_1SN0DiCWIzpWuQGpghDntIkG",
+          },
+        ],
         phone_number_collection: {
           enabled: true,
         },
