@@ -178,6 +178,10 @@ export default function Page() {
     </div>
   );
 
+  const exhibitLabel = `The inaugural design from my original rap moniker, drawn from my initials and first imagined
+  during undergrad at the University of Florida. Crafted in 100% cotton for enduring comfort, natural breathability, and a soft
+  touch suitable even for sensitive skin.`;
+
   return (
     <VideoProvider>
       <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 space-y-4 sm:space-y-6">
@@ -245,10 +249,8 @@ export default function Page() {
                         : "opacity-0 sm:group-hover:opacity-100 pointer-events-none"
                     }`}
                   >
-                    <p className="text-white text-xs sm:text-sm lg:text-base leading-relaxed text-center">
-                      The inaugural design from my first rap moniker, featuring my own initials.
-                      Crafted in 100% cotton for enduring comfort, natural breathability, and a soft
-                      touch suitable even for sensitive skin.
+                    <p className="text-white text-xs sm:text-sm lg:text-base leading-relaxed text-justify">
+                      {exhibitLabel}
                     </p>
                   </div>
                 </div>
@@ -257,10 +259,8 @@ export default function Page() {
 
             {/* Explanation Card - Mobile Only, between product and model photo */}
             <div className="lg:hidden bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                The inaugural design from my first rap moniker, my own initials. Crafted in 100%
-                cotton for enduring comfort, natural breathability, and a soft touch suitable even
-                for sensitive skin.
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed text-justify">
+                {exhibitLabel}
               </p>
             </div>
 
