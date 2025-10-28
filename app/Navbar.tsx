@@ -12,7 +12,7 @@ export function Navbar() {
   const isMusicPage = pathname === "/music";
   const isIdeaPage = pathname === "/idea";
   const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie/");
-  const isMerchPage = pathname === "/merch";
+  const isMerchPage = pathname === "/shop";
 
   return (
     <>
@@ -99,9 +99,9 @@ export function Navbar() {
                     isHomePage
                       ? "text-white hover:bg-white/10 hover:text-white"
                       : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/merch" ? "bg-black/10 dark:bg-white/10" : ""}`}
-                  href="/merch"
-                  aria-current={pathname === "/merch" ? "page" : undefined}
+                  } ${pathname === "/shop" ? "bg-black/10 dark:bg-white/10" : ""}`}
+                  href="/shop"
+                  aria-current={pathname === "/shop" ? "page" : undefined}
                 >
                   Shop my first t-shirt drop
                 </Link>
@@ -237,13 +237,13 @@ export function Navbar() {
               title="Get my debut t-shirt"
               aria-label="Get my debut t-shirt"
               className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/merch"
+                pathname === "/shop"
                   ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
                   : ""
               }`}
-              href="/merch"
+              href="/shop"
               onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/merch" ? "page" : undefined}
+              aria-current={pathname === "/shop" ? "page" : undefined}
             >
               Shop my first t-shirt drop
             </Link>

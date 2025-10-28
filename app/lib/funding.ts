@@ -1,7 +1,9 @@
 import Stripe from "stripe";
 import { getSecureEnv } from "../../lib/env-validation";
 
-const CACHE_TTL = 60_000;
+// Increased cache TTL to 5 minutes for better performance
+// Funding stats don't need to be real-time
+const CACHE_TTL = 300_000; // 5 minutes
 
 interface CacheEntry {
   raisedCents: number;
@@ -84,7 +86,13 @@ export async function getFundingStats(
   try {
     const stripe = getStripe();
 
-    const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+    // Note: Stripe doesn't support metadata filtering in the list API,
+    // but we limit to 100 most recent and rely on cache to reduce calls
+    const sessions = await stripe.checkout.sessions.list({
+      limit: 100,
+      // Stripe API doesn't support metadata filtering in list endpoints
+      // Future optimization: consider using a database to track this
+    });
 
     const relevant = sessions.data.filter(
       (s) => s.payment_status === "paid" && s.metadata && s.metadata.projectId === projectId

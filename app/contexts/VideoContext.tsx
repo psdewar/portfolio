@@ -10,6 +10,7 @@ import {
   useCallback,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getVideoMetadata } from "app/lib/videos.config";
 
 interface VideoContextType {
   videoState: {
@@ -69,9 +70,21 @@ export function VideoProvider({ children }: { children: ReactNode }) {
           videoId: videoParam,
           startTime: timeParam ? parseInt(timeParam, 10) : 0,
         });
-        const videoData = videoRegistryRef.current.get(videoParam);
-        if (videoData) {
-          setModalData({ ...videoData, fromUrl: true });
+
+        // Try registry first, then fall back to manual registration
+        const registryData = getVideoMetadata(videoParam);
+        const manualData = videoRegistryRef.current.get(videoParam);
+
+        if (registryData) {
+          setModalData({
+            videoSrc: registryData.src,
+            instagramUrl: registryData.instagramUrl,
+            fromUrl: true,
+          });
+        } else if (manualData) {
+          setModalData({ ...manualData, fromUrl: true });
+        } else {
+          console.warn(`Video "${videoParam}" not found in registry or manual registrations`);
         }
       }
     } else if (lastHandled) {

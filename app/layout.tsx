@@ -4,6 +4,7 @@ import { Navbar } from "./Navbar";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AudioProvider } from "./contexts/AudioContext";
+import { VideoProvider } from "./contexts/VideoContext";
 import { GlobalAudioPlayer } from "./components/GlobalAudioPlayer";
 import localFont from "next/font/local";
 
@@ -121,15 +122,17 @@ export default function RootLayout({
       </head>
       <body className="antialiased flex flex-col md:flex-row lg:mx-auto bg-white dark:bg-gray-900">
         <AudioProvider>
-          <Navbar />
-          <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4 pb-24 lg:pb-32">
-            {children}
-            <Analytics />
-            <SpeedInsights />
-          </main>
-          <div className="h-24 lg:h-32">
-            <GlobalAudioPlayer />
-          </div>
+          <VideoProvider>
+            <Navbar />
+            <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4 pb-24 lg:pb-32">
+              {children}
+              <Analytics />
+              <SpeedInsights />
+            </main>
+            <div className="h-24 lg:h-32">
+              <GlobalAudioPlayer />
+            </div>
+          </VideoProvider>
         </AudioProvider>
       </body>
     </html>

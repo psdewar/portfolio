@@ -68,8 +68,8 @@ export async function POST(request: NextRequest) {
         ...createBaseMetadata(ip),
         ...(metadata || {}), // Include size, color, etc.
       };
-      successUrl = `${getBaseUrl()}/merch?success=true&session_id={CHECKOUT_SESSION_ID}`;
-      cancelUrl = `${getBaseUrl()}/merch?canceled=true`;
+      successUrl = `${getBaseUrl()}/shop?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      cancelUrl = `${getBaseUrl()}/shop?canceled=true`;
     } else {
       // Track download (dynamic product)
       const checkoutData = sanitizeCheckoutData(body);

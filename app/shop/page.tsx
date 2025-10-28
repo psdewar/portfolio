@@ -1,6 +1,5 @@
 "use client";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
-import { VideoProvider } from "app/contexts/VideoContext";
 import { stripePromise } from "app/lib/stripe";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -183,138 +182,136 @@ export default function Page() {
   touch suitable even for sensitive skin.`;
 
   return (
-    <VideoProvider>
-      <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 space-y-4 sm:space-y-6">
-        {/* Hero Section with Title */}
-        <div className="flex flex-col items-start gap-3">
-          <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-gray-900 dark:text-white mb-2">
-              From The Archives: Exhibit PSD
-            </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400">
-              My first t-shirt, a decade in the making
+    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 space-y-4 sm:space-y-6">
+      {/* Hero Section with Title */}
+      <div className="flex flex-col items-start gap-3">
+        <div className="flex-1">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-gray-900 dark:text-white mb-2">
+            From The Archives: Exhibit PSD
+          </h1>
+          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400">
+            My first t-shirt, a decade in the making
+          </p>
+        </div>
+      </div>
+
+      {/* Main Grid - All screens: vertical stack on mobile/tablet, 2 columns on desktop */}
+      <div className="space-y-3 sm:space-y-4">
+        {/* Row 1: Product Card (Shirt + Buy) and Video side by side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+          {/* Combined Product Card - Buy Section + Shirt Photo */}
+          <div className="relative rounded-2xl overflow-hidden">
+            <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm transition-colors h-full flex flex-col">
+              {/* Buy Section - Original position at top */}
+              <div
+                id="buy-section-original"
+                className="border-b border-gray-200 dark:border-gray-700 p-4 sm:p-5 lg:p-6 flex flex-col gap-3 sm:gap-4"
+              >
+                <BuySectionContent />
+              </div>
+
+              {/* Shirt Photo with Info Icon */}
+              <div
+                className="relative h-64 sm:h-80 lg:h-[500px] overflow-hidden group cursor-pointer"
+                onClick={() => setShowDescription(!showDescription)}
+              >
+                <Image
+                  src="/images/exhibit-psd-merch.JPG"
+                  alt="Lu wearing Exhibit PSD"
+                  fill
+                  className="object-cover"
+                />
+                {/* Info Icon - Always visible */}
+                <button
+                  className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white w-8 h-8 rounded-full flex items-center justify-center group-hover:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDescription(!showDescription);
+                  }}
+                  aria-label="Product information"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </button>
+                {/* Description Overlay - hover on desktop, toggle on mobile */}
+                <div
+                  className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 p-4 sm:p-6 flex items-center justify-center ${
+                    showDescription
+                      ? "opacity-100"
+                      : "opacity-0 sm:group-hover:opacity-100 pointer-events-none"
+                  }`}
+                >
+                  <p className="text-white text-xs sm:text-sm lg:text-base leading-relaxed text-justify">
+                    {exhibitLabel}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Explanation Card - Mobile Only, between product and model photo */}
+          <div className="lg:hidden bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed text-justify">
+              {exhibitLabel}
+            </p>
+          </div>
+
+          {/* Video - Desktop: Right side, Mobile: Below product card */}
+          <div className="relative rounded-2xl overflow-hidden group aspect-[3/4] lg:aspect-auto lg:h-auto">
+            <VideoPlayButtonWithContext
+              videoId="exhibit-psd-live"
+              videoSrc="/exhibit-psd-live.mp4"
+              alt="Exhibit PSD live performance"
+              className="w-full h-full"
+              thumbnailSrc="/images/exhibit-psd-live-cover.jpg"
+            />
+            {/* Video Title Overlay */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 sm:p-4 pointer-events-none">
+              <h3 className="text-white font-semibold text-sm lg:text-base">
+                Rocking the stage with my live band
+              </h3>
+              <p className="text-white/90 text-xs lg:text-sm">Gainesville, FL · Fall 2015</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Model Photo - Always horizontal, full width underneath */}
+        <div className="relative rounded-2xl overflow-hidden aspect-[16/9] sm:aspect-[21/9]">
+          <Image
+            src="/images/lu-psd-merch.JPG"
+            alt="Exhibit PSD merchandise"
+            fill
+            className="object-cover object-bottom"
+            priority
+          />
+          {/* Title Overlay - Top Left with darker gradient */}
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/90 via-black/80 to-transparent p-3 sm:p-4 pb-8 sm:pb-10 pointer-events-none">
+            <h3 className="text-white font-semibold text-sm lg:text-base drop-shadow-lg">
+              Hanging with the homie Ludger
+            </h3>
+            <p className="text-white text-xs lg:text-sm drop-shadow-lg">
+              Los Angeles, CA · Spring 2018
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Main Grid - All screens: vertical stack on mobile/tablet, 2 columns on desktop */}
-        <div className="space-y-3 sm:space-y-4">
-          {/* Row 1: Product Card (Shirt + Buy) and Video side by side on desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
-            {/* Combined Product Card - Buy Section + Shirt Photo */}
-            <div className="relative rounded-2xl overflow-hidden">
-              <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm transition-colors h-full flex flex-col">
-                {/* Buy Section - Original position at top */}
-                <div
-                  id="buy-section-original"
-                  className="border-b border-gray-200 dark:border-gray-700 p-4 sm:p-5 lg:p-6 flex flex-col gap-3 sm:gap-4"
-                >
-                  <BuySectionContent />
-                </div>
-
-                {/* Shirt Photo with Info Icon */}
-                <div
-                  className="relative h-64 sm:h-80 lg:h-[500px] overflow-hidden group cursor-pointer"
-                  onClick={() => setShowDescription(!showDescription)}
-                >
-                  <Image
-                    src="/images/exhibit-psd-merch.JPG"
-                    alt="Lu wearing Exhibit PSD"
-                    fill
-                    className="object-cover"
-                  />
-                  {/* Info Icon - Always visible */}
-                  <button
-                    className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white w-8 h-8 rounded-full flex items-center justify-center group-hover:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDescription(!showDescription);
-                    }}
-                    aria-label="Product information"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </button>
-                  {/* Description Overlay - hover on desktop, toggle on mobile */}
-                  <div
-                    className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 p-4 sm:p-6 flex items-center justify-center ${
-                      showDescription
-                        ? "opacity-100"
-                        : "opacity-0 sm:group-hover:opacity-100 pointer-events-none"
-                    }`}
-                  >
-                    <p className="text-white text-xs sm:text-sm lg:text-base leading-relaxed text-justify">
-                      {exhibitLabel}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Explanation Card - Mobile Only, between product and model photo */}
-            <div className="lg:hidden bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed text-justify">
-                {exhibitLabel}
-              </p>
-            </div>
-
-            {/* Video - Desktop: Right side, Mobile: Below product card */}
-            <div className="relative rounded-2xl overflow-hidden group aspect-[3/4] lg:aspect-auto lg:h-auto">
-              <VideoPlayButtonWithContext
-                videoId="exhibit-psd-live"
-                videoSrc="/exhibit-psd-live.mp4"
-                alt="Exhibit PSD live performance"
-                className="w-full h-full"
-                thumbnailSrc="/images/exhibit-psd-live-cover.jpg"
-              />
-              {/* Video Title Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 sm:p-4 pointer-events-none">
-                <h3 className="text-white font-semibold text-sm lg:text-base">
-                  Rocking the stage with my live band
-                </h3>
-                <p className="text-white/90 text-xs lg:text-sm">Gainesville, FL · Fall 2015</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 2: Model Photo - Always horizontal, full width underneath */}
-          <div className="relative rounded-2xl overflow-hidden aspect-[16/9] sm:aspect-[21/9]">
-            <Image
-              src="/images/lu-psd-merch.JPG"
-              alt="Exhibit PSD merchandise"
-              fill
-              className="object-cover object-bottom"
-              priority
-            />
-            {/* Title Overlay - Top Left with darker gradient */}
-            <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/90 via-black/80 to-transparent p-3 sm:p-4 pb-8 sm:pb-10 pointer-events-none">
-              <h3 className="text-white font-semibold text-sm lg:text-base drop-shadow-lg">
-                Hanging with the homie Ludger
-              </h3>
-              <p className="text-white text-xs lg:text-sm drop-shadow-lg">
-                Los Angeles, CA · Spring 2018
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Sticky Footer - Appears when original buy section scrolls out of view */}
-        <div
-          className={`fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-4xl transition-all duration-300 ease-in-out ${
-            isSticky ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-          }`}
-        >
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
-            <BuySectionContent />
-          </div>
+      {/* Sticky Footer - Appears when original buy section scrolls out of view */}
+      <div
+        className={`fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-4xl transition-all duration-300 ease-in-out ${
+          isSticky ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-2xl px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6">
+          <BuySectionContent />
         </div>
       </div>
-    </VideoProvider>
+    </div>
   );
 }
