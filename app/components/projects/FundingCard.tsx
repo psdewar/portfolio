@@ -207,9 +207,9 @@ export function FundingCard({
               &quot;What&apos;s next after Boise?&quot;
             </h3>
             <VideoPlayButtonWithContext
-              thumbnailSrc="/boise-stretch-cover-2.jpg"
-              videoSrc="/boise-stretch-45sec.mp4"
-              videoId="boise-stretch"
+              thumbnailSrc="/fund-next-single-cover.jpg"
+              videoSrc="/fund-next-single-45sec.mp4"
+              videoId="fund-next-single"
               alt="Next single preview"
               className="mb-3 aspect-video"
               // instagramUrl="https://www.instagram.com/peytspencer/reel/DPg61j5EWb8" TODO: add new link here
