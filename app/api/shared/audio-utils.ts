@@ -3,7 +3,13 @@ import { list } from "@vercel/blob";
 import Stripe from "stripe";
 
 // Shared constants
-export const ALLOWED_TRACK_IDS = ["patience", "safe", "right-one", "where-i-wanna-be"];
+export const ALLOWED_TRACK_IDS = [
+  "patience",
+  "safe",
+  "right-one",
+  "where-i-wanna-be",
+  "mula-freestyle",
+];
 export const ALLOWED_ORIGINS = ["https://peytspencer.com", "http://localhost:3000"];
 
 // Session expiry time (24 hours)
