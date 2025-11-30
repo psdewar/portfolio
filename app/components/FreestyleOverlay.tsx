@@ -130,7 +130,7 @@ export default function FreestyleOverlay({
             disabled={fixedCheckoutTrack === trackId}
             className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-lg transition-colors shadow-lg disabled:opacity-70 disabled:cursor-wait"
           >
-            {fixedCheckoutTrack === trackId ? "Redirecting..." : "DOWNLOAD FOR 99 CENTS"}
+            {fixedCheckoutTrack === trackId ? "Redirecting..." : "DOWNLOAD FOR $1.00"}
           </button>
 
           {href && (

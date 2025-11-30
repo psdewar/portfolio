@@ -96,7 +96,7 @@ const EXTRA_TRACKS: TrackCard[] = [
 const TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
 
 const FIXED_PRICE_DOWNLOADS: Record<string, number> = {
-  "mula-freestyle": 99,
+  "mula-freestyle": 100,
 };
 
 const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
