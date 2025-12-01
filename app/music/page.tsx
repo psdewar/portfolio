@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
+import BlockVisualizer from "app/components/BlockVisualizer";
 import FreestyleOverlay from "app/components/FreestyleOverlay";
 import { useAudio } from "../contexts/AudioContext";
 import { TRACK_DATA } from "../data/tracks";
@@ -292,10 +293,8 @@ export default function Page() {
               />
 
               {isPlayable && isCurrent && (
-                <div className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center">
-                  <div
-                    className={`w-3 h-3 bg-white rounded-full ${isPlaying ? "animate-pulse" : ""}`}
-                  />
+                <div className="absolute top-2 right-2 z-10">
+                  <BlockVisualizer />
                 </div>
               )}
 

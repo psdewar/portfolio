@@ -30,6 +30,7 @@ interface AudioState {
   currentIndex: number;
   isShuffled: boolean;
   repeatMode: "none" | "track" | "playlist";
+  analyser: AnalyserNode | null; // Added Analyser
 }
 
 interface AudioContextType extends AudioState {
@@ -62,6 +63,8 @@ const getGlobalAudio = () => {
   if (!globalAudio && typeof window !== "undefined") {
     globalAudio = new Audio();
     globalAudio.preload = "auto";
+    // Important for Web Audio API to work with fetched blobs/external sources
+    globalAudio.crossOrigin = "anonymous";
   }
   return globalAudio;
 };
@@ -79,7 +82,6 @@ const fetchAudioBlob = async (trackId: string): Promise<string> => {
   const blobUrl = URL.createObjectURL(blob);
   blobUrlCache.set(trackId, blobUrl);
 
-  // Cleanup after 24h
   setTimeout(() => {
     if (blobUrlCache.has(trackId)) {
       URL.revokeObjectURL(blobUrl);
@@ -103,10 +105,73 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     currentIndex: -1,
     isShuffled: false,
     repeatMode: "none",
+    analyser: null,
   });
 
-  // Prevent race conditions in React Strict Mode
   const loadingTrackId = useRef<string | null>(null);
+  // Ref to track if we've already connected the Web Audio API to this element
+  const isAudioSourceConnected = useRef(false);
+
+  // Initialize Web Audio API
+  useEffect(() => {
+    if (!audio || isAudioSourceConnected.current) return;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      const analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 64; // Low resolution for "blocky" look
+
+      // Create source and connect
+      const source = audioCtx.createMediaElementSource(audio);
+      source.connect(analyserNode);
+      analyserNode.connect(audioCtx.destination);
+
+      isAudioSourceConnected.current = true;
+      setState((prev) => ({ ...prev, analyser: analyserNode }));
+
+      // Resume context on user interaction (browsers block auto-audio-context)
+      const resumeAudio = () => {
+        if (audioCtx.state === "suspended") audioCtx.resume();
+      };
+      document.addEventListener("click", resumeAudio, { once: true });
+      document.addEventListener("touchstart", resumeAudio, { once: true });
+      document.addEventListener("keydown", resumeAudio, { once: true });
+    } catch (e) {
+      console.error("Web Audio API setup failed", e);
+    }
+  }, [audio]);
+
+  useEffect(() => {
+    if (!audio) return;
+
+    const updateState = () => {
+      setState((prev) => ({
+        ...prev,
+        currentTime: audio.currentTime,
+        duration: audio.duration || prev.duration,
+        isPlaying: !audio.paused,
+      }));
+    };
+
+    const handleEnded = () => setState((prev) => ({ ...prev, isPlaying: false }));
+
+    audio.addEventListener("timeupdate", updateState);
+    audio.addEventListener("play", updateState);
+    audio.addEventListener("pause", updateState);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("loadedmetadata", updateState);
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateState);
+      audio.removeEventListener("play", updateState);
+      audio.removeEventListener("pause", updateState);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("loadedmetadata", updateState);
+    };
+  }, [audio]);
 
   const play = useCallback(async () => {
     if (!audio || !audio.src) return;
@@ -141,7 +206,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     async (track: Track, autoPlay = false) => {
       if (!audio) return;
 
-      // Case 1: Track is already active.
       if (state.currentTrack?.id === track.id) {
         if (autoPlay && audio.paused) {
           await play();
@@ -149,14 +213,12 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
 
-      // Case 2: New track
       loadingTrackId.current = track.id;
       setState((prev) => ({ ...prev, isLoading: true, isPlaying: false }));
 
       try {
         const blobUrl = await fetchAudioBlob(track.id);
 
-        // Ensure we are still trying to load the same track (race condition check)
         if (loadingTrackId.current === track.id) {
           audio.src = blobUrl;
           audio.currentTime = 0;
@@ -208,7 +270,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     loadTrack(state.playlist[prevIndex], true);
   }, [state.playlist, state.currentIndex, loadTrack]);
 
-  // UI Helpers
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -222,36 +283,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       repeatMode:
         prev.repeatMode === "none" ? "track" : prev.repeatMode === "track" ? "playlist" : "none",
     }));
-
-  useEffect(() => {
-    if (!audio) return;
-
-    const updateState = () => {
-      setState((prev) => ({
-        ...prev,
-        currentTime: audio.currentTime,
-        duration: audio.duration || prev.duration,
-        isPlaying: !audio.paused,
-      }));
-    };
-
-    const handleEnded = () => setState((prev) => ({ ...prev, isPlaying: false }));
-
-    // We only listen to crucial events to minimize re-renders
-    audio.addEventListener("timeupdate", updateState);
-    audio.addEventListener("play", updateState);
-    audio.addEventListener("pause", updateState);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("loadedmetadata", updateState);
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateState);
-      audio.removeEventListener("play", updateState);
-      audio.removeEventListener("pause", updateState);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("loadedmetadata", updateState);
-    };
-  }, [audio]);
 
   return (
     <AudioContext.Provider
