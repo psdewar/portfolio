@@ -72,7 +72,7 @@ export default function Page() {
   const [showStayConnected, setShowStayConnected] = useState(() => shouldShowStayConnected());
   const [playParam, setPlayParam] = useState<string | null>(null);
   const downloadInitiatedRef = useRef(false);
-  const hasHandledAutoPlay = useRef(false); // CRITICAL FIX: prevents loop
+  const hasHandledAutoPlay = useRef(false);
 
   const [fixedCheckoutTrack, setFixedCheckoutTrack] = useState<string | null>(null);
   const [paymentModal, setPaymentModal] = useState<{
@@ -108,13 +108,13 @@ export default function Page() {
     setPlayParam(urlParams.get("play"));
   }, []);
 
-  // AUTO-PLAY LOGIC - Strictly runs once per playParam
+  // AUTO-PLAY LOGIC
   useEffect(() => {
     if (!playParam || hasHandledAutoPlay.current) return;
 
     if (PLAYABLE_TRACK_IDS.has(playParam)) {
-      void handlePlayTrack(playParam, true); // Force play
-      hasHandledAutoPlay.current = true; // Mark as handled immediately
+      void handlePlayTrack(playParam, true);
+      hasHandledAutoPlay.current = true;
     }
   }, [playParam]);
 
@@ -170,13 +170,10 @@ export default function Page() {
   const handlePlayTrack = async (trackId: string, forcePlay = false) => {
     if (!PLAYABLE_TRACK_IDS.has(trackId)) return;
 
-    // Check if already loaded
     if (currentTrack?.id === trackId) {
       if (forcePlay) {
-        // If we are forcing play (url param), ensure it plays
         if (!isPlaying) toggle();
       } else {
-        // Standard interaction: toggle
         toggle();
       }
       return;
@@ -195,7 +192,7 @@ export default function Page() {
         duration: trackData.duration,
       },
       true
-    ); // Always autoPlay when explicitly selected
+    );
   };
 
   const openPaymentModal = (trackId: string) => {
@@ -223,6 +220,7 @@ export default function Page() {
           trackId,
           trackTitle: TRACKS.find((t) => t.id === trackId)?.title,
           mode: "download",
+          currency: "usd",
         }),
       });
       const data = await res.json();
