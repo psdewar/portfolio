@@ -23,13 +23,12 @@ export default function FreestyleOverlay({
   onClose,
   handleDownloadClick,
 }: Props) {
-  const { loadTrack, currentTrack, isPlaying, toggle, play } = useAudio();
+  const { loadTrack, currentTrack, isPlaying, toggle } = useAudio();
 
   const isCurrent = currentTrack?.id === trackId;
   const playing = isCurrent && isPlaying;
 
-  const handlePlayToggle = async () => {
-    // If it's the current track, toggle play/pause
+  const handlePlayToggle = () => {
     if (isCurrent) {
       toggle();
       return;
@@ -38,22 +37,17 @@ export default function FreestyleOverlay({
     const trackData = TRACK_DATA.find((t) => t.id === trackId);
     if (!trackData) return;
 
-    const audioTrack = {
-      id: trackData.id,
-      title: trackData.title,
-      artist: trackData.artist,
-      src: trackData.audioUrl,
-      thumbnail: trackData.thumbnail,
-      duration: trackData.duration,
-    };
-
-    await loadTrack(audioTrack);
-    // Because this is triggered by a user gesture, calling play() should be permitted
-    try {
-      play();
-    } catch (err) {
-      // ignore - playback may still be blocked
-    }
+    loadTrack(
+      {
+        id: trackData.id,
+        title: trackData.title,
+        artist: trackData.artist,
+        src: trackData.audioUrl,
+        thumbnail: trackData.thumbnail,
+        duration: trackData.duration,
+      },
+      true
+    );
   };
 
   return (
@@ -76,43 +70,29 @@ export default function FreestyleOverlay({
 
         <div className="mx-auto w-56 h-56 relative">
           <Image src={coverSrc} alt="Freestyle cover" fill className="object-cover rounded-lg" />
-
-          {/* Clickable play/pause icon centered over cover (crossfade between icons) */}
           <button
             onClick={async (e) => {
-              e.stopPropagation();
-              await handlePlayToggle();
+              handlePlayToggle();
             }}
             aria-label={playing ? "Pause" : "Play"}
             className="absolute inset-0 flex items-center justify-center"
           >
-            <div className="relative w-24 h-24">
+            <div className="relative w-12 h-12">
               <div
                 className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
                   playing ? "opacity-0" : "opacity-100"
                 }`}
               >
-                <svg
-                  className="w-10 h-10 text-white"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden
-                >
+                <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
-
               <div
                 className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
                   playing ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <svg
-                  className="w-8 h-8 text-white"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden
-                >
+                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
                 </svg>
               </div>

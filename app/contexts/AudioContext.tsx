@@ -1,7 +1,15 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  FC,
+  ReactNode,
+} from "react";
 
-// Types for our audio system
 export interface Track {
   id: string;
   title: string;
@@ -25,23 +33,16 @@ interface AudioState {
 }
 
 interface AudioContextType extends AudioState {
-  // Playback controls
-  play: () => void;
+  play: () => Promise<void>;
   pause: () => void;
   toggle: () => void;
   seekTo: (time: number) => void;
-
-  // Track management
-  loadTrack: (track: Track) => void;
+  loadTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
   loadPlaylist: (tracks: Track[], startIndex?: number) => void;
   nextTrack: () => void;
   previousTrack: () => void;
-
-  // Playlist controls
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-
-  // Utility
   formatTime: (seconds: number) => string;
 }
 
@@ -49,59 +50,47 @@ const AudioContext = createContext<AudioContextType | null>(null);
 
 export const useAudio = () => {
   const context = useContext(AudioContext);
-  if (!context) {
-    throw new Error("useAudio must be used within an AudioProvider");
-  }
+  if (!context) throw new Error("useAudio must be used within an AudioProvider");
   return context;
 };
 
-// Global audio element and blob URL cache
+// Singleton audio instance
 let globalAudio: HTMLAudioElement | null = null;
 const blobUrlCache = new Map<string, string>();
 
 const getGlobalAudio = () => {
   if (!globalAudio && typeof window !== "undefined") {
     globalAudio = new Audio();
-    globalAudio.preload = "metadata"; // Only preload metadata, not the full file
+    globalAudio.preload = "auto";
   }
   return globalAudio;
 };
 
 const fetchAudioBlob = async (trackId: string): Promise<string> => {
-  if (blobUrlCache.has(trackId)) {
-    return blobUrlCache.get(trackId)!;
-  }
+  if (blobUrlCache.has(trackId)) return blobUrlCache.get(trackId)!;
 
-  try {
-    const response = await fetch(`/api/audio/${trackId}`, {
-      headers: {
-        "Cache-Control": "private, max-age=86400",
-      },
-    });
+  const response = await fetch(`/api/audio/${trackId}`, {
+    headers: { "Cache-Control": "private, max-age=86400" },
+  });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch audio: ${response.statusText}`);
+  if (!response.ok) throw new Error("Failed to fetch audio");
+
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  blobUrlCache.set(trackId, blobUrl);
+
+  // Cleanup after 24h
+  setTimeout(() => {
+    if (blobUrlCache.has(trackId)) {
+      URL.revokeObjectURL(blobUrl);
+      blobUrlCache.delete(trackId);
     }
+  }, 86400000);
 
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    blobUrlCache.set(trackId, blobUrl);
-
-    setTimeout(() => {
-      if (blobUrlCache.has(trackId)) {
-        URL.revokeObjectURL(blobUrl);
-        blobUrlCache.delete(trackId);
-      }
-    }, 24 * 60 * 60 * 1000); // 24 hours
-
-    return blobUrl;
-  } catch (error) {
-    console.error("Failed to fetch audio blob:", error);
-    throw error;
-  }
+  return blobUrl;
 };
 
-export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const audio = getGlobalAudio();
   const [state, setState] = useState<AudioState>({
     currentTrack: null,
@@ -116,158 +105,90 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     repeatMode: "none",
   });
 
-  // Track loading state to prevent double-fetch in React Strict Mode
-  const loadingTrackRef = useRef<string | null>(null);
+  // Prevent race conditions in React Strict Mode
+  const loadingTrackId = useRef<string | null>(null);
 
-  // Initialize volume from audio element on mount
-  useEffect(() => {
-    if (audio) {
-      setState((prev) => ({ ...prev, volume: audio.volume }));
-    }
-  }, [audio]);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  useEffect(() => {
-    if (!audio) return;
-
-    const handleLoadStart = () => setState((prev) => ({ ...prev, isLoading: true }));
-    const handleCanPlay = () => setState((prev) => ({ ...prev, isLoading: false }));
-    const handleLoadedMetadata = () => {
-      setState((prev) => ({ ...prev, duration: audio.duration || 0 }));
-    };
-
-    const handleTimeUpdate = () => {
-      setState((prev) => ({ ...prev, currentTime: audio.currentTime || 0 }));
-    };
-
-    const handleEnded = () => {
+  const play = useCallback(async () => {
+    if (!audio || !audio.src) return;
+    try {
+      await audio.play();
+    } catch (err) {
+      console.warn("Playback prevented:", err);
       setState((prev) => ({ ...prev, isPlaying: false }));
-    };
-
-    const handleError = () => {
-      setState((prev) => ({ ...prev, isLoading: false, isPlaying: false }));
-      if (process.env.NODE_ENV === "development") {
-        console.error("Audio playback error");
-      }
-    };
-
-    audio.addEventListener("loadstart", handleLoadStart);
-    audio.addEventListener("canplay", handleCanPlay);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("error", handleError);
-
-    return () => {
-      audio.removeEventListener("loadstart", handleLoadStart);
-      audio.removeEventListener("canplay", handleCanPlay);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("error", handleError);
-    };
-  }, [audio]);
-
-  // Playback controls
-  const play = useCallback(() => {
-    if (!audio || !state.currentTrack) return;
-
-    if (process.env.NODE_ENV === "development") {
-      console.log("Attempting to play:", state.currentTrack.title);
     }
-
-    audio
-      .play()
-      .then(() => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("Playback started successfully");
-        }
-        setState((prev) => ({ ...prev, isPlaying: true, isLoading: false }));
-      })
-      .catch((error) => {
-        console.error("Playback failed:", error);
-        setState((prev) => ({ ...prev, isLoading: false }));
-      });
-  }, [audio, state.currentTrack]);
+  }, [audio]);
 
   const pause = useCallback(() => {
     if (!audio) return;
     audio.pause();
-    setState((prev) => ({ ...prev, isPlaying: false }));
   }, [audio]);
 
   const toggle = useCallback(() => {
-    if (state.isPlaying) {
-      pause();
-    } else {
-      play();
-    }
-  }, [state.isPlaying, play, pause]);
+    if (!audio) return;
+    if (audio.paused) play();
+    else pause();
+  }, [audio, play, pause]);
 
   const seekTo = useCallback(
     (time: number) => {
       if (!audio) return;
       audio.currentTime = time;
-      setState((prev) => ({ ...prev, currentTime: time }));
     },
     [audio]
   );
 
-  // Track management with blob URL caching
   const loadTrack = useCallback(
-    async (track: Track) => {
+    async (track: Track, autoPlay = false) => {
       if (!audio) return;
 
-      // Prevent double-loading in React Strict Mode
-      if (loadingTrackRef.current === track.id) {
+      // Case 1: Track is already active.
+      if (state.currentTrack?.id === track.id) {
+        if (autoPlay && audio.paused) {
+          await play();
+        }
         return;
       }
-      loadingTrackRef.current = track.id;
 
-      audio.pause();
-
-      setState((prev) => ({
-        ...prev,
-        currentTrack: track,
-        isPlaying: false,
-        currentTime: 0,
-        duration: 0,
-        isLoading: true,
-      }));
+      // Case 2: New track
+      loadingTrackId.current = track.id;
+      setState((prev) => ({ ...prev, isLoading: true, isPlaying: false }));
 
       try {
         const blobUrl = await fetchAudioBlob(track.id);
-        // Only set source if this is still the current track
-        if (loadingTrackRef.current === track.id) {
+
+        // Ensure we are still trying to load the same track (race condition check)
+        if (loadingTrackId.current === track.id) {
           audio.src = blobUrl;
-          audio.load();
+          audio.currentTime = 0;
+
+          setState((prev) => ({
+            ...prev,
+            currentTrack: track,
+            duration: track.duration || 0,
+            isLoading: false,
+          }));
+
+          if (autoPlay) {
+            await play();
+          }
         }
       } catch (error) {
-        if (process.env.NODE_ENV === "development") {
-          console.error("Failed to load track:", track.title, error);
-        }
+        console.error("Load track failed", error);
         setState((prev) => ({ ...prev, isLoading: false }));
       } finally {
-        loadingTrackRef.current = null;
+        if (loadingTrackId.current === track.id) {
+          loadingTrackId.current = null;
+        }
       }
     },
-    [audio]
+    [audio, state.currentTrack?.id, play]
   );
 
   const loadPlaylist = useCallback(
     (tracks: Track[], startIndex = 0) => {
-      setState((prev) => ({
-        ...prev,
-        playlist: tracks,
-        currentIndex: startIndex,
-      }));
+      setState((prev) => ({ ...prev, playlist: tracks, currentIndex: startIndex }));
       if (tracks[startIndex]) {
-        loadTrack(tracks[startIndex]);
+        loadTrack(tracks[startIndex], false);
       }
     },
     [loadTrack]
@@ -277,42 +198,79 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (state.playlist.length === 0) return;
     const nextIndex = (state.currentIndex + 1) % state.playlist.length;
     setState((prev) => ({ ...prev, currentIndex: nextIndex }));
-    loadTrack(state.playlist[nextIndex]);
+    loadTrack(state.playlist[nextIndex], true);
   }, [state.playlist, state.currentIndex, loadTrack]);
 
   const previousTrack = useCallback(() => {
     if (state.playlist.length === 0) return;
     const prevIndex = state.currentIndex === 0 ? state.playlist.length - 1 : state.currentIndex - 1;
     setState((prev) => ({ ...prev, currentIndex: prevIndex }));
-    loadTrack(state.playlist[prevIndex]);
+    loadTrack(state.playlist[prevIndex], true);
   }, [state.playlist, state.currentIndex, loadTrack]);
 
-  const toggleShuffle = useCallback(() => {
-    setState((prev) => ({ ...prev, isShuffled: !prev.isShuffled }));
-  }, []);
+  // UI Helpers
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
-  const toggleRepeat = useCallback(() => {
+  const toggleShuffle = () => setState((prev) => ({ ...prev, isShuffled: !prev.isShuffled }));
+  const toggleRepeat = () =>
     setState((prev) => ({
       ...prev,
       repeatMode:
         prev.repeatMode === "none" ? "track" : prev.repeatMode === "track" ? "playlist" : "none",
     }));
-  }, []);
 
-  const contextValue: AudioContextType = {
-    ...state,
-    play,
-    pause,
-    toggle,
-    seekTo,
-    loadTrack,
-    loadPlaylist,
-    nextTrack,
-    previousTrack,
-    toggleShuffle,
-    toggleRepeat,
-    formatTime,
-  };
+  useEffect(() => {
+    if (!audio) return;
 
-  return <AudioContext.Provider value={contextValue}>{children}</AudioContext.Provider>;
+    const updateState = () => {
+      setState((prev) => ({
+        ...prev,
+        currentTime: audio.currentTime,
+        duration: audio.duration || prev.duration,
+        isPlaying: !audio.paused,
+      }));
+    };
+
+    const handleEnded = () => setState((prev) => ({ ...prev, isPlaying: false }));
+
+    // We only listen to crucial events to minimize re-renders
+    audio.addEventListener("timeupdate", updateState);
+    audio.addEventListener("play", updateState);
+    audio.addEventListener("pause", updateState);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("loadedmetadata", updateState);
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateState);
+      audio.removeEventListener("play", updateState);
+      audio.removeEventListener("pause", updateState);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("loadedmetadata", updateState);
+    };
+  }, [audio]);
+
+  return (
+    <AudioContext.Provider
+      value={{
+        ...state,
+        play,
+        pause,
+        toggle,
+        seekTo,
+        loadTrack,
+        loadPlaylist,
+        nextTrack,
+        previousTrack,
+        toggleShuffle,
+        toggleRepeat,
+        formatTime,
+      }}
+    >
+      {children}
+    </AudioContext.Provider>
+  );
 };
