@@ -1,9 +1,7 @@
 import Stripe from "stripe";
 import { getSecureEnv } from "../../lib/env-validation";
 
-// Increased cache TTL to 5 minutes for better performance
-// Funding stats don't need to be real-time
-const CACHE_TTL = 300_000; // 5 minutes
+const CACHE_TTL = 300_000;
 
 interface CacheEntry {
   raisedCents: number;
@@ -20,10 +18,8 @@ type Offsets = {
   backers?: number;
   tierCounts?: Partial<Record<TierKey, number>>;
 };
-// TODO: figure out how to get refund data from API before removing
-const manualOffsets: Record<string, Offsets> = {
-  "flight-to-boise": { raisedCents: -5000, backers: -1, tierCounts: { "5000": -1 } },
-};
+
+const manualOffsets: Record<string, Offsets> = {};
 
 export function setFundingOffsets(projectId: string, offsets: Offsets) {
   manualOffsets[projectId] = { ...(manualOffsets[projectId] ?? {}), ...offsets };
@@ -64,11 +60,6 @@ function applyOffsets(
   };
 }
 
-/**
- * Fetch campaign totals by projectId and then apply manual offsets.
- * NOTE: This version keeps your original logic (no refund math),
- * and relies on the manual offsets for corrections.
- */
 export async function getFundingStats(
   projectId: string
 ): Promise<{ raisedCents: number; backers: number; tierCounts: Record<TierKey, number> }> {
@@ -85,21 +76,45 @@ export async function getFundingStats(
 
   try {
     const stripe = getStripe();
+    const relevant: Stripe.Checkout.Session[] = [];
 
-    // Note: Stripe doesn't support metadata filtering in the list API,
-    // but we limit to 100 most recent and rely on cache to reduce calls
-    const sessions = await stripe.checkout.sessions.list({
+    for await (const session of stripe.checkout.sessions.list({
       limit: 100,
-      // Stripe API doesn't support metadata filtering in list endpoints
-      // Future optimization: consider using a database to track this
-    });
+      status: "complete",
+    })) {
+      if (session.metadata?.projectId === projectId) {
+        relevant.push(session);
+      }
+    }
 
-    const relevant = sessions.data.filter(
-      (s) => s.payment_status === "paid" && s.metadata && s.metadata.projectId === projectId
-    );
+    let raisedCents = 0;
+    let backerCount = 0;
 
-    const raisedCents = relevant.reduce((sum, s) => sum + (s.amount_total ?? 0), 0);
-    const backers = relevant.length;
+    for (const s of relevant) {
+      const amountPaid = s.amount_total ?? 0;
+
+      const piId =
+        typeof s.payment_intent === "string"
+          ? s.payment_intent
+          : (s.payment_intent as Stripe.PaymentIntent | null)?.id;
+
+      let amountRefunded = 0;
+      if (piId) {
+        const refunds = await stripe.refunds.list({ payment_intent: piId });
+        amountRefunded = refunds.data
+          .filter((r) => r.status === "succeeded")
+          .reduce((sum, r) => sum + r.amount, 0);
+      }
+
+      const netAmount = amountPaid - amountRefunded;
+      raisedCents += netAmount;
+
+      if (netAmount > 0) {
+        backerCount++;
+      }
+    }
+
+    const backers = backerCount;
 
     const tierCounts: Record<TierKey, number> = {
       "1000": 0,
@@ -121,7 +136,6 @@ export async function getFundingStats(
 
     return applyOffsets(projectId, { raisedCents, backers, tierCounts });
   } catch (e) {
-    console.error("Failed to fetch funding stats", e);
     const zero = { "1000": 0, "2500": 0, "5000": 0, "10000": 0, custom: 0 } as Record<
       TierKey,
       number
