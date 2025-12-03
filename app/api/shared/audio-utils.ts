@@ -10,7 +10,11 @@ export const ALLOWED_TRACK_IDS = [
   "where-i-wanna-be",
   "mula-freestyle",
 ];
-export const ALLOWED_ORIGINS = ["https://peytspencer.com", "http://localhost:3000"];
+export const ALLOWED_ORIGINS = [
+  "https://peytspencer.com",
+  "https://www.peytspencer.com",
+  "http://localhost:3000",
+];
 
 // Session expiry time (24 hours)
 export const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
