@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
       cancel_url: cancelUrl,
       metadata: sessionMetadata,
       expires_at: getSessionExpiry(),
+      allow_promotion_codes: true,
       // Collect shipping address for merchandise purchases
       ...(isProduct && {
         shipping_address_collection: {
