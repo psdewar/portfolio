@@ -17,6 +17,7 @@ interface TrackCard {
   href?: string;
   src: string;
   title: string;
+  hidden?: boolean;
 }
 
 const formatTrackTitle = (id: string) =>
@@ -62,7 +63,8 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-const TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
+const ALL_TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
+const TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 const FIXED_PRICE_DOWNLOADS: Record<string, number> = { "mula-freestyle": 100 };
 const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
 const DOWNLOADABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
@@ -196,7 +198,7 @@ export default function Page() {
   };
 
   const openPaymentModal = (trackId: string) => {
-    const track = TRACKS.find((t) => t.id === trackId);
+    const track = ALL_TRACKS.find((t) => t.id === trackId);
     if (track) {
       setPaymentModal({
         isOpen: true,
@@ -218,7 +220,7 @@ export default function Page() {
         body: JSON.stringify({
           amount,
           trackId,
-          trackTitle: TRACKS.find((t) => t.id === trackId)?.title,
+          trackTitle: ALL_TRACKS.find((t) => t.id === trackId)?.title,
           mode: "download",
           currency: "usd",
         }),
@@ -253,9 +255,10 @@ export default function Page() {
         <FreestyleOverlay
           trackId="mula-freestyle"
           coverSrc={
-            TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/mula-dinner-cover.jpg"
+            ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src ||
+            "/images/mula-dinner-cover.jpg"
           }
-          href={TRACKS.find((t) => t.id === "mula-freestyle")?.href}
+          href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
           fixedCheckoutTrack={fixedCheckoutTrack}
           onClose={() => {
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -271,14 +274,11 @@ export default function Page() {
           const isCurrent = currentTrack?.id === t.id;
           const isPlayable = PLAYABLE_TRACK_IDS.has(t.id);
           const isDownloadable = DOWNLOADABLE_TRACK_IDS.has(t.id);
-          const highlight = playMula && t.id === "mula-freestyle";
 
           return (
             <div
               key={t.id}
-              className={`relative overflow-hidden aspect-square group cursor-pointer ${
-                highlight ? "ring-4 ring-yellow-400" : ""
-              }`}
+              className="relative overflow-hidden aspect-square group cursor-pointer"
               onClick={() => isPlayable && handlePlayTrack(t.id)}
             >
               <Image
