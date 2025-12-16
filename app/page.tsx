@@ -1,15 +1,26 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useAudio } from "./contexts/AudioContext";
-import { ArrowIcon } from "./ArrowIcon";
+import { TRACK_DATA } from "./data/tracks";
+
+// Latest single - change this when you release new music
+const LATEST_SINGLE_ID = "patience";
 
 export default function Page() {
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [hasAnimated, setHasAnimated] = useState(true); // Start true to prevent flash
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { currentTrack } = useAudio();
+  const { currentTrack, isPlaying, loadTrack, toggle } = useAudio();
+
+  useEffect(() => {
+    const alreadyAnimated = sessionStorage.getItem("heroAnimated");
+    if (!alreadyAnimated) {
+      setHasAnimated(false);
+      sessionStorage.setItem("heroAnimated", "true");
+    }
+  }, []);
 
   const imgClass = (i: number, alwaysColor = false) => {
     const base = "object-cover transform transition duration-300 ease-out";
@@ -182,54 +193,81 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Centered title with labels underneath */}
+      {/* Full-screen hero overlay */}
       <div
         className={`absolute inset-0 z-20 pointer-events-none ${
           currentTrack ? "mb-16 sm:mb-20" : ""
         }`}
       >
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative inline-block z-20">
-            <div
-              className={`absolute inset-0 rounded-lg transition-colors duration-300 pointer-events-none ${
-                hovered ? "bg-black/50 backdrop-blur-sm" : "bg-black/20 backdrop-blur-sm"
-              }`}
-            />
-            <div className="relative px-4 py-4 flex flex-col lg:gap-2 justify-between pointer-events-auto">
-              <h1
-                className="text-white font-semibold text-4xl lg:text-7xl leading-tight"
-                title="Peyt rhymes with heat"
-                aria-label="Peyt rhymes with heat"
-              >
-                PEYT SPENCER
-              </h1>
-              <div className="flex flex-col lg:flex-row items-center w-full">
-                <Link
-                  title="Listen to my music"
-                  aria-label="Listen to my music"
-                  className="w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-white text-center"
-                  href="/music"
-                >
-                  <span>Here, I rap lyrics</span>
-                </Link>
-                <span className="mx-1 sm:mx-2 lg:mx-4 text-white font-semibold text-lg md:text-xl lg:text-2xl hidden lg:inline">
-                  ·
-                </span>
-                <Link
-                  title="Find beats, beat writer's block"
-                  aria-label="Find beats, beat writer's block"
-                  className="w-full lg:w-auto text-xl lg:text-2xl font-medium px-2 sm:px-3 py-1 rounded-md transition transform hover:scale-105 hover:bg-white/10 hover:text-white text-white text-center"
-                  href="https://lyrist.app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="inline-flex items-center gap-2 justify-center">
-                    Here&apos;s my app, Lyrist <ArrowIcon />
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
+        {/* Name across the screen */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 gap-0">
+          <h1
+            className={`font-bebas text-[12vw] sm:text-[9vw] lg:text-[7vw] leading-[0.85] tracking-tight text-center select-none ${
+              !hasAnimated ? "animate-hero-slide-up" : ""
+            }`}
+            title="Peyt rhymes with heat"
+            aria-label="Peyt rhymes with heat"
+          >
+            <span className="text-white">PEYT </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-pink-500">
+              SPENCER
+            </span>
+          </h1>
+
+          {/* Play button below - auto width, animated reveal */}
+          <button
+            onClick={() => {
+              const latestTrackData = TRACK_DATA.find((t) => t.id === LATEST_SINGLE_ID);
+              if (latestTrackData) {
+                if (currentTrack?.id === LATEST_SINGLE_ID) {
+                  toggle();
+                } else {
+                  loadTrack(
+                    {
+                      id: latestTrackData.id,
+                      title: latestTrackData.title,
+                      artist: latestTrackData.artist,
+                      src: latestTrackData.audioUrl,
+                      thumbnail: latestTrackData.thumbnail,
+                      duration: latestTrackData.duration,
+                    },
+                    true
+                  );
+                }
+              }
+            }}
+            className={`pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg md:text-xl lg:text-2xl font-medium transition-colors duration-200 backdrop-blur-sm relative overflow-hidden ${
+              currentTrack ? "" : "animate-button-reveal"
+            }`}
+          >
+            <span className="flex items-center justify-center gap-2">
+              {currentTrack?.id === LATEST_SINGLE_ID && isPlaying ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play my latest single
+                </>
+              )}
+            </span>
+            {/* Invisible spacer to maintain button width */}
+            <span
+              className="flex items-center gap-2 h-0 overflow-hidden pointer-events-none"
+              aria-hidden="true"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Play my latest single
+            </span>
+          </button>
         </div>
       </div>
     </div>

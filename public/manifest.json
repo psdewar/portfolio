@@ -15,8 +15,8 @@
     { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
   ],
   "shortcuts": [
-    { "name": "Support my music", "short_name": "Music", "url": "/music" },
-    { "name": "Hire me to build your app", "short_name": "Idea", "url": "/idea" }
+    { "name": "Listen to my music", "short_name": "Listen", "url": "/listen" },
+    { "name": "Hire me to build your app", "short_name": "Hire", "url": "/hire" }
   ],
   "categories": ["music", "portfolio", "personal"]
 }

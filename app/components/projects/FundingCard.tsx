@@ -126,7 +126,7 @@ export function FundingCard({
         </div>
       </div>
 
-      <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+      <h3 className="text-2xl font-medium text-gray-900 dark:text-white mb-3">
         {hitPrimary && stretch ? stretch.contributeTitle : contributeTitle}
       </h3>
 
@@ -145,10 +145,10 @@ export function FundingCard({
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-2xl lg:text-3xl font-semibold text-gray-900 dark:text-white tabular-nums">
+                <span className="text-2xl lg:text-3xl font-medium text-gray-900 dark:text-white tabular-nums">
                   ${(amount / 100).toFixed(0)}
                 </span>
-                <span className="inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
+                <span className="inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-medium shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
                   {count}
                 </span>
               </div>
@@ -164,7 +164,7 @@ export function FundingCard({
         <div className="flex gap-3 items-stretch">
           <div className="flex-1 flex gap-2">
             <div className="relative flex-1">
-              <span className="absolute left-2 top-1/2 text-2xl lg:text-3xl font-semibold transform -translate-y-1/2 text-gray-900 dark:text-white">
+              <span className="absolute left-2 top-1/2 text-2xl lg:text-3xl font-medium transform -translate-y-1/2 text-gray-900 dark:text-white">
                 $
               </span>
               <input
@@ -175,10 +175,10 @@ export function FundingCard({
                 min="10"
                 step="5"
                 disabled={isLoading}
-                className="text-2xl lg:text-3xl font-semibold w-full pl-5 lg:pl-6 pr-10 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
+                className="text-2xl lg:text-3xl font-medium w-full pl-5 lg:pl-6 pr-10 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
               />
               {tierCounts && (
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-semibold shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-medium shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums">
                   {tierCounts.custom || 0}
                 </span>
               )}
@@ -203,8 +203,8 @@ export function FundingCard({
       <div className="pt-6 mt-6">
         {hitPrimary && (
           <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
-              &quot;What&apos;s next after Boise?&quot;
+            <h3 className="text-2xl font-medium text-gray-900 dark:text-white mb-3">
+              "What's next after Boise?"
             </h3>
             <VideoPlayButtonWithContext
               thumbnailSrc="/fund-next-single-cover.jpg"
@@ -216,8 +216,8 @@ export function FundingCard({
             />
             <p className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
               Thank you for your generosity! Since we reached our initial goal within just one week,
-              let&apos;s stretch the goal to $1,500. I invite your support to bring my next single
-              to life.
+              let's stretch the goal to $1,500. I invite your support to bring my next single to
+              life.
             </p>
           </div>
         )}

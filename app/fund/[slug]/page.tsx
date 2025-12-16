@@ -2,9 +2,44 @@ import projectsData from "../../../data/projects.json";
 import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
 import { getFundingStats } from "../../lib/funding";
+import type { Metadata } from "next";
 
 // Use ISR with 60s revalidation instead of force-dynamic for better performance
 export const revalidate = 60;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const projects = projectsData as Record<string, any>;
+  const project = projects[params.slug];
+
+  if (!project) {
+    return { title: "Project Not Found" };
+  }
+
+  const title = project.title;
+  const description =
+    project.tagline || `Support ${project.title} - an independent project by Peyt Spencer`;
+  const ogImage = `https://peytspencer.com/api/og/fund/${params.slug}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function Page({
   params,

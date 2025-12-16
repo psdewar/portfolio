@@ -1,31 +1,38 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "./Navbar";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AudioProvider } from "./contexts/AudioContext";
 import { VideoProvider } from "./contexts/VideoContext";
 import { GlobalAudioPlayer } from "./components/GlobalAudioPlayer";
+import dynamic from "next/dynamic";
 import localFont from "next/font/local";
+import { Bebas_Neue } from "next/font/google";
+import { Suspense } from "react";
+
+// Dynamic imports to avoid SSR issues with usePathname during error handling
+const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
+const MissingResourceIndicator = dynamic(
+  () => import("./components/MissingResourceIndicator").then((mod) => mod.MissingResourceIndicator),
+  { ssr: false }
+);
 
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.ttf",
 });
 
+const bebasNeue = Bebas_Neue({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bebas",
+});
+
 const siteConfig = {
   name: "Peyt Spencer",
-  title: "Peyt Spencer - I write raps · I build apps",
-  description: "",
+  title: "Peyt Spencer | Rapper & Developer",
+  description: "Here, I rap lyrics and here's my app, Lyrist.",
   url: "https://peytspencer.com",
-  keywords: [
-    "Peyt Spencer",
-    "I write raps",
-    "Positive hip-hop/rap",
-    "I build apps",
-    "Lyrist",
-    "Software engineer",
-    "Tech founder",
-  ],
+  keywords: ["Peyt Spencer", "rapper", "hip-hop", "Lyrist app", "software developer", "music"],
   ogImage: "https://peytspencer.com/api/og",
   social: {
     ig: "https://instagram.com/peytspencer",
@@ -109,7 +116,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en" className={`${myFont.className} bg-white dark:bg-gray-900`}>
+    <html lang="en" className={`${myFont.className} ${bebasNeue.variable} bg-white dark:bg-gray-900`}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -120,18 +127,19 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased flex flex-col md:flex-row lg:mx-auto bg-white dark:bg-gray-900">
+      <body className="antialiased flex flex-col min-h-screen bg-white dark:bg-gray-900">
         <AudioProvider>
           <VideoProvider>
             <Navbar />
-            <main className="flex-auto min-w-0 flex flex-col pt-4 lg:pr-4 pb-24 lg:pb-32">
-              {children}
+            <main className="flex-auto min-w-0 flex flex-col pb-24 lg:pb-32">
+              <Suspense>{children}</Suspense>
               <Analytics />
               <SpeedInsights />
             </main>
             <div className="h-24 lg:h-32">
               <GlobalAudioPlayer />
             </div>
+            <MissingResourceIndicator />
           </VideoProvider>
         </AudioProvider>
       </body>

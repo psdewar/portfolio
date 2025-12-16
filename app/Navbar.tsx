@@ -9,321 +9,335 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname() ?? "/";
   const isHomePage = pathname === "/";
-  const isMusicPage = pathname === "/music";
-  const isIdeaPage = pathname === "/idea";
-  const isIndieSection = pathname === "/indie" || pathname.startsWith("/indie/");
-  const isMerchPage = pathname === "/shop";
+  const isMusicPage = pathname === "/listen";
+  const isHirePage = pathname === "/hire";
+  const isFundPage = pathname === "/fund" || pathname.startsWith("/fund/");
 
-  return (
-    <>
-      <header
-        className={`top-0 left-0 right-0 z-40 pointer-events-none ${
-          isMusicPage || isIdeaPage || isIndieSection || isMerchPage ? "relative" : "absolute"
-        }`}
-      >
-        <div className="flex items-center justify-start p-4 pointer-events-none">
-          <div className="md:hidden">
-            <button
-              onClick={() => setMenuOpen((s) => !s)}
-              aria-expanded={menuOpen}
-              aria-label="Toggle menu"
-              className={`p-2 rounded-md pointer-events-auto ${
-                isHomePage
-                  ? "bg-white/5 hover:bg-white/10 text-white"
-                  : "bg-black/10 dark:bg-white/5 hover:bg-black/15 dark:hover:bg-white/10 text-black dark:text-white"
-              }`}
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+  const useHorizontalNav = !isHomePage;
+
+  const navItems = [
+    { href: "/fund", label: "Fund" },
+    { href: "/shop", label: "Shop" },
+    { href: "/listen", label: "Listen" },
+    { href: "https://lyrist.app", label: "Lyrist", external: true },
+    { href: "/hire", label: "Hire" },
+  ];
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  if (useHorizontalNav) {
+    return (
+      <header className="sticky top-0 w-full z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-800/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative flex items-center justify-between h-16">
+            {/* Left: Logo + CTA */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="font-bebas text-2xl sm:text-3xl text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors tracking-tight"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
-                />
-              </svg>
-            </button>
-          </div>
-
-          <nav className="hidden md:block pointer-events-auto">
-            <div className="grid gap-y-2 text-left">
-              <div className="flex flex-col space-y-2">
+                Peyt Spencer
+              </Link>
+              {(isMusicPage || isFundPage) && (
                 <Link
-                  title="PEYT SPENCER"
-                  aria-label="PEYT SPENCER"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/" ? "bg-white/10" : ""}`}
-                  href="/"
-                  aria-current={pathname === "/" ? "page" : undefined}
-                >
-                  Peyt rhymes with heat
-                </Link>
-                <Link
-                  title="Here, I rap lyrics"
-                  aria-label="Here, I rap lyrics"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/music" ? "bg-white/10" : ""}`}
-                  href="/music"
-                  aria-current={pathname === "/music" ? "page" : undefined}
-                >
-                  Listen to my music
-                </Link>
-                <Link
-                  title="Fund my indie journey"
-                  aria-label="Fund my indie journey"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/indie" ? "bg-white/10" : ""}`}
-                  href="/indie"
-                  aria-current={pathname === "/indie" ? "page" : undefined}
-                >
-                  Fund my indie journey
-                </Link>
-                <Link
-                  title="Get my debut t-shirt"
-                  aria-label="Get my debut t-shirt"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/shop" ? "bg-black/10 dark:bg-white/10" : ""}`}
-                  href="/shop"
-                  aria-current={pathname === "/shop" ? "page" : undefined}
-                >
-                  Shop my first t-shirt drop
-                </Link>
-                <Link
-                  title="Here's my app, Lyrist"
-                  aria-label="Here's my app, Lyrist"
-                  className={`group text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md inline-flex items-center space-x-2 transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  }`}
-                  href="https://lyrist.app"
+                  href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 bg-soundbetter text-white text-sm font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    Find beats, beat writer&apos;s block
-                    <ArrowIcon />
-                  </span>
+                  Feature me
+                  <ArrowIcon />
                 </Link>
+              )}
+              {isHirePage && (
                 <Link
-                  title="Tell me more about your idea"
-                  aria-label="Tell me more about your idea"
-                  className={`text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 ${
-                    isHomePage
-                      ? "text-white hover:bg-white/10 hover:text-white"
-                      : "text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                  } ${pathname === "/idea" ? "bg-white/10" : ""}`}
-                  href="/idea"
-                  aria-current={pathname === "/idea" ? "page" : undefined}
+                  href="/resume.pdf"
+                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 bg-lyrist text-white text-sm font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  Have an app idea? Let&apos;s talk.
+                  Resume <ArrowIcon />
                 </Link>
-                <Social />
-                {isMusicPage ? (
-                  <div className="flex flex-col items-center pt-4 gap-4 w-full">
-                    <Link
-                      title="SoundBetter"
-                      aria-label="SoundBetter"
-                      href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        Feature me on your next song <ArrowIcon />
-                      </span>
-                    </Link>
-                    {/* <Link
-                      title="Venmo"
-                      aria-label="Venmo"
-                      href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo/80 text-lg pointer-events-auto"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        Contribute $20 to fuel my independence
-                        <ArrowIcon />
-                      </span>
-                    </Link> */}
-                  </div>
-                ) : null}
-                {isIdeaPage ? (
-                  <div className="flex flex-col items-center pt-4 w-full">
-                    <Link
-                      title="Founder at Lyrist, Software Engineer at Microsoft"
-                      aria-label="Founder at Lyrist, Software Engineer at Microsoft"
-                      href={"resume.pdf"}
-                      className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist/80 text-lg pointer-events-auto"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        Resume.pdf <ArrowIcon />
-                      </span>
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
+              )}
             </div>
-          </nav>
+
+            {/* Center: Nav items - absolutely positioned to stay centered */}
+            <nav className="hidden md:flex items-center absolute left-1/2 -translate-x-1/2">
+              <div className="flex items-center gap-1">
+                {navItems.map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      target={item.external ? "_blank" : undefined}
+                      rel={item.external ? "noopener noreferrer" : undefined}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                        active
+                          ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
+                          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {item.label}
+                        {item.external && <ArrowIcon />}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+
+            {/* Right: Social icons + Mobile menu */}
+            <div className="flex items-center gap-3">
+              <div className="hidden md:block">
+                <Social isHorizontal />
+              </div>
+
+              {/* Mobile CTA buttons */}
+              {(isMusicPage || isFundPage) && (
+                <Link
+                  href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                  className="md:hidden inline-flex items-center gap-1 px-2.5 py-1.5 bg-soundbetter text-white text-xs font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Feature me
+                  <ArrowIcon />
+                </Link>
+              )}
+              {isHirePage && (
+                <Link
+                  href="/resume.pdf"
+                  className="md:hidden inline-flex items-center gap-1 px-2.5 py-1.5 bg-lyrist text-white text-xs font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Resume
+                  <ArrowIcon />
+                </Link>
+              )}
+              <button
+                onClick={() => setMenuOpen((s) => !s)}
+                aria-expanded={menuOpen}
+                aria-label="Toggle menu"
+                className="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className="w-6 h-6 flex flex-col justify-center items-center gap-1.5">
+                  <span
+                    className={`block h-0.5 w-5 bg-current transform transition-all duration-300 ease-in-out origin-center ${
+                      menuOpen ? "rotate-45 translate-y-2" : ""
+                    }`}
+                  />
+                  <span
+                    className={`block h-0.5 w-5 bg-current transition-all duration-300 ease-in-out ${
+                      menuOpen ? "opacity-0" : "opacity-100"
+                    }`}
+                  />
+                  <span
+                    className={`block h-0.5 w-5 bg-current transform transition-all duration-300 ease-in-out origin-center ${
+                      menuOpen ? "-rotate-45 -translate-y-2" : ""
+                    }`}
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* mobile panel */}
         <div
-          className={`md:hidden transition-all duration-200 ${
-            menuOpen ? "fixed top-16 left-0 right-0 px-4 pb-4 z-50 pointer-events-auto" : "hidden"
+          className={`md:hidden overflow-hidden transition-[max-height] duration-200 ${
+            menuOpen ? "max-h-screen" : "max-h-0"
           }`}
         >
-          <div className="bg-white/90 dark:bg-neutral-900/70 backdrop-blur-sm rounded-lg p-4">
+          <div className="px-4 py-3 pb-6 space-y-1 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50">
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
+                  onClick={() => setMenuOpen(false)}
+                  className={`block px-3 py-3 text-base font-medium rounded-lg transition-colors ${
+                    active
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {item.label}
+                    {item.external && <ArrowIcon />}
+                  </span>
+                </Link>
+              );
+            })}
+            <div className="pt-2">
+              <Social isMobilePanel />
+            </div>
+
+            {/* Page-specific CTA for mobile */}
+            {(isMusicPage || isFundPage) && (
+              <div className="pt-3">
+                <Link
+                  href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-soundbetter text-white rounded-lg font-medium hover:bg-soundbetter/90 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Feature me on your next song <ArrowIcon />
+                </Link>
+              </div>
+            )}
+            {isHirePage && (
+              <div className="pt-3">
+                <Link
+                  href="/resume.pdf"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lyrist text-white rounded-lg font-medium hover:bg-lyrist/90 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Resume.pdf <ArrowIcon />
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="absolute top-0 left-0 right-0 z-40 pointer-events-none">
+      <div className="flex items-center justify-start p-4 pointer-events-none">
+        <div className="md:hidden">
+          <button
+            onClick={() => setMenuOpen((s) => !s)}
+            aria-expanded={menuOpen}
+            aria-label="Toggle menu"
+            className="p-2 rounded-md pointer-events-auto bg-white/5 hover:bg-white/10 text-white"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+              />
+            </svg>
+          </button>
+        </div>
+
+        <nav className="hidden md:block pointer-events-auto">
+          <div className="flex flex-col space-y-2">
             <Link
-              title="PEYT SPENCER"
-              aria-label="PEYT SPENCER"
-              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/" ? "bg-black/10 dark:bg-white/10 text-black dark:text-white" : ""
-              }`}
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10 bg-white/10"
               href="/"
-              onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/" ? "page" : undefined}
+              aria-current="page"
             >
               Peyt rhymes with heat
             </Link>
             <Link
-              title="Here, I rap lyrics"
-              aria-label="Here, I rap lyrics"
-              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/music"
-                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
-                  : ""
-              }`}
-              href="/music"
-              onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/music" ? "page" : undefined}
-            >
-              Listen to my music
-            </Link>
-            <Link
-              title="Fund my indie journey"
-              aria-label="Fund my indie journey"
-              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/indie"
-                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
-                  : ""
-              }`}
-              href="/indie"
-              onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/indie" ? "page" : undefined}
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10"
+              href="/fund"
             >
               Fund my indie journey
             </Link>
             <Link
-              title="Get my debut t-shirt"
-              aria-label="Get my debut t-shirt"
-              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/shop"
-                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
-                  : ""
-              }`}
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10"
               href="/shop"
-              onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/shop" ? "page" : undefined}
             >
-              Shop my first t-shirt drop
+              Shop for merch and music
             </Link>
             <Link
-              title="Here's my app, Lyrist"
-              aria-label="Here's my app, Lyrist"
-              className="group block text-xl font-medium gap-1 px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105"
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10"
+              href="/listen"
+            >
+              Here, I rap lyrics
+            </Link>
+            <Link
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10"
               href="https://lyrist.app"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => setMenuOpen(false)}
             >
               <span className="inline-flex items-center gap-2">
-                Find beats, beat writer&apos;s block
+                Here's my app, Lyrist
                 <ArrowIcon />
               </span>
             </Link>
             <Link
-              title="Tell me more about your idea"
-              aria-label="Tell me more about your idea"
-              className={`block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 hover:text-black dark:hover:text-white transition transform hover:scale-105 ${
-                pathname === "/idea"
-                  ? "bg-black/10 dark:bg-white/10 text-black dark:text-white"
-                  : ""
-              }`}
-              href="/idea"
-              onClick={() => setMenuOpen(false)}
-              aria-current={pathname === "/idea" ? "page" : undefined}
+              className="text-lg md:text-xl lg:text-2xl font-medium px-3 py-1 rounded-md transition transform hover:scale-105 text-white hover:bg-white/10"
+              href="/hire"
             >
-              Have an app idea? Let&apos;s talk.
+              Hire me to build your app
             </Link>
-            <Social isMobilePanel />
+            <Social />
           </div>
+        </nav>
+      </div>
+
+      <div
+        className={`md:hidden transition-all duration-200 ${
+          menuOpen ? "fixed top-16 left-0 right-0 px-4 pb-4 z-50 pointer-events-auto" : "hidden"
+        }`}
+      >
+        <div className="bg-white/90 dark:bg-neutral-900/70 backdrop-blur-sm rounded-lg p-4">
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition bg-black/10 dark:bg-white/10"
+            href="/"
+            onClick={() => setMenuOpen(false)}
+            aria-current="page"
+          >
+            Peyt rhymes with heat
+          </Link>
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition"
+            href="/fund"
+            onClick={() => setMenuOpen(false)}
+          >
+            Fund my indie journey
+          </Link>
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition"
+            href="/shop"
+            onClick={() => setMenuOpen(false)}
+          >
+            Shop for merch and music
+          </Link>
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition"
+            href="/listen"
+            onClick={() => setMenuOpen(false)}
+          >
+            Here, I rap lyrics
+          </Link>
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition"
+            href="https://lyrist.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMenuOpen(false)}
+          >
+            <span className="inline-flex items-center gap-2">
+              Here's my app, Lyrist
+              <ArrowIcon />
+            </span>
+          </Link>
+          <Link
+            className="block text-xl font-medium px-3 py-2 rounded-md text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition"
+            href="/hire"
+            onClick={() => setMenuOpen(false)}
+          >
+            Hire me to build your app
+          </Link>
+          <Social isMobilePanel />
         </div>
-        {isMusicPage ? (
-          <div className="md:hidden px-4 flex flex-col items-center gap-4">
-            <Link
-              title="SoundBetter"
-              aria-label="SoundBetter"
-              href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <span className="inline-flex items-center gap-2">
-                Feature me on your next song <ArrowIcon />
-              </span>
-            </Link>
-            {/* <Link
-              title="Venmo"
-              aria-label="Venmo"
-              href="https://venmo.com/psdewar?txn=pay&note=Independent%20Artist%20Fund&private=true&amount=20"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-venmo text-white rounded-md font-medium hover:bg-venmo/80 text-lg pointer-events-auto"
-            >
-              <span className="inline-flex items-center gap-2">
-                Contribute $20 to fuel my independence
-                <ArrowIcon />
-              </span>
-            </Link> */}
-          </div>
-        ) : null}
-        {isIdeaPage ? (
-          <div className="md:hidden px-4 flex flex-col items-center gap-4">
-            <Link
-              title="Founder at Lyrist, Software Engineer at Microsoft"
-              aria-label="Founder at Lyrist, Software Engineer at Microsoft"
-              href={"resume.pdf"}
-              className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-lyrist text-white rounded-md font-medium hover:bg-lyrist/80 text-lg pointer-events-auto"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <span className="inline-flex items-center gap-2">
-                Resume.pdf <ArrowIcon />
-              </span>
-            </Link>
-          </div>
-        ) : null}
-      </header>
-    </>
+      </div>
+    </header>
   );
 }

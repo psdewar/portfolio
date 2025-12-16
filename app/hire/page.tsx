@@ -65,12 +65,14 @@ export default function Page() {
   };
 
   return (
-    <div className="flex justify-center mb-32">
+    <div className="flex justify-center mb-32 pt-8">
       <div className="max-w-2xl px-4">
         <div className="prose-neutral dark:prose-invert">
-          <h1 className="font-medium text-2xl mb-4">
+          <h1 className="font-semibold text-2xl mb-4">
             Tell me more about your idea
-            <p className="text-base text-neutral-400">I will respond to you within 48 hours</p>
+            <p className="text-base font-medium text-neutral-400">
+              I will respond to you within 48 hours
+            </p>
           </h1>
           <form action={handleSubmit}>
             <div>

@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
@@ -11,6 +11,7 @@ import { useAudio } from "../contexts/AudioContext";
 import { TRACK_DATA } from "../data/tracks";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import { stripePromise } from "../lib/stripe";
+import { DEFAULT_SINGLE_PRICE_CENTS, SINGLE_PRICE_OVERRIDES } from "../api/shared/products";
 
 interface TrackCard {
   id: string;
@@ -65,9 +66,14 @@ const EXTRA_TRACKS: TrackCard[] = [
 
 const ALL_TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
 const TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
-const FIXED_PRICE_DOWNLOADS: Record<string, number> = { "mula-freestyle": 100 };
+
+// Build fixed-price downloads from product config - only tracks with price overrides
+const FIXED_PRICE_DOWNLOADS: Record<string, number> = { ...SINGLE_PRICE_OVERRIDES };
+
 const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
-const DOWNLOADABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
+
+// All singles + mula-freestyle are downloadable
+const DOWNLOADABLE_TRACK_IDS = new Set([...singles, "mula-freestyle"]);
 
 export default function Page() {
   const { loadTrack, loadPlaylist, currentTrack, isPlaying, toggle, playlist } = useAudio();
@@ -110,6 +116,37 @@ export default function Page() {
     setPlayParam(urlParams.get("play"));
   }, []);
 
+  const handlePlayTrack = useCallback(
+    async (trackId: string, forcePlay = false) => {
+      if (!PLAYABLE_TRACK_IDS.has(trackId)) return;
+
+      if (currentTrack?.id === trackId) {
+        if (forcePlay) {
+          if (!isPlaying) toggle();
+        } else {
+          toggle();
+        }
+        return;
+      }
+
+      const trackData = TRACK_DATA.find((t) => t.id === trackId);
+      if (!trackData) return;
+
+      await loadTrack(
+        {
+          id: trackData.id,
+          title: trackData.title,
+          artist: trackData.artist,
+          src: trackData.audioUrl,
+          thumbnail: trackData.thumbnail,
+          duration: trackData.duration,
+        },
+        true
+      );
+    },
+    [currentTrack?.id, isPlaying, toggle, loadTrack]
+  );
+
   // AUTO-PLAY LOGIC
   useEffect(() => {
     if (!playParam || hasHandledAutoPlay.current) return;
@@ -118,7 +155,7 @@ export default function Page() {
       void handlePlayTrack(playParam, true);
       hasHandledAutoPlay.current = true;
     }
-  }, [playParam]);
+  }, [playParam, handlePlayTrack]);
 
   // Handle successful payment
   useEffect(() => {
@@ -169,34 +206,6 @@ export default function Page() {
     }
   }, []);
 
-  const handlePlayTrack = async (trackId: string, forcePlay = false) => {
-    if (!PLAYABLE_TRACK_IDS.has(trackId)) return;
-
-    if (currentTrack?.id === trackId) {
-      if (forcePlay) {
-        if (!isPlaying) toggle();
-      } else {
-        toggle();
-      }
-      return;
-    }
-
-    const trackData = TRACK_DATA.find((t) => t.id === trackId);
-    if (!trackData) return;
-
-    await loadTrack(
-      {
-        id: trackData.id,
-        title: trackData.title,
-        artist: trackData.artist,
-        src: trackData.audioUrl,
-        thumbnail: trackData.thumbnail,
-        duration: trackData.duration,
-      },
-      true
-    );
-  };
-
   const openPaymentModal = (trackId: string) => {
     const track = ALL_TRACKS.find((t) => t.id === trackId);
     if (track) {
@@ -218,11 +227,11 @@ export default function Page() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          productId: trackId, // trackId === productId for individual singles
           amount,
-          trackId,
-          trackTitle: ALL_TRACKS.find((t) => t.id === trackId)?.title,
-          mode: "download",
-          currency: "usd",
+          metadata: {
+            trackTitle: ALL_TRACKS.find((t) => t.id === trackId)?.title,
+          },
         }),
       });
       const data = await res.json();
@@ -269,7 +278,7 @@ export default function Page() {
         />
       )}
 
-      <div className="w-full grid grid-cols-2 lg:grid-cols-3">
+      <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {TRACKS.map((t) => {
           const isCurrent = currentTrack?.id === t.id;
           const isPlayable = PLAYABLE_TRACK_IDS.has(t.id);
@@ -287,7 +296,7 @@ export default function Page() {
                 fill
                 className="object-cover absolute inset-0"
                 loading="lazy"
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(max-width: 768px) 50vw, 25vw"
               />
 
               {isPlayable && isCurrent && (

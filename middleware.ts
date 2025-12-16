@@ -31,15 +31,15 @@ export function middleware(request: NextRequest) {
   // Protect sensitive API endpoints
   if (
     request.nextUrl.pathname.startsWith("/api/create-checkout-session") ||
-    request.nextUrl.pathname.startsWith("/api/download/")
+    request.nextUrl.pathname.startsWith("/api/fund-project")
   ) {
-    // Verify user agent
+    // Verify user agent for checkout endpoints only (not downloads)
     const userAgent = request.headers.get("user-agent");
     if (!userAgent || userAgent.length < 10) {
       return new NextResponse("Invalid request", { status: 403 });
     }
 
-    const suspiciousPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i, /wget/i, /curl/i];
+    const suspiciousPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i];
 
     if (suspiciousPatterns.some((pattern) => pattern.test(userAgent))) {
       if (process.env.NODE_ENV === "development") {

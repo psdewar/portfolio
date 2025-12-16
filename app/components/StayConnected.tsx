@@ -141,11 +141,11 @@ export default function StayConnected({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2">
           Thanks for your support!
         </h3>
         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
-          I&apos;ll be in touch soon
+          I'll be in touch soon
         </p>
       </div>
     );
@@ -190,7 +190,7 @@ export default function StayConnected({
           className="sm:w-16 sm:h-16 mx-auto rounded-full border-2 border-blue-500"
         />
         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base font-medium">
-          Drop your info and I&apos;ll keep you updated on releases, projects, and upcoming shows.
+          Drop your info and I'll keep you updated on releases, projects, and upcoming shows.
         </p>
       </div>
 

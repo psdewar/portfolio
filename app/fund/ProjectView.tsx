@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FundingCard } from "app/components/projects/FundingCard";
 import { SuccessModal } from "app/components/SuccessModal";
 import Link from "next/link";
@@ -34,9 +34,62 @@ export function ProjectView({
   sessionId?: string | null;
 }) {
   const [showSuccess, setShowSuccess] = useState(!!success);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Mark as hydrated after first render to prevent flash
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  // Show skeleton during hydration to prevent blank flash
+  if (!isHydrated) {
+    return (
+      <div className="lg:flex lg:justify-center mb-32 pt-8">
+        <div className="max-w-2xl px-4 w-full">
+          {/* Skeleton for FundingCard - matches actual card structure */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 min-h-[600px] animate-pulse">
+            {/* Progress bar skeleton */}
+            <div className="mb-6">
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
+            </div>
+
+            {/* Stats row: amount raised + backers */}
+            <div className="mb-6 grid grid-cols-3 items-start">
+              <div className="col-span-2">
+                <div className="text-3xl lg:text-4xl font-semibold mb-1 invisible">$8,888</div>
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-28" />
+              </div>
+              <div className="text-right col-span-1">
+                <div className="text-3xl lg:text-4xl font-semibold mb-1 invisible">88</div>
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-auto" />
+              </div>
+            </div>
+
+            {/* Contribute title skeleton */}
+            <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-3" />
+
+            {/* Payment options grid (2x2) */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            </div>
+
+            {/* Custom amount input + contribute button */}
+            <div className="flex gap-3 items-stretch mb-2">
+              <div className="flex-1 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              <div className="w-28 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="lg:flex lg:justify-center mb-32">
-      <div className="max-w-2xl px-4">
+    <div className="lg:flex lg:justify-center mb-32 pt-8">
+      <div className="max-w-2xl px-4 w-full">
         {showSuccess && (
           <SuccessModal
             show={showSuccess}
@@ -64,20 +117,6 @@ export function ProjectView({
             details={project.details}
             stretch={project.stretch || null}
           />
-        </div>
-        <div className="md:hidden flex flex-col items-center gap-4">
-          <Link
-            title="SoundBetter"
-            aria-label="SoundBetter"
-            href={"https://soundbetter.com/profiles/630479-peyt-spencer"}
-            className="w-full sm:flex-1 inline-flex items-center gap-1 px-4 py-2 bg-soundbetter text-white rounded-md font-medium hover:bg-soundbetter/80 text-lg pointer-events-auto"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <span className="inline-flex items-center gap-2">
-              Feature me on your next song <ArrowIcon />
-            </span>
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">

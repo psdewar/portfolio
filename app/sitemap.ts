@@ -1,8 +1,26 @@
 import type { MetadataRoute } from "next";
-
-const pages = [{ path: "/" }, { path: "/music" }, { path: "/idea" }, { path: "/indie" }];
+import projectsData from "../data/projects.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://peytspencer.com";
-  return pages.map((p) => ({ url: `${base}${p.path}` }));
+
+  const staticPages = [
+    { path: "/", priority: 1.0 },
+    { path: "/listen", priority: 0.9 },
+    { path: "/shop", priority: 0.8 },
+    { path: "/fund", priority: 0.8 },
+    { path: "/hire", priority: 0.6 },
+  ];
+
+  const projectSlugs = Object.values(projectsData).map((p: any) => ({
+    path: `/fund/${p.slug}`,
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...projectSlugs].map((p) => ({
+    url: `${base}${p.path}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: p.priority,
+  }));
 }

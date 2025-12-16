@@ -18,7 +18,7 @@ export default function SuccessPage() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Thank You!</h1>
+          <h1 className="text-3xl font-medium text-gray-900 mb-2">Thank You!</h1>
           <p className="text-lg text-gray-600">
             Your contribution has been successfully processed.
           </p>
@@ -26,15 +26,15 @@ export default function SuccessPage() {
 
         <div className="bg-gray-50 rounded-lg p-6 mb-6">
           <p className="text-gray-700">
-            Your support helps make live performances possible. You&apos;ll receive an email
-            confirmation shortly with the details of your contribution.
+            Your support helps make live performances possible. You'll receive an email confirmation
+            shortly with the details of your contribution.
           </p>
         </div>
 
         <div className="space-y-3">
           <a
             href="/projects"
-            className="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
+            className="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-md transition-colors"
           >
             Back to Project
           </a>

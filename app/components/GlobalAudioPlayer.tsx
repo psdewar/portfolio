@@ -38,8 +38,8 @@ const NextIcon = () => (
 
 export const GlobalAudioPlayer: React.FC = () => {
   const pathname = usePathname() ?? "/";
-  const isIdeaPage = pathname === "/idea";
-  const isIndiePage = pathname.startsWith("/indie");
+  const isHirePage = pathname === "/hire";
+  const isFundPage = pathname.startsWith("/fund");
 
   const {
     currentTrack,
@@ -57,8 +57,8 @@ export const GlobalAudioPlayer: React.FC = () => {
     playlist,
   } = useAudio();
 
-  // Don't render if no track is loaded or if on idea page
-  if (!currentTrack || isIdeaPage || isIndiePage) return null;
+  // Don't render if no track is loaded or if on hire/fund pages
+  if (!currentTrack || isHirePage || isFundPage) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 

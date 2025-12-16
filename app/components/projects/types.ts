@@ -45,15 +45,3 @@ export interface Project {
   venmoUrl: string;
   stripeCheckoutUrl: string;
 }
-
-export interface RewardTierData {
-  title: string;
-  price: number;
-  description: string;
-  backers: number;
-  estimatedDelivery: string;
-  itemsIncluded: string[];
-  isLimited?: boolean;
-  limitedQuantity?: number;
-  limitedRemaining?: number;
-}

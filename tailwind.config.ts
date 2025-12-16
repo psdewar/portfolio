@@ -10,6 +10,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        bebas: ["var(--font-bebas)", "sans-serif"],
+      },
       colors: {
         lyrist: "#007AFF",
         soundbetter: "#49B8BA",

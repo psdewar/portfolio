@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function Page() {
-  redirect("/music?play=mula-freestyle");
+  redirect("/listen?play=mula-freestyle");
 }

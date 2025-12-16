@@ -102,7 +102,7 @@ export default function FreestyleOverlay({
         </button>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-          <h3 className="text-lg font-semibold text-white mb-3">Peyt Spencer — Mula Freestyle</h3>
+          <h3 className="font-bebas text-2xl text-white mb-3 tracking-tight">Peyt Spencer - Mula Freestyle</h3>
 
           <div className="flex flex-col gap-2">
             <button

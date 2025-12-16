@@ -18,7 +18,7 @@ export default function CancelPage() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Cancelled</h1>
+          <h1 className="text-3xl font-medium text-gray-900 mb-2">Payment Cancelled</h1>
           <p className="text-lg text-gray-600">No worries! Your payment was not processed.</p>
         </div>
 
@@ -32,7 +32,7 @@ export default function CancelPage() {
         <div className="space-y-3">
           <a
             href="/projects"
-            className="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
+            className="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-md transition-colors"
           >
             Back to Project
           </a>

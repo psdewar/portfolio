@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${getBaseUrl()}/indie/${projectId}?success=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${getBaseUrl()}/indie/${projectId}?canceled=1`,
+      success_url: `${getBaseUrl()}/fund/${projectId}?success=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${getBaseUrl()}/fund/${projectId}?canceled=1`,
       metadata: {
         projectTitle,
         projectId,

@@ -1,68 +1,145 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { stripe } from "../../shared/stripe-utils";
+import { isValidAsset, getProduct, getDownloadableAssets } from "../../shared/products";
+import {
+  checkRateLimit,
+  getClientIP,
+  createRateLimitHeaders,
+  RATE_LIMIT_CONFIGS,
+} from "../../shared/rate-limit";
 import {
   sanitizeTrackId,
   validateOrigin,
-  validateTrackId,
   fetchAudioBlob,
   fetchAudioBuffer,
-  verifyStripeSession,
   formatTrackFilename,
   createDownloadHeaders,
   logDevError,
 } from "../../shared/audio-utils";
 
+const MAX_DOWNLOADS_PER_TRACK = 5;
+const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
 export async function GET(request: NextRequest, { params }: { params: { trackId: string } }) {
   try {
-    // Rate limiting
-    // const ip = extractIpAddress(request);
+    const ip = getClientIP(request);
 
-    // if (!checkDownloadRateLimit(ip)) {
-    //   return new NextResponse("Too many download requests", { status: 429 });
-    // }
+    const rateCheck = checkRateLimit(ip, "download");
+    if (!rateCheck.allowed) {
+      return new NextResponse("Too many download requests. Try again later.", {
+        status: 429,
+        headers: {
+          ...createRateLimitHeaders(
+            rateCheck.remaining,
+            rateCheck.resetIn,
+            RATE_LIMIT_CONFIGS.download.maxRequests
+          ),
+          "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
+        },
+      });
+    }
 
-    // Verify origin
     if (!validateOrigin(request)) {
       return new NextResponse("Unauthorized origin", { status: 403 });
     }
 
     const trackId = sanitizeTrackId(params.trackId);
     const { searchParams } = new URL(request.url);
-
-    // Enhanced session verification
     const sessionId = searchParams.get("session_id");
 
     if (!sessionId) {
       return new NextResponse("Payment verification required", { status: 401 });
     }
 
-    // Verify payment session with Stripe
-    const sessionResult = await verifyStripeSession(stripe, sessionId, trackId);
-    if (!sessionResult.success) {
-      return new NextResponse(sessionResult.error, { status: sessionResult.status });
+    if (!isValidAsset(trackId)) {
+      return new NextResponse("Track not found", { status: 404 });
     }
 
-    // Validate track ID against whitelist
-    if (!validateTrackId(trackId)) {
-      return new NextResponse("Track not found", { status: 404 });
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status !== "paid") {
+      return new NextResponse("Payment not completed", { status: 402 });
+    }
+
+    const paymentTime = session.created * 1000;
+    if (Date.now() > paymentTime + SESSION_EXPIRY_MS) {
+      return new NextResponse("Download link expired", { status: 410 });
+    }
+
+    const hasAccess = await verifyTrackAccess(session, trackId);
+    if (!hasAccess) {
+      return new NextResponse("Track not included in purchase", { status: 403 });
+    }
+
+    const downloadKey = `downloads_${trackId}`;
+    const currentDownloads = parseInt(session.metadata?.[downloadKey] || "0", 10);
+
+    if (currentDownloads >= MAX_DOWNLOADS_PER_TRACK) {
+      return new NextResponse("Download limit reached for this track. Contact support if needed.", {
+        status: 403,
+      });
     }
 
     const audioBlob = await fetchAudioBlob(trackId);
     if (!audioBlob) {
-      return new NextResponse("Track not found", { status: 404 });
+      return new NextResponse("Track file not found", { status: 404 });
     }
 
-    // Fetch the audio file from blob storage
     const audioBuffer = await fetchAudioBuffer(audioBlob.url);
 
-    // Format track title for filename
+    await stripe.checkout.sessions.update(sessionId, {
+      metadata: {
+        ...session.metadata,
+        [downloadKey]: (currentDownloads + 1).toString(),
+      },
+    });
+
     const filename = formatTrackFilename(trackId);
     const headers = createDownloadHeaders(audioBuffer, filename);
 
-    return new NextResponse(audioBuffer, { headers });
+    return new NextResponse(audioBuffer, {
+      headers: {
+        ...headers,
+        ...createRateLimitHeaders(
+          rateCheck.remaining - 1,
+          rateCheck.resetIn,
+          RATE_LIMIT_CONFIGS.download.maxRequests
+        ),
+      },
+    });
   } catch (error) {
-    logDevError(error, "Error downloading audio");
+    logDevError(error, "Download error");
     return new NextResponse("Internal server error", { status: 500 });
   }
+}
+
+async function verifyTrackAccess(
+  session: { metadata?: Record<string, string> | null },
+  trackId: string
+): Promise<boolean> {
+  const metadata = session.metadata;
+  if (!metadata) return false;
+
+  const productId = metadata.productId;
+  if (productId) {
+    const product = getProduct(productId);
+    if (product) {
+      const assets = getDownloadableAssets(product);
+      return assets.includes(trackId);
+    }
+  }
+
+  // Fallback: check downloadableAssets stored in metadata
+  const assetsStr = metadata.downloadableAssets;
+  if (assetsStr) {
+    const assets = assetsStr.split(",");
+    return assets.includes(trackId);
+  }
+
+  // Legacy fallback: check trackId directly
+  if (metadata.trackId === trackId) {
+    return true;
+  }
+
+  return false;
 }

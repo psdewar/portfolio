@@ -51,11 +51,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          productId: trackId, // trackId === productId for individual singles
           amount: amountInCents,
-          trackId,
-          trackTitle,
-          mode: "download",
-          currency: STRIPE_CONFIG.currency,
+          metadata: {
+            trackTitle,
+          },
         }),
       });
 
@@ -141,10 +141,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             )}
             <div className="flex-1">
-              <h3 className="font-semibold text-lg text-neutral-900 dark:text-white">
-                {trackTitle}
-              </h3>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">Peyt Spencer</p>
+              <h3 className="font-medium text-lg text-neutral-900 dark:text-white">{trackTitle}</h3>
+              <p className="font-bebas text-base text-neutral-600 dark:text-neutral-400 tracking-tight">Peyt Spencer</p>
             </div>
           </div>
 
@@ -218,7 +216,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <button
                     onClick={handleCustomAmount}
                     disabled={isLoading || !customAmount}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isLoading ? (
                       <>

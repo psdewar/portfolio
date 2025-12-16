@@ -11,7 +11,11 @@ const customUrls = {
 
 const nextConfig = {
   images: {
-    domains: ["distrokid.com", "distrokid.imgix.net"],
+    remotePatterns: [
+      { protocol: "https", hostname: "distrokid.com" },
+      { protocol: "https", hostname: "distrokid.imgix.net" },
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+    ],
   },
   async headers() {
     return [
@@ -48,12 +52,27 @@ const nextConfig = {
     ];
   },
   redirects() {
-    return singles.map((slug) => ({
+    const singlesRedirects = singles.map((slug) => ({
       source: `/${slug}`,
       destination: `${BASE}/${customUrls[slug] || slug}`,
       permanent: false,
       basePath: false,
     }));
+
+    const pdfRedirects = [
+      {
+        source: "/resume",
+        destination: "/resume.pdf",
+        permanent: false,
+      },
+      {
+        source: "/perspectives",
+        destination: "/perspectives.pdf",
+        permanent: false,
+      },
+    ];
+
+    return [...singlesRedirects, ...pdfRedirects];
   },
   webpack(config) {
     config.module.rules.push({
