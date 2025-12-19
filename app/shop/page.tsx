@@ -4,8 +4,7 @@ import { stripePromise } from "app/lib/stripe";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-const COMING_SOON = true; // Delete this line to enable the shop
+import { TRACKLIST, BookIcon } from "./shared";
 
 // Stripe processing fee calculation (2.9% + $0.30)
 const calculateStripeFee = (baseAmount: number) => {
@@ -14,44 +13,41 @@ const calculateStripeFee = (baseAmount: number) => {
 };
 
 const PRICING = {
-  "tee-exhibit-psd": 25,
   "download-bundle-2025": 10,
   "then-and-now-bundle-2025": 30,
 };
 
-const SHIPPING = 5; // $5 flat rate shipping for physical items
+const SHIPPING = 7; // $7 flat rate shipping for physical items
 
-// For physical items: calculate fee on (item + shipping), then subtract shipping
-// This way Stripe processes (item_with_fee + shipping) and we net the full base amounts
-const TSHIRT_TOTAL_WITH_FEES = calculateStripeFee(PRICING["tee-exhibit-psd"] + SHIPPING);
-const TSHIRT_FEES = { total: TSHIRT_TOTAL_WITH_FEES.total - SHIPPING }; // Item price only
+// Fallback inventory (used while loading from Supabase)
+const FALLBACK_INVENTORY: Record<string, number> = {
+  "white-small": 11,
+  "white-medium": 12,
+  "white-large": 7,
+  "black-small": 6,
+  "black-medium": 11,
+  "black-large": 2,
+};
 
-const DOWNLOAD_FEES = calculateStripeFee(PRICING["download-bundle-2025"]); // No shipping
-
-const EVERYTHING_TOTAL_WITH_FEES = calculateStripeFee(
-  PRICING["then-and-now-bundle-2025"] + SHIPPING
-);
-const EVERYTHING_FEES = { total: EVERYTHING_TOTAL_WITH_FEES.total - SHIPPING }; // Item price only
-
-const TRACKLIST = [
-  { name: "Right One", duration: "2:15" },
-  { name: "Safe", duration: "2:17" },
-  { name: "Patience", duration: "2:21" },
-  { name: "Pretty Girls Freestyle", duration: "0:48" },
-  { name: "Chains & Whips Freestyle", duration: "0:56" },
-  { name: "Mula Freestyle", duration: "1:01" },
-];
+// Bundle pricing
+// Pickup: fee on base price only ($30 → $31.21)
+// Delivery: fee on base + shipping ($37 → $38.43), then subtract shipping since Stripe adds it
+const BUNDLE_PICKUP_FEES = calculateStripeFee(PRICING["then-and-now-bundle-2025"]);
+const BUNDLE_DELIVERY_FEES = {
+  total: calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total - SHIPPING,
+};
+const DOWNLOAD_FEES = calculateStripeFee(PRICING["download-bundle-2025"]);
 
 function useInitialFromURL() {
   const [initial, setInitial] = useState<{ size: string; color: string }>({
-    size: "M",
+    size: "Medium",
     color: "black",
   });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setInitial({
-      size: params.get("size") ?? "M",
+      size: params.get("size") ?? "Medium",
       color: params.get("color") ?? "black",
     });
   }, []);
@@ -63,6 +59,20 @@ export default function Page() {
   const init = useInitialFromURL();
   const [selectedSize, setSelectedSize] = useState(init.size);
   const [selectedColor, setSelectedColor] = useState(init.color);
+  const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("pickup");
+  const [inventory, setInventory] = useState<Record<string, number>>(FALLBACK_INVENTORY);
+
+  // Fetch live inventory from Supabase
+  useEffect(() => {
+    fetch("/api/inventory")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && !data.error) {
+          setInventory(data);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     setSelectedSize(init.size);
@@ -71,9 +81,9 @@ export default function Page() {
 
   const sizes = useMemo(
     () => [
-      { name: "Small", value: "S" },
-      { name: "Medium", value: "M" },
-      { name: "Large", value: "L" },
+      { name: "Small", value: "Small" },
+      { name: "Medium", value: "Medium" },
+      { name: "Large", value: "Large" },
     ],
     []
   );
@@ -85,6 +95,12 @@ export default function Page() {
     ],
     []
   );
+
+  const getStock = (size: string, color: string) => {
+    const sku = `${color.toLowerCase()}-${size.toLowerCase()}`;
+    return inventory[sku] ?? 0;
+  };
+  const isInStock = (size: string, color: string) => getStock(size, color) > 0;
 
   const mirrorURL = useCallback((updates: { size?: string; color?: string }) => {
     const url = new URL(window.location.href);
@@ -109,33 +125,29 @@ export default function Page() {
     [selectedSize, mirrorURL]
   );
 
-  const handleCheckout = async (
-    productId: "tee-exhibit-psd" | "download-bundle-2025" | "then-and-now-bundle-2025"
-  ) => {
+  const handleCheckout = async (productId: "download-bundle-2025" | "then-and-now-bundle-2025") => {
     const stripe = await stripePromise;
     if (!stripe) return;
 
+    const isPickup = deliveryMode === "pickup";
+    const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
+
     const productConfigs = {
-      "tee-exhibit-psd": {
-        amount: Math.round(TSHIRT_FEES.total * 100),
-        productId: "tee-exhibit-psd",
-        metadata: {
-          size: sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
-          color: colors.find((c) => c.value === selectedColor)?.name || selectedColor,
-        },
-      },
       "download-bundle-2025": {
         amount: Math.round(DOWNLOAD_FEES.total * 100),
         productId: "download-bundle-2025",
         metadata: {},
+        skipShipping: true,
       },
       "then-and-now-bundle-2025": {
-        amount: Math.round(EVERYTHING_FEES.total * 100),
+        amount: Math.round(bundleFees.total * 100),
         productId: "then-and-now-bundle-2025",
         metadata: {
           size: sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
           color: colors.find((c) => c.value === selectedColor)?.name || selectedColor,
+          deliveryMode,
         },
+        skipShipping: isPickup,
       },
     };
 
@@ -147,6 +159,8 @@ export default function Page() {
         amount: config.amount,
         productId: config.productId,
         metadata: config.metadata,
+        cancelPath: "/shop",
+        skipShipping: config.skipShipping,
       }),
     });
 
@@ -165,166 +179,174 @@ export default function Page() {
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
           Size
         </label>
-        <div className="flex gap-1.5">
-          {sizes.map((size) => (
-            <button
-              key={`${prefix}${size.value}`}
-              onClick={() => handleSizeClick(size.value)}
-              className={`flex-1 py-2 rounded-lg font-semibold text-sm transition-all border ${
-                selectedSize === size.value
-                  ? selectedColor === "white"
-                    ? "bg-white text-gray-900 border-gray-300"
-                    : "bg-black text-white border-black"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-transparent"
-              }`}
-            >
-              {size.value}
-            </button>
-          ))}
+        <div className="flex">
+          {sizes.map((size, idx) => {
+            const stock = getStock(size.value, selectedColor);
+            const outOfStock = stock === 0;
+            const isFirst = idx === 0;
+            const isLast = idx === sizes.length - 1;
+            return (
+              <button
+                key={`${prefix}${size.value}`}
+                onClick={() => !outOfStock && handleSizeClick(size.value)}
+                disabled={outOfStock}
+                className={`flex-1 py-3 transition-all border-2 -ml-[2px] first:ml-0 relative ${
+                  isFirst ? "rounded-l-lg" : ""
+                } ${isLast ? "rounded-r-lg" : ""} ${
+                  selectedSize === size.value
+                    ? "border-gray-900 dark:border-green-500 z-10 " +
+                      (selectedColor === "white" ? "bg-white text-gray-900" : "bg-black text-white")
+                    : "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                } ${outOfStock ? "opacity-40 cursor-not-allowed" : ""}`}
+              >
+                <span className="text-base font-semibold">{size.value.charAt(0)}</span>
+                <span
+                  className={`block text-sm font-semibold ${
+                    stock <= 3
+                      ? "text-red-500"
+                      : stock <= 5
+                      ? "text-amber-500"
+                      : "text-green-600 dark:text-green-400"
+                  }`}
+                >
+                  {stock} left
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
           Color
         </label>
-        <div className="flex gap-1.5">
-          {colors.map((color) => (
-            <button
-              key={`${prefix}${color.value}`}
-              onClick={() => handleColorClick(color.value)}
-              className={`flex-1 h-9 rounded-lg transition-all border-2 ${
-                selectedColor === color.value
-                  ? "border-gray-900 dark:border-green-500 ring-2 ring-gray-900/20 dark:ring-green-500/20"
-                  : "border-gray-300 dark:border-gray-600"
-              }`}
-              style={{ backgroundColor: color.value }}
-              aria-label={color.name}
-            />
-          ))}
+        <div className="flex">
+          {colors.map((color, idx) => {
+            const totalStock = sizes.reduce((sum, s) => sum + getStock(s.value, color.value), 0);
+            const isFirst = idx === 0;
+            const isLast = idx === colors.length - 1;
+            return (
+              <button
+                key={`${prefix}${color.value}`}
+                onClick={() => handleColorClick(color.value)}
+                className={`flex-1 py-3 transition-all border-2 -ml-[2px] first:ml-0 relative ${
+                  isFirst ? "rounded-l-lg" : ""
+                } ${isLast ? "rounded-r-lg" : ""} ${
+                  selectedColor === color.value
+                    ? "border-gray-900 dark:border-green-500 z-10"
+                    : "border-gray-300 dark:border-gray-600"
+                } ${color.value === "white" ? "bg-white" : "bg-black"}`}
+                aria-label={color.name}
+              >
+                <span
+                  className={`block text-base font-semibold ${
+                    color.value === "white" ? "text-gray-900" : "text-white"
+                  }`}
+                >
+                  {color.name}
+                </span>
+                <span
+                  className={`block text-sm font-semibold ${
+                    totalStock <= 10
+                      ? "text-red-500"
+                      : totalStock <= 20
+                      ? "text-amber-500"
+                      : "text-green-500"
+                  }`}
+                >
+                  {totalStock} left
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 
-  if (COMING_SOON) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h1 className="font-bebas text-[12vw] sm:text-[8vw] leading-none text-neutral-200 dark:text-neutral-800 mb-2">
-            Coming Soon
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mb-8">
-            The shop is under construction. Check back soon for merch and music.
-          </p>
-          <Link
-            href="/music"
-            className="inline-block px-6 py-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-          >
-            Listen to music
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full">
       <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-12 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-          <div className="relative md:col-span-2 lg:col-span-1">
-            <div className="absolute -top-1 -right-1 z-20 overflow-hidden w-32 h-32 pointer-events-none">
-              <div
-                className={`absolute top-7 -right-9 w-40 text-center transform rotate-45 text-sm font-semibold py-1.5 shadow-md ${
-                  selectedColor === "white" ? "bg-white text-gray-900" : "bg-black text-white"
-                }`}
-              >
-                SAVE $5
-              </div>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          {/* Bundle Card */}
+          <div className="relative">
             <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-3xl overflow-hidden flex flex-col border-2 border-green-500/50 h-full shadow-sm shadow-green-500/10">
               <div className="p-6 sm:p-8 border-b border-gray-700">
                 <button
                   onClick={() => handleCheckout("then-and-now-bundle-2025")}
-                  className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 hover:from-violet-500 hover:via-fuchsia-400 hover:to-pink-400 text-white font-semibold text-xl transition-all shadow-lg shadow-fuchsia-500/25 mb-4 sm:mb-5"
+                  className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white font-semibold text-xl transition-all shadow-lg shadow-red-500/25 mb-4 sm:mb-5 flex items-center justify-center gap-2"
                 >
-                  Buy My Then & Now Bundle
+                  Buy My Shirt & Music Bundle
                 </button>
 
                 <div className="flex items-center gap-3 mb-4 sm:mb-5">
-                  <span className="text-4xl sm:text-5xl font-semibold text-white">
+                  <span className="text-6xl sm:text-7xl font-semibold text-white">
                     ${PRICING["then-and-now-bundle-2025"]}
                   </span>
-                  <span className="text-white/60 text-sm">
-                    + shipping & processing fees
+                  <span className="text-white/60 text-base lg:text-lg">
+                    {deliveryMode === "pickup" ? (
+                      <>+ $1.21 for processing</>
+                    ) : (
+                      <>+ $8.42 for shipping & processing</>
+                    )}
                     <br />
-                    so I receive the full amount
+                    includes My Singles & 16s (2025)
                   </span>
+                </div>
+
+                {/* Pickup/Delivery Toggle */}
+                <div className="mb-4 sm:mb-5">
+                  <div className="flex">
+                    <button
+                      onClick={() => setDeliveryMode("pickup")}
+                      className={`flex-1 py-3 px-4 transition-all border-2 -ml-[2px] first:ml-0 rounded-l-lg ${
+                        deliveryMode === "pickup"
+                          ? "border-green-500 bg-green-500/20 text-green-400 z-10"
+                          : "border-gray-600 text-gray-400 hover:border-gray-500"
+                      }`}
+                    >
+                      <span className="block text-base font-semibold">No shipping</span>
+                      <span className="block text-xs opacity-70">
+                        I'll pick up my shirt at a show
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setDeliveryMode("delivery")}
+                      className={`flex-1 py-3 px-4 transition-all border-2 -ml-[2px] first:ml-0 rounded-r-lg ${
+                        deliveryMode === "delivery"
+                          ? "border-green-500 bg-green-500/20 text-green-400 z-10"
+                          : "border-gray-600 text-gray-400 hover:border-gray-500"
+                      }`}
+                    >
+                      <span className="block text-base font-semibold">Shipping</span>
+                      <span className="block text-xs opacity-70">
+                        I'll provide my address for delivery
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 <SizeColorSelector prefix="everything-" />
               </div>
 
-              <div className="p-6 sm:p-8 flex-1">
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-3 text-white text-lg">
-                    <span className="text-green-400 text-xl">✓</span>
-                    <span>Exhibit PSD T-Shirt</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-white text-lg">
-                    <span className="text-green-400 text-xl">✓</span>
-                    <span>All 6 track downloads + lyrics</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700 shadow-lg">
-            <div className="p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => handleCheckout("tee-exhibit-psd")}
-                className={`w-full py-4 px-6 rounded-xl font-semibold text-xl transition-colors mb-4 sm:mb-5 ${
-                  selectedColor === "white"
-                    ? "bg-white hover:bg-gray-100 text-gray-900"
-                    : "bg-black hover:bg-gray-900 text-white"
-                }`}
-              >
-                Buy T-Shirt
-              </button>
-
-              <div className="flex items-center gap-3 mb-4 sm:mb-5">
-                <span className="text-4xl sm:text-5xl font-semibold text-gray-900 dark:text-white">
-                  ${PRICING["tee-exhibit-psd"]}
-                </span>
-                <span className="text-gray-900/60 dark:text-white/60 text-sm">
-                  + shipping & processing fees
-                  <br />
-                  so I receive the full amount
-                </span>
-              </div>
-
-              <SizeColorSelector prefix="tshirt-" />
-            </div>
-
-            <div className="flex-1 flex flex-col">
               <div className="relative aspect-[16/9]">
                 <Image
-                  src="/images/lu-psd-merch.JPG"
+                  src="/images/merch/lu-psd-merch.JPG"
                   alt="Friend wearing Exhibit PSD T-Shirt"
                   fill
                   className="object-cover object-bottom"
                 />
                 <div className="absolute top-5 left-6 sm:left-8">
                   <span className="bg-black/80 text-white text-sm font-medium px-3 py-1.5 rounded-lg">
-                    this shirt but {sizes.find((s) => s.value === selectedSize)?.name.toLowerCase()}
+                    this shirt but {selectedSize.toLowerCase()}
                   </span>
                 </div>
               </div>
-              <div className="p-5 sm:p-6 pb-3">
-                <p className="font-semibold text-gray-900 dark:text-white text-base mb-1">
+              <div className="py-5 px-6 sm:px-8">
+                <p className="font-semibold text-gray-900 dark:text-white text-base lg:text-lg mb-1">
                   From The Archives: Exhibit PSD
                 </p>
-                <p className="text-gray-600 dark:text-gray-400 text-base">
+                <p className="text-gray-600 dark:text-gray-400 text-base lg:text-lg">
                   My first design, a decade in the making. The "PSD" logo from my original rap
                   moniker, first sketched in college at UF. 100% cotton, made to last.
                 </p>
@@ -342,22 +364,21 @@ export default function Page() {
               </button>
 
               <div className="flex items-center gap-3">
-                <span className="text-4xl sm:text-5xl font-semibold text-gray-900 dark:text-white">
+                <span className="text-6xl sm:text-7xl font-semibold text-gray-900 dark:text-white">
                   ${PRICING["download-bundle-2025"]}
                 </span>
-                <span className="text-gray-900/60 dark:text-white/60 text-sm">
-                  + processing fees
+                <span className="text-gray-900/60 dark:text-white/60 text-base lg:text-lg">
+                  + $0.61 for processing
                   <br />
-                  so I receive the full amount
                 </span>
               </div>
             </div>
 
-            <div className="p-6 sm:p-8 flex-1">
-              <p className="text-gray-600 dark:text-gray-400 text-base mb-5">
+            <div className="py-5 px-6 sm:px-8 flex-1">
+              <p className="text-gray-600 dark:text-gray-400 text-base lg:text-lg pb-3">
                 A "16" is the typical length of one rap verse. For me, it's 16 lines of pure fire.
                 Streaming is nice, but your support helps sustain my independence. You'll receive a
-                zip file containing:
+                zip file with mp3s and a lyricbook containing:
               </p>
 
               <div className="space-y-1">
@@ -366,19 +387,14 @@ export default function Page() {
                     key={track.name}
                     className="py-2.5 pl-4 pr-3 border-l-2 border-green-500/60 hover:border-green-500 hover:bg-green-500/5 transition-all flex items-center justify-between"
                   >
-                    <span className="text-gray-900 dark:text-white font-medium text-lg">
+                    <span className="text-gray-900 dark:text-white font-medium text-base lg:text-lg">
                       {track.name}
                     </span>
-                    <span className="text-gray-500 dark:text-gray-400 text-sm font-mono">
+                    <span className="text-gray-500 dark:text-gray-400 text-base lg:text-lg font-mono">
                       {track.duration}
                     </span>
                   </div>
                 ))}
-              </div>
-
-              <div className="mt-5 flex items-center gap-2 text-green-600 dark:text-green-400">
-                <span className="text-xl">✓</span>
-                <span className="text-base font-medium">Lyrics included (PDF)</span>
               </div>
             </div>
           </div>
@@ -394,10 +410,10 @@ export default function Page() {
           <div className="relative rounded-2xl overflow-hidden aspect-[9/16] md:aspect-auto md:row-span-2">
             <VideoPlayButtonWithContext
               videoId="exhibit-psd-live"
-              videoSrc="/exhibit-psd-live.mp4"
+              videoSrc="/videos/exhibit-psd-live.mp4"
               alt="Exhibit PSD live performance"
               className="w-full h-full"
-              thumbnailSrc="/images/exhibit-psd-live-cover.jpg"
+              thumbnailSrc="/images/covers/exhibit-psd-live-cover.jpg"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pointer-events-none">
               <h3 className="text-white font-semibold">Live with the band</h3>
@@ -407,7 +423,7 @@ export default function Page() {
 
           <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
             <Image
-              src="/images/lu-psd-merch.JPG"
+              src="/images/merch/lu-psd-merch.JPG"
               alt="Friend wearing Exhibit PSD"
               fill
               className="object-cover object-bottom"
@@ -421,7 +437,7 @@ export default function Page() {
 
           <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
             <Image
-              src="/images/exhibit-psd-merch.JPG"
+              src="/images/merch/exhibit-psd-merch.JPG"
               alt="Exhibit PSD T-Shirt"
               fill
               className="object-cover"

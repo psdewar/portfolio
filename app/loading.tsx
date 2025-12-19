@@ -15,7 +15,7 @@ export default function Loading() {
           <div className="absolute inset-0 w-16 h-16 rounded-full bg-green-600/20 dark:bg-green-500/20 animate-ping" />
         </div>
         <div className="flex items-center space-x-2">
-          <span className="text-lg font-medium text-gray-700 dark:text-gray-200">Loading</span>
+          <span className="text-lg font-medium text-gray-700 dark:text-gray-200">One sec</span>
           <div className="flex space-x-1">
             <span className="w-2 h-2 bg-green-600 dark:bg-green-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
             <span className="w-2 h-2 bg-green-600 dark:bg-green-500 rounded-full animate-bounce [animation-delay:-0.15s]" />

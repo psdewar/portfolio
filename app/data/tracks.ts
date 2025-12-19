@@ -27,7 +27,7 @@ export const TRACK_DATA: TrackData[] = [
     title: "Mula Freestyle",
     artist: "Peyt Spencer",
     audioUrl: "/api/audio/mula-freestyle",
-    thumbnail: "/images/mula-dinner-cover.jpg",
+    thumbnail: "/images/covers/mula.jpg",
     duration: 150,
   },
   {

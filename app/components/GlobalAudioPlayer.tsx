@@ -1,38 +1,47 @@
 "use client";
-import React, { MouseEvent } from "react";
+import React, { MouseEvent, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
 import { usePathname } from "next/navigation";
 
-const PlayIcon = () => (
-  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+// Parsed lyrics data - imported at build time from SRT files
+// Format: { start: seconds, end: seconds, text: string, isCTA?: boolean }
+import patienceLyrics from "../../data/lyrics/patience.json";
+
+type LyricLine = { start: number; end: number; text: string; isCTA?: boolean };
+const LYRICS_DATA: Record<string, LyricLine[]> = {
+  patience: patienceLyrics as LyricLine[],
+};
+
+// CTA marker - when lyrics contain this, show the buy link instead
+const CTA_MARKER = "[GET FULL LYRICS]";
+
+const PlayIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
+
+const PauseIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+  </svg>
+);
+
+const LyricsIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={1.5}
+  >
     <path
-      fillRule="evenodd"
-      d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-      clipRule="evenodd"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
     />
-  </svg>
-);
-
-const PauseIcon = () => (
-  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-    <path
-      fillRule="evenodd"
-      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
-
-const PrevIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z" />
-  </svg>
-);
-
-const NextIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z" />
   </svg>
 );
 
@@ -40,135 +49,170 @@ export const GlobalAudioPlayer: React.FC = () => {
   const pathname = usePathname() ?? "/";
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
+  const isQuickShop = pathname === "/shop/quick";
+  const [showLyrics, setShowLyrics] = useState(true);
 
-  const {
-    currentTrack,
-    isPlaying,
-    currentTime,
-    duration,
-    isLoading,
-    play,
-    pause,
-    toggle,
-    seekTo,
-    nextTrack,
-    previousTrack,
-    formatTime,
-    playlist,
-  } = useAudio();
+  const { currentTrack, isPlaying, currentTime, duration, isLoading, toggle, seekTo, formatTime } =
+    useAudio();
 
-  // Don't render if no track is loaded or if on hire/fund pages
-  if (!currentTrack || isHirePage || isFundPage) return null;
+  // Don't render if no track is loaded or if on hire/fund/quick-shop pages
+  if (!currentTrack || isHirePage || isFundPage || isQuickShop) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const lyrics = LYRICS_DATA[currentTrack.id] || [];
+  // Offset to make lyrics appear earlier (compensate for reaction time when syncing)
+  const LYRICS_OFFSET = 0.3;
+  const adjustedTime = currentTime + LYRICS_OFFSET;
+  const currentLyric = lyrics.find((l) => adjustedTime >= l.start && adjustedTime < l.end);
+  const hasLyrics = lyrics.length > 0;
+  const isCtaLyric = currentLyric?.text.includes(CTA_MARKER) || currentLyric?.text === "...";
 
   const handleProgressClick = (e: MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const newTime = (clickX / rect.width) * duration;
+    const percentage = clickX / rect.width;
+    const newTime = percentage * duration;
     seekTo(newTime);
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-40 px-3 sm:px-4 py-2 sm:py-3 safe-area-inset-bottom">
-      <div className="max-w-4xl mx-auto">
-        {/* Main player controls */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Track info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-3">
+    <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-inset-bottom">
+      {/* Main player */}
+      <div className="bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800">
+        {/* Progress bar - clickable full width at top */}
+        <div
+          className="h-1.5 bg-neutral-200 dark:bg-neutral-700 cursor-pointer relative group"
+          onClick={handleProgressClick}
+        >
+          <div
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-500 to-pink-500"
+            style={{ width: `${progressPercentage}%` }}
+          />
+          {/* Hover indicator */}
+          <div className="absolute inset-0 bg-black/10 dark:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+
+        <div
+          className="px-3 sm:px-4 cursor-pointer"
+          onClick={(e) => {
+            // Don't toggle if clicking on lyrics toggle button or progress bar
+            const target = e.target as HTMLElement;
+            if (target.closest("[data-no-toggle]")) return;
+            toggle();
+          }}
+        >
+          <div className="flex items-center gap-3">
+            {/* Left: Album art + title + time */}
+            <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
               {currentTrack.thumbnail && (
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0 -ml-3 sm:-ml-4">
                   <Image
                     src={currentTrack.thumbnail}
                     alt={currentTrack.title}
-                    width={48}
-                    height={48}
+                    width={56}
+                    height={56}
                     className="w-full h-full object-cover"
                   />
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <div className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-white truncate">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">
                   {currentTrack.title}
                 </div>
-                <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate">
-                  {currentTrack.artist}
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
+                  {formatTime(currentTime)} / {formatTime(duration)}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Playback controls */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* No previous/next buttons since only patience is playable */}
+            {/* Center: Lyrics (desktop and mobile, inline) */}
+            {hasLyrics && showLyrics && (
+              <div className="flex-1 flex items-center justify-center min-w-0 px-2 sm:px-4">
+                {isCtaLyric ? (
+                  <Link
+                    href="/shop"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white text-xs sm:text-sm font-medium rounded-full transition-all hover:scale-105 flex-shrink-0"
+                  >
+                    Get full lyrics
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </Link>
+                ) : (
+                  <p
+                    className={`text-neutral-700 dark:text-neutral-200 font-medium text-center leading-tight ${
+                      (currentLyric?.text?.length || 0) > 80
+                        ? "text-[10px] sm:text-xs"
+                        : (currentLyric?.text?.length || 0) > 60
+                        ? "text-[11px] sm:text-sm"
+                        : (currentLyric?.text?.length || 0) > 40
+                        ? "text-xs sm:text-base"
+                        : "text-sm sm:text-base md:text-lg"
+                    }`}
+                  >
+                    {currentLyric?.text || "♪"}
+                  </p>
+                )}
+              </div>
+            )}
 
-            <button
-              onClick={toggle}
-              disabled={isLoading}
-              className="p-1.5 sm:p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors disabled:opacity-50"
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-              ) : isPlaying ? (
-                <PauseIcon />
-              ) : (
-                <PlayIcon />
+            {/* Spacer when lyrics hidden */}
+            {(!hasLyrics || !showLyrics) && <div className="flex-1" />}
+
+            {/* Right: Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* Lyrics toggle */}
+              {hasLyrics && (
+                <button
+                  data-no-toggle
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowLyrics(!showLyrics);
+                  }}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-colors ${
+                    showLyrics
+                      ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 dark:text-neutral-500"
+                  }`}
+                  aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
+                >
+                  <LyricsIcon className="w-5 h-5" />
+                </button>
               )}
-            </button>
 
-            {/* No next button since only patience is playable */}
+              {/* Play/pause button - square, flush to corner */}
+              <button
+                data-no-toggle
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle();
+                }}
+                disabled={isLoading}
+                className="w-12 h-12 sm:w-14 sm:h-14 -mr-3 sm:-mr-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 transition-all duration-200 active:scale-95 disabled:opacity-50"
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : isPlaying ? (
+                  <PauseIcon className="w-5 h-5" />
+                ) : (
+                  <PlayIcon className="w-5 h-5 ml-0.5" />
+                )}
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-2 sm:mt-3 flex items-center gap-2 sm:gap-3 text-xs text-neutral-600 dark:text-neutral-400">
-          <span className="w-8 sm:w-10 text-right text-xs tabular-nums">
-            {formatTime(currentTime)}
-          </span>
-
-          <div
-            className="flex-1 h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full cursor-pointer relative"
-            onClick={handleProgressClick}
-          >
-            <div
-              className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-100 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            />
-            {/* Scrubber handle - smaller on mobile */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full opacity-0 hover:opacity-100 transition-opacity duration-200"
-              style={{ left: `calc(${progressPercentage}% - 5px)` }}
-            />
-          </div>
-
-          <span className="w-8 sm:w-10 text-xs tabular-nums">{formatTime(duration)}</span>
         </div>
       </div>
-
-      {/* Custom slider styles */}
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        .slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-      `}</style>
     </div>
   );
 };

@@ -55,7 +55,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
   }
   50% {
@@ -65,11 +66,11 @@
 
 .animate-button-reveal {
   animation: button-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
-             pulse-glow 2s ease-in-out infinite 0.8s;
+    pulse-glow 2s ease-in-out infinite 0.8s;
 }
 
 .animate-button-reveal::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;

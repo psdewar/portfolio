@@ -96,7 +96,7 @@ export interface ShippingConfig {
 
 export interface PhysicalProduct extends BaseProduct {
   type: "physical";
-  requiresShipping: true;
+  requiresShipping?: boolean; // Default true, false for pickup products
   shippingRateId?: string; // Preconfigured Stripe shipping rate ID
   shipping?: ShippingConfig; // OR inline shipping config (no dashboard setup)
   allowedCountries: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
@@ -180,8 +180,15 @@ export const DIGITAL_ASSETS: Record<string, { blobPrefix: string; displayName: s
     displayName: "Chains & Whips Freestyle",
   },
 
+  // Bundles (zip files)
+  "singles-and-16s-2025": {
+    blobPrefix: "audio/peyt-spencer-singles-and-16s-2025",
+    displayName: "Singles & 16s (2025)",
+  },
+
   // Test assets (use mock/local files - no Vercel Blob dependency)
   "test-track": { blobPrefix: "test/test-track", displayName: "Test Track" },
+  "test-bundle": { blobPrefix: "test/test-bundle", displayName: "Test Bundle" },
 };
 
 // =============================================================================
@@ -227,12 +234,12 @@ export const PRODUCTS: Record<string, Product> = {
     description: "100% cotton t-shirt with original PSD logo",
     type: "physical",
     basePriceCents: 2500,
-    images: ["https://peytspencer.com/images/exhibit-psd-merch.JPG"],
-    successPath: "/shop?success=true",
+    images: ["https://peytspencer.com/images/merch/exhibit-psd-merch.JPG"],
+    successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
     requiresShipping: true,
     shipping: {
-      amountCents: 500,
+      amountCents: 700,
       displayName: "Standard US Shipping",
       deliveryEstimate: {
         minimum: { unit: "business_day", value: 5 },
@@ -246,49 +253,39 @@ export const PRODUCTS: Record<string, Product> = {
     },
   },
 
-  // Digital download bundle
+  // Digital download bundle (zip file)
   "download-bundle-2025": {
     id: "download-bundle-2025",
     name: "Singles & 16s (2025)",
     description:
-      "Patience • Safe • Right One • Pretty Girls Freestyle • Chains & Whips Freestyle • Mula Freestyle",
+      "Right One • Safe • Patience • Pretty Girls Freestyle • Chains & Whips Freestyle • Mula Freestyle + Lyricbook",
     type: "digital",
     basePriceCents: 1000,
-    successPath: "/shop?success=true",
+    images: ["https://peytspencer.com/images/merch/thank-you-download.jpg"],
+    successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
-    downloadableAssets: [
-      "patience",
-      "safe",
-      "right-one",
-      "mula-freestyle",
-      "pretty-girls-freestyle",
-      "chains-and-whips-freestyle",
-    ],
-    fileFormat: "mp3",
+    downloadableAssets: ["singles-and-16s-2025"], // Single zip file
+    fileFormat: "zip",
   },
 
   // Then & Now bundle (T-shirt + downloads)
   "then-and-now-bundle-2025": {
     id: "then-and-now-bundle-2025",
     name: "Then & Now Bundle",
-    description: "T-Shirt + 6 track downloads",
+    description: "T-Shirt + 6 track downloads + Lyricbook",
     type: "bundle",
     basePriceCents: 3000,
-    images: ["https://peytspencer.com/images/exhibit-psd-merch.JPG"],
-    successPath: "/shop?success=true",
-    cancelPath: "/shop?canceled=true",
-    includesDigital: [
-      "patience",
-      "safe",
-      "right-one",
-      "pretty-girls-freestyle",
-      "chains-and-whips-freestyle",
-      "mula-freestyle",
+    images: [
+      "https://peytspencer.com/images/merch/exhibit-psd-merch.JPG",
+      "https://peytspencer.com/images/merch/thank-you-download.jpg",
     ],
+    successPath: "/shop/success",
+    cancelPath: "/shop?canceled=true",
+    includesDigital: ["singles-and-16s-2025"], // Same zip as download-only bundle
     includesPhysical: true,
     requiresShipping: true,
     shipping: {
-      amountCents: 500,
+      amountCents: 700,
       displayName: "Standard US Shipping",
       deliveryEstimate: {
         minimum: { unit: "business_day", value: 5 },
@@ -314,7 +311,7 @@ export const PRODUCTS: Record<string, Product> = {
   "where-i-wanna-be": createSingleProduct("where-i-wanna-be", "Where I Wanna Be"),
   "critical-race-theory": createSingleProduct("critical-race-theory", "Critical Race Theory"),
   "better-days": createSingleProduct("better-days", "Better Days"),
-  bahai: createSingleProduct("bahai", "Bahai"),
+  bahai: createSingleProduct("bahai", "Baha'i"),
   "mula-freestyle": createSingleProduct(
     "mula-freestyle",
     "Mula Freestyle",
@@ -359,7 +356,7 @@ export const PRODUCTS: Record<string, Product> = {
     description: "Test product for shipping flow",
     type: "physical",
     basePriceCents: 500,
-    successPath: "/shop?success=true&test=1",
+    successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
     requiresShipping: true,
     shipping: {
@@ -380,7 +377,7 @@ export const PRODUCTS: Record<string, Product> = {
     description: "Test product for bundle flow (physical + digital)",
     type: "bundle",
     basePriceCents: 800,
-    successPath: "/shop?success=true&test=1",
+    successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
     includesDigital: ["test-track"],
     includesPhysical: true,
@@ -444,11 +441,33 @@ export function getDownloadableAssets(product: Product): string[] {
 }
 
 /**
+ * Get file format for a digital product (default: mp3)
+ */
+export function getFileFormat(product: Product): string {
+  if (product.type === "digital") {
+    return product.fileFormat || "mp3";
+  }
+  // Bundles: check if first digital asset is a zip
+  if (product.type === "bundle" && product.includesDigital.length > 0) {
+    const firstAsset = product.includesDigital[0];
+    // If asset ID contains "singles-and-16s" or similar bundle identifiers, it's a zip
+    if (firstAsset.includes("singles-and-16s") || firstAsset.includes("-bundle")) {
+      return "zip";
+    }
+  }
+  return "mp3";
+}
+
+/**
  * Check if product requires shipping
  */
 export function requiresShipping(product: Product): boolean {
+  // Explicit requiresShipping flag takes precedence (for pickup products)
+  if ("requiresShipping" in product && product.requiresShipping === false) {
+    return false;
+  }
   if (product.type === "physical") return true;
-  if (product.type === "bundle") return product.requiresShipping;
+  if (product.type === "bundle") return product.requiresShipping ?? true;
   return false;
 }
 
@@ -550,7 +569,8 @@ export function hasDigitalAssets(productId: string): boolean {
 export function getSuccessUrl(productId: string, baseUrl: string): string {
   const product = getProduct(productId);
   if (!product) return `${baseUrl}/shop?success=true`;
-  return `${baseUrl}${product.successPath}&session_id={CHECKOUT_SESSION_ID}`;
+  const separator = product.successPath.includes("?") ? "&" : "?";
+  return `${baseUrl}${product.successPath}${separator}session_id={CHECKOUT_SESSION_ID}`;
 }
 
 /**

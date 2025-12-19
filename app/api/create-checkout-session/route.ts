@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { productId, amount, metadata } = body;
+    const { productId, amount, metadata, cancelPath: customCancelPath, skipShipping } = body;
 
     if (!productId) {
       return NextResponse.json({ error: "Missing required field: productId" }, { status: 400 });
@@ -173,17 +173,18 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = getBaseUrl();
 
+    const separator = product.successPath.includes("?") ? "&" : "?";
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ["card"],
       line_items: buildLineItems(product, finalAmount, baseUrl, metadata),
       mode: "payment",
-      success_url: `${baseUrl}${product.successPath}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${product.cancelPath}`,
+      success_url: `${baseUrl}${product.successPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}${customCancelPath || product.cancelPath}`,
       metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
       expires_at: getSessionExpiry(),
     };
 
-    if (requiresShipping(product)) {
+    if (requiresShipping(product) && !skipShipping) {
       const countries = getAllowedCountries(
         product
       ) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Collect phone if needed (derived: true when shipping required)
-    if (shouldCollectPhone(product)) {
+    if (shouldCollectPhone(product) && !skipShipping) {
       sessionParams.phone_number_collection = { enabled: true };
     }
 

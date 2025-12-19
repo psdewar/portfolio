@@ -207,8 +207,8 @@ export function FundingCard({
               "What's next after Boise?"
             </h3>
             <VideoPlayButtonWithContext
-              thumbnailSrc="/fund-next-single-cover.jpg"
-              videoSrc="/fund-next-single-45sec.mp4"
+              thumbnailSrc="/images/covers/fund-next-single-cover.jpg"
+              videoSrc="/videos/fund-next-single-45sec.mp4"
               videoId="fund-next-single"
               alt="Next single preview"
               className="mb-3 aspect-video"

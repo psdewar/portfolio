@@ -14,11 +14,25 @@ import {
   createRangeHeaders,
   logDevError,
   logDevWarning,
+  generateMockAudioBuffer,
 } from "../../shared/audio-utils";
+
+// Helper to simulate network delay in development
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function GET(request: NextRequest, { params }: { params: { trackId: string } }) {
   try {
     const ip = extractIpAddress(request);
+    const isDev = process.env.NODE_ENV === "development";
+
+    // Dev tools: check for local audio and delay flags
+    const useLocalAudio = isDev && request.nextUrl.searchParams.get("local") === "1";
+    const delayMs = isDev ? Number(request.nextUrl.searchParams.get("delay")) || 0 : 0;
+
+    // Simulate slow network in dev
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
 
     if (!checkStreamRateLimit(ip)) {
       return new NextResponse("Too many streaming requests", { status: 429 });
@@ -35,12 +49,18 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       return new NextResponse("Track not found", { status: 404 });
     }
 
-    const audioBlob = await fetchAudioBlob(trackId);
-    if (!audioBlob) {
-      return new NextResponse("Track not found", { status: 404 });
-    }
+    let audioBuffer: ArrayBuffer;
 
-    const audioBuffer = await fetchAudioBuffer(audioBlob.url);
+    // Use local mock audio in dev mode to avoid Vercel Blob egress costs
+    if (useLocalAudio) {
+      audioBuffer = generateMockAudioBuffer();
+    } else {
+      const audioBlob = await fetchAudioBlob(trackId);
+      if (!audioBlob) {
+        return new NextResponse("Track not found", { status: 404 });
+      }
+      audioBuffer = await fetchAudioBuffer(audioBlob.url);
+    }
 
     // For caching
     const etag = generateETag(audioBuffer);

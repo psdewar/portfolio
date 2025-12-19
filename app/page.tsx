@@ -10,16 +10,22 @@ const LATEST_SINGLE_ID = "patience";
 export default function Page() {
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [hasAnimated, setHasAnimated] = useState(true); // Start true to prevent flash
+  const [shouldAnimate, setShouldAnimate] = useState<boolean | null>(null); // null = not yet determined
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { currentTrack, isPlaying, loadTrack, toggle } = useAudio();
+  const hasAnimatedRef = useRef(false); // Tracks if animation already played this mount
+  const { currentTrack, isPlaying, isLoading, loadTrack, toggle } = useAudio();
 
   useEffect(() => {
-    const alreadyAnimated = sessionStorage.getItem("heroAnimated");
-    if (!alreadyAnimated) {
-      setHasAnimated(false);
-      sessionStorage.setItem("heroAnimated", "true");
-    }
+    // Small delay to ensure the initial hidden state renders before animation triggers
+    const timer = setTimeout(() => {
+      if (hasAnimatedRef.current) {
+        setShouldAnimate(false); // Already animated this session
+      } else {
+        setShouldAnimate(true); // First mount, animate
+        hasAnimatedRef.current = true;
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, []);
 
   const imgClass = (i: number, alwaysColor = false) => {
@@ -119,7 +125,7 @@ export default function Page() {
               muted
               autoPlay
             >
-              <source src={"./windstock.mp4"} type="video/mp4" />
+              <source src="/videos/windstock.mp4" type="video/mp4" />
             </video>
             <div
               className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-300 ${
@@ -199,20 +205,42 @@ export default function Page() {
           currentTrack ? "mb-16 sm:mb-20" : ""
         }`}
       >
+        {/* Vignette overlay for text separation */}
+        <div className="absolute inset-0">
+          {/* Radial dark gradient centered where text is */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_50%,rgba(0,0,0,0.5)_0%,transparent_70%)]" />
+        </div>
+
         {/* Name across the screen */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-4 gap-0">
-          <h1
-            className={`font-bebas text-[12vw] sm:text-[9vw] lg:text-[7vw] leading-[0.85] tracking-tight text-center select-none ${
-              !hasAnimated ? "animate-hero-slide-up" : ""
-            }`}
-            title="Peyt rhymes with heat"
-            aria-label="Peyt rhymes with heat"
-          >
-            <span className="text-white">PEYT </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-pink-500">
-              SPENCER
-            </span>
-          </h1>
+          {/* Soft glow/shadow behind text for better readability */}
+          <div className="relative">
+            {/* Shadow layer - slightly offset duplicate for depth */}
+            <h1
+              className={`font-bebas text-[12vw] sm:text-[9vw] lg:text-[7vw] leading-[0.85] tracking-tight text-center select-none absolute inset-0 text-black/30 blur-xl scale-110 transition-opacity duration-0 ${
+                shouldAnimate === null ? "opacity-0" : "opacity-100"
+              }`}
+              aria-hidden="true"
+            >
+              PEYT SPENCER
+            </h1>
+            <h1
+              className={`font-bebas text-[12vw] sm:text-[9vw] lg:text-[7vw] leading-[0.85] tracking-tight text-center select-none relative drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] ${
+                shouldAnimate === null
+                  ? "opacity-0"
+                  : shouldAnimate
+                  ? "animate-hero-slide-up"
+                  : "opacity-100"
+              }`}
+              title="Peyt rhymes with heat"
+              aria-label="Peyt rhymes with heat"
+            >
+              <span className="text-white">PEYT </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-red-500 to-pink-500">
+                SPENCER
+              </span>
+            </h1>
+          </div>
 
           {/* Play button below - auto width, animated reveal */}
           <button
@@ -236,12 +264,32 @@ export default function Page() {
                 }
               }
             }}
-            className={`pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg md:text-xl lg:text-2xl font-medium transition-colors duration-200 backdrop-blur-sm relative overflow-hidden ${
+            className={`pointer-events-auto mt-2 px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:bg-white/5 text-white text-lg md:text-xl lg:text-2xl font-medium transition-colors duration-200 backdrop-blur-sm relative overflow-hidden ${
               currentTrack ? "" : "animate-button-reveal"
             }`}
+            disabled={isLoading}
           >
             <span className="flex items-center justify-center gap-2">
-              {currentTrack?.id === LATEST_SINGLE_ID && isPlaying ? (
+              {isLoading ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Queueing up the track...
+                </>
+              ) : currentTrack?.id === LATEST_SINGLE_ID && isPlaying ? (
                 <>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />

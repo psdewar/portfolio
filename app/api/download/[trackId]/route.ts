@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "../../shared/stripe-utils";
-import { isValidAsset, getProduct, getDownloadableAssets } from "../../shared/products";
+import {
+  isValidAsset,
+  getProduct,
+  getDownloadableAssets,
+  getFileFormat,
+} from "../../shared/products";
 import {
   checkRateLimit,
   getClientIP,
@@ -71,6 +76,11 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       return new NextResponse("Track not included in purchase", { status: 403 });
     }
 
+    // Get file format from product config
+    const productId = session.metadata?.productId;
+    const product = productId ? getProduct(productId) : null;
+    const fileFormat = product ? getFileFormat(product) : "mp3";
+
     const downloadKey = `downloads_${trackId}`;
     const currentDownloads = parseInt(session.metadata?.[downloadKey] || "0", 10);
 
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       });
     }
 
-    const audioBlob = await fetchAudioBlob(trackId);
+    const audioBlob = await fetchAudioBlob(trackId, fileFormat);
     if (!audioBlob) {
       return new NextResponse("Track file not found", { status: 404 });
     }
@@ -94,8 +104,8 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       },
     });
 
-    const filename = formatTrackFilename(trackId);
-    const headers = createDownloadHeaders(audioBuffer, filename);
+    const filename = formatTrackFilename(trackId, fileFormat);
+    const headers = createDownloadHeaders(audioBuffer, filename, fileFormat);
 
     return new NextResponse(audioBuffer, {
       headers: {

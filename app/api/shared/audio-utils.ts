@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { list } from "@vercel/blob";
 import { checkRateLimit, getClientIP } from "./rate-limit";
-import { isValidAsset, isTestAsset } from "./products";
+import { isValidAsset, isTestAsset, DIGITAL_ASSETS } from "./products";
 
 export const ALLOWED_ORIGINS = [
   "https://peytspencer.com",
@@ -42,7 +42,7 @@ export function validateOriginStrict(request: NextRequest): boolean {
  * Generate mock MP3 data for test assets (no Vercel Blob dependency)
  * Returns a minimal valid MP3 frame for testing download flow
  */
-function generateMockAudioBuffer(): ArrayBuffer {
+export function generateMockAudioBuffer(): ArrayBuffer {
   // Minimal MP3 frame header (valid but silent)
   // This is enough to test the download flow without real audio
   const mockMp3 = new Uint8Array([
@@ -82,24 +82,47 @@ function generateMockAudioBuffer(): ArrayBuffer {
 }
 
 /**
- * Fetch audio blob from storage
- * For test assets, returns mock data without Vercel Blob call
+ * Fetch audio/file blob from storage
+ * For test assets or dev mode, returns mock/local data without Vercel Blob call
  */
 export async function fetchAudioBlob(
-  trackId: string
+  trackId: string,
+  fileFormat: string = "mp3"
 ): Promise<{ url: string; size: number } | null> {
   // Test assets return mock data - no Vercel Blob dependency
   if (isTestAsset(trackId)) {
     return {
-      url: `mock://test/${trackId}.mp3`,
+      url: `mock://test/${trackId}.${fileFormat}`,
       size: 27, // Size of mock buffer
     };
   }
 
+  // Dev mode: check for local test file first (in /public/test-files/)
+  if (process.env.NODE_ENV === "development") {
+    const localUrl = `${
+      process.env.NEXT_PUBLIC_URL || "http://localhost:3000"
+    }/test-files/${trackId}.${fileFormat}`;
+    try {
+      const checkResponse = await fetch(localUrl, { method: "HEAD" });
+      if (checkResponse.ok) {
+        const size = parseInt(checkResponse.headers.get("content-length") || "0", 10);
+        console.log(`[DEV] Using local file: ${localUrl}`);
+        return { url: localUrl, size };
+      }
+    } catch {
+      // Local file doesn't exist, fall through to Vercel Blob
+    }
+  }
+
   // Production assets use Vercel Blob
-  const { blobs } = await list({ prefix: `audio/${trackId}.mp3`, limit: 1 });
+  // Look up the blob prefix from DIGITAL_ASSETS config
+  const assetConfig = DIGITAL_ASSETS[trackId];
+  const blobPrefix = assetConfig?.blobPrefix || `audio/${trackId}`;
+  const { blobs } = await list({ prefix: `${blobPrefix}.${fileFormat}`, limit: 1 });
   let audioBlob = blobs[0];
-  if (!audioBlob && trackId !== "patience") {
+
+  // Fallback for mp3s only (not for zip bundles)
+  if (!audioBlob && fileFormat === "mp3" && trackId !== "patience") {
     const { blobs: fallbackBlobs } = await list({ prefix: `audio/patience.mp3`, limit: 10 });
     audioBlob = fallbackBlobs[0];
   }
@@ -167,13 +190,18 @@ export function createRangeHeaders(start: number, end: number, contentLength: nu
   };
 }
 
-export function formatTrackFilename(trackId: string): string {
-  return `peyt-spencer-${trackId}.mp3`;
+export function formatTrackFilename(trackId: string, fileFormat: string = "mp3"): string {
+  return `peyt-spencer-${trackId}.${fileFormat}`;
 }
 
-export function createDownloadHeaders(audioBuffer: ArrayBuffer, filename: string) {
+export function createDownloadHeaders(
+  audioBuffer: ArrayBuffer,
+  filename: string,
+  fileFormat: string = "mp3"
+) {
+  const contentType = fileFormat === "zip" ? "application/zip" : "audio/mpeg";
   return {
-    "Content-Type": "audio/mpeg",
+    "Content-Type": contentType,
     "Content-Disposition": `attachment; filename="${filename}"`,
     "Content-Length": audioBuffer.byteLength.toString(),
     "Cache-Control": "private, no-cache, no-store, must-revalidate",

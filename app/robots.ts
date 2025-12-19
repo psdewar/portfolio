@@ -5,8 +5,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/listen", "/shop", "/hire", "/fund"],
-        disallow: ["/api/", "/_next/", "/admin/", "*.json"],
+        allow: ["/", "/listen", "/shop", "/shop/quick", "/hire", "/fund"],
+        disallow: ["/api/", "/_next/", "/admin/", "/shop/success", "*.json"],
       },
       {
         userAgent: "GPTBot",

@@ -52,7 +52,8 @@ export default function FreestyleOverlay({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60">
-      <div className="relative max-w-md w-full aspect-square rounded-xl overflow-hidden">
+      <div className="relative max-w-md w-full flex flex-col overflow-hidden">
+        {/* Close button */}
         <button
           aria-label="Close"
           onClick={onClose}
@@ -68,47 +69,55 @@ export default function FreestyleOverlay({
           </svg>
         </button>
 
-        <Image src={coverSrc} alt="Freestyle cover" fill className="object-cover" />
+        {/* Square image with play button */}
+        <div className="relative aspect-square w-full">
+          <Image src={coverSrc} alt="Freestyle cover" fill className="object-cover" />
 
-        <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+          {/* Gradient overlay for title */}
+          <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
 
-        <button
-          onClick={async (e) => {
-            handlePlayToggle();
-          }}
-          aria-label={playing ? "Pause" : "Play"}
-          className="absolute inset-0 flex items-center justify-center z-10"
-        >
-          <div className="relative w-16 h-16">
-            <div
-              className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
-                playing ? "opacity-0" : "opacity-100"
-              }`}
-            >
-              <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+          {/* Title overlay */}
+          <h3 className="absolute bottom-4 left-0 right-0 font-bebas text-2xl text-white tracking-tight text-center px-4 z-10">
+            Peyt Spencer - Mula Freestyle
+          </h3>
+
+          <button
+            onClick={async (e) => {
+              handlePlayToggle();
+            }}
+            aria-label={playing ? "Pause" : "Play"}
+            className="absolute inset-0 flex items-center justify-center z-10"
+          >
+            <div className="relative w-16 h-16">
+              <div
+                className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
+                  playing ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <div
+                className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
+                  playing ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                </svg>
+              </div>
             </div>
-            <div
-              className={`absolute inset-0 rounded-full bg-black/60 flex items-center justify-center transition-opacity duration-200 ${
-                playing ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
-              </svg>
-            </div>
-          </div>
-        </button>
+          </button>
+        </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-          <h3 className="font-bebas text-2xl text-white mb-3 tracking-tight">Peyt Spencer - Mula Freestyle</h3>
-
-          <div className="flex flex-col gap-2">
+        {/* Bottom section with download button */}
+        <div className="bg-slate-500 rounded-b-xl overflow-hidden">
+          <div className="flex flex-col">
             <button
               onClick={() => handleDownloadClick(trackId)}
               disabled={fixedCheckoutTrack === trackId}
-              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-lg transition-colors shadow-lg disabled:opacity-70 disabled:cursor-wait"
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-none font-medium text-lg transition-colors shadow-lg disabled:opacity-70 disabled:cursor-wait"
             >
               {fixedCheckoutTrack === trackId ? "Redirecting..." : "DOWNLOAD FOR $1.00"}
             </button>
@@ -118,7 +127,7 @@ export default function FreestyleOverlay({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 bg-white/90 hover:bg-white text-black rounded font-medium text-lg shadow-lg"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 bg-white/90 hover:bg-white text-black rounded-none font-medium text-lg shadow-lg"
               >
                 STREAM <ArrowIcon />
               </Link>

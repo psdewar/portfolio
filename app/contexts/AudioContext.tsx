@@ -9,6 +9,7 @@ import {
   FC,
   ReactNode,
 } from "react";
+import { getDevToolsState } from "./DevToolsContext";
 
 export interface Track {
   id: string;
@@ -72,7 +73,18 @@ const getGlobalAudio = () => {
 const fetchAudioBlob = async (trackId: string): Promise<string> => {
   if (blobUrlCache.has(trackId)) return blobUrlCache.get(trackId)!;
 
-  const response = await fetch(`/api/audio/${trackId}`, {
+  const devSettings = getDevToolsState();
+
+  // Build URL with dev flags
+  const url = new URL(`/api/audio/${trackId}`, window.location.origin);
+  if (devSettings.isDevMode && devSettings.useLocalAudio) {
+    url.searchParams.set("local", "1");
+  }
+  if (devSettings.isDevMode && devSettings.simulateSlowNetwork) {
+    url.searchParams.set("delay", String(devSettings.slowNetworkDelay));
+  }
+
+  const response = await fetch(url.toString(), {
     headers: { "Cache-Control": "private, max-age=86400" },
   });
 
@@ -144,32 +156,60 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }
   }, [audio]);
 
+  // High-frequency time updates for precise lyrics sync
   useEffect(() => {
     if (!audio) return;
+    let animationId: number;
 
-    const updateState = () => {
+    const tick = () => {
+      if (!audio.paused) {
+        setState((prev) => ({
+          ...prev,
+          currentTime: audio.currentTime,
+        }));
+        animationId = requestAnimationFrame(tick);
+      }
+    };
+
+    const handlePlay = () => {
+      setState((prev) => ({ ...prev, isPlaying: true }));
+      animationId = requestAnimationFrame(tick);
+    };
+
+    const handlePause = () => {
+      setState((prev) => ({ ...prev, isPlaying: false, currentTime: audio.currentTime }));
+      cancelAnimationFrame(animationId);
+    };
+
+    const handleEnded = () => {
+      setState((prev) => ({ ...prev, isPlaying: false }));
+      cancelAnimationFrame(animationId);
+    };
+
+    const handleLoadedMetadata = () => {
       setState((prev) => ({
         ...prev,
-        currentTime: audio.currentTime,
         duration: audio.duration || prev.duration,
-        isPlaying: !audio.paused,
+        currentTime: audio.currentTime,
       }));
     };
 
-    const handleEnded = () => setState((prev) => ({ ...prev, isPlaying: false }));
-
-    audio.addEventListener("timeupdate", updateState);
-    audio.addEventListener("play", updateState);
-    audio.addEventListener("pause", updateState);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("loadedmetadata", updateState);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+
+    // Start tick loop if already playing
+    if (!audio.paused) {
+      animationId = requestAnimationFrame(tick);
+    }
 
     return () => {
-      audio.removeEventListener("timeupdate", updateState);
-      audio.removeEventListener("play", updateState);
-      audio.removeEventListener("pause", updateState);
+      cancelAnimationFrame(animationId);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("loadedmetadata", updateState);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
   }, [audio]);
 
@@ -198,6 +238,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     (time: number) => {
       if (!audio) return;
       audio.currentTime = time;
+      // Update state immediately for visual feedback (especially when paused)
+      setState((prev) => ({ ...prev, currentTime: time }));
     },
     [audio]
   );

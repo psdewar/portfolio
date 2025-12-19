@@ -8,10 +8,12 @@ import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
 import FreestyleOverlay from "app/components/FreestyleOverlay";
 import { useAudio } from "../contexts/AudioContext";
+import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import { stripePromise } from "../lib/stripe";
 import { DEFAULT_SINGLE_PRICE_CENTS, SINGLE_PRICE_OVERRIDES } from "../api/shared/products";
+import ListenLoading from "./loading";
 
 interface TrackCard {
   id: string;
@@ -60,7 +62,7 @@ const EXTRA_TRACKS: TrackCard[] = [
   {
     id: "mula-freestyle",
     title: "Peyt Spencer - Mula Freestyle",
-    src: "/images/mula-dinner-cover.jpg",
+    src: "/images/covers/mula.jpg",
   },
 ];
 
@@ -76,7 +78,9 @@ const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
 const DOWNLOADABLE_TRACK_IDS = new Set([...singles, "mula-freestyle"]);
 
 export default function Page() {
-  const { loadTrack, loadPlaylist, currentTrack, isPlaying, toggle, playlist } = useAudio();
+  const { loadTrack, loadPlaylist, currentTrack, isPlaying, isLoading, toggle, playlist } =
+    useAudio();
+  const isSimulatingLoad = useSimulatedLoading();
   const [showStayConnected, setShowStayConnected] = useState(() => shouldShowStayConnected());
   const [playParam, setPlayParam] = useState<string | null>(null);
   const downloadInitiatedRef = useRef(false);
@@ -252,8 +256,13 @@ export default function Page() {
 
   const playMula = playParam === "mula-freestyle";
 
+  // Show skeleton while simulating slow network (dev only)
+  if (isSimulatingLoad) {
+    return <ListenLoading />;
+  }
+
   return (
-    <>
+    <div className="animate-fade-in">
       {showStayConnected && !playParam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />
@@ -264,8 +273,7 @@ export default function Page() {
         <FreestyleOverlay
           trackId="mula-freestyle"
           coverSrc={
-            ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src ||
-            "/images/mula-dinner-cover.jpg"
+            ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/covers/mula.jpg"
           }
           href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
           fixedCheckoutTrack={fixedCheckoutTrack}
@@ -305,6 +313,19 @@ export default function Page() {
                 </div>
               )}
 
+              {/* Loading overlay for audio fetch */}
+              {isLoading && isCurrent && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 border-4 border-yellow-500/30 rounded-full" />
+                      <div className="absolute inset-0 w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                    <span className="text-white text-sm font-medium">Queuing up the track...</span>
+                  </div>
+                </div>
+              )}
+
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center p-4">
                 <div className="w-full flex flex-col gap-2">
                   {isPlayable && (
@@ -313,9 +334,33 @@ export default function Page() {
                         e.stopPropagation();
                         handlePlayTrack(t.id);
                       }}
-                      className={`w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg`}
+                      disabled={isLoading && isCurrent}
+                      className={`w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2`}
                     >
-                      {isCurrent && isPlaying ? "PAUSE" : "PLAY"}
+                      {isLoading && isCurrent ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          LOADING
+                        </>
+                      ) : isCurrent && isPlaying ? (
+                        "PAUSE"
+                      ) : (
+                        "PLAY"
+                      )}
                     </button>
                   )}
                   {isDownloadable && (
@@ -354,6 +399,6 @@ export default function Page() {
         trackTitle={paymentModal.trackTitle}
         trackThumbnail={paymentModal.trackThumbnail}
       />
-    </>
+    </div>
   );
 }

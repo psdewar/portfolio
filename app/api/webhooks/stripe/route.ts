@@ -7,6 +7,7 @@ import {
   hasDigitalAssets,
   getDownloadableAssets,
 } from "../../shared/products";
+import { savePurchase, isKeepalive, decrementInventory } from "../../../../lib/supabase-admin";
 import fs from "fs";
 import path from "path";
 
@@ -52,6 +53,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const productId = metadata.productId;
   const productType = metadata.productType;
 
+  // Ignore keepalive pings
+  if (isKeepalive(productId) || isKeepalive(session.id)) {
+    console.log(`[Webhook] Ignoring keepalive ping`);
+    return;
+  }
+
   console.log(`[Webhook] Checkout completed - Product: ${productId}, Type: ${productType}`);
 
   if (metadata.type === "project_funding" || productType === "funding") {
@@ -89,6 +96,12 @@ async function handlePhysicalOrder(
   console.log(`  Size: ${metadata?.size}, Color: ${metadata?.color}`);
   console.log(`  Customer: ${shipping?.name}`);
   console.log(`  Email: ${shipping?.email}`);
+
+  // Decrement inventory in Supabase
+  if (metadata?.size && metadata?.color) {
+    const sku = `${metadata.color.toLowerCase()}-${metadata.size.toLowerCase()}`;
+    await decrementInventory(sku);
+  }
 }
 
 async function handleDigitalFulfillment(
@@ -98,10 +111,24 @@ async function handleDigitalFulfillment(
   if (!product) return;
 
   const assets = getDownloadableAssets(product);
+  const email = session.customer_details?.email;
 
   console.log(`[Digital Fulfillment] ${product.name}`);
   console.log(`  Assets: ${assets.join(", ")}`);
-  console.log(`  Download link valid for 24 hours`);
+  console.log(`  Email: ${email}`);
+
+  // Save purchase to Supabase for download validation
+  if (email) {
+    await savePurchase({
+      sessionId: session.id,
+      email,
+      productId: product.id,
+      productName: product.name,
+      downloadableAssets: assets,
+      amountCents: session.amount_total || undefined,
+    });
+    console.log(`  ✓ Purchase saved to Supabase`);
+  }
 }
 
 async function handleLegacyTrackPurchase(session: Stripe.Checkout.Session) {

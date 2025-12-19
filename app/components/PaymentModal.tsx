@@ -142,7 +142,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
             <div className="flex-1">
               <h3 className="font-medium text-lg text-neutral-900 dark:text-white">{trackTitle}</h3>
-              <p className="font-bebas text-base text-neutral-600 dark:text-neutral-400 tracking-tight">Peyt Spencer</p>
+              <p className="font-bebas text-base text-neutral-600 dark:text-neutral-400 tracking-tight">
+                Peyt Spencer
+              </p>
             </div>
           </div>
 

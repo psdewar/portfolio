@@ -17,17 +17,17 @@ export interface VideoMetadata {
 
 export const VIDEO_REGISTRY = {
   "exhibit-psd-live": {
-    src: "/exhibit-psd-live.mp4",
+    src: "/videos/exhibit-psd-live.mp4",
     title: "Exhibit PSD Live Performance",
     description: "Rocking the stage with my live band",
   },
   "boise-fund": {
-    src: "/boise-fund-60sec.mp4",
+    src: "/videos/boise-fund-60sec.mp4",
     title: "Flight to Boise Funding Campaign",
     description: "Opening for Mark Battles in Boise, Idaho",
   },
   "fund-next-single": {
-    src: "/fund-next-single-45sec.mp4",
+    src: "/videos/fund-next-single-45sec.mp4",
     title: "Fund My Next Single",
     description: "Help fund my next single release",
   },

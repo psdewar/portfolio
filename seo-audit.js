@@ -20,7 +20,7 @@ logCheck("Robots.txt", true, "AI bot protection included");
 console.log("\n🎵 Music Page SEO:");
 logCheck("Music structured data", true, "MusicRecording schema");
 logCheck("Track offers schema", true, "Price & availability");
-logCheck("Music-specific OG image", true, "/api/og/music route");
+logCheck("Music-specific OG image", true, "/api/og/listen route");
 logCheck("Genre metadata", true, "Hip-Hop & R&B tags");
 
 console.log("\n📱 Technical SEO:");
