@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 // Keepalive markers - use these to filter in other code
-export const KEEPALIVE_PREFIX = "_keepalive_";
+const KEEPALIVE_PREFIX = "_keepalive_";
 const KEEPALIVE_SKU = "_keepalive_";
 const KEEPALIVE_SESSION = "_keepalive_ping_";
 const KEEPALIVE_ENTRY = "_keepalive_ping_";
