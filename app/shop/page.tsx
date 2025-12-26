@@ -369,9 +369,10 @@ export default function Page() {
               </div>
             </div>
             <p className="text-white/80 text-base lg:text-lg">
-              A “16” is the number of bars, or typical length of one rap verse. I write every bar
-              myself, and grabbing this pack is the same as streaming “Patience” 3,000 times! You’ll
-              receive a zip file with mp3s and a lyricbook containing:
+              A “16” is the number of bars, the typical length of one rap verse. I write every bar
+              myself, and grabbing this pack supports my independence the same as streaming
+              “Patience” 3,000 times! You’ll receive a zip file with mp3s and a lyricbook
+              containing:
             </p>
             <div className="space-y-1">
               {TRACKLIST.map((track) => (
