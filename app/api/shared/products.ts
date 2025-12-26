@@ -254,8 +254,8 @@ export const PRODUCTS: Record<string, Product> = {
   },
 
   // Digital download bundle (zip file)
-  "download-bundle-2025": {
-    id: "download-bundle-2025",
+  "singles-16s-pack-2025": {
+    id: "singles-16s-pack-2025",
     name: "Singles & 16s (2025)",
     description:
       "Right One • Safe • Patience • Pretty Girls Freestyle • Chains & Whips Freestyle • Mula Freestyle + Lyricbook",

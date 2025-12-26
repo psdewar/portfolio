@@ -12,7 +12,7 @@ const calculateStripeFee = (baseAmount: number) => {
 };
 
 const PRICING = {
-  "download-bundle-2025": 10,
+  "singles-16s-pack-2025": 10,
   "then-and-now-bundle-2025": 30,
 };
 
@@ -35,7 +35,7 @@ const BUNDLE_PICKUP_FEES = calculateStripeFee(PRICING["then-and-now-bundle-2025"
 const BUNDLE_DELIVERY_FEES = {
   total: calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total - SHIPPING,
 };
-const DOWNLOAD_FEES = calculateStripeFee(PRICING["download-bundle-2025"]);
+const DOWNLOAD_FEES = calculateStripeFee(PRICING["singles-16s-pack-2025"]);
 
 const InfoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -136,7 +136,9 @@ export default function Page() {
     [selectedSize, mirrorURL]
   );
 
-  const handleCheckout = async (productId: "download-bundle-2025" | "then-and-now-bundle-2025") => {
+  const handleCheckout = async (
+    productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025"
+  ) => {
     const stripe = await stripePromise;
     if (!stripe) return;
 
@@ -144,9 +146,9 @@ export default function Page() {
     const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
 
     const productConfigs = {
-      "download-bundle-2025": {
+      "singles-16s-pack-2025": {
         amount: Math.round(DOWNLOAD_FEES.total * 100),
-        productId: "download-bundle-2025",
+        productId: "singles-16s-pack-2025",
         metadata: {},
         skipShipping: true,
       },
@@ -272,7 +274,7 @@ export default function Page() {
             <h2 className="text-white font-semibold text-2xl sm:text-3xl">
               Buy Then & Now Bundle
               <p className="font-normal text-white/80 text-base lg:text-lg">
-                Includes one vintage shirt and most recent music
+                Includes one Exhibit PSD shirt and Singles & 16s Pack (2025)
               </p>
             </h2>
             <label className="text-white/70">1. Select delivery</label>
@@ -354,22 +356,22 @@ export default function Page() {
 
         {/* Download Card - Full Width Color Block - Entirely Clickable */}
         <button
-          onClick={() => handleCheckout("download-bundle-2025")}
+          onClick={() => handleCheckout("singles-16s-pack-2025")}
           className="bg-[#1628A3] hover:bg-blue-700 flex flex-col text-left transition-colors cursor-pointer"
         >
           <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-white font-semibold text-2xl sm:text-3xl">
-                Buy Singles & 16s (2025)
+                Buy Singles & 16s Pack (2025)
               </h2>
               <div className="bg-white/20 rounded-full px-3 py-1 shrink-0">
                 <span className="text-white/90 text-sm font-medium">Tap anywhere to purchase</span>
               </div>
             </div>
             <p className="text-white/80 text-base lg:text-lg">
-              A "16" is the typical length of one rap verse. For me, it's 16 lines of pure fire.
-              Streaming is nice, but your support helps sustain my independence. You'll receive a
-              zip file with mp3s and a lyricbook containing:
+              A “16” is the number of bars, or typical length of one rap verse. I write every bar
+              myself, and grabbing this pack is the same as streaming “Patience” 3,000 times! You’ll
+              receive a zip file with mp3s and a lyricbook containing:
             </p>
             <div className="space-y-1">
               {TRACKLIST.map((track) => (
@@ -386,7 +388,7 @@ export default function Page() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-6xl sm:text-7xl font-semibold text-white">
-                ${PRICING["download-bundle-2025"]}
+                ${PRICING["singles-16s-pack-2025"]}
               </span>
               <span className="text-white/70 text-base lg:text-lg">
                 + $0.61 for processing
