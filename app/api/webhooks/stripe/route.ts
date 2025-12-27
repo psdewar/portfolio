@@ -55,11 +55,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   // Ignore keepalive pings
   if (isKeepalive(productId) || isKeepalive(session.id)) {
-    console.log(`[Webhook] Ignoring keepalive ping`);
     return;
   }
-
-  console.log(`[Webhook] Checkout completed - Product: ${productId}, Type: ${productType}`);
 
   if (metadata.type === "project_funding" || productType === "funding") {
     await updateProjectFunding(session);
@@ -90,12 +87,6 @@ async function handlePhysicalOrder(
   if (!product) return;
 
   const metadata = session.metadata;
-  const shipping = session.customer_details;
-
-  console.log(`[Physical Order] ${product.name}`);
-  console.log(`  Size: ${metadata?.size}, Color: ${metadata?.color}`);
-  console.log(`  Customer: ${shipping?.name}`);
-  console.log(`  Email: ${shipping?.email}`);
 
   // Decrement inventory in Supabase
   if (metadata?.size && metadata?.color) {
@@ -113,11 +104,6 @@ async function handleDigitalFulfillment(
   const assets = getDownloadableAssets(product);
   const email = session.customer_details?.email;
 
-  console.log(`[Digital Fulfillment] ${product.name}`);
-  console.log(`  Assets: ${assets.join(", ")}`);
-  console.log(`  Email: ${email}`);
-
-  // Save purchase to Supabase for download validation
   if (email) {
     await savePurchase({
       sessionId: session.id,
@@ -126,18 +112,13 @@ async function handleDigitalFulfillment(
       productName: product.name,
       downloadableAssets: assets,
       amountCents: session.amount_total || undefined,
+      paymentStatus: "paid",
     });
-    console.log(`  ✓ Purchase saved to Supabase`);
   }
 }
 
 async function handleLegacyTrackPurchase(session: Stripe.Checkout.Session) {
-  const metadata = session.metadata;
-  if (!metadata) return;
-
-  console.log(`[Single Track] ${metadata.trackTitle}`);
-  console.log(`  Mode: ${metadata.mode}`);
-  console.log(`  Track ID: ${metadata.trackId}`);
+  // Legacy single track purchase - no action needed
 }
 
 async function updateProjectFunding(session: Stripe.Checkout.Session) {
@@ -156,12 +137,6 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
       projectsData[projectId].backers += 1;
 
       fs.writeFileSync(projectsPath, JSON.stringify(projectsData, null, 2));
-
-      console.log(
-        `[Project Funding] ${projectId}: +$${amountCents / 100} (total: $${
-          projectsData[projectId].raisedCents / 100
-        })`
-      );
     }
   } catch (error) {
     console.error("Error updating project funding:", error);
@@ -169,5 +144,5 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
 }
 
 async function handleRefund(charge: Stripe.Charge) {
-  console.log(`[Refund] Charge ${charge.id} refunded`);
+  // Handle refund - could revoke access or notify
 }

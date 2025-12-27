@@ -33,6 +33,7 @@ export async function savePurchase(data: {
   productName?: string;
   downloadableAssets?: string[];
   amountCents?: number;
+  paymentStatus?: string;
 }): Promise<Purchase | null> {
   const { data: purchase, error } = await supabaseAdmin
     .from("purchases")
@@ -44,6 +45,7 @@ export async function savePurchase(data: {
         product_name: data.productName,
         downloadable_assets: data.downloadableAssets,
         amount_cents: data.amountCents,
+        payment_status: data.paymentStatus || "paid",
       },
       { onConflict: "session_id" }
     )
@@ -138,6 +140,5 @@ export async function decrementInventory(sku: string): Promise<boolean> {
     }
   }
 
-  console.log(`[Inventory] Decremented ${sku}`);
   return true;
 }
