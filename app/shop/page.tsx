@@ -1,6 +1,5 @@
 "use client";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
-import { stripePromise } from "app/lib/stripe";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TRACKLIST } from "./shared";
@@ -139,9 +138,6 @@ export default function Page() {
   const handleCheckout = async (
     productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025"
   ) => {
-    const stripe = await stripePromise;
-    if (!stripe) return;
-
     const isPickup = deliveryMode === "pickup";
     const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
 
@@ -178,12 +174,12 @@ export default function Page() {
     });
 
     const data = await response.json();
-    if (!response.ok || !data.sessionId) {
+    if (!response.ok || !data.url) {
       console.error("Checkout error:", data);
       alert(data.error || "Checkout failed");
       return;
     }
-    await stripe.redirectToCheckout({ sessionId: data.sessionId });
+    window.location.href = data.url;
   };
 
   const SizeColorSelector = ({ prefix = "" }: { prefix?: string }) => {
@@ -197,9 +193,6 @@ export default function Page() {
     ];
 
     const handleOptionCheckout = async (size: string, color: string) => {
-      const stripe = await stripePromise;
-      if (!stripe) return;
-
       const isPickup = deliveryMode === "pickup";
       const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
 
@@ -216,12 +209,12 @@ export default function Page() {
       });
 
       const data = await response.json();
-      if (!response.ok || !data.sessionId) {
+      if (!response.ok || !data.url) {
         console.error("Checkout error:", data);
         alert(data.error || "Checkout failed");
         return;
       }
-      await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      window.location.href = data.url;
     };
 
     return (

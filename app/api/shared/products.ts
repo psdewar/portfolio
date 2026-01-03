@@ -11,8 +11,6 @@
  * Stripe will use these settings to create checkout sessions.
  */
 
-import Stripe from "stripe";
-
 // =============================================================================
 // TEST MODE DETECTION
 // =============================================================================
@@ -84,13 +82,13 @@ export interface DigitalProduct extends BaseProduct {
   fileFormat: string; // e.g., "mp3", "pdf", "zip"
 }
 
-// Inline shipping config (no Stripe Dashboard setup needed)
+// Inline shipping config (matches Tiger's ShippingOption)
 export interface ShippingConfig {
   amountCents: number;
   displayName: string;
   deliveryEstimate?: {
-    minimum: { unit: "business_day" | "day" | "hour" | "week" | "month"; value: number };
-    maximum: { unit: "business_day" | "day" | "hour" | "week" | "month"; value: number };
+    minimum: { unit: "business_day" | "day" | "week"; value: number };
+    maximum: { unit: "business_day" | "day" | "week"; value: number };
   };
 }
 
@@ -99,7 +97,7 @@ export interface PhysicalProduct extends BaseProduct {
   requiresShipping?: boolean; // Default true, false for pickup products
   shippingRateId?: string; // Preconfigured Stripe shipping rate ID
   shipping?: ShippingConfig; // OR inline shipping config (no dashboard setup)
-  allowedCountries: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
+  allowedCountries: string[];
   collectPhone?: boolean; // Default: true (always collect for shipping)
   variants?: {
     sizes?: string[];
@@ -114,7 +112,7 @@ export interface BundleProduct extends BaseProduct {
   requiresShipping: boolean;
   shippingRateId?: string; // Preconfigured Stripe shipping rate ID
   shipping?: ShippingConfig; // OR inline shipping config (no dashboard setup)
-  allowedCountries?: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
+  allowedCountries?: string[];
   collectPhone?: boolean;
   variants?: {
     sizes?: string[];
@@ -163,14 +161,23 @@ export const DIGITAL_ASSETS: Record<string, { blobPrefix: string; displayName: s
   patience: { blobPrefix: "audio/patience", displayName: "Patience" },
   safe: { blobPrefix: "audio/safe", displayName: "Safe" },
   "right-one": { blobPrefix: "audio/right-one", displayName: "Right One" },
-  "where-i-wanna-be": { blobPrefix: "audio/where-i-wanna-be", displayName: "Where I Wanna Be" },
+  "where-i-wanna-be": {
+    blobPrefix: "audio/where-i-wanna-be",
+    displayName: "Where I Wanna Be",
+  },
   "critical-race-theory": {
     blobPrefix: "audio/critical-race-theory",
     displayName: "Critical Race Theory",
   },
-  "better-days": { blobPrefix: "audio/better-days", displayName: "Better Days" },
+  "better-days": {
+    blobPrefix: "audio/better-days",
+    displayName: "Better Days",
+  },
   bahai: { blobPrefix: "audio/bahai", displayName: "Bahai" },
-  "mula-freestyle": { blobPrefix: "audio/mula-freestyle", displayName: "Mula Freestyle" },
+  "mula-freestyle": {
+    blobPrefix: "audio/mula-freestyle",
+    displayName: "Mula Freestyle",
+  },
   "pretty-girls-freestyle": {
     blobPrefix: "audio/pretty-girls-freestyle",
     displayName: "Pretty Girls Freestyle",

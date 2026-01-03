@@ -1,6 +1,11 @@
 import Stripe from "stripe";
 import { getSecureEnv } from "../../lib/env-validation";
 
+// TODO: Move funding stats to Supabase for faster page loads
+// Current approach makes N+1 Stripe API calls (paginate sessions + check refunds per session)
+// Fix: Store raised_cents/backers in Supabase, update via webhooks (checkout.session.completed, charge.refunded)
+// This will make /fund page load instant instead of showing skeleton for seconds
+
 const CACHE_TTL = 300_000;
 
 interface CacheEntry {
@@ -22,7 +27,10 @@ type Offsets = {
 const manualOffsets: Record<string, Offsets> = {};
 
 export function setFundingOffsets(projectId: string, offsets: Offsets) {
-  manualOffsets[projectId] = { ...(manualOffsets[projectId] ?? {}), ...offsets };
+  manualOffsets[projectId] = {
+    ...(manualOffsets[projectId] ?? {}),
+    ...offsets,
+  };
 }
 
 export function clearFundingCache(projectId?: string) {
@@ -34,12 +42,18 @@ export function clearFundingCache(projectId?: string) {
 }
 
 function getStripe() {
-  return new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), { apiVersion: "2025-08-27.basil" });
+  return new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
+    apiVersion: "2025-08-27.basil",
+  });
 }
 
 function applyOffsets(
   projectId: string,
-  stats: { raisedCents: number; backers: number; tierCounts: Record<TierKey, number> }
+  stats: {
+    raisedCents: number;
+    backers: number;
+    tierCounts: Record<TierKey, number>;
+  }
 ) {
   const off = manualOffsets[projectId];
   if (!off) return stats;
@@ -60,9 +74,11 @@ function applyOffsets(
   };
 }
 
-export async function getFundingStats(
-  projectId: string
-): Promise<{ raisedCents: number; backers: number; tierCounts: Record<TierKey, number> }> {
+export async function getFundingStats(projectId: string): Promise<{
+  raisedCents: number;
+  backers: number;
+  tierCounts: Record<TierKey, number>;
+}> {
   const now = Date.now();
   const cached = cache[projectId];
 
@@ -136,10 +152,17 @@ export async function getFundingStats(
 
     return applyOffsets(projectId, { raisedCents, backers, tierCounts });
   } catch (e) {
-    const zero = { "1000": 0, "2500": 0, "5000": 0, "10000": 0, custom: 0 } as Record<
-      TierKey,
-      number
-    >;
-    return applyOffsets(projectId, { raisedCents: 0, backers: 0, tierCounts: zero });
+    const zero = {
+      "1000": 0,
+      "2500": 0,
+      "5000": 0,
+      "10000": 0,
+      custom: 0,
+    } as Record<TierKey, number>;
+    return applyOffsets(projectId, {
+      raisedCents: 0,
+      backers: 0,
+      tierCounts: zero,
+    });
   }
 }

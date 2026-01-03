@@ -3,18 +3,8 @@ import { getSecureEnv } from "../../../lib/env-validation";
 import {
   getProduct,
   hasDigitalAssets,
-  getSuccessUrl,
-  getCancelUrl,
   getDownloadableAssets,
-  requiresShipping,
-  getShippingConfig,
-  getAllowedCountries,
-  getSellableType,
-  getCurrency,
-  shouldCollectPhone,
   type ProductConfig,
-  type Product,
-  type ShippingConfig,
 } from "./products";
 
 export const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
@@ -23,7 +13,6 @@ export const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
 
 export const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 export const getBaseUrl = () => process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-export const getSessionExpiry = () => Math.floor(Date.now() / 1000) + 30 * 60;
 
 export function createBaseMetadata(ip: string): Record<string, string> {
   return { ip, timestamp: new Date().toISOString() };
@@ -36,122 +25,6 @@ export function sanitizeInput(input: unknown): string {
 
 export function validateAmount(amount: unknown): boolean {
   return typeof amount === "number" && amount >= 50 && amount <= 100000;
-}
-
-interface CreateCheckoutParams {
-  productId: string;
-  ip: string;
-  customAmount?: number;
-  successUrl?: string;
-  cancelUrl?: string;
-  customerEmail?: string;
-}
-
-export async function createProductCheckoutSession(
-  params: CreateCheckoutParams
-): Promise<Stripe.Checkout.Session> {
-  const { productId, ip, customAmount, successUrl, cancelUrl, customerEmail } = params;
-
-  const product = getProduct(productId);
-  if (!product) throw new Error(`Unknown product: ${productId}`);
-
-  const baseUrl = getBaseUrl();
-  const resolvedSuccessUrl = successUrl ?? getSuccessUrl(productId, baseUrl);
-  const resolvedCancelUrl = cancelUrl ?? getCancelUrl(productId, baseUrl);
-
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
-  const images = product.images || [];
-
-  // Phase 2: Use preconfigured price if available
-  if (product.stripePriceId) {
-    lineItems.push({ price: product.stripePriceId, quantity: 1 });
-  } else if (customAmount && product.type === "donation") {
-    lineItems.push({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: product.name,
-          description: product.description,
-          images,
-          metadata: {
-            sellableType: getSellableType(product),
-            sellableId: product.id,
-          },
-        },
-        unit_amount: customAmount,
-      },
-      quantity: 1,
-    });
-  } else {
-    lineItems.push({
-      price_data: {
-        currency: getCurrency(product),
-        product_data: {
-          name: product.name,
-          description: product.description,
-          images,
-          metadata: {
-            sellableType: getSellableType(product),
-            sellableId: product.id,
-          },
-        },
-        unit_amount: product.basePriceCents,
-      },
-      quantity: 1,
-    });
-  }
-
-  const sessionParams: Stripe.Checkout.SessionCreateParams = {
-    payment_method_types: ["card"],
-    line_items: lineItems,
-    mode: "payment",
-    success_url: resolvedSuccessUrl,
-    cancel_url: resolvedCancelUrl,
-    expires_at: getSessionExpiry(),
-    metadata: {
-      ...createBaseMetadata(ip),
-      // Stable analytics identifiers
-      sellableType: getSellableType(product),
-      sellableId: product.id,
-      netAmount: String(customAmount || product.basePriceCents),
-      // Product info
-      productId: product.id,
-      productType: product.type,
-      productName: product.name,
-    },
-  };
-
-  if (requiresShipping(product)) {
-    sessionParams.shipping_address_collection = {
-      allowed_countries: getAllowedCountries(
-        product
-      ) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
-    };
-    const shippingConfig = getShippingConfig(product);
-    if (shippingConfig) {
-      if (typeof shippingConfig === "string") {
-        sessionParams.shipping_options = [{ shipping_rate: shippingConfig }];
-      } else {
-        const shippingRateData: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData =
-          {
-            type: "fixed_amount",
-            fixed_amount: { amount: shippingConfig.amountCents, currency: "usd" },
-            display_name: shippingConfig.displayName,
-          };
-        if (shippingConfig.deliveryEstimate) {
-          shippingRateData.delivery_estimate = {
-            minimum: shippingConfig.deliveryEstimate.minimum,
-            maximum: shippingConfig.deliveryEstimate.maximum,
-          };
-        }
-        sessionParams.shipping_options = [{ shipping_rate_data: shippingRateData }];
-      }
-    }
-  }
-
-  if (customerEmail) sessionParams.customer_email = customerEmail;
-
-  return stripe.checkout.sessions.create(sessionParams);
 }
 
 interface SessionVerificationResult {
@@ -179,12 +52,20 @@ export async function verifyDownloadSession(
     if (!product) return { success: false, error: "Invalid product", status: 400 };
 
     if (!productId || !hasDigitalAssets(productId)) {
-      return { success: false, error: "Product does not include downloads", status: 403 };
+      return {
+        success: false,
+        error: "Product does not include downloads",
+        status: 403,
+      };
     }
 
     const digitalAssets = getDownloadableAssets(product);
     if (!digitalAssets.includes(trackId)) {
-      return { success: false, error: "Track not included in purchase", status: 403 };
+      return {
+        success: false,
+        error: "Track not included in purchase",
+        status: 403,
+      };
     }
 
     const paymentTime = session.created * 1000;
@@ -195,7 +76,11 @@ export async function verifyDownloadSession(
     return { success: true, session, product };
   } catch (error) {
     console.error("Session verification error:", error);
-    return { success: false, error: "Payment verification failed", status: 401 };
+    return {
+      success: false,
+      error: "Payment verification failed",
+      status: 401,
+    };
   }
 }
 

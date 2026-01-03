@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-import {
-  stripe,
-  getBaseUrl,
-  getSessionExpiry,
-  createBaseMetadata,
-  sanitizeInput,
-} from "../shared/stripe-utils";
+import { createCheckout, type LineItem } from "../../../lib/tiger";
 import {
   getProduct,
   requiresShipping,
@@ -14,59 +7,17 @@ import {
   getAllowedCountries,
   getDownloadableAssets,
   getSellableType,
-  getCurrency,
   shouldCollectPhone,
   type Product,
-  type ShippingConfig,
 } from "../shared/products";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { getBaseUrl, sanitizeInput, createBaseMetadata } from "../shared/stripe-utils";
 
-function buildLineItems(
+function buildLineItem(
   product: Product,
   amount: number,
-  baseUrl: string,
   metadata?: Record<string, string>
-): Stripe.Checkout.SessionCreateParams.LineItem[] {
-  // Use images directly (should be full HTTPS URLs in product config)
-  const images = product.images || [];
-
-  // Build sellable ID with size/color if provided
-  let sellableId = product.id;
-  if (metadata?.size || metadata?.color) {
-    const size = (metadata.size || "m").toLowerCase();
-    const color = (metadata.color || "black").toLowerCase();
-    sellableId = `${sellableId}-${color}-${size}`;
-  }
-
-  const sellableType = getSellableType(product);
-
-  // Phase 2: If stripePriceId exists, use preconfigured price
-  if (product.stripePriceId) {
-    return [{ price: product.stripePriceId, quantity: 1 }];
-  }
-
-  // Phase 1: Dynamic pricing via price_data
-  if (product.type === "donation") {
-    return [
-      {
-        price_data: {
-          currency: getCurrency(product),
-          product_data: {
-            name: product.name,
-            description: product.description,
-            images,
-            metadata: {
-              sellableType,
-              sellableId,
-            },
-          },
-          unit_amount: amount,
-        },
-        quantity: 1,
-      },
-    ];
-  }
-
+): LineItem {
   let description = product.description;
   if (metadata?.size || metadata?.color) {
     description = `${metadata.size || "Medium"} ${(
@@ -74,24 +25,13 @@ function buildLineItems(
     ).toLowerCase()} ${description}`;
   }
 
-  return [
-    {
-      price_data: {
-        currency: getCurrency(product),
-        product_data: {
-          name: product.name,
-          description,
-          images,
-          metadata: {
-            sellableType,
-            sellableId,
-          },
-        },
-        unit_amount: amount,
-      },
-      quantity: 1,
-    },
-  ];
+  return {
+    name: product.name,
+    amountCents: amount,
+    description,
+    images: product.images,
+    quantity: 1,
+  };
 }
 
 function buildSessionMetadata(
@@ -100,7 +40,6 @@ function buildSessionMetadata(
   ip: string,
   customMetadata?: Record<string, string>
 ): Record<string, string> {
-  // Build sellable ID with size/color if provided
   let sellableId = product.id;
   if (customMetadata?.size || customMetadata?.color) {
     const size = (customMetadata.size || "m").toLowerCase();
@@ -110,14 +49,11 @@ function buildSessionMetadata(
 
   const sellableType = getSellableType(product);
 
-  // Stable analytics metadata (the continuity layer)
   const base: Record<string, string> = {
     ...createBaseMetadata(ip),
-    // Sellable identifiers (stable - never change these)
     sellableType,
     sellableId,
     netAmount: String(amount),
-    // Product info (for reference)
     productId: product.id,
     productType: product.type,
     productName: product.name,
@@ -143,7 +79,12 @@ export async function POST(request: NextRequest) {
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
-        { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)) } }
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
+          },
+        }
       );
     }
 
@@ -166,64 +107,58 @@ export async function POST(request: NextRequest) {
 
     if (product.type === "donation" && finalAmount < product.minAmountCents) {
       return NextResponse.json(
-        { error: `Minimum amount is $${(product.minAmountCents / 100).toFixed(2)}` },
+        {
+          error: `Minimum amount is $${(product.minAmountCents / 100).toFixed(2)}`,
+        },
         { status: 400 }
       );
     }
 
     const baseUrl = getBaseUrl();
-
     const separator = product.successPath.includes("?") ? "&" : "?";
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ["card"],
-      line_items: buildLineItems(product, finalAmount, baseUrl, metadata),
+
+    // Validate cancelPath to prevent open redirects
+    const safeCancelPath =
+      customCancelPath?.startsWith("/") && !customCancelPath.startsWith("//")
+        ? customCancelPath
+        : product.cancelPath;
+
+    // Build Tiger request
+    const tigerRequest: Parameters<typeof createCheckout>[0] = {
       mode: "payment",
-      success_url: `${baseUrl}${product.successPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${customCancelPath || product.cancelPath}`,
+      successUrl: `${baseUrl}${product.successPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${baseUrl}${safeCancelPath}`,
       metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
-      expires_at: getSessionExpiry(),
     };
 
-    if (requiresShipping(product) && !skipShipping) {
-      const countries = getAllowedCountries(
-        product
-      ) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[];
-      sessionParams.shipping_address_collection = { allowed_countries: countries };
+    // Use priceId if available (Phase 2), otherwise use lineItems
+    if (product.stripePriceId) {
+      tigerRequest.priceId = product.stripePriceId;
+    } else {
+      tigerRequest.lineItems = [buildLineItem(product, finalAmount, metadata)];
+    }
 
+    // Shipping
+    if (requiresShipping(product) && !skipShipping) {
+      const countries = getAllowedCountries(product);
       const shippingConfig = getShippingConfig(product);
-      if (shippingConfig) {
-        if (typeof shippingConfig === "string") {
-          // Preconfigured shipping rate ID
-          sessionParams.shipping_options = [{ shipping_rate: shippingConfig }];
-        } else {
-          // Inline shipping_rate_data
-          const shippingRateData: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData =
-            {
-              type: "fixed_amount",
-              fixed_amount: {
-                amount: shippingConfig.amountCents,
-                currency: "usd",
-              },
-              display_name: shippingConfig.displayName,
-            };
-          if (shippingConfig.deliveryEstimate) {
-            shippingRateData.delivery_estimate = {
-              minimum: shippingConfig.deliveryEstimate.minimum,
-              maximum: shippingConfig.deliveryEstimate.maximum,
-            };
-          }
-          sessionParams.shipping_options = [{ shipping_rate_data: shippingRateData }];
-        }
+
+      tigerRequest.shipping = {
+        allowedCountries: countries,
+      };
+
+      if (shippingConfig && typeof shippingConfig !== "string") {
+        tigerRequest.shipping.options = [shippingConfig];
       }
     }
 
-    // Collect phone if needed (derived: true when shipping required)
+    // Phone collection
     if (shouldCollectPhone(product) && !skipShipping) {
-      sessionParams.phone_number_collection = { enabled: true };
+      tigerRequest.collectPhone = true;
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
-    return NextResponse.json({ sessionId: session.id });
+    const { sessionId, url } = await createCheckout(tigerRequest);
+    return NextResponse.json({ sessionId, url });
   } catch (error) {
     console.error("Checkout session creation error:", error);
     return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });

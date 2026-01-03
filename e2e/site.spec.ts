@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, Page } from "@playwright/test";
 
 /**
  * E2E Tests - User-Centric Approach
@@ -16,6 +16,11 @@ import { test, expect } from "@playwright/test";
  * - No internal API response structures
  */
 
+// Helper: navigate and wait for page to be ready
+async function goto(page: Page, path: string) {
+  await page.goto(path, { waitUntil: "load" });
+}
+
 // Disable dev tools slow network simulation for fast test execution
 test.beforeEach(async ({ page }) => {
   // Clear the dev-tools-state from localStorage to disable simulated slow loading
@@ -27,7 +32,7 @@ test.beforeEach(async ({ page }) => {
         useLocalAudio: true,
         slowNetworkDelay: 0,
         enableIngConversion: false,
-      })
+      }),
     );
   });
 });
@@ -38,25 +43,27 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Pages load successfully", () => {
   test("homepage shows artist name and navigation", async ({ page }) => {
-    await page.goto("/");
+    await goto(page, "/");
 
     // User sees the artist name somewhere (appears multiple times, just need one)
     await expect(page.getByText(/Peyt/i).first()).toBeVisible();
 
     // User can find navigation to key sections (use first since mobile/desktop both have links)
     // Homepage uses marketing copy, not endpoint names
-    await expect(page.getByRole("link", { name: /rap lyrics|shop/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /rap lyrics|shop/i }).first(),
+    ).toBeVisible();
   });
 
   test("music page loads and shows content", async ({ page }) => {
-    await page.goto("/listen");
+    await goto(page, "/listen");
 
     // Page loads successfully (URL is the source of truth, not title text)
     await expect(page).toHaveURL(/listen/);
   });
 
   test("shop page shows products for sale", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // User sees products with prices (bundle $30, downloads $10)
     await expect(page.getByText("$10")).toBeVisible();
@@ -74,7 +81,7 @@ test.describe("Pages load successfully", () => {
 
 test.describe("User can navigate the site", () => {
   test("can go from homepage to shop", async ({ page }) => {
-    await page.goto("/");
+    await goto(page, "/");
 
     // Wait for navbar to load (dynamically rendered with ssr: false)
     const shopLink = page.getByRole("link", { name: /shop/i }).first();
@@ -85,7 +92,7 @@ test.describe("User can navigate the site", () => {
   });
 
   test("can go from homepage to music", async ({ page }) => {
-    await page.goto("/");
+    await goto(page, "/");
 
     // Wait for navbar to load (dynamically rendered with ssr: false)
     // Homepage uses marketing copy: "Here, I rap lyrics" links to /listen
@@ -103,7 +110,7 @@ test.describe("User can navigate the site", () => {
 
 test.describe("Shop page interactions", () => {
   test("user can select delivery method", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // User sees delivery options
     const pickUpButton = page.getByRole("button", { name: /pick up/i });
@@ -118,16 +125,22 @@ test.describe("Shop page interactions", () => {
   });
 
   test("user can see size and color options", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // Combined size + color options are visible
-    await expect(page.getByRole("button", { name: /black \+ small/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /white \+ large/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /black \+ small/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /black \+ medium/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /white \+ large/i }),
+    ).toBeVisible();
   });
 
   test("music card shows tap to purchase hint", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // User sees the hint that they can tap anywhere
     await expect(page.getByText(/tap anywhere to purchase/i)).toBeVisible();
@@ -140,7 +153,7 @@ test.describe("Shop page interactions", () => {
 
 test.describe("Checkout redirects to Stripe", () => {
   test("digital download checkout goes to Stripe", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // The entire music card is clickable - find by heading and click
     const musicCard = page.getByRole("button", { name: /singles.*16s.*2025/i });
@@ -152,20 +165,28 @@ test.describe("Checkout redirects to Stripe", () => {
 
     // Either on Stripe or still on localhost (if Stripe not configured)
     const url = page.url();
-    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
+    expect(
+      url.includes("stripe.com") || url.includes("localhost"),
+    ).toBeTruthy();
   });
 
-  test("bundle checkout goes to Stripe when selecting size/color", async ({ page }) => {
-    await page.goto("/shop");
+  test("bundle checkout goes to Stripe when selecting size/color", async ({
+    page,
+  }) => {
+    await goto(page, "/shop");
 
     // Click a size/color option to trigger checkout
-    const sizeColorOption = page.getByRole("button", { name: /black \+ medium/i });
+    const sizeColorOption = page.getByRole("button", {
+      name: /black \+ medium/i,
+    });
     await sizeColorOption.click();
 
     await page.waitForURL(/checkout\.stripe\.com|localhost/, { timeout: 5000 });
 
     const url = page.url();
-    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
+    expect(
+      url.includes("stripe.com") || url.includes("localhost"),
+    ).toBeTruthy();
   });
 });
 
@@ -175,7 +196,7 @@ test.describe("Checkout redirects to Stripe", () => {
 
 test.describe("Error states work correctly", () => {
   test("404 page shows for unknown routes", async ({ page }) => {
-    await page.goto("/this-page-does-not-exist");
+    await goto(page, "/this-page-does-not-exist");
 
     // User sees the "doesn't exist" message
     await expect(page.getByText("This page doesn't exist.")).toBeVisible();
@@ -184,7 +205,7 @@ test.describe("Error states work correctly", () => {
   test("success page without session redirects to shop", async ({ page }) => {
     // User tries to access success page directly without buying
     // Server-side redirect happens, so we wait for final URL
-    await page.goto("/shop/success");
+    await goto(page, "/shop/success");
 
     // Should redirect back to shop (wait longer for server redirect)
     await expect(page).toHaveURL(/\/shop$/, { timeout: 10000 });
@@ -199,17 +220,19 @@ test.describe("Mobile viewport works", () => {
   test.use({ viewport: { width: 375, height: 667 } }); // iPhone SE
 
   test("shop is usable on mobile", async ({ page }) => {
-    await page.goto("/shop");
+    await goto(page, "/shop");
 
     // Products still visible
     await expect(page.getByText("$10")).toBeVisible();
 
     // Size/color options still clickable
-    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: /black \+ medium/i }),
+    ).toBeEnabled();
   });
 
   test("navigation works on mobile", async ({ page }) => {
-    await page.goto("/");
+    await goto(page, "/");
 
     // Can still navigate (may be hamburger menu or visible links)
     const shopLink = page.getByRole("link", { name: /shop/i });

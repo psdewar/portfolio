@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { stripePromise, STRIPE_CONFIG } from "../lib/stripe";
+import { STRIPE_CONFIG } from "../lib/stripe";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -59,25 +59,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         }),
       });
 
-      const { sessionId, error: serverError } = await response.json();
+      const { url, error: serverError } = await response.json();
 
-      if (serverError) {
-        throw new Error(serverError);
+      if (serverError || !url) {
+        throw new Error(serverError || "Failed to create checkout");
       }
 
-      // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error("Stripe failed to load");
+      if (!url.startsWith("https://checkout.stripe.com/")) {
+        throw new Error("Invalid checkout URL");
       }
 
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId,
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
-      }
+      window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment failed");
     } finally {

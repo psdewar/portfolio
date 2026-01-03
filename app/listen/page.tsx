@@ -11,8 +11,7 @@ import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
-import { stripePromise } from "../lib/stripe";
-import { DEFAULT_SINGLE_PRICE_CENTS, SINGLE_PRICE_OVERRIDES } from "../api/shared/products";
+import { SINGLE_PRICE_OVERRIDES } from "../api/shared/products";
 import ListenLoading from "./loading";
 
 interface TrackCard {
@@ -30,7 +29,10 @@ const formatTrackTitle = (id: string) =>
     .trim();
 
 const PaymentModal = dynamic(
-  () => import("../components/PaymentModal").then((mod) => ({ default: mod.PaymentModal })),
+  () =>
+    import("../components/PaymentModal").then((mod) => ({
+      default: mod.PaymentModal,
+    })),
   { ssr: false }
 );
 
@@ -70,7 +72,9 @@ const ALL_TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
 const TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 
 // Build fixed-price downloads from product config - only tracks with price overrides
-const FIXED_PRICE_DOWNLOADS: Record<string, number> = { ...SINGLE_PRICE_OVERRIDES };
+const FIXED_PRICE_DOWNLOADS: Record<string, number> = {
+  ...SINGLE_PRICE_OVERRIDES,
+};
 
 const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
 
@@ -239,11 +243,10 @@ export default function Page() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const stripe = await stripePromise;
-      if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
-    } catch (e: any) {
-      alert(e.message);
+      if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
+      window.location.href = data.url;
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Checkout failed");
     } finally {
       setFixedCheckoutTrack(null);
     }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
-import { stripePromise } from "app/lib/stripe";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
 
 interface FundingCardProps {
@@ -59,25 +58,17 @@ export function FundingCard({
         }),
       });
 
-      const { sessionId, error: serverError } = await response.json();
+      const { url, error: serverError } = await response.json();
 
-      if (serverError) {
-        throw new Error(serverError);
+      if (serverError || !url) {
+        throw new Error(serverError || "Failed to create checkout");
       }
 
-      // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error("Stripe failed to load");
+      if (!url.startsWith("https://checkout.stripe.com/")) {
+        throw new Error("Invalid checkout URL");
       }
 
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId,
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
-      }
+      window.location.href = url;
     } catch (error) {
       console.error("Error creating checkout session:", error);
       alert("There was an error processing your request. Please try again.");
