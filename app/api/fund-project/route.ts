@@ -31,10 +31,7 @@ export async function POST(request: NextRequest) {
         projectId,
         productId,
       });
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const minAmount = PROJECT_MINIMUMS[projectId] ?? DEFAULT_MINIMUM;
@@ -42,7 +39,7 @@ export async function POST(request: NextRequest) {
       console.log("Amount too low:", amount);
       return NextResponse.json(
         { error: `Minimum amount is $${(minAmount / 100).toFixed(2)}` },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -61,12 +58,8 @@ export async function POST(request: NextRequest) {
       cancelUrl: `${baseUrl}${cancelPath}`,
       lineItems: [
         {
-          name: isLiveStream
-            ? "Live Stream Tip"
-            : "Peyt Spencer: Independent Artist",
-          description: isLiveStream
-            ? "Thank you for supporting your boy!"
-            : "Fund my next single",
+          name: isLiveStream ? "Support My Independence" : "Peyt Spencer: Independent Artist",
+          description: isLiveStream ? "Your generosity is appreciated" : "Fund my next single",
           amountCents: amount,
           quantity: 1,
         },
@@ -84,9 +77,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Stripe session creation error:", message);
-    return NextResponse.json(
-      { error: "Failed to create payment session" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });
   }
 }

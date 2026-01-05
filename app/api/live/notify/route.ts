@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
-import { sendGoLiveEmail } from "../../../../lib/sendgrid";
+import {
+  sendGoLiveEmail,
+  sendGoLiveEmailBatch,
+} from "../../../../lib/sendgrid";
 
 const NOTIFY_SECRET = process.env.LIVE_NOTIFY_SECRET;
 const TEST_EMAIL = process.env.LIVE_NOTIFY_TEST_EMAIL;
@@ -18,7 +21,6 @@ function parseEntry(
 }
 
 export async function POST(request: NextRequest) {
-  // Verify secret token
   const authHeader = request.headers.get("authorization");
   const providedSecret = authHeader?.replace("Bearer ", "");
 
@@ -26,7 +28,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Test mode: only send to TEST_EMAIL
   const isTestMode = request.nextUrl.searchParams.get("test") === "true";
   if (isTestMode) {
     if (!TEST_EMAIL) {
@@ -43,7 +44,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Fetch all subscribers from Supabase
     const { data: subscribers, error } = await supabaseAdmin
       .from("stay-connected")
       .select("entry");
@@ -60,31 +60,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0, message: "No subscribers" });
     }
 
-    // Send emails to all subscribers
-    let sent = 0;
-    let failed = 0;
+    const recipients: Array<{ to: string; firstName: string }> = [];
+    let parseFailures = 0;
 
     for (const row of subscribers) {
       const parsed = parseEntry(row.entry);
-      if (!parsed) {
-        failed++;
-        continue;
-      }
-
-      const success = await sendGoLiveEmail({
-        to: parsed.email,
-        firstName: parsed.firstName,
-      });
-
-      if (success) {
-        sent++;
+      if (parsed) {
+        recipients.push({ to: parsed.email, firstName: parsed.firstName });
       } else {
-        failed++;
+        parseFailures++;
       }
     }
 
-    console.log(`[Notify] Sent ${sent} emails, ${failed} failed`);
-    return NextResponse.json({ sent, failed });
+    const { sent, failed } = await sendGoLiveEmailBatch(recipients);
+    const totalFailed = failed + parseFailures;
+
+    console.log(`[Notify] Sent ${sent} emails, ${totalFailed} failed`);
+    return NextResponse.json({ sent, failed: totalFailed });
   } catch (error) {
     console.error("[Notify] Error:", error);
     return NextResponse.json(

@@ -7,8 +7,14 @@ import Image from "next/image";
 import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
 import LiveChat from "../components/LiveChat";
+import { calculateStripeFee } from "../lib/stripe";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
+
+const TIP_AMOUNTS = [10, 25, 50, 100, 250, 500, 1000].map((base) => ({
+  base,
+  ...calculateStripeFee(base),
+}));
 
 interface StreamStatus {
   online: boolean;
@@ -41,7 +47,6 @@ export default function LivePage() {
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
 
-  // Track stream view duration on unmount
   useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
     localStorage.setItem("livePageVisited", "true");
@@ -57,13 +62,11 @@ export default function LivePage() {
     };
   }, [posthog, status.online]);
 
-  // Check for signed-up commenter name
   useEffect(() => {
     const storedName = localStorage.getItem("liveCommenterName");
     setCommenterName(storedName);
   }, [showNotifyPanel]);
 
-  // Check if localhost
   useEffect(() => {
     const hostname = window.location.hostname;
     const isLocal =
@@ -75,7 +78,6 @@ export default function LivePage() {
     setIsLocalhost(isLocal);
   }, []);
 
-  // Handle mock name for localhost testing
   const handleSetMockName = () => {
     if (mockNameInput.trim()) {
       localStorage.setItem("liveCommenterName", mockNameInput.trim());
@@ -116,7 +118,6 @@ export default function LivePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Update elapsed time every second
   useEffect(() => {
     if (!status.online || !status.lastConnectTime) {
       setElapsedTime("");
@@ -146,7 +147,6 @@ export default function LivePage() {
     return () => clearInterval(interval);
   }, [status.online, status.lastConnectTime]);
 
-  // Detect desktop layout
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
     setIsDesktop(mediaQuery.matches);
@@ -155,7 +155,6 @@ export default function LivePage() {
     return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
-  // Attach HLS to the visible video element
   useEffect(() => {
     if (!status.online) return;
 
@@ -189,27 +188,22 @@ export default function LivePage() {
         hls.destroy();
         hlsRef.current = null;
       };
-    } else {
-      // Native HLS (Safari)
-      if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = src;
-        video.addEventListener("loadedmetadata", () => tryAutoplay(), {
-          once: true,
-        });
-      }
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      video.addEventListener("loadedmetadata", () => tryAutoplay(), {
+        once: true,
+      });
     }
   }, [status.online, isDesktop]);
 
-  // Manual play handler - seeks to live edge with sound
   const handleManualPlay = () => {
     const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
     if (!video) return;
-    video.muted = false; // User tapped, so we can unmute
+    video.muted = false;
     video
       .play()
       .then(() => {
         setNeedsPlayButton(false);
-        // Seek to live edge
         if (hlsRef.current?.liveSyncPosition) {
           video.currentTime = hlsRef.current.liveSyncPosition;
         } else if (video.duration) {
@@ -253,7 +247,8 @@ export default function LivePage() {
       alert("Minimum tip is $1");
       return;
     }
-    handleTipWithAmount(amount);
+    const { total } = calculateStripeFee(amount);
+    handleTipWithAmount(total);
   };
 
   const closePanels = () => {
@@ -261,7 +256,6 @@ export default function LivePage() {
     setShowNotifyPanel(false);
   };
 
-  // Shared video overlay content
   const renderVideoOverlay = (isMobile: boolean) => (
     <>
       {/* Top bar */}
@@ -313,18 +307,21 @@ export default function LivePage() {
                   </svg>
                 </button>
               </div>
-              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
-                {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
+              <div className="flex gap-2 mb-2 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
+                {TIP_AMOUNTS.map(({ base, total }) => (
                   <button
-                    key={amt}
-                    onClick={() => handleTipWithAmount(amt)}
+                    key={base}
+                    onClick={() => handleTipWithAmount(total)}
                     disabled={isTipping}
                     className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
                   >
-                    ${amt}
+                    ${base}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+                Thanks for covering the processing fee
+              </p>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-sm">
@@ -454,7 +451,6 @@ export default function LivePage() {
     </>
   );
 
-  // Localhost mock name input
   const renderLocalhostNameInput = () => {
     if (!isLocalhost || commenterName) return null;
     return (
@@ -586,18 +582,21 @@ export default function LivePage() {
                     Support my independence
                   </h3>
                 </div>
-                <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
-                  {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
+                <div className="flex gap-1.5 mb-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+                  {TIP_AMOUNTS.map(({ base, total }) => (
                     <button
-                      key={amt}
-                      onClick={() => handleTipWithAmount(amt)}
+                      key={base}
+                      onClick={() => handleTipWithAmount(total)}
                       disabled={isTipping}
                       className="py-2.5 px-3 rounded-lg text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 shrink-0"
                     >
-                      ${amt}
+                      ${base}
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-neutral-500 mb-3">
+                  Thanks for covering the processing fee
+                </p>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
@@ -714,18 +713,21 @@ export default function LivePage() {
                               </svg>
                             </button>
                           </div>
-                          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
-                            {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
+                          <div className="flex gap-2 mb-2 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
+                            {TIP_AMOUNTS.map(({ base, total }) => (
                               <button
-                                key={amt}
-                                onClick={() => handleTipWithAmount(amt)}
+                                key={base}
+                                onClick={() => handleTipWithAmount(total)}
                                 disabled={isTipping}
                                 className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
                               >
-                                ${amt}
+                                ${base}
                               </button>
                             ))}
                           </div>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+                            Thanks for covering the processing fee
+                          </p>
                           <div className="flex gap-2">
                             <div className="relative flex-1">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-sm">

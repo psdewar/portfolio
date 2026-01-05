@@ -3,21 +3,15 @@ import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithCo
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TRACKLIST } from "./shared";
-
-// Stripe processing fee calculation (2.9% + $0.30)
-const calculateStripeFee = (baseAmount: number) => {
-  const totalWithFees = Math.ceil(((baseAmount + 0.3) / 0.971) * 100) / 100;
-  return { total: totalWithFees };
-};
+import { calculateStripeFee } from "../lib/stripe";
 
 const PRICING = {
   "singles-16s-pack-2025": 10,
   "then-and-now-bundle-2025": 30,
 };
 
-const SHIPPING = 7; // $7 flat rate shipping for physical items
+const SHIPPING = 7;
 
-// Fallback inventory (used while loading from Supabase)
 const FALLBACK_INVENTORY: Record<string, number> = {
   "white-small": 11,
   "white-medium": 12,
@@ -27,17 +21,24 @@ const FALLBACK_INVENTORY: Record<string, number> = {
   "black-large": 2,
 };
 
-// Bundle pricing
-// Pickup: fee on base price only ($30 → $31.21)
-// Delivery: fee on base + shipping ($37 → $38.43), then subtract shipping since Stripe adds it
-const BUNDLE_PICKUP_FEES = calculateStripeFee(PRICING["then-and-now-bundle-2025"]);
+const BUNDLE_PICKUP_FEES = calculateStripeFee(
+  PRICING["then-and-now-bundle-2025"],
+);
 const BUNDLE_DELIVERY_FEES = {
-  total: calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total - SHIPPING,
+  total:
+    calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total -
+    SHIPPING,
 };
 const DOWNLOAD_FEES = calculateStripeFee(PRICING["singles-16s-pack-2025"]);
 
 const InfoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -67,11 +68,13 @@ export default function Page() {
   const init = useInitialFromURL();
   const [selectedSize, setSelectedSize] = useState(init.size);
   const [selectedColor, setSelectedColor] = useState(init.color);
-  const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("pickup");
-  const [inventory, setInventory] = useState<Record<string, number>>(FALLBACK_INVENTORY);
+  const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">(
+    "pickup",
+  );
+  const [inventory, setInventory] =
+    useState<Record<string, number>>(FALLBACK_INVENTORY);
   const [showInfo, setShowInfo] = useState(false);
 
-  // Fetch live inventory from Supabase
   useEffect(() => {
     fetch("/api/inventory")
       .then((res) => res.json())
@@ -94,7 +97,7 @@ export default function Page() {
       { name: "Medium", value: "Medium" },
       { name: "Large", value: "Large" },
     ],
-    []
+    [],
   );
 
   const colors = useMemo(
@@ -102,29 +105,34 @@ export default function Page() {
       { name: "Black", value: "black" },
       { name: "White", value: "white" },
     ],
-    []
+    [],
   );
 
   const getStock = (size: string, color: string) => {
     const sku = `${color.toLowerCase()}-${size.toLowerCase()}`;
     return inventory[sku] ?? 0;
   };
-  const isSoldOut = (size: string, color: string) => getStock(size, color) === 0;
-  const isColorSoldOut = (color: string) => sizes.every((s) => isSoldOut(s.value, color));
+  const isSoldOut = (size: string, color: string) =>
+    getStock(size, color) === 0;
+  const isColorSoldOut = (color: string) =>
+    sizes.every((s) => isSoldOut(s.value, color));
 
-  const mirrorURL = useCallback((updates: { size?: string; color?: string }) => {
-    const url = new URL(window.location.href);
-    if (updates.size) url.searchParams.set("size", updates.size);
-    if (updates.color) url.searchParams.set("color", updates.color);
-    window.history.replaceState({}, "", url.toString());
-  }, []);
+  const mirrorURL = useCallback(
+    (updates: { size?: string; color?: string }) => {
+      const url = new URL(window.location.href);
+      if (updates.size) url.searchParams.set("size", updates.size);
+      if (updates.color) url.searchParams.set("color", updates.color);
+      window.history.replaceState({}, "", url.toString());
+    },
+    [],
+  );
 
   const handleSizeClick = useCallback(
     (size: string) => {
       setSelectedSize(size);
       mirrorURL({ size, color: selectedColor });
     },
-    [selectedColor, mirrorURL]
+    [selectedColor, mirrorURL],
   );
 
   const handleColorClick = useCallback(
@@ -132,11 +140,11 @@ export default function Page() {
       setSelectedColor(color);
       mirrorURL({ color, size: selectedSize });
     },
-    [selectedSize, mirrorURL]
+    [selectedSize, mirrorURL],
   );
 
   const handleCheckout = async (
-    productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025"
+    productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025",
   ) => {
     const isPickup = deliveryMode === "pickup";
     const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
@@ -152,8 +160,11 @@ export default function Page() {
         amount: Math.round(bundleFees.total * 100),
         productId: "then-and-now-bundle-2025",
         metadata: {
-          size: sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
-          color: colors.find((c) => c.value === selectedColor)?.name || selectedColor,
+          size:
+            sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
+          color:
+            colors.find((c) => c.value === selectedColor)?.name ||
+            selectedColor,
           deliveryMode,
         },
         skipShipping: isPickup,
@@ -221,7 +232,8 @@ export default function Page() {
       <div className="grid grid-cols-2 sm:grid-cols-3 w-full">
         {options.map((opt) => {
           const soldOut = isSoldOut(opt.size, opt.color);
-          const isSelected = selectedSize === opt.size && selectedColor === opt.color;
+          const isSelected =
+            selectedSize === opt.size && selectedColor === opt.color;
           return (
             <button
               key={`${prefix}${opt.color}-${opt.size}`}
@@ -244,9 +256,13 @@ export default function Page() {
                   isSelected ? "border-white" : "border-white/50"
                 }`}
               >
-                {isSelected && <span className="w-2 h-2 rounded-full bg-white" />}
+                {isSelected && (
+                  <span className="w-2 h-2 rounded-full bg-white" />
+                )}
               </span>
-              <span className="text-sm sm:text-base font-medium">{opt.label}</span>
+              <span className="text-sm sm:text-base font-medium">
+                {opt.label}
+              </span>
               {soldOut && (
                 <span className="text-[10px] sm:text-xs text-red-300 font-medium ml-auto">
                   Sold Out
@@ -281,7 +297,9 @@ export default function Page() {
                 }`}
               >
                 <span className="block text-base font-semibold">Pick Up</span>
-                <span className="block text-base opacity-80">At a show for free</span>
+                <span className="block text-base opacity-80">
+                  At a show for free
+                </span>
               </button>
               <button
                 onClick={() => setDeliveryMode("delivery")}
@@ -291,7 +309,9 @@ export default function Page() {
                     : "bg-black/10 text-white/80 hover:bg-white/20"
                 }`}
               >
-                <span className="block text-base font-semibold">Ship To Me</span>
+                <span className="block text-base font-semibold">
+                  Ship To Me
+                </span>
                 <span className="block text-base opacity-80">$7 shipping</span>
               </button>
             </div>
@@ -339,8 +359,9 @@ export default function Page() {
                   From The Archives: Exhibit PSD
                 </h3>
                 <p className="text-white/90 text-sm lg:text-base">
-                  My first design, a decade in the making. The "PSD" logo from my original rap
-                  moniker, first sketched in college at UF. 100% cotton, made to last.
+                  My first design, a decade in the making. The "PSD" logo from
+                  my original rap moniker, first sketched in college at UF. 100%
+                  cotton, made to last.
                 </p>
               </div>
             </div>
@@ -358,14 +379,16 @@ export default function Page() {
                 Buy Singles & 16s Pack (2025)
               </h2>
               <div className="bg-white/20 rounded-full px-3 py-1 shrink-0">
-                <span className="text-white/90 text-sm font-medium">Tap anywhere to purchase</span>
+                <span className="text-white/90 text-sm font-medium">
+                  Tap anywhere to purchase
+                </span>
               </div>
             </div>
             <p className="text-white/80 text-base lg:text-lg">
-              A “16” is the number of bars, the typical length of one rap verse. I write every bar
-              myself, and grabbing this pack supports my independence the same as streaming
-              “Patience” 3,000 times! You’ll receive a zip file with mp3s and a lyricbook
-              containing:
+              A “16” is the number of bars, the typical length of one rap verse.
+              I write every bar myself, and grabbing this pack supports my
+              independence the same as streaming “Patience” 3,000 times! You’ll
+              receive a zip file with mp3s and a lyricbook containing:
             </p>
             <div className="space-y-1">
               {TRACKLIST.map((track) => (
@@ -373,7 +396,9 @@ export default function Page() {
                   key={track.name}
                   className="py-3 pl-4 pr-3 border-l-2 border-white/40 hover:border-white transition-all flex items-center justify-between"
                 >
-                  <span className="font-bebas text-white text-3xl lg:text-4xl">{track.name}</span>
+                  <span className="font-bebas text-white text-3xl lg:text-4xl">
+                    {track.name}
+                  </span>
                   <span className="font-mono text-white/70 text-xl lg:text-2xl ">
                     {track.duration}
                   </span>
@@ -422,7 +447,9 @@ export default function Page() {
               priority
             />
             <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-black/50 via-black/25 to-transparent p-4 flex flex-col justify-start pointer-events-none">
-              <h3 className="text-white font-semibold">With the homie Ludger</h3>
+              <h3 className="text-white font-semibold">
+                With the homie Ludger
+              </h3>
               <p className="text-white/80 text-sm">Los Angeles, CA · 2018</p>
             </div>
           </div>
@@ -436,7 +463,9 @@ export default function Page() {
             />
             <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/50 via-black/25 to-transparent p-4 flex flex-col justify-end pointer-events-none">
               <h3 className="text-white font-semibold">Work In Progress</h3>
-              <p className="text-white/80 text-sm">My 3rd mixtape you can find on SoundCloud!</p>
+              <p className="text-white/80 text-sm">
+                My 3rd mixtape you can find on SoundCloud!
+              </p>
             </div>
           </div>
         </div>

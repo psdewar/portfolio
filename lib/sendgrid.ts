@@ -61,56 +61,70 @@ export async function sendGoLiveEmail(params: {
   to: string;
   firstName: string;
 }): Promise<boolean> {
-  const { to, firstName } = params;
+  const result = await sendGoLiveEmailBatch([params]);
+  return result.sent > 0;
+}
+
+export async function sendGoLiveEmailBatch(
+  recipients: Array<{ to: string; firstName: string }>,
+): Promise<{ sent: number; failed: number }> {
+  if (recipients.length === 0) return { sent: 0, failed: 0 };
+
   const liveUrl = "https://peytspencer.com/live";
+  const BATCH_SIZE = 1000;
 
-  const msg = {
-    to,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
-    subject: "I'm LIVE right now!",
-    text: `
-Hey ${firstName}!
+  let totalSent = 0;
+  let totalFailed = 0;
 
-I just went live. Come hang out!
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE);
 
-${liveUrl}
+    const msg = {
+      from: { email: FROM_EMAIL, name: FROM_NAME },
+      subject: "I'm LIVE right now!",
+      personalizations: batch.map(({ to, firstName }) => ({
+        to: [{ email: to }],
+        substitutions: { "-firstName-": firstName },
+      })),
+      text: `Hey -firstName-,
 
-See you there,
-Peyt
-    `.trim(),
-    html: `
-<!DOCTYPE html>
+Come hang out with me at: ${liveUrl}
+
+Best,
+Peyt`,
+      html: `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .cta { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 16px 0; }
-    .footer { color: #666; font-size: 14px; margin-top: 24px; }
+    .cta { display: inline-block; background: #3b82f6; color: white; padding: 12px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+    .footer { color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <p>Hey ${firstName}!</p>
-    <p>I just went live. Come hang out!</p>
-    <a href="${liveUrl}" class="cta">Watch Now</a>
+    <p>Hey -firstName-,</p>
+    <p>Come hang out with me at: <a href="${liveUrl}" class="cta">${liveUrl}</a></p>
     <p class="footer">
-      See you there,<br>
+      Best,<br>
       Peyt
     </p>
   </div>
 </body>
-</html>
-    `.trim(),
-  };
+</html>`,
+    };
 
-  try {
-    await sgMail.send(msg);
-    return true;
-  } catch (error) {
-    console.error("[SendGrid] Error sending go-live email:", error);
-    return false;
+    try {
+      await sgMail.send(msg);
+      totalSent += batch.length;
+    } catch (error) {
+      console.error("[SendGrid] Batch send error:", error);
+      totalFailed += batch.length;
+    }
   }
+
+  return { sent: totalSent, failed: totalFailed };
 }
 
 export async function sendDownloadEmail(params: {
