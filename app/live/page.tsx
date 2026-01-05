@@ -271,14 +271,29 @@ export default function LivePage() {
         {/* Slide-in tip panel from left - mobile only */}
         {isMobile && showTipPanel && (
           <div
-            className="absolute top-0 left-0 right-20 h-auto backdrop-blur z-20"
+            className="absolute top-0 left-0 right-12 h-auto backdrop-blur z-20"
             style={{ animation: "slideInLeft 0.2s ease-out" }}
           >
             <div className="p-5 bg-gradient-to-br from-white/95 to-neutral-100/95 dark:from-neutral-900/95 dark:to-neutral-800/95 rounded-br-2xl">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-medium text-neutral-900 dark:text-white">
-                  Support my independence
-                </h2>
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-emerald-500 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
+                    />
+                  </svg>
+                  <h2 className="text-xl font-medium text-neutral-900 dark:text-white">
+                    Support my independence
+                  </h2>
+                </div>
                 <button
                   onClick={closePanels}
                   className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-white transition-colors p-1"
@@ -298,13 +313,13 @@ export default function LivePage() {
                   </svg>
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[10, 25, 50, 100].map((amt) => (
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
+                {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
                   <button
                     key={amt}
                     onClick={() => handleTipWithAmount(amt)}
                     disabled={isTipping}
-                    className="py-3 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20"
+                    className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
                   >
                     ${amt}
                   </button>
@@ -377,7 +392,7 @@ export default function LivePage() {
                 >
                   <svg
                     className={`w-8 h-8 drop-shadow-lg ${
-                      showTipPanel ? "text-green-400" : "text-white"
+                      showTipPanel ? "text-emerald-400" : "text-white"
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -387,7 +402,7 @@ export default function LivePage() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
                     />
                   </svg>
                 </button>
@@ -538,7 +553,9 @@ export default function LivePage() {
                     </h1>
                     <button
                       onClick={() => setShowNotifyPanel(true)}
-                      className={`mt-4 px-6 py-3 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors ${!showNotifyPanel ? "animate-pulse" : ""}`}
+                      className={`mt-4 px-6 py-3 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors ${
+                        !showNotifyPanel ? "animate-pulse" : ""
+                      }`}
                     >
                       Get notified when I go live
                     </button>
@@ -551,18 +568,31 @@ export default function LivePage() {
             <div className="w-80 h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
               {/* Tip Section - always visible */}
               <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                <div className="mb-3">
+                <div className="flex items-center gap-3 mb-3">
+                  <svg
+                    className="w-6 h-6 text-emerald-500 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
+                    />
+                  </svg>
                   <h3 className="font-semibold text-lg text-neutral-900 dark:text-white">
                     Support my independence
                   </h3>
                 </div>
-                <div className="grid grid-cols-4 gap-1.5 mb-3">
-                  {[10, 25, 50, 100].map((amt) => (
+                <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+                  {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
                     <button
                       key={amt}
                       onClick={() => handleTipWithAmount(amt)}
                       disabled={isTipping}
-                      className="py-2.5 rounded-lg text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600"
+                      className="py-2.5 px-3 rounded-lg text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 shrink-0"
                     >
                       ${amt}
                     </button>
@@ -587,7 +617,7 @@ export default function LivePage() {
                     disabled={isTipping || !tipAmount}
                     className="px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 font-semibold rounded-lg text-sm text-white transition-all shadow-md shadow-emerald-500/20"
                   >
-                    {isTipping ? "..." : "Tip"}
+                    {isTipping ? "..." : "Leave a tip"}
                   </button>
                 </div>
               </div>
@@ -637,13 +667,131 @@ export default function LivePage() {
                     priority
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-                  <div className="absolute top-8 inset-x-0 flex flex-col items-center z-10 px-4">
+                  {/* Offline top bar - matches online layout */}
+                  <div className="absolute top-0 inset-x-0 z-10 p-3">
+                    {/* Slide-in tip panel from left */}
+                    {showTipPanel && (
+                      <div
+                        className="absolute top-0 left-0 right-12 h-auto backdrop-blur z-20"
+                        style={{ animation: "slideInLeft 0.2s ease-out" }}
+                      >
+                        <div className="p-5 bg-gradient-to-br from-white/95 to-neutral-100/95 dark:from-neutral-900/95 dark:to-neutral-800/95 rounded-br-2xl">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-2">
+                              <svg
+                                className="w-5 h-5 text-emerald-500 shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.5}
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
+                                />
+                              </svg>
+                              <h2 className="text-xl font-medium text-neutral-900 dark:text-white">
+                                Support my independence
+                              </h2>
+                            </div>
+                            <button
+                              onClick={closePanels}
+                              className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-white transition-colors p-1"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
+                            {[10, 25, 50, 100, 250, 500, 1000].map((amt) => (
+                              <button
+                                key={amt}
+                                onClick={() => handleTipWithAmount(amt)}
+                                disabled={isTipping}
+                                className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
+                              >
+                                ${amt}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-sm">
+                                $
+                              </span>
+                              <input
+                                type="number"
+                                value={tipAmount}
+                                onChange={(e) => setTipAmount(e.target.value)}
+                                min="1"
+                                placeholder="10"
+                                className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
+                              />
+                            </div>
+                            <button
+                              onClick={handleTip}
+                              disabled={isTipping || !tipAmount}
+                              className="px-6 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
+                            >
+                              {isTipping ? "..." : "Leave a tip"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between">
+                      <div />
+                      <div className="flex flex-col items-end gap-4">
+                        <div />
+                        {/* Action icons - same position as online */}
+                        <div className="flex flex-col gap-4">
+                          <button
+                            onClick={() => {
+                              setShowNotifyPanel(false);
+                              setShowTipPanel(!showTipPanel);
+                            }}
+                          >
+                            <svg
+                              className={`w-8 h-8 drop-shadow-lg ${
+                                showTipPanel ? "text-emerald-400" : "text-white"
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={1.5}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute top-8 inset-x-0 flex flex-col items-center z-[5] px-4 pointer-events-none">
                     <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center">
                       I AM OFFLINE
                     </h1>
                     <button
                       onClick={() => setShowNotifyPanel(true)}
-                      className={`mt-4 px-5 py-2.5 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors ${!showNotifyPanel ? "animate-pulse" : ""}`}
+                      className={`mt-4 px-5 py-2.5 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors pointer-events-auto ${
+                        !showNotifyPanel ? "animate-pulse" : ""
+                      }`}
                     >
                       Get notified when I go live
                     </button>
