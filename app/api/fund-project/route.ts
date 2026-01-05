@@ -6,7 +6,14 @@ import { extractIpAddress } from "../shared/audio-utils";
 // Map project slug -> Stripe product (or price) id. Extend as you add projects.
 const PROJECT_PRODUCT_MAP: Record<string, string> = {
   "flight-to-boise": "prod_TBTntrJOXSQahO",
+  "live-stream": "live-stream-tip", // Tips don't need a product, handled specially
 };
+
+// Per-project minimum amounts in cents
+const PROJECT_MINIMUMS: Record<string, number> = {
+  "live-stream": 100, // $1 minimum for tips
+};
+const DEFAULT_MINIMUM = 1000; // $10 for project funding
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,24 +31,42 @@ export async function POST(request: NextRequest) {
         projectId,
         productId,
       });
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
-    if (amount < 1000) {
+    const minAmount = PROJECT_MINIMUMS[projectId] ?? DEFAULT_MINIMUM;
+    if (amount < minAmount) {
       console.log("Amount too low:", amount);
-      return NextResponse.json({ error: "Minimum amount is $10.00" }, { status: 400 });
+      return NextResponse.json(
+        { error: `Minimum amount is $${(minAmount / 100).toFixed(2)}` },
+        { status: 400 },
+      );
     }
 
-    const baseUrl = getBaseUrl();
+    const baseUrl = getBaseUrl(request);
+    const isLiveStream = projectId === "live-stream";
+
+    // Live stream tips redirect back to /live, project funding goes to /fund page
+    const successPath = isLiveStream
+      ? "/live?thanks=1"
+      : `/fund/${projectId}?success=1&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelPath = isLiveStream ? "/live" : `/fund/${projectId}?canceled=1`;
 
     const { sessionId, url } = await createCheckout({
       mode: "payment",
-      successUrl: `${baseUrl}/fund/${projectId}?success=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${baseUrl}/fund/${projectId}?canceled=1`,
+      successUrl: `${baseUrl}${successPath}`,
+      cancelUrl: `${baseUrl}${cancelPath}`,
       lineItems: [
         {
-          name: "Peyt Spencer: Independent Artist",
-          description: "Fund my next single",
+          name: isLiveStream
+            ? "Live Stream Tip"
+            : "Peyt Spencer: Independent Artist",
+          description: isLiveStream
+            ? "Thank you for supporting your boy!"
+            : "Fund my next single",
           amountCents: amount,
           quantity: 1,
         },
@@ -58,7 +83,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ sessionId, url });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Stripe session creation error", message);
-    return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });
+    console.error("Stripe session creation error:", message);
+    return NextResponse.json(
+      { error: "Failed to create payment session" },
+      { status: 500 },
+    );
   }
 }

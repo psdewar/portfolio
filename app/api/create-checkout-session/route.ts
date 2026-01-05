@@ -11,12 +11,16 @@ import {
   type Product,
 } from "../shared/products";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
-import { getBaseUrl, sanitizeInput, createBaseMetadata } from "../shared/stripe-utils";
+import {
+  getBaseUrl,
+  sanitizeInput,
+  createBaseMetadata,
+} from "../shared/stripe-utils";
 
 function buildLineItem(
   product: Product,
   amount: number,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
 ): LineItem {
   let description = product.description;
   if (metadata?.size || metadata?.color) {
@@ -38,7 +42,7 @@ function buildSessionMetadata(
   product: Product,
   amount: number,
   ip: string,
-  customMetadata?: Record<string, string>
+  customMetadata?: Record<string, string>,
 ): Record<string, string> {
   let sellableId = product.id;
   if (customMetadata?.size || customMetadata?.color) {
@@ -84,20 +88,32 @@ export async function POST(request: NextRequest) {
           headers: {
             "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
           },
-        }
+        },
       );
     }
 
     const body = await request.json();
-    const { productId, amount, metadata, cancelPath: customCancelPath, skipShipping } = body;
+    const {
+      productId,
+      amount,
+      metadata,
+      cancelPath: customCancelPath,
+      skipShipping,
+    } = body;
 
     if (!productId) {
-      return NextResponse.json({ error: "Missing required field: productId" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required field: productId" },
+        { status: 400 },
+      );
     }
 
     const product = getProduct(productId);
     if (!product) {
-      return NextResponse.json({ error: `Unknown product: ${productId}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `Unknown product: ${productId}` },
+        { status: 400 },
+      );
     }
 
     const finalAmount = amount || product.basePriceCents;
@@ -110,11 +126,11 @@ export async function POST(request: NextRequest) {
         {
           error: `Minimum amount is $${(product.minAmountCents / 100).toFixed(2)}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const baseUrl = getBaseUrl();
+    const baseUrl = getBaseUrl(request);
     const separator = product.successPath.includes("?") ? "&" : "?";
 
     // Validate cancelPath to prevent open redirects
@@ -161,6 +177,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ sessionId, url });
   } catch (error) {
     console.error("Checkout session creation error:", error);
-    return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create payment session" },
+      { status: 500 },
+    );
   }
 }

@@ -22,32 +22,15 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
-          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
         ],
       },
       {
         source: "/api/(.*)",
-        headers: [
-          {
-            key: "X-Robots-Tag",
-            value: "noindex, nofollow",
-          },
-        ],
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
     ];
   },
@@ -74,9 +57,23 @@ const nextConfig = {
 
     return [...singlesRedirects, ...pdfRedirects];
   },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ];
+  },
+  // This is required to support PostHog trailing slash API requests
+  skipTrailingSlashRedirect: true,
   webpack(config) {
     config.module.rules.push({
-      test: /\.(mp4|webm|ogg|mp3|wav|flac|aac|rtf|doc|docx)$/,
+      test: /\.(mp4|webm|ogg|mp3|wav|flac|aac|rtf|doc|docx)$$/,
       use: {
         loader: "file-loader",
         options: {

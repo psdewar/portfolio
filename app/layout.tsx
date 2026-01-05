@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { PostHogProvider } from "./components/PostHogProvider";
 import { AudioProvider } from "./contexts/AudioContext";
 import { VideoProvider } from "./contexts/VideoContext";
 import { DevToolsProvider } from "./contexts/DevToolsContext";
@@ -139,23 +140,25 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased flex flex-col min-h-screen bg-white dark:bg-gray-900">
-        <DevToolsProvider>
-          <AudioProvider>
-            <VideoProvider>
-              <Navbar />
-              <main className="flex-auto min-w-0 flex flex-col pb-24 lg:pb-32">
-                <Suspense>{children}</Suspense>
-                <Analytics />
-                <SpeedInsights />
-              </main>
-              <div className="h-24 lg:h-32">
-                <GlobalAudioPlayer />
-              </div>
-              <MissingResourceIndicator />
-              <DevToolsPanel />
-            </VideoProvider>
-          </AudioProvider>
-        </DevToolsProvider>
+        <PostHogProvider>
+          <DevToolsProvider>
+            <AudioProvider>
+              <VideoProvider>
+                <Navbar />
+                <main className="flex-auto min-w-0 flex flex-col pb-24 lg:pb-32">
+                  <Suspense>{children}</Suspense>
+                  <Analytics />
+                  <SpeedInsights />
+                </main>
+                <div className="h-24 lg:h-32">
+                  <GlobalAudioPlayer />
+                </div>
+                <MissingResourceIndicator />
+                <DevToolsPanel />
+              </VideoProvider>
+            </AudioProvider>
+          </DevToolsProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

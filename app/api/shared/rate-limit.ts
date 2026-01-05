@@ -16,6 +16,8 @@ export const RATE_LIMIT_CONFIGS = {
   checkout: { windowMs: 60 * 60 * 1000, maxRequests: 10 },
   contact: { windowMs: 60 * 60 * 1000, maxRequests: 5 },
   funding: { windowMs: 60 * 60 * 1000, maxRequests: 10 },
+  otpRequest: { windowMs: 15 * 60 * 1000, maxRequests: 5 }, // 5 requests per 15 min
+  otpVerify: { windowMs: 15 * 60 * 1000, maxRequests: 10 }, // 10 attempts per 15 min
 } as const;
 
 export type RateLimitCategory = keyof typeof RATE_LIMIT_CONFIGS;
@@ -39,7 +41,7 @@ function cleanupStore(store: Map<string, RateLimitEntry>): void {
 export function checkRateLimit(
   ip: string,
   category: RateLimitCategory | string,
-  config?: RateLimitConfig
+  config?: RateLimitConfig,
 ): { allowed: boolean; remaining: number; resetIn: number } {
   // Skip rate limiting for localhost
   if (isLocalhost(ip)) {
@@ -72,13 +74,15 @@ export function checkRateLimit(
 }
 
 function isLocalhost(ip: string): boolean {
-  return ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip === "unknown";
+  return (
+    ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip === "unknown"
+  );
 }
 
 export function incrementRateLimit(
   ip: string,
   category: RateLimitCategory | string,
-  config?: RateLimitConfig
+  config?: RateLimitConfig,
 ): void {
   checkRateLimit(ip, category, config);
 }
@@ -91,7 +95,7 @@ export function resetRateLimit(ip: string, category: string): void {
 export function getRateLimitStatus(
   ip: string,
   category: RateLimitCategory | string,
-  config?: RateLimitConfig
+  config?: RateLimitConfig,
 ): { count: number; remaining: number; resetIn: number } {
   const { windowMs, maxRequests } = config ??
     RATE_LIMIT_CONFIGS[category as RateLimitCategory] ?? {
@@ -117,7 +121,7 @@ export function getRateLimitStatus(
 export function createRateLimitHeaders(
   remaining: number,
   resetIn: number,
-  limit: number
+  limit: number,
 ): Record<string, string> {
   return {
     "X-RateLimit-Limit": String(limit),

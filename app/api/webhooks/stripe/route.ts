@@ -7,7 +7,12 @@ import {
   hasDigitalAssets,
   getDownloadableAssets,
 } from "../../shared/products";
-import { savePurchase, isKeepalive, decrementInventory } from "../../../../lib/supabase-admin";
+import {
+  savePurchase,
+  isKeepalive,
+  decrementInventory,
+} from "../../../../lib/supabase-admin";
+import PostHogClient from "../../../../lib/posthog";
 import fs from "fs";
 import path from "path";
 
@@ -22,7 +27,10 @@ export async function POST(request: NextRequest) {
   try {
     if (!endpointSecret) {
       console.error("Stripe webhook secret not found");
-      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Webhook secret not configured" },
+        { status: 500 },
+      );
     }
 
     event = stripe.webhooks.constructEvent(payload, sig!, endpointSecret);
@@ -34,7 +42,9 @@ export async function POST(request: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed":
-      await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+      await handleCheckoutCompleted(
+        event.data.object as Stripe.Checkout.Session,
+      );
       break;
     case "payment_intent.succeeded":
       break;
@@ -82,7 +92,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
 async function handlePhysicalOrder(
   session: Stripe.Checkout.Session,
-  product: ReturnType<typeof getProduct>
+  product: ReturnType<typeof getProduct>,
 ) {
   if (!product) return;
 
@@ -97,7 +107,7 @@ async function handlePhysicalOrder(
 
 async function handleDigitalFulfillment(
   session: Stripe.Checkout.Session,
-  product: ReturnType<typeof getProduct>
+  product: ReturnType<typeof getProduct>,
 ) {
   if (!product) return;
 
@@ -128,6 +138,22 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
 
     const { projectId } = metadata;
     const amountCents = session.amount_total || 0;
+
+    // Track live stream tips in PostHog
+    if (projectId === "live-stream") {
+      const posthog = PostHogClient();
+      const distinctId = session.customer_details?.email || session.id;
+      posthog.capture({
+        distinctId,
+        event: "tip_completed",
+        properties: {
+          amount: amountCents / 100,
+          source: "live-stream",
+        },
+      });
+      await posthog.shutdown();
+      return; // Live stream tips don't need project funding update
+    }
 
     const projectsPath = path.join(process.cwd(), "data", "projects.json");
     const projectsData = JSON.parse(fs.readFileSync(projectsPath, "utf8"));

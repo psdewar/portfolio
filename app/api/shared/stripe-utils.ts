@@ -12,7 +12,28 @@ export const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
 });
 
 export const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
-export const getBaseUrl = () => process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+export function getBaseUrl(request?: Request): string {
+  // First try explicit env var
+  if (
+    process.env.NEXT_PUBLIC_BASE_URL &&
+    !process.env.NEXT_PUBLIC_BASE_URL.includes("localhost")
+  ) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
+
+  // Derive from request headers (works in production)
+  if (request) {
+    const host = request.headers.get("host");
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    if (host && !host.includes("localhost")) {
+      return `${proto}://${host}`;
+    }
+  }
+
+  // Fallback for local development
+  return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+}
 
 export function createBaseMetadata(ip: string): Record<string, string> {
   return { ip, timestamp: new Date().toISOString() };
@@ -37,7 +58,7 @@ interface SessionVerificationResult {
 
 export async function verifyDownloadSession(
   sessionId: string,
-  trackId: string
+  trackId: string,
 ): Promise<SessionVerificationResult> {
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -49,7 +70,8 @@ export async function verifyDownloadSession(
     const productId = session.metadata?.productId;
     const product = productId ? getProduct(productId) : null;
 
-    if (!product) return { success: false, error: "Invalid product", status: 400 };
+    if (!product)
+      return { success: false, error: "Invalid product", status: 400 };
 
     if (!productId || !hasDigitalAssets(productId)) {
       return {
@@ -84,7 +106,10 @@ export async function verifyDownloadSession(
   }
 }
 
-export async function getTrackDownloadCount(sessionId: string, trackId: string): Promise<number> {
+export async function getTrackDownloadCount(
+  sessionId: string,
+  trackId: string,
+): Promise<number> {
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     const count = session.metadata?.[`downloads_${trackId}`];
@@ -96,7 +121,7 @@ export async function getTrackDownloadCount(sessionId: string, trackId: string):
 
 export async function incrementTrackDownloadCount(
   sessionId: string,
-  trackId: string
+  trackId: string,
 ): Promise<number> {
   const currentCount = await getTrackDownloadCount(sessionId, trackId);
   const newCount = currentCount + 1;
