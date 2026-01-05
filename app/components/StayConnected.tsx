@@ -64,9 +64,7 @@ export default function StayConnected({
 
   // If external shouldShow is provided, use it, otherwise use internal logic
   const componentShouldShow =
-    externalShouldShow !== undefined
-      ? externalShouldShow
-      : shouldShowStayConnected();
+    externalShouldShow !== undefined ? externalShouldShow : shouldShowStayConnected();
 
   const handleClose = () => {
     if (typeof window !== "undefined") {
@@ -177,8 +175,7 @@ export default function StayConnected({
 
     try {
       // Use different endpoint for signup vs signin
-      const endpoint =
-        mode === "signup" ? "/api/otp/verify-signup" : "/api/otp/verify";
+      const endpoint = mode === "signup" ? "/api/otp/verify-signup" : "/api/otp/verify";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -270,12 +267,7 @@ export default function StayConnected({
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2">
@@ -330,8 +322,8 @@ export default function StayConnected({
           {step === "code"
             ? "Enter the verification code sent to your email."
             : mode === "signup"
-              ? "Drop your info and I'll keep you updated on releases, projects, and upcoming shows."
-              : "Enter your email to get a verification code."}
+            ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
+            : "Enter your email to get a verification code."}
         </p>
       </div>
 
@@ -339,8 +331,7 @@ export default function StayConnected({
         <div className="space-y-3 sm:space-y-4">
           <div className="text-center mb-2">
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Code sent to{" "}
-              {mode === "signup" ? contactFormData.email : signInEmail}
+              Code sent to {mode === "signup" ? contactFormData.email : signInEmail}
             </p>
             {countdown > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -369,9 +360,7 @@ export default function StayConnected({
               } focus:outline-none`}
             />
             {errors.otp && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1 text-center">
-                {errors.otp}
-              </p>
+              <p className="text-red-500 text-xs sm:text-sm mt-1 text-center">{errors.otp}</p>
             )}
           </div>
           <button
@@ -380,11 +369,7 @@ export default function StayConnected({
             disabled={isLoading || countdown <= 0}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
           >
-            {isLoading
-              ? "Verifying..."
-              : countdown <= 0
-                ? "Code expired"
-                : "Verify"}
+            {isLoading ? "Verifying..." : countdown <= 0 ? "Code expired" : "Verify"}
           </button>
           {countdown <= 0 && (
             <button
@@ -400,9 +385,7 @@ export default function StayConnected({
             onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
             className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
-            {mode === "signup"
-              ? "Already signed up? Sign in"
-              : "New here? Sign up"}
+            {mode === "signup" ? "Already signed up? Sign in" : "New here? Sign up"}
           </button>
         </div>
       ) : mode === "signup" ? (
@@ -421,9 +404,7 @@ export default function StayConnected({
               } focus:outline-none`}
             />
             {errors.firstName && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1">
-                {errors.firstName}
-              </p>
+              <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.firstName}</p>
             )}
           </div>
           <div>
@@ -438,11 +419,7 @@ export default function StayConnected({
                   : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
               } focus:outline-none`}
             />
-            {errors.email && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1">
-                {errors.email}
-              </p>
-            )}
+            {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
           </div>
           <div>
             <input
@@ -487,11 +464,7 @@ export default function StayConnected({
                   : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
               } focus:outline-none`}
             />
-            {errors.email && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1">
-                {errors.email}
-              </p>
-            )}
+            {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
           </div>
           <button
             type="button"

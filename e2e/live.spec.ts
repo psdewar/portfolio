@@ -287,23 +287,6 @@ test.describe("Notify Modal", () => {
       timeout: 2000,
     });
   });
-
-  test("button stops pulsing when modal is open", async ({ page }) => {
-    await gotoWithOfflineMock(page, "/live");
-
-    const button = page
-      .getByRole("button", { name: /get notified when i go live/i })
-      .first();
-
-    // Button should have animate-pulse class initially
-    await expect(button).toHaveClass(/animate-pulse/);
-
-    // Open modal
-    await button.click();
-
-    // Button should not have animate-pulse class when modal is open
-    await expect(button).not.toHaveClass(/animate-pulse/);
-  });
 });
 
 // =============================================================================

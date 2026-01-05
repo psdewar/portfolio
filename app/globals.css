@@ -72,12 +72,15 @@
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
   }
   50% {
-    box-shadow: 0 0 30px rgba(255, 255, 255, 0.3), 0 0 60px rgba(249, 115, 22, 0.2);
+    box-shadow:
+      0 0 30px rgba(255, 255, 255, 0.3),
+      0 0 60px rgba(249, 115, 22, 0.2);
   }
 }
 
 .animate-button-reveal {
-  animation: button-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+  animation:
+    button-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
     pulse-glow 2s ease-in-out infinite 0.8s;
 }
 
@@ -277,4 +280,17 @@ table {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Rotating shadow for notify button */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-shadow {
+  to {
+    --angle: 360deg;
+  }
 }

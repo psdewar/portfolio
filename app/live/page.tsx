@@ -547,14 +547,24 @@ export default function LivePage() {
                     <h1 className="font-[family-name:var(--font-bebas)] text-5xl tracking-wide text-white text-center">
                       I AM OFFLINE
                     </h1>
-                    <button
-                      onClick={() => setShowNotifyPanel(true)}
-                      className={`mt-4 px-6 py-3 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors ${
-                        !showNotifyPanel ? "animate-pulse" : ""
-                      }`}
+                    <div
+                      className="mt-4 relative rounded-full p-[2px]"
+                      style={{
+                        background:
+                          "conic-gradient(from var(--angle), transparent 40%, #60a5fa 50%, transparent 60%)",
+                        animation: "rotate-shadow 3s linear infinite",
+                      }}
                     >
-                      Get notified when I go live
-                    </button>
+                      <button
+                        onClick={() => setShowNotifyPanel(true)}
+                        className="relative px-6 py-3 bg-blue-500 hover:bg-blue-400 rounded-full text-white font-medium transition-colors text-center"
+                      >
+                        Get notified when I go live
+                        <span className="block mt-1 text-blue-100 font-normal tracking-wide">
+                          Mon, Jan 5 · 7 PM PT
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -789,14 +799,24 @@ export default function LivePage() {
                     <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center">
                       I AM OFFLINE
                     </h1>
-                    <button
-                      onClick={() => setShowNotifyPanel(true)}
-                      className={`mt-4 px-5 py-2.5 bg-blue-500/90 hover:bg-blue-400/90 rounded-full text-white font-medium transition-colors pointer-events-auto ${
-                        !showNotifyPanel ? "animate-pulse" : ""
-                      }`}
+                    <div
+                      className="mt-4 relative rounded-full p-[2px] pointer-events-auto"
+                      style={{
+                        background:
+                          "conic-gradient(from var(--angle), transparent 40%, #60a5fa 50%, transparent 60%)",
+                        animation: "rotate-shadow 3s linear infinite",
+                      }}
                     >
-                      Get notified when I go live
-                    </button>
+                      <button
+                        onClick={() => setShowNotifyPanel(true)}
+                        className="relative px-5 py-2.5 bg-blue-500 hover:bg-blue-400 rounded-full text-white font-medium transition-colors text-center"
+                      >
+                        Get notified when I go live
+                        <span className="block mt-0.5 text-blue-100 font-normal tracking-wide">
+                          Mon, Jan 5 · 7 PM PT
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
