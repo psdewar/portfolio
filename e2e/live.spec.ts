@@ -219,9 +219,8 @@ test.describe("Tipping", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWithOnlineMock(page, "/live");
 
-    // User sees the tip submission button
     await expect(
-      page.getByRole("button", { name: /^tip$/i }).first(),
+      page.getByRole("button", { name: /leave a tip/i }).first(),
     ).toBeVisible();
   });
 
