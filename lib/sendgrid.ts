@@ -5,10 +5,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 const FROM_EMAIL = "psd@lyrist.app";
 const FROM_NAME = "Peyt Spencer";
 
-export async function sendOtpEmail(params: {
-  to: string;
-  code: string;
-}): Promise<boolean> {
+export async function sendOtpEmail(params: { to: string; code: string }): Promise<boolean> {
   const { to, code } = params;
 
   const msg = {
@@ -57,42 +54,32 @@ If you didn't request this, you can ignore this email.
   }
 }
 
-export async function sendGoLiveEmail(params: {
-  to: string;
-  firstName: string;
-}): Promise<boolean> {
+export async function sendGoLiveEmail(params: { to: string; firstName: string }): Promise<boolean> {
   const result = await sendGoLiveEmailBatch([params]);
   return result.sent > 0;
 }
 
 export async function sendGoLiveEmailBatch(
-  recipients: Array<{ to: string; firstName: string }>,
+  recipients: Array<{ to: string; firstName: string }>
 ): Promise<{ sent: number; failed: number }> {
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const liveUrl = "https://peytspencer.com/live";
-  const BATCH_SIZE = 1000;
 
   let totalSent = 0;
   let totalFailed = 0;
 
-  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-    const batch = recipients.slice(i, i + BATCH_SIZE);
-
-    const msg = {
-      from: { email: FROM_EMAIL, name: FROM_NAME },
-      subject: "I'm LIVE right now!",
-      personalizations: batch.map(({ to, firstName }) => ({
-        to: [{ email: to }],
-        substitutions: { "-firstName-": firstName },
-      })),
-      text: `Hey -firstName-,
+  const messages = recipients.map(({ to, firstName }) => ({
+    to,
+    from: { email: FROM_EMAIL, name: FROM_NAME },
+    subject: "I'm LIVE right now!",
+    text: `Hey ${firstName},
 
 Come hang out with me at: ${liveUrl}
 
 Best,
 Peyt`,
-      html: `<!DOCTYPE html>
+    html: `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -104,7 +91,7 @@ Peyt`,
 </head>
 <body>
   <div class="container">
-    <p>Hey -firstName-,</p>
+    <p>Hey ${firstName},</p>
     <p>Come hang out with me at: <a href="${liveUrl}" class="cta">${liveUrl}</a></p>
     <p class="footer">
       Best,<br>
@@ -113,15 +100,14 @@ Peyt`,
   </div>
 </body>
 </html>`,
-    };
+  }));
 
-    try {
-      await sgMail.send(msg);
-      totalSent += batch.length;
-    } catch (error) {
-      console.error("[SendGrid] Batch send error:", error);
-      totalFailed += batch.length;
-    }
+  try {
+    await sgMail.send(messages);
+    totalSent = messages.length;
+  } catch (error) {
+    console.error("[SendGrid] Batch send error:", error);
+    totalFailed = messages.length;
   }
 
   return { sent: totalSent, failed: totalFailed };
