@@ -11,6 +11,8 @@ import { calculateStripeFee } from "../lib/stripe";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
 
+const NEXT_STREAM_DATE = new Date("2025-01-09T03:00:00Z"); // Thu Jan 8, 7pm PT
+
 const TIP_AMOUNTS = [10, 25, 50, 100, 250, 500, 1000].map((base) => ({
   base,
   ...calculateStripeFee(base),
@@ -570,28 +572,51 @@ export default function LivePage() {
                     priority
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-                  <div className="absolute top-8 inset-x-0 flex flex-col items-center z-10">
-                    <h1 className="font-[family-name:var(--font-bebas)] text-5xl tracking-wide text-white text-center">
-                      I AM OFFLINE
-                    </h1>
+                  <div className="absolute top-0 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden z-10">
                     <div
-                      className="mt-4 relative rounded-full p-[2px]"
-                      style={{
-                        background:
-                          "conic-gradient(from var(--angle), transparent 40%, #60a5fa 50%, transparent 60%)",
-                        animation: "rotate-shadow 3s linear infinite",
-                      }}
+                      className="flex items-center will-change-transform"
+                      style={{ animation: "marquee 60s linear infinite" }}
                     >
-                      <button
-                        onClick={() => setShowNotifyPanel(true)}
-                        className="relative px-6 py-3 bg-blue-500 hover:bg-blue-400 rounded-full text-white font-medium transition-colors text-center"
-                      >
-                        Get notified when I go live
-                        <span className="block mt-1 text-blue-100 font-normal tracking-wide">
-                          Mon, Jan 5 · 7 PM PT
-                        </span>
-                      </button>
+                      {[...Array(2)].map((_, j) => (
+                        <div key={j} className="flex shrink-0">
+                          {[...Array(10)].map((_, i) => (
+                            <span
+                              key={i}
+                              className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-9"
+                            >
+                              I AM OFFLINE<span className="mx-4">·</span>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                  <div className="absolute top-16 inset-x-0 flex flex-col items-center z-10">
+                    <p className="text-white/60 text-sm uppercase tracking-widest">
+                      Next Live
+                    </p>
+                    <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
+                      THU JAN 8 · 7PM PT
+                    </h1>
+                    <button
+                      onClick={() => setShowNotifyPanel(true)}
+                      className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                        />
+                      </svg>
+                      Notify me by email
+                    </button>
                   </div>
                 </>
               )}
@@ -703,8 +728,8 @@ export default function LivePage() {
                     priority
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-                  {/* Offline top bar - matches online layout */}
-                  <div className="absolute top-0 inset-x-0 z-10 p-3">
+                  {/* Offline top bar - below marquee */}
+                  <div className="absolute top-10 inset-x-0 z-10 p-3">
                     {/* Slide-in tip panel from left */}
                     {showTipPanel && (
                       <div
@@ -822,28 +847,51 @@ export default function LivePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="absolute top-8 inset-x-0 flex flex-col items-center z-[5] px-4 pointer-events-none">
-                    <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center">
-                      I AM OFFLINE
-                    </h1>
+                  <div className="absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden z-[15]">
                     <div
-                      className="mt-4 relative rounded-full p-[2px] pointer-events-auto"
-                      style={{
-                        background:
-                          "conic-gradient(from var(--angle), transparent 40%, #60a5fa 50%, transparent 60%)",
-                        animation: "rotate-shadow 3s linear infinite",
-                      }}
+                      className="flex items-center will-change-transform"
+                      style={{ animation: "marquee 60s linear infinite" }}
                     >
-                      <button
-                        onClick={() => setShowNotifyPanel(true)}
-                        className="relative px-5 py-2.5 bg-blue-500 hover:bg-blue-400 rounded-full text-white font-medium transition-colors text-center"
-                      >
-                        Get notified when I go live
-                        <span className="block mt-0.5 text-blue-100 font-normal tracking-wide">
-                          Mon, Jan 5 · 7 PM PT
-                        </span>
-                      </button>
+                      {[...Array(2)].map((_, j) => (
+                        <div key={j} className="flex shrink-0">
+                          {[...Array(10)].map((_, i) => (
+                            <span
+                              key={i}
+                              className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-9"
+                            >
+                              I AM OFFLINE<span className="mx-4">·</span>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                  <div className="absolute top-14 inset-x-0 flex flex-col items-center z-[5] px-4">
+                    <p className="text-white/60 text-sm uppercase tracking-widest">
+                      Next Live
+                    </p>
+                    <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
+                      THU JAN 8 · 7PM PT
+                    </h1>
+                    <button
+                      onClick={() => setShowNotifyPanel(true)}
+                      className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                        />
+                      </svg>
+                      Notify me by email
+                    </button>
                   </div>
                 </>
               )}

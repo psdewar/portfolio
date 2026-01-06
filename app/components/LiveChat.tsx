@@ -10,7 +10,10 @@ function stripHtml(html: string): string {
 }
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
-const WS_URL = OWNCAST_URL?.replace("https://", "wss://").replace("http://", "ws://");
+const WS_URL = OWNCAST_URL?.replace("https://", "wss://").replace(
+  "http://",
+  "ws://",
+);
 
 // Use proxy routes to avoid CORS
 const API_BASE = "/api/live/chat";
@@ -93,7 +96,9 @@ export default function LiveChat({
         // Deduplicate by ID when merging with existing messages
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
-          const newMessages = historyMessages.filter((m) => !existingIds.has(m.id));
+          const newMessages = historyMessages.filter(
+            (m) => !existingIds.has(m.id),
+          );
           return [...newMessages, ...prev].slice(-100);
         });
       }
@@ -222,7 +227,7 @@ export default function LiveChat({
         JSON.stringify({
           type: "CHAT",
           body: inputValue.trim(),
-        })
+        }),
       );
       setInputValue("");
       setLastSendTime(now);
@@ -254,7 +259,9 @@ export default function LiveChat({
         el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
       } else {
         // Viewer is scrolled up, increment new message counter
-        setNewMessageCount((prev) => prev + (messages.length - prevMessageCountRef.current));
+        setNewMessageCount(
+          (prev) => prev + (messages.length - prevMessageCountRef.current),
+        );
       }
     }
 
@@ -267,12 +274,19 @@ export default function LiveChat({
     return (
       <div className="absolute bottom-20 right-3 w-48 bg-neutral-900/95 backdrop-blur rounded-xl p-3 max-h-64 overflow-y-auto">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-white">Viewers ({viewers.length})</span>
+          <span className="text-sm font-semibold text-white">
+            Viewers ({viewers.length})
+          </span>
           <button
             onClick={() => setShowViewerList(false)}
             className="text-neutral-500 hover:text-white"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -287,7 +301,10 @@ export default function LiveChat({
         ) : (
           <div className="space-y-1">
             {viewers.map((viewer) => (
-              <div key={viewer.id} className="flex items-center gap-2 text-sm text-white/80">
+              <div
+                key={viewer.id}
+                className="flex items-center gap-2 text-sm text-white/80"
+              >
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
                 {viewer.displayName}
               </div>
@@ -325,7 +342,8 @@ export default function LiveChat({
               }
               onScroll={(e) => {
                 const el = e.currentTarget;
-                const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
+                const isAtBottom =
+                  el.scrollHeight - el.scrollTop - el.clientHeight < 20;
                 setIsScrolledUp(!isAtBottom);
                 if (isAtBottom) setNewMessageCount(0);
               }}
@@ -338,18 +356,25 @@ export default function LiveChat({
                       key={msg.id}
                       style={{
                         // Full opacity when scrolled up, gradual fade when at bottom
-                        opacity: isScrolledUp ? 1 : 0.7 + (index / arr.length) * 0.3,
+                        opacity: isScrolledUp
+                          ? 1
+                          : 0.7 + (index / arr.length) * 0.3,
                       }}
                     >
                       <div
                         className="inline-block rounded-xl px-2.5 py-1 max-w-[85%]"
                         style={{
                           background: "transparent",
-                          textShadow: "0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)",
+                          textShadow:
+                            "0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)",
                         }}
                       >
-                        <span className="font-semibold text-white text-sm">{msg.author}</span>
-                        <span className="text-white text-sm ml-2">{stripHtml(msg.body)}</span>
+                        <span className="font-semibold text-white text-sm">
+                          {msg.author}
+                        </span>
+                        <span className="text-white text-sm ml-2">
+                          {stripHtml(msg.body)}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -377,14 +402,12 @@ export default function LiveChat({
 
           {/* Chat Input - inlined to prevent focus loss */}
           {!commenterName ? (
-            <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-              <button
-                onClick={onRequestSignIn}
-                className="w-full py-3 bg-white/10 backdrop-blur rounded-full text-white text-sm font-medium"
-              >
-                Sign in to chat
-              </button>
-            </div>
+            <button
+              onClick={onRequestSignIn}
+              className="absolute bottom-4 left-3 right-3 py-3 bg-black/60 backdrop-blur-md rounded-full text-white text-sm font-medium"
+            >
+              Sign in to chat
+            </button>
           ) : (
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
               {/* Send error toast */}
@@ -475,7 +498,12 @@ export default function LiveChat({
             onClick={() => setShowViewerList(!showViewerList)}
             className="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -489,7 +517,9 @@ export default function LiveChat({
 
       {showViewerList && (
         <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-200/50 dark:bg-neutral-800/50">
-          <p className="text-xs text-neutral-500 mb-2">Viewers ({viewers.length})</p>
+          <p className="text-xs text-neutral-500 mb-2">
+            Viewers ({viewers.length})
+          </p>
           {viewers.length === 0 ? (
             <p className="text-neutral-500 text-xs">No viewers yet</p>
           ) : (
@@ -509,12 +539,16 @@ export default function LiveChat({
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {messages.length === 0 ? (
-          <p className="text-neutral-500 text-center text-sm">No messages yet</p>
+          <p className="text-neutral-500 text-center text-sm">
+            No messages yet
+          </p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id}>
               {msg.type === "system" ? (
-                <p className="text-neutral-500 text-xs text-center italic">{msg.body}</p>
+                <p className="text-neutral-500 text-xs text-center italic">
+                  {msg.body}
+                </p>
               ) : (
                 <div className="text-sm">
                   <span className="font-semibold text-neutral-900 dark:text-white/90">
