@@ -11,8 +11,6 @@ import { calculateStripeFee } from "../lib/stripe";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
 
-const NEXT_STREAM_DATE = new Date("2025-01-09T03:00:00Z"); // Thu Jan 8, 7pm PT
-
 const TIP_AMOUNTS = [10, 25, 50, 100, 250, 500, 1000].map((base) => ({
   base,
   ...calculateStripeFee(base),
@@ -138,7 +136,7 @@ export default function LivePage() {
 
       if (hours > 0) {
         setElapsedTime(
-          `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`,
+          `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
         );
       } else {
         setElapsedTime(`${mins}:${secs.toString().padStart(2, "0")}`);
@@ -151,7 +149,8 @@ export default function LivePage() {
   }, [status.online, status.lastConnectTime]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    // Desktop layout needs sufficient width AND height
+    const mediaQuery = window.matchMedia("(min-width: 768px) and (min-height: 500px)");
     setIsDesktop(mediaQuery.matches);
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mediaQuery.addEventListener("change", handler);
@@ -243,8 +242,7 @@ export default function LivePage() {
       });
       const { url, error } = await res.json();
       if (error || !url) throw new Error(error || "Failed to create checkout");
-      if (!url.startsWith("https://checkout.stripe.com/"))
-        throw new Error("Invalid URL");
+      if (!url.startsWith("https://checkout.stripe.com/")) throw new Error("Invalid URL");
       window.location.href = url;
     } catch {
       alert("Something went wrong. Please try again.");
@@ -271,9 +269,7 @@ export default function LivePage() {
   const renderVideoOverlay = (isMobile: boolean) => (
     <>
       {/* Top bar */}
-      <div
-        className={`absolute top-0 inset-x-0 z-10 ${isMobile ? "p-3" : "p-4"}`}
-      >
+      <div className={`absolute top-0 inset-x-0 z-10 ${isMobile ? "p-3" : "p-4"}`}>
         {/* Slide-in tip panel from left - mobile only */}
         {isMobile && showTipPanel && (
           <div
@@ -304,12 +300,7 @@ export default function LivePage() {
                   onClick={closePanels}
                   className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-white transition-colors p-1"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -335,8 +326,8 @@ export default function LivePage() {
                 Thanks for covering the processing fee
               </p>
               <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-sm">
+                <div className="relative flex-[5] min-w-0">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-lg">
                     $
                   </span>
                   <input
@@ -345,15 +336,15 @@ export default function LivePage() {
                     onChange={(e) => setTipAmount(e.target.value)}
                     min="1"
                     placeholder="10"
-                    className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
+                    className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
                   />
                 </div>
                 <button
                   onClick={handleTip}
                   disabled={isTipping || !tipAmount}
-                  className="px-6 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
+                  className="flex-[3] min-w-0 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
                 >
-                  {isTipping ? "..." : "Tip"}
+                  {isTipping ? "..." : "Leave a tip"}
                 </button>
               </div>
             </div>
@@ -375,11 +366,7 @@ export default function LivePage() {
                 LIVE
               </div>
               <div className="bg-black/40 px-2.5 py-1 rounded-full text-sm flex items-center gap-1.5 text-white">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                   <path
                     fillRule="evenodd"
@@ -450,11 +437,7 @@ export default function LivePage() {
           data-testid="unmute-overlay"
         >
           <div className="absolute top-14 left-3 p-2 rounded-full bg-black/50 backdrop-blur">
-            <svg
-              className="w-5 h-5 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
             </svg>
           </div>
@@ -467,11 +450,7 @@ export default function LivePage() {
           className="absolute inset-0 z-20 flex items-center justify-center bg-black/30"
         >
           <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center hover:bg-white/30 transition-colors">
-            <svg
-              className="w-10 h-10 text-white ml-1"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
@@ -528,10 +507,7 @@ export default function LivePage() {
           className="fixed inset-0 z-[50] flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => setShowNotifyPanel(false)}
         >
-          <div
-            className="flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <StayConnected
               isModal={true}
               shouldShow={true}
@@ -542,7 +518,7 @@ export default function LivePage() {
       )}
 
       {/* Desktop Layout */}
-      <div className="hidden lg:flex absolute inset-4 items-center justify-center z-[2]">
+      <div className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute inset-4 items-center justify-center z-[2]">
         {isLoading ? (
           <div className="flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-neutral-900 dark:border-white border-t-transparent rounded-full animate-spin" />
@@ -592,9 +568,7 @@ export default function LivePage() {
                     </div>
                   </div>
                   <div className="absolute top-16 inset-x-0 flex flex-col items-center z-10">
-                    <p className="text-white/60 text-sm uppercase tracking-widest">
-                      Next Live
-                    </p>
+                    <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
                     <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
                       THU JAN 8 · 7PM PT
                     </h1>
@@ -623,12 +597,12 @@ export default function LivePage() {
             </div>
 
             {/* Sidebar */}
-            <div className="w-80 h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
-              {/* Tip Section - always visible */}
-              <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
+              {/* Tip Section */}
+              <div className="p-3 lg:p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+                <div className="flex items-center gap-2 lg:gap-3 mb-2 lg:mb-3">
                   <svg
-                    className="w-6 h-6 text-emerald-500 shrink-0"
+                    className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={1.5}
@@ -640,28 +614,28 @@ export default function LivePage() {
                       d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
                     />
                   </svg>
-                  <h3 className="font-semibold text-lg text-neutral-900 dark:text-white">
+                  <h3 className="font-semibold text-sm lg:text-lg text-neutral-900 dark:text-white">
                     Support my independence
                   </h3>
                 </div>
-                <div className="flex gap-1.5 mb-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+                <div className="flex gap-1 lg:gap-1.5 mb-1 lg:mb-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-3 lg:-mx-4 px-3 lg:px-4">
                   {TIP_AMOUNTS.map(({ base, total }) => (
                     <button
                       key={base}
                       onClick={() => handleTipWithAmount(total)}
                       disabled={isTipping}
-                      className="py-2.5 px-3 rounded-lg text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 shrink-0"
+                      className="py-1.5 lg:py-2.5 px-2 lg:px-3 rounded-lg text-sm lg:text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 shrink-0"
                     >
                       ${base}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-neutral-500 mb-3">
+                <p className="text-xs text-neutral-500 mb-2 lg:mb-3">
                   Thanks for covering the processing fee
                 </p>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                <div className="flex gap-1.5 lg:gap-2">
+                  <div className="relative flex-[5] min-w-0">
+                    <span className="absolute left-2 lg:left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-base lg:text-lg">
                       $
                     </span>
                     <input
@@ -670,13 +644,13 @@ export default function LivePage() {
                       onChange={(e) => setTipAmount(e.target.value)}
                       min="1"
                       placeholder="10"
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg py-2 pl-7 pr-3 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg py-1.5 lg:py-2 pl-5 lg:pl-7 pr-2 lg:pr-3 text-base lg:text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                     />
                   </div>
                   <button
                     onClick={handleTip}
                     disabled={isTipping || !tipAmount}
-                    className="px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 font-semibold rounded-lg text-sm text-white transition-all shadow-md shadow-emerald-500/20"
+                    className="flex-[3] min-w-0 py-1.5 lg:py-2 px-2 lg:px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 font-semibold rounded-lg text-xs lg:text-sm text-white transition-all shadow-md shadow-emerald-500/20"
                   >
                     {isTipping ? "..." : "Leave a tip"}
                   </button>
@@ -698,15 +672,15 @@ export default function LivePage() {
       </div>
 
       {/* Mobile Layout */}
-      <div className="lg:hidden absolute inset-0 bg-black z-[2]">
+      <div className="[@media(min-width:768px)_and_(min-height:500px)]:hidden absolute inset-0 bg-black z-[2]">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black">
             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="relative h-full w-full flex items-center justify-center">
-            {/* 9:16 video container - keeps UI within video content area */}
-            <div className="relative h-full max-h-full max-w-full aspect-[9/16] z-[3] bg-black">
+          <div className="relative h-full w-full flex">
+            {/* Video */}
+            <div className="relative h-full w-full z-[3] bg-black flex items-center justify-center">
               {status.online ? (
                 <>
                   <video
@@ -791,8 +765,8 @@ export default function LivePage() {
                             Thanks for covering the processing fee
                           </p>
                           <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-sm">
+                            <div className="relative flex-[5] min-w-0">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-lg">
                                 $
                               </span>
                               <input
@@ -801,13 +775,13 @@ export default function LivePage() {
                                 onChange={(e) => setTipAmount(e.target.value)}
                                 min="1"
                                 placeholder="10"
-                                className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
+                                className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
                               />
                             </div>
                             <button
                               onClick={handleTip}
                               disabled={isTipping || !tipAmount}
-                              className="px-6 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
+                              className="flex-[3] min-w-0 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
                             >
                               {isTipping ? "..." : "Leave a tip"}
                             </button>
@@ -819,7 +793,7 @@ export default function LivePage() {
                       <div />
                       <div className="flex flex-col items-end gap-4">
                         <div />
-                        {/* Action icons - same position as online */}
+                        {/* Action icons - mobile only */}
                         <div className="flex flex-col gap-4">
                           <button
                             onClick={() => {
@@ -867,9 +841,7 @@ export default function LivePage() {
                     </div>
                   </div>
                   <div className="absolute top-14 inset-x-0 flex flex-col items-center z-[5] px-4">
-                    <p className="text-white/60 text-sm uppercase tracking-widest">
-                      Next Live
-                    </p>
+                    <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
                     <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
                       THU JAN 8 · 7PM PT
                     </h1>
@@ -899,9 +871,7 @@ export default function LivePage() {
               {isLocalhost && !commenterName && status.online && (
                 <div className="absolute top-16 left-3 right-3 z-30">
                   <div className="bg-yellow-500/20 backdrop-blur rounded-xl p-3">
-                    <p className="text-yellow-500 text-xs mb-2">
-                      Localhost: Enter a name to test
-                    </p>
+                    <p className="text-yellow-500 text-xs mb-2">Localhost: Enter a name to test</p>
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -927,7 +897,7 @@ export default function LivePage() {
                   </div>
                 </div>
               )}
-              {/* Floating Chat - always visible, gated when offline */}
+              {/* Chat */}
               <LiveChat
                 commenterName={status.online ? commenterName : null}
                 onRequestSignIn={() => setShowNotifyPanel(true)}
