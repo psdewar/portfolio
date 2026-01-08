@@ -11,7 +11,6 @@ export function Navbar() {
   const isHomePage = pathname === "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
-  const isFundPage = pathname === "/fund" || pathname.startsWith("/fund/");
 
   const useHorizontalNav = !isHomePage;
 
@@ -41,7 +40,7 @@ export function Navbar() {
               >
                 Peyt Spencer
               </Link>
-              {(isMusicPage || isFundPage) && (
+              {isMusicPage && (
                 <Link
                   href="https://soundbetter.com/profiles/630479-peyt-spencer"
                   className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 bg-soundbetter text-white text-sm font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
@@ -53,14 +52,24 @@ export function Navbar() {
                 </Link>
               )}
               {isHirePage && (
-                <Link
-                  href="/docs/resume.pdf"
-                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 bg-lyrist text-white text-sm font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Resume <ArrowIcon />
-                </Link>
+                <div className="hidden lg:flex items-center gap-2">
+                  <Link
+                    href="/resume.pdf"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-lyrist text-white text-sm font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Resume <ArrowIcon />
+                  </Link>
+                  <Link
+                    href="/peer-reviews.pdf"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-medium rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Peer Reviews <ArrowIcon />
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -98,7 +107,7 @@ export function Navbar() {
               </div>
 
               {/* Mobile CTA buttons */}
-              {(isMusicPage || isFundPage) && (
+              {isMusicPage && (
                 <Link
                   href="https://soundbetter.com/profiles/630479-peyt-spencer"
                   className="md:hidden inline-flex items-center gap-1 px-2.5 py-1.5 bg-soundbetter text-white text-xs font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
@@ -110,15 +119,26 @@ export function Navbar() {
                 </Link>
               )}
               {isHirePage && (
-                <Link
-                  href="/docs/resume.pdf"
-                  className="md:hidden inline-flex items-center gap-1 px-2.5 py-1.5 bg-lyrist text-white text-xs font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Resume
-                  <ArrowIcon />
-                </Link>
+                <div className="md:hidden flex items-center gap-1.5">
+                  <Link
+                    href="/resume.pdf"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-lyrist text-white text-xs font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Resume
+                    <ArrowIcon />
+                  </Link>
+                  <Link
+                    href="/peer-reviews.pdf"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white text-xs font-medium rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Peers
+                    <ArrowIcon />
+                  </Link>
+                </div>
               )}
               <button
                 onClick={() => setMenuOpen((s) => !s)}
@@ -181,7 +201,7 @@ export function Navbar() {
             </div>
 
             {/* Page-specific CTA for mobile */}
-            {(isMusicPage || isFundPage) && (
+            {isMusicPage && (
               <div className="pt-3">
                 <Link
                   href="https://soundbetter.com/profiles/630479-peyt-spencer"
@@ -194,14 +214,22 @@ export function Navbar() {
               </div>
             )}
             {isHirePage && (
-              <div className="pt-3">
+              <div className="pt-3 flex gap-2">
                 <Link
-                  href="/docs/resume.pdf"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lyrist text-white rounded-lg font-medium hover:bg-lyrist/90 transition-colors"
+                  href="/resume.pdf"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-lyrist text-white rounded-lg font-medium hover:bg-lyrist/90 transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Resume.pdf <ArrowIcon />
+                  Resume <ArrowIcon />
+                </Link>
+                <Link
+                  href="/peer-reviews.pdf"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Peer Reviews <ArrowIcon />
                 </Link>
               </div>
             )}

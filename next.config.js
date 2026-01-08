@@ -49,8 +49,8 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: "/perspectives",
-        destination: "/perspectives.pdf",
+        source: "/peer-reviews",
+        destination: "/peer-reviews.pdf",
         permanent: false,
       },
     ];

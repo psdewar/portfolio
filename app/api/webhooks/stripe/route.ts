@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import Stripe from "stripe";
 import { stripe } from "../../shared/stripe-utils";
 import {
@@ -7,14 +8,8 @@ import {
   hasDigitalAssets,
   getDownloadableAssets,
 } from "../../shared/products";
-import {
-  savePurchase,
-  isKeepalive,
-  decrementInventory,
-} from "../../../../lib/supabase-admin";
+import { savePurchase, isKeepalive, decrementInventory } from "../../../../lib/supabase-admin";
 import PostHogClient from "../../../../lib/posthog";
-import fs from "fs";
-import path from "path";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -27,10 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     if (!endpointSecret) {
       console.error("Stripe webhook secret not found");
-      return NextResponse.json(
-        { error: "Webhook secret not configured" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
     }
 
     event = stripe.webhooks.constructEvent(payload, sig!, endpointSecret);
@@ -42,9 +34,7 @@ export async function POST(request: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed":
-      await handleCheckoutCompleted(
-        event.data.object as Stripe.Checkout.Session,
-      );
+      await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
       break;
     case "payment_intent.succeeded":
       break;
@@ -92,7 +82,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
 async function handlePhysicalOrder(
   session: Stripe.Checkout.Session,
-  product: ReturnType<typeof getProduct>,
+  product: ReturnType<typeof getProduct>
 ) {
   if (!product) return;
 
@@ -107,7 +97,7 @@ async function handlePhysicalOrder(
 
 async function handleDigitalFulfillment(
   session: Stripe.Checkout.Session,
-  product: ReturnType<typeof getProduct>,
+  product: ReturnType<typeof getProduct>
 ) {
   if (!product) return;
 
@@ -137,12 +127,12 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
     if (!metadata?.projectId) return;
 
     const { projectId } = metadata;
-    const amountCents = session.amount_total || 0;
 
     // Track live stream tips in PostHog
     if (projectId === "live-stream") {
       const posthog = PostHogClient();
       const distinctId = session.customer_details?.email || session.id;
+      const amountCents = session.amount_total || 0;
       posthog.capture({
         distinctId,
         event: "tip_completed",
@@ -155,20 +145,32 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
       return; // Live stream tips don't need project funding update
     }
 
-    const projectsPath = path.join(process.cwd(), "data", "projects.json");
-    const projectsData = JSON.parse(fs.readFileSync(projectsPath, "utf8"));
-
-    if (projectsData[projectId]) {
-      projectsData[projectId].raisedCents += amountCents;
-      projectsData[projectId].backers += 1;
-
-      fs.writeFileSync(projectsPath, JSON.stringify(projectsData, null, 2));
-    }
+    // Trigger ISR rebuild so page shows updated stats
+    revalidatePath(`/fund/${projectId}`);
   } catch (error) {
     console.error("Error updating project funding:", error);
   }
 }
 
 async function handleRefund(charge: Stripe.Charge) {
-  // Handle refund - could revoke access or notify
+  try {
+    // Look up the original session to get projectId
+    const paymentIntentId =
+      typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+
+    if (!paymentIntentId) return;
+
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+
+    const projectId = sessions.data[0]?.metadata?.projectId;
+    if (!projectId || projectId === "live-stream") return;
+
+    // Trigger ISR rebuild so page shows updated stats
+    revalidatePath(`/fund/${projectId}`);
+  } catch (error) {
+    console.error("Error handling refund:", error);
+  }
 }

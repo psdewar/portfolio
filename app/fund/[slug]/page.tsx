@@ -4,8 +4,8 @@ import { ProjectView } from "../ProjectView";
 import { getFundingStats } from "../../lib/funding";
 import type { Metadata } from "next";
 
-// Use ISR with 60s revalidation instead of force-dynamic for better performance
-export const revalidate = 60;
+// Use ISR with 1 hour TTL + on-demand revalidation from webhooks
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
