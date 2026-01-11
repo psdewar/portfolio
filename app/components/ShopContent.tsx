@@ -21,24 +21,14 @@ const FALLBACK_INVENTORY: Record<string, number> = {
   "black-large": 2,
 };
 
-const BUNDLE_PICKUP_FEES = calculateStripeFee(
-  PRICING["then-and-now-bundle-2025"],
-);
+const BUNDLE_PICKUP_FEES = calculateStripeFee(PRICING["then-and-now-bundle-2025"]);
 const BUNDLE_DELIVERY_FEES = {
-  total:
-    calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total -
-    SHIPPING,
+  total: calculateStripeFee(PRICING["then-and-now-bundle-2025"] + SHIPPING).total - SHIPPING,
 };
 const DOWNLOAD_FEES = calculateStripeFee(PRICING["singles-16s-pack-2025"]);
 
 const InfoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    strokeWidth={2}
-  >
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -58,6 +48,20 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
   const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("pickup");
   const [inventory, setInventory] = useState<Record<string, number>>(FALLBACK_INVENTORY);
   const [showInfo, setShowInfo] = useState(false);
+  const [bundlePrice, setBundlePrice] = useState(PRICING["then-and-now-bundle-2025"]);
+  const [musicPrice, setMusicPrice] = useState(PRICING["singles-16s-pack-2025"]);
+  const [hoveringMusicIncrement, setHoveringMusicIncrement] = useState(false);
+
+  const bundleFees = useMemo(() => {
+    const isPickup = deliveryMode === "pickup";
+    const pickupFees = calculateStripeFee(bundlePrice);
+    const deliveryFees = {
+      total: calculateStripeFee(bundlePrice + SHIPPING).total - SHIPPING,
+    };
+    return isPickup ? pickupFees : deliveryFees;
+  }, [bundlePrice, deliveryMode]);
+
+  const musicFees = useMemo(() => calculateStripeFee(musicPrice), [musicPrice]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -84,7 +88,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
       { name: "Medium", value: "Medium" },
       { name: "Large", value: "Large" },
     ],
-    [],
+    []
   );
 
   const colors = useMemo(
@@ -92,39 +96,35 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
       { name: "Black", value: "black" },
       { name: "White", value: "white" },
     ],
-    [],
+    []
   );
 
   const getStock = (size: string, color: string) => {
     const sku = `${color.toLowerCase()}-${size.toLowerCase()}`;
     return inventory[sku] ?? 0;
   };
-  const isSoldOut = (size: string, color: string) =>
-    getStock(size, color) === 0;
+  const isSoldOut = (size: string, color: string) => getStock(size, color) === 0;
 
   const handleCheckout = async (
-    productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025",
+    productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025"
   ) => {
     const isPickup = deliveryMode === "pickup";
-    const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
 
     const productConfigs = {
       "singles-16s-pack-2025": {
-        amount: Math.round(DOWNLOAD_FEES.total * 100),
+        amount: Math.round(musicFees.total * 100),
         productId: "singles-16s-pack-2025",
-        metadata: {},
+        metadata: { customPrice: musicPrice },
         skipShipping: true,
       },
       "then-and-now-bundle-2025": {
         amount: Math.round(bundleFees.total * 100),
         productId: "then-and-now-bundle-2025",
         metadata: {
-          size:
-            sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
-          color:
-            colors.find((c) => c.value === selectedColor)?.name ||
-            selectedColor,
+          size: sizes.find((s) => s.value === selectedSize)?.name || selectedSize,
+          color: colors.find((c) => c.value === selectedColor)?.name || selectedColor,
           deliveryMode,
+          customPrice: bundlePrice,
         },
         skipShipping: isPickup,
       },
@@ -168,7 +168,6 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
       const optionKey = `${color}-${size}`;
       setCheckingOutOption(optionKey);
       const isPickup = deliveryMode === "pickup";
-      const bundleFees = isPickup ? BUNDLE_PICKUP_FEES : BUNDLE_DELIVERY_FEES;
 
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
@@ -176,7 +175,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
         body: JSON.stringify({
           amount: Math.round(bundleFees.total * 100),
           productId: "then-and-now-bundle-2025",
-          metadata: { size, color, deliveryMode },
+          metadata: { size, color, deliveryMode, customPrice: bundlePrice },
           cancelPath,
           skipShipping: isPickup,
         }),
@@ -195,8 +194,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
       <div className="grid grid-cols-2 sm:grid-cols-3 w-full">
         {options.map((opt) => {
           const soldOut = isSoldOut(opt.size, opt.color);
-          const isSelected =
-            selectedSize === opt.size && selectedColor === opt.color;
+          const isSelected = selectedSize === opt.size && selectedColor === opt.color;
           const optionKey = `${opt.color}-${opt.size}`;
           const isCheckingOut = checkingOutOption === optionKey;
           const anyCheckingOut = checkingOutOption !== null;
@@ -211,13 +209,15 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                 }
               }}
               disabled={soldOut || anyCheckingOut}
-              className={`py-4 px-4 transition-all relative flex items-center gap-3 ${
+              className={`py-4 px-6 sm:px-8 transition-all relative flex items-center gap-3 ${
                 isCheckingOut
-                  ? "bg-white/20 text-white"
+                  ? "bg-white/10 text-white"
                   : isSelected
-                    ? "bg-white/10 text-white"
-                    : "bg-black/10 text-white/80 hover:bg-white/20"
-              } ${soldOut || (anyCheckingOut && !isCheckingOut) ? "opacity-40 cursor-not-allowed" : ""}`}
+                  ? "text-white"
+                  : "text-white/60 hover:text-white active:text-white"
+              } ${
+                soldOut || (anyCheckingOut && !isCheckingOut) ? "opacity-40 cursor-not-allowed" : ""
+              }`}
             >
               <span
                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -248,7 +248,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
   return (
     <div className="w-full">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:min-h-screen">
-        <div className="flex flex-col bg-[#A31628]">
+        <div className="flex flex-col bg-[#A31628] lg:h-screen lg:max-h-screen">
           <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
             <h2 className="text-white font-semibold text-2xl sm:text-3xl">
               Buy Then & Now Bundle
@@ -256,71 +256,129 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                 Includes one Exhibit PSD shirt and Singles & 16s Pack (2025)
               </p>
             </h2>
-            <label className="text-white/90 text-lg sm:text-xl font-medium">1. Select delivery</label>
+            <label className="text-white/90 text-lg sm:text-xl font-medium">
+              1. Select delivery
+            </label>
             <div className="grid grid-cols-2 w-full">
               <button
                 onClick={() => setDeliveryMode("pickup")}
-                className={`py-5 px-5 transition-all rounded-l-full ${
+                className={`py-4 px-6 sm:px-8 transition-all flex items-center gap-3 ${
                   deliveryMode === "pickup"
-                    ? "text-white z-10 bg-white/10"
-                    : "bg-black/10 text-white/80 hover:bg-white/20"
+                    ? "text-white"
+                    : "text-white/60 hover:text-white active:text-white"
                 }`}
               >
-                <span className="block text-lg sm:text-xl font-semibold">Pick Up</span>
-                <span className="block text-base sm:text-lg opacity-80">
-                  At a show for free
+                <span
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    deliveryMode === "pickup" ? "border-white" : "border-white/50"
+                  }`}
+                >
+                  {deliveryMode === "pickup" && <span className="w-2 h-2 rounded-full bg-white" />}
                 </span>
+                <div>
+                  <span className="block text-lg sm:text-xl font-semibold">Pick Up</span>
+                  <span className="block text-base sm:text-lg opacity-80">At a show for free</span>
+                </div>
               </button>
               <button
                 onClick={() => setDeliveryMode("delivery")}
-                className={`py-5 px-5 transition-all rounded-r-full ${
+                className={`py-4 px-6 sm:px-8 transition-all flex items-center gap-3 ${
                   deliveryMode === "delivery"
-                    ? "text-white z-10 bg-white/10"
-                    : "bg-black/10 text-white/80 hover:bg-white/20"
+                    ? "text-white"
+                    : "text-white/60 hover:text-white active:text-white"
                 }`}
               >
-                <span className="block text-lg sm:text-xl font-semibold">
-                  Ship To Me
+                <span
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    deliveryMode === "delivery" ? "border-white" : "border-white/50"
+                  }`}
+                >
+                  {deliveryMode === "delivery" && (
+                    <span className="w-2 h-2 rounded-full bg-white" />
+                  )}
                 </span>
-                <span className="block text-base sm:text-lg opacity-80">$7 shipping</span>
+                <div>
+                  <span className="block text-lg sm:text-xl font-semibold">Ship To Me</span>
+                  <span className="block text-base sm:text-lg opacity-80">$7 shipping</span>
+                </div>
               </button>
             </div>
           </div>
-          <label className="text-white/90 text-lg sm:text-xl font-medium px-6 sm:px-8 pb-4 sm:pb-5">
-            2. Select color & size to purchase
+          <div className="flex bg-[#7A1120]">
+            <div className="flex flex-col flex-1">
+              <label className="text-white text-lg sm:text-xl font-medium px-6 sm:px-8 py-4 sm:py-5">
+                2. Name your price{" "}
+                <span className="text-white/60 font-normal">
+                  min. ${PRICING["then-and-now-bundle-2025"]}
+                </span>
+              </label>
+              <div className="flex items-center gap-2 px-6 sm:px-8 pb-4 sm:pb-5 tabular-nums">
+                <span className="text-white text-6xl sm:text-7xl font-semibold leading-none">
+                  ${bundlePrice}
+                </span>
+                <span className="text-white/60 text-lg sm:text-xl">
+                  {deliveryMode === "pickup"
+                    ? `+ $${(bundleFees.total - bundlePrice).toFixed(2)} processing`
+                    : `+ $${(bundleFees.total - bundlePrice + SHIPPING).toFixed(
+                        2
+                      )} shipping & processing`}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <button
+                onClick={() => setBundlePrice((p) => p + 5)}
+                className="w-12 flex-1 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/20 transition-colors"
+              >
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() =>
+                  setBundlePrice((p) => Math.max(PRICING["then-and-now-bundle-2025"], p - 5))
+                }
+                className="w-12 flex-1 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/20 transition-colors disabled:opacity-30"
+                disabled={bundlePrice <= PRICING["then-and-now-bundle-2025"]}
+              >
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <label className="text-white/90 text-lg sm:text-xl font-medium px-6 sm:px-8 py-4 sm:py-5">
+            3. Select color & size to purchase
           </label>
           <SizeColorSelector prefix="everything-" />
-          <div className="relative aspect-[16/9] overflow-hidden">
+          <div className="relative lg:flex-1 lg:min-h-0 aspect-[2/1] lg:aspect-auto overflow-hidden w-full">
             <Image
               src="/images/merch/lu-psd-merch.JPG"
               alt="Friend wearing Exhibit PSD T-Shirt"
               fill
               className="object-cover object-bottom"
             />
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-black/75 via-black/50 to-transparent px-6 sm:px-8 flex flex-col justify-start pointer-events-none">
-              <div className="flex items-center gap-3 mt-4 sm:mt-5">
-                <span className="text-white text-6xl sm:text-7xl font-semibold">
-                  ${PRICING["then-and-now-bundle-2025"]}
-                </span>
-                <span className="text-white/60 text-base lg:text-lg">
-                  {deliveryMode === "pickup" ? (
-                    <>+ $1.21 for processing</>
-                  ) : (
-                    <>+ $8.42 for shipping & processing</>
-                  )}
-                  <br />
-                </span>
-              </div>
-            </div>
             <button
               onClick={() => setShowInfo(!showInfo)}
-              className="absolute top-4 right-4 p-2 bg-black/60 hover:bg-black/80 rounded-full transition-all z-10"
+              className="absolute top-4 right-4 p-2 bg-white/60 hover:bg-white/80 active:bg-white/80 rounded-full transition-all z-10"
               aria-label="Show info"
             >
               <InfoIcon className="w-5 h-5 text-white" />
             </button>
             <div
-              className={`absolute top-0 right-0 h-full w-1/2 bg-black/80 backdrop-blur-sm transform transition-transform duration-300 ease-out ${
+              className={`absolute top-0 right-0 h-full w-1/2 bg-white/80 backdrop-blur-sm transform transition-transform duration-300 ease-out ${
                 showInfo ? "translate-x-0" : "translate-x-full"
               }`}
             >
@@ -329,9 +387,8 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                   From The Archives: Exhibit PSD
                 </h3>
                 <p className="text-white/90 text-sm lg:text-base">
-                  My first design, a decade in the making. The "PSD" logo from
-                  my original rap moniker, first sketched in college at UF. 100%
-                  cotton, made to last.
+                  My first design, a decade in the making. The "PSD" logo from my original rap
+                  moniker, first sketched in college at UF. 100% cotton, made to last.
                 </p>
               </div>
             </div>
@@ -339,53 +396,107 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
         </div>
 
         {/* Download Card - Full Width Color Block - Entirely Clickable */}
-        <button
+        <div
           onClick={() => handleCheckout("singles-16s-pack-2025")}
-          className="bg-[#1628A3] hover:bg-blue-700 flex flex-col text-left transition-colors cursor-pointer"
+          className={`bg-[#1628A3] flex flex-col text-left cursor-pointer pb-20 lg:pb-0 transition-colors ${
+            !hoveringMusicIncrement ? "hover:bg-blue-700" : ""
+          }`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && handleCheckout("singles-16s-pack-2025")}
         >
           <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-white font-semibold text-2xl sm:text-3xl">
                 Buy Singles & 16s Pack (2025)
               </h2>
-              <div className="bg-white/20 rounded-full px-3 py-1 shrink-0">
-                <span className="text-white/90 text-sm font-medium">
-                  Tap anywhere to purchase
+              <div className="bg-white/20 rounded-full px-5 py-2 shrink-0">
+                <span className="text-white/90 text-sm font-medium text-center">
+                  Tap anywhere
+                  <br className="sm:hidden" /> to purchase
                 </span>
               </div>
             </div>
             <p className="text-white/80 text-base lg:text-lg">
-              A "16" is the number of bars, the typical length of one rap verse.
-              I write every bar myself, and grabbing this pack supports my
-              independence the same as streaming "Patience" 3,000 times! You'll
-              receive a zip file with mp3s and a lyricbook containing:
+              A "16" is the number of bars, the typical length of one rap verse. I write every bar
+              myself, and grabbing this pack supports my independence the same as streaming
+              "Patience" 3,000 times! You'll receive a zip file with mp3s and a lyricbook
+              containing:
             </p>
             <div className="space-y-1">
               {TRACKLIST.map((track) => (
                 <div
                   key={track.name}
-                  className="py-3 pl-4 pr-3 border-l-2 border-white/40 hover:border-white transition-all flex items-center justify-between"
+                  className="py-3 pl-4 pr-3 border-l-2 border-white/40 hover:border-white active:border-white transition-all flex items-center justify-between"
                 >
-                  <span className="font-bebas text-white text-3xl lg:text-4xl">
-                    {track.name}
-                  </span>
+                  <span className="font-bebas text-white text-3xl lg:text-4xl">{track.name}</span>
                   <span className="font-mono text-white/70 text-xl lg:text-2xl ">
                     {track.duration}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-6xl sm:text-7xl font-semibold text-white">
-                ${PRICING["singles-16s-pack-2025"]}
-              </span>
-              <span className="text-white/70 text-base lg:text-lg">
-                + $0.61 for processing
-                <br />
-              </span>
+          </div>
+          <div className="flex bg-[#111D7A]">
+            <div className="flex flex-col flex-1">
+              <label className="text-white text-lg sm:text-xl font-medium px-6 sm:px-8 py-4 sm:py-5">
+                Name your price{" "}
+                <span className="text-white/60 font-normal">
+                  min. ${PRICING["singles-16s-pack-2025"]}
+                </span>
+              </label>
+              <div className="flex items-center gap-2 px-6 sm:px-8 pb-4 sm:pb-5 tabular-nums">
+                <span className="text-white text-6xl sm:text-7xl font-semibold leading-none">
+                  ${musicPrice}
+                </span>
+                <span className="text-white/60 text-lg sm:text-xl">
+                  + ${(musicFees.total - musicPrice).toFixed(2)} processing
+                </span>
+              </div>
+            </div>
+            <div
+              className="flex flex-col"
+              onMouseEnter={() => setHoveringMusicIncrement(true)}
+              onMouseLeave={() => setHoveringMusicIncrement(false)}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMusicPrice((p) => p + 2);
+                }}
+                className="w-12 flex-1 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/20 transition-colors"
+              >
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMusicPrice((p) => Math.max(PRICING["singles-16s-pack-2025"], p - 2));
+                }}
+                className="w-12 flex-1 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/20 transition-colors disabled:opacity-30"
+                disabled={musicPrice <= PRICING["singles-16s-pack-2025"]}
+              >
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
           </div>
-        </button>
+        </div>
       </div>
 
       {showGallery && (
@@ -419,9 +530,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                   priority
                 />
                 <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-black/50 via-black/25 to-transparent p-4 flex flex-col justify-start pointer-events-none">
-                  <h3 className="text-white font-semibold">
-                    With the homie Ludger
-                  </h3>
+                  <h3 className="text-white font-semibold">With the homie Ludger</h3>
                   <p className="text-white/80 text-sm">Los Angeles, CA · 2018</p>
                 </div>
               </div>

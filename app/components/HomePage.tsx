@@ -35,7 +35,7 @@ export const TOUR_DATES = [
     id: 3,
     day: "18",
     dayOfWeek: "SUN",
-    venue: "Ahimza Hayes Residence",
+    venue: "Hayes Residence",
     city: "Edmonds, WA",
     address: "17118 68th Avenue West, Edmonds, WA 98026",
     time: "2:00 PM",
@@ -105,13 +105,17 @@ export default function HomePage({ initialScrollToTour = false }: HomePageProps)
     return () => clearInterval(interval);
   }, [isPillHovered]);
 
-  // Hide nav on scroll down, show on scroll up
+  // Hide nav when scrolled to shop panel (past ~80% of viewport)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const handleScroll = () => {
       const currentScroll = container.scrollTop;
-      if (currentScroll > lastScrollRef.current && currentScroll > 100) {
+      const threshold = window.innerHeight * 0.8;
+      // Hide nav completely when on shop panel
+      if (currentScroll > threshold) {
+        setNavVisible(false);
+      } else if (currentScroll > lastScrollRef.current && currentScroll > 100) {
         setNavVisible(false);
       } else {
         setNavVisible(true);
@@ -428,9 +432,7 @@ export default function HomePage({ initialScrollToTour = false }: HomePageProps)
                 {/* Top section: tour label + dates/location */}
                 <div className="flex flex-col sm:flex-row items-stretch">
                   {/* I'M GOING ON TOUR IN WA label */}
-                  <div
-                    className="flex flex-col items-center justify-center self-stretch bg-gradient-to-br from-orange-500 to-pink-500 px-6 py-3 sm:px-5 sm:py-4 md:px-6"
-                  >
+                  <div className="flex flex-col items-center justify-center self-stretch bg-gradient-to-br from-orange-500 to-pink-500 px-6 py-3 sm:px-5 sm:py-4 md:px-6">
                     {/* Mobile: one line */}
                     <span className="font-bebas text-white leading-none whitespace-nowrap text-3xl sm:hidden">
                       I&apos;M GOING ON TOUR IN WA
@@ -549,27 +551,53 @@ export default function HomePage({ initialScrollToTour = false }: HomePageProps)
               className="pointer-events-auto flex items-center gap-2 py-2.5 px-4 sm:px-5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm disabled:opacity-50 transition-colors text-white font-medium text-base sm:text-lg"
             >
               {isLoading ? (
-                <svg className="shrink-0 animate-spin w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <svg
+                  className="shrink-0 animate-spin w-5 h-5 sm:w-6 sm:h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
               ) : currentTrack?.id === LATEST_SINGLE_ID && isPlaying ? (
-                <svg className="shrink-0 w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="shrink-0 w-5 h-5 sm:w-6 sm:h-6"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                 </svg>
               ) : (
-                <svg className="shrink-0 w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="shrink-0 w-5 h-5 sm:w-6 sm:h-6"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M8 5v14l11-7z" />
                 </svg>
               )}
-              {isLoading ? "Loading..." : currentTrack?.id === LATEST_SINGLE_ID && isPlaying ? "Pause" : "Play my latest single"}
+              {isLoading
+                ? "Loading..."
+                : currentTrack?.id === LATEST_SINGLE_ID && isPlaying
+                ? "Pause"
+                : "Play my latest single"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Panel 2: Shop */}
-      <div id="links-panel" className="relative min-h-screen snap-start snap-always">
+      <div id="links-panel" className="snap-start snap-always">
         <ShopContent showGallery={false} cancelPath="/" />
       </div>
     </div>

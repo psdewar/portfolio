@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
         useLocalAudio: true,
         slowNetworkDelay: 0,
         enableIngConversion: false,
-      }),
+      })
     );
   });
 });
@@ -50,9 +50,7 @@ test.describe("Pages load successfully", () => {
 
     // User can find navigation to key sections (use first since mobile/desktop both have links)
     // Homepage uses marketing copy, not endpoint names
-    await expect(
-      page.getByRole("link", { name: /rap lyrics|shop/i }).first(),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /rap lyrics|shop/i }).first()).toBeVisible();
   });
 
   test("music page loads and shows content", async ({ page }) => {
@@ -65,13 +63,10 @@ test.describe("Pages load successfully", () => {
   test("shop page shows products for sale", async ({ page }) => {
     await goto(page, "/shop");
 
-    // User sees products with prices (bundle $30, downloads $10)
-    await expect(page.getByText("$10")).toBeVisible();
-    await expect(page.getByText("$30")).toBeVisible();
-
-    // User sees the bundle and music sections
+    // User sees the bundle and music sections with pricing info
     await expect(page.getByText(/then & now bundle/i)).toBeVisible();
     await expect(page.getByText(/singles.*16s/i).first()).toBeVisible();
+    await expect(page.getByText(/min\. \$\d+/i).first()).toBeVisible();
   });
 });
 
@@ -127,15 +122,9 @@ test.describe("Shop page interactions", () => {
     await goto(page, "/shop");
 
     // Combined size + color options are visible
-    await expect(
-      page.getByRole("button", { name: /black \+ small/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /black \+ medium/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /white \+ large/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /black \+ small/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /white \+ large/i })).toBeVisible();
   });
 
   test("music card shows tap to purchase hint", async ({ page }) => {
@@ -164,14 +153,10 @@ test.describe("Checkout redirects to Stripe", () => {
 
     // Either on Stripe or still on localhost (if Stripe not configured)
     const url = page.url();
-    expect(
-      url.includes("stripe.com") || url.includes("localhost"),
-    ).toBeTruthy();
+    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
   });
 
-  test("bundle checkout goes to Stripe when selecting size/color", async ({
-    page,
-  }) => {
+  test("bundle checkout goes to Stripe when selecting size/color", async ({ page }) => {
     await goto(page, "/shop");
 
     // Click a size/color option to trigger checkout
@@ -183,9 +168,7 @@ test.describe("Checkout redirects to Stripe", () => {
     await page.waitForURL(/checkout\.stripe\.com|localhost/, { timeout: 5000 });
 
     const url = page.url();
-    expect(
-      url.includes("stripe.com") || url.includes("localhost"),
-    ).toBeTruthy();
+    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
   });
 });
 
@@ -221,13 +204,11 @@ test.describe("Mobile viewport works", () => {
   test("shop is usable on mobile", async ({ page }) => {
     await goto(page, "/shop");
 
-    // Products still visible
-    await expect(page.getByText("$10")).toBeVisible();
+    // Products still visible with pricing
+    await expect(page.getByText(/min\. \$\d+/i).first()).toBeVisible();
 
     // Size/color options still clickable
-    await expect(
-      page.getByRole("button", { name: /black \+ medium/i }),
-    ).toBeEnabled();
+    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeEnabled();
   });
 
   test("navigation works on mobile", async ({ page }) => {
