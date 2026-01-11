@@ -259,10 +259,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             <label className="text-white/90 text-lg sm:text-xl font-medium">
               1. Select delivery
             </label>
-            <div className="grid grid-cols-2 w-full">
+            <div className="flex w-full">
               <button
                 onClick={() => setDeliveryMode("pickup")}
-                className={`py-4 px-6 sm:px-8 transition-all flex items-center gap-3 ${
+                className={`flex-1 py-4 pr-6 sm:pr-8 transition-all flex items-center justify-start gap-3 text-left ${
                   deliveryMode === "pickup"
                     ? "text-white"
                     : "text-white/60 hover:text-white active:text-white"
@@ -282,7 +282,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               </button>
               <button
                 onClick={() => setDeliveryMode("delivery")}
-                className={`py-4 px-6 sm:px-8 transition-all flex items-center gap-3 ${
+                className={`flex-1 py-4 px-6 sm:px-8 transition-all flex items-center justify-start gap-3 text-left ${
                   deliveryMode === "delivery"
                     ? "text-white"
                     : "text-white/60 hover:text-white active:text-white"
