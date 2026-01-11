@@ -28,12 +28,11 @@ const BUNDLE_DELIVERY_FEES = {
 const DOWNLOAD_FEES = calculateStripeFee(PRICING["singles-16s-pack-2025"]);
 
 const InfoIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="12" cy="12" r="10" />
+    <text x="12" y="17" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">
+      i
+    </text>
   </svg>
 );
 
@@ -209,12 +208,12 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                 }
               }}
               disabled={soldOut || anyCheckingOut}
-              className={`py-4 px-6 sm:px-8 transition-all relative flex items-center gap-3 ${
+              className={`py-4 px-6 sm:px-8 transition-all relative flex items-center gap-3 border ${
                 isCheckingOut
-                  ? "bg-white/10 text-white"
+                  ? "bg-white/10 text-white border-white"
                   : isSelected
-                  ? "text-white"
-                  : "text-white/60 hover:text-white active:text-white"
+                  ? "text-white border-white"
+                  : "text-white/60 hover:text-white active:text-white border-transparent"
               } ${
                 soldOut || (anyCheckingOut && !isCheckingOut) ? "opacity-40 cursor-not-allowed" : ""
               }`}
@@ -249,65 +248,61 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
     <div className="w-full">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:min-h-screen">
         <div className="flex flex-col bg-[#A31628] lg:h-screen lg:max-h-screen">
-          <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
+          <div className="flex flex-col p-6 sm:p-8 pb-0 sm:pb-0 gap-4 sm:gap-5">
             <h2 className="text-white font-semibold text-2xl sm:text-3xl">
               Buy Then & Now Bundle
               <p className="font-normal text-white/80 text-base lg:text-lg">
                 Includes one Exhibit PSD shirt and Singles & 16s Pack (2025)
               </p>
             </h2>
-            <label className="text-white/90 text-lg sm:text-xl font-medium">
-              1. Select delivery
-            </label>
-            <div className="flex w-full">
-              <button
-                onClick={() => setDeliveryMode("pickup")}
-                className={`flex-1 py-4 pr-6 sm:pr-8 transition-all flex items-center justify-start gap-3 text-left ${
-                  deliveryMode === "pickup"
-                    ? "text-white"
-                    : "text-white/60 hover:text-white active:text-white"
+            <label className="text-white/90 text-lg sm:text-xl font-medium">Select delivery</label>
+          </div>
+          <div className="grid grid-cols-2 w-full mt-4 sm:mt-5">
+            <button
+              onClick={() => setDeliveryMode("pickup")}
+              className={`py-4 px-6 sm:px-8 transition-all flex items-center justify-start gap-3 text-left border ${
+                deliveryMode === "pickup"
+                  ? "text-white border-white"
+                  : "text-white/60 hover:text-white active:text-white border-transparent"
+              }`}
+            >
+              <span
+                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  deliveryMode === "pickup" ? "border-white" : "border-white/50"
                 }`}
               >
-                <span
-                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    deliveryMode === "pickup" ? "border-white" : "border-white/50"
-                  }`}
-                >
-                  {deliveryMode === "pickup" && <span className="w-2 h-2 rounded-full bg-white" />}
-                </span>
-                <div>
-                  <span className="block text-lg sm:text-xl font-semibold">Pick Up</span>
-                  <span className="block text-base sm:text-lg opacity-80">At a show for free</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setDeliveryMode("delivery")}
-                className={`flex-1 py-4 px-6 sm:px-8 transition-all flex items-center justify-start gap-3 text-left ${
-                  deliveryMode === "delivery"
-                    ? "text-white"
-                    : "text-white/60 hover:text-white active:text-white"
+                {deliveryMode === "pickup" && <span className="w-2 h-2 rounded-full bg-white" />}
+              </span>
+              <div>
+                <span className="block text-lg sm:text-xl font-semibold">Pick Up</span>
+                <span className="block text-base sm:text-lg opacity-80">At a show for free</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setDeliveryMode("delivery")}
+              className={`py-4 px-6 sm:px-8 transition-all flex items-center justify-start gap-3 text-left border ${
+                deliveryMode === "delivery"
+                  ? "text-white border-white"
+                  : "text-white/60 hover:text-white active:text-white border-transparent"
+              }`}
+            >
+              <span
+                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  deliveryMode === "delivery" ? "border-white" : "border-white/50"
                 }`}
               >
-                <span
-                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    deliveryMode === "delivery" ? "border-white" : "border-white/50"
-                  }`}
-                >
-                  {deliveryMode === "delivery" && (
-                    <span className="w-2 h-2 rounded-full bg-white" />
-                  )}
-                </span>
-                <div>
-                  <span className="block text-lg sm:text-xl font-semibold">Ship To Me</span>
-                  <span className="block text-base sm:text-lg opacity-80">$7 shipping</span>
-                </div>
-              </button>
-            </div>
+                {deliveryMode === "delivery" && <span className="w-2 h-2 rounded-full bg-white" />}
+              </span>
+              <div>
+                <span className="block text-lg sm:text-xl font-semibold">Ship To Me</span>
+                <span className="block text-base sm:text-lg opacity-80">$7 shipping</span>
+              </div>
+            </button>
           </div>
           <div className="flex bg-[#7A1120]">
             <div className="flex flex-col flex-1">
               <label className="text-white text-lg sm:text-xl font-medium px-6 sm:px-8 py-4 sm:py-5">
-                2. Name your price{" "}
+                Name your price{" "}
                 <span className="text-white/60 font-normal">
                   min. ${PRICING["then-and-now-bundle-2025"]}
                 </span>
@@ -360,7 +355,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             </div>
           </div>
           <label className="text-white/90 text-lg sm:text-xl font-medium px-6 sm:px-8 py-4 sm:py-5">
-            3. Select color & size to purchase
+            Select color & size to purchase
           </label>
           <SizeColorSelector prefix="everything-" />
           <div className="relative lg:flex-1 lg:min-h-0 aspect-[2/1] lg:aspect-auto overflow-hidden w-full">
@@ -372,13 +367,17 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             />
             <button
               onClick={() => setShowInfo(!showInfo)}
-              className="absolute top-4 right-4 p-2 bg-white/60 hover:bg-white/80 active:bg-white/80 rounded-full transition-all z-10"
+              className="absolute top-4 right-4 transition-all z-10"
               aria-label="Show info"
             >
-              <InfoIcon className="w-5 h-5 text-white" />
+              <InfoIcon
+                className={`w-9 h-9 transition-colors duration-300 ${
+                  showInfo ? "text-[#A31628]" : "text-black/40"
+                }`}
+              />
             </button>
             <div
-              className={`absolute top-0 right-0 h-full w-1/2 bg-white/80 backdrop-blur-sm transform transition-transform duration-300 ease-out ${
+              className={`absolute top-0 right-0 h-full w-1/2 bg-neutral-900/80 backdrop-blur-sm transform transition-transform duration-300 ease-out ${
                 showInfo ? "translate-x-0" : "translate-x-full"
               }`}
             >
@@ -386,9 +385,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                 <h3 className="font-semibold text-white text-lg lg:text-xl mb-2">
                   From The Archives: Exhibit PSD
                 </h3>
-                <p className="text-white/90 text-sm lg:text-base">
+                <p className="text-white/80 text-sm lg:text-base">
                   My first design, a decade in the making. The "PSD" logo from my original rap
-                  moniker, first sketched in college at UF. 100% cotton, made to last.
+                  moniker, first sketched in college at the University of Florida. 100% cotton, made
+                  to last.
                 </p>
               </div>
             </div>
