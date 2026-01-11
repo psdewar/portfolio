@@ -66,6 +66,21 @@
   }
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
 @keyframes pulse-glow {
   0%,
   100% {
@@ -302,4 +317,96 @@ table {
   100% {
     transform: translateX(-50%);
   }
+}
+
+/* Tour dates animations - Option A: Slide out right */
+@keyframes slide-out-right {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 0.5s;
+  opacity: 0;
+}
+
+/* Tour dates animations - Option B: Stagger reveal */
+@keyframes stagger-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-stagger-reveal {
+  animation: stagger-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+}
+
+/* Subtle glow border effect - slow rotating gradient */
+@keyframes glow-rotate {
+  0% {
+    --glow-angle: 0deg;
+  }
+  100% {
+    --glow-angle: 360deg;
+  }
+}
+
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Animated gradient for tour banner */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 100%;
+  animation: gradient-shift 3s linear infinite;
+}
+
+.electric-border {
+  position: relative;
+}
+
+.electric-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(249, 115, 22, 0.4) 25%,
+    rgba(236, 72, 153, 0.4) 50%,
+    rgba(255, 255, 255, 0.1) 75%,
+    rgba(249, 115, 22, 0.4) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: glow-rotate 6s linear infinite;
+  pointer-events: none;
 }

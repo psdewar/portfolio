@@ -83,10 +83,9 @@ test.describe("User can navigate the site", () => {
   test("can go from homepage to shop", async ({ page }) => {
     await goto(page, "/");
 
-    // Wait for navbar to load (dynamically rendered with ssr: false)
-    const shopLink = page.getByRole("link", { name: /shop/i }).first();
-    await expect(shopLink).toBeVisible({ timeout: 5000 });
-    await shopLink.click();
+    const merchLink = page.getByRole("link", { name: /merch/i }).first();
+    await expect(merchLink).toBeVisible({ timeout: 5000 });
+    await merchLink.click();
 
     await expect(page).toHaveURL(/shop/);
   });

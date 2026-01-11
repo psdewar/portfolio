@@ -9,10 +9,15 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname() ?? "/";
   const isHomePage = pathname === "/";
+  const isTourPage = pathname === "/tour";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
 
-  const useHorizontalNav = !isHomePage;
+  if (isHomePage || isTourPage) {
+    return null;
+  }
+
+  const useHorizontalNav = true;
 
   const navItems = [
     { href: "/fund", label: "Fund" },
