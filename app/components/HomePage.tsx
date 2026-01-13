@@ -525,7 +525,16 @@ export default function HomePage({ initialScrollToTour = false }: HomePageProps)
           </div>
 
           {/* Play button - bottom left on desktop, bottom center on mobile */}
-          <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 sm:left-4 md:left-6 sm:right-auto pointer-events-none flex justify-center sm:justify-start px-4 sm:px-0">
+          <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 sm:left-4 md:left-6 sm:right-auto pointer-events-none flex justify-center sm:justify-start px-4 sm:px-0 gap-2">
+            <a
+              href="/press"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex items-center gap-2 py-2.5 px-4 sm:px-5 rounded-full bg-gradient-to-br from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 transition-all text-white font-medium text-base sm:text-lg"
+            >
+              Press Kit
+              <ArrowIcon />
+            </a>
             <button
               onClick={() => {
                 const latestTrack = TRACK_DATA.find((t) => t.id === LATEST_SINGLE_ID);

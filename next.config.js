@@ -46,16 +46,20 @@ const nextConfig = {
       {
         source: "/resume",
         destination: "/resume.pdf",
-        permanent: false,
       },
       {
         source: "/peer-reviews",
         destination: "/peer-reviews.pdf",
-        permanent: false,
       },
     ];
 
-    return [...singlesRedirects, ...pdfRedirects];
+    const pressRedirect = {
+      source: "/press",
+      destination: "https://lyrist.app/records/peyt-spencer",
+      permanent: true,
+    };
+
+    return [...singlesRedirects, ...pdfRedirects, pressRedirect];
   },
   async rewrites() {
     return [

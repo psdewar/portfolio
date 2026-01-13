@@ -570,7 +570,7 @@ export default function LivePage() {
                   <div className="absolute top-16 inset-x-0 flex flex-col items-center z-10">
                     <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
                     <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
-                      MON JAN 12 · 7PM PT
+                      TUE JAN 13 · 7PM PT
                     </h1>
                     <button
                       onClick={() => setShowNotifyPanel(true)}
@@ -843,7 +843,7 @@ export default function LivePage() {
                   <div className="absolute top-14 inset-x-0 flex flex-col items-center z-[5] px-4">
                     <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
                     <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
-                      MON JAN 12 · 7PM PT
+                      MON JAN 12 · 9PM PT
                     </h1>
                     <button
                       onClick={() => setShowNotifyPanel(true)}

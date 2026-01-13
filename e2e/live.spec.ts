@@ -29,9 +29,10 @@ test.describe("Live page - Offline", () => {
     await expect(page.getByText("I AM OFFLINE").first()).toBeVisible();
   });
 
-  test("shows next stream date", async ({ page }) => {
+  test("shows next stream info", async ({ page }) => {
     await gotoWithMock(page, "/live");
-    await expect(page.getByText(/7PM PT/i).first()).toBeVisible();
+    await expect(page.getByText("Next Live").first()).toBeVisible();
+    await expect(page.getByText(/\d{1,2}(AM|PM) PT/i).first()).toBeVisible();
   });
 
   test("shows notify button", async ({ page }) => {
