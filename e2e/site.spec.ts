@@ -17,8 +17,10 @@ import { test, expect, Page } from "@playwright/test";
  */
 
 // Helper: navigate and wait for page to be ready
+// Using domcontentloaded instead of load because Next.js 16 Turbopack
+// keeps HMR connections open which prevents the load event from firing
 async function goto(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "load" });
+  await page.goto(path, { waitUntil: "domcontentloaded" });
 }
 
 // Disable dev tools slow network simulation for fast test execution
@@ -139,36 +141,70 @@ test.describe("Shop page interactions", () => {
 // CHECKOUT FLOW
 // =============================================================================
 
-test.describe("Checkout redirects to Stripe", () => {
-  test("digital download checkout goes to Stripe", async ({ page }) => {
-    await goto(page, "/shop");
+test.describe("Checkout calls Stripe API", () => {
+  // Helper: navigate to shop and wait for React hydration
+  // ShopContent fetches /api/inventory on mount, so we wait for that as hydration signal
+  async function gotoShopHydrated(page: Page) {
+    let checkoutRequest: { productId: string; metadata?: Record<string, string> } | null = null;
+
+    // Set up route interceptions BEFORE navigation
+    await page.route("**/api/create-checkout-session", async (route) => {
+      const postData = route.request().postDataJSON();
+      checkoutRequest = postData;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessionId: "test_session_123",
+          url: "https://checkout.stripe.com/test",
+        }),
+      });
+    });
+
+    // Navigate and wait for inventory fetch (signals React hydration complete)
+    await Promise.all([page.waitForResponse("**/api/inventory"), goto(page, "/shop")]);
+
+    return { getCheckoutRequest: () => checkoutRequest };
+  }
+
+  test("digital download sends correct checkout request", async ({ page }) => {
+    const { getCheckoutRequest } = await gotoShopHydrated(page);
 
     // The entire music card is clickable - find by heading and click
     const musicCard = page.getByRole("button", { name: /singles.*16s.*2025/i });
-    await musicCard.click();
 
-    // User should be redirected to Stripe's checkout
-    // Wait for navigation away from our site
-    await page.waitForURL(/checkout\.stripe\.com|localhost/, { timeout: 5000 });
+    // Click and wait for the checkout API response
+    await Promise.all([
+      page.waitForResponse("**/api/create-checkout-session"),
+      musicCard.click(),
+    ]);
 
-    // Either on Stripe or still on localhost (if Stripe not configured)
-    const url = page.url();
-    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
+    // Verify checkout was initiated with correct product
+    const request = getCheckoutRequest();
+    expect(request).not.toBeNull();
+    expect(request!.productId).toBe("singles-16s-pack-2025");
   });
 
-  test("bundle checkout goes to Stripe when selecting size/color", async ({ page }) => {
-    await goto(page, "/shop");
+  test("bundle checkout sends correct request with size/color", async ({ page }) => {
+    const { getCheckoutRequest } = await gotoShopHydrated(page);
 
     // Click a size/color option to trigger checkout
     const sizeColorOption = page.getByRole("button", {
       name: /black \+ medium/i,
     });
-    await sizeColorOption.click();
 
-    await page.waitForURL(/checkout\.stripe\.com|localhost/, { timeout: 5000 });
+    // Click and wait for the checkout API response
+    await Promise.all([
+      page.waitForResponse("**/api/create-checkout-session"),
+      sizeColorOption.click(),
+    ]);
 
-    const url = page.url();
-    expect(url.includes("stripe.com") || url.includes("localhost")).toBeTruthy();
+    // Verify checkout was initiated with correct product and options
+    const request = getCheckoutRequest();
+    expect(request).not.toBeNull();
+    expect(request!.productId).toBe("then-and-now-bundle-2025");
+    expect(request!.metadata?.size).toBe("Medium");
+    expect(request!.metadata?.color).toBe("black");
   });
 });
 

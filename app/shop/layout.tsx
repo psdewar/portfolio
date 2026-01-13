@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     description: "T-shirts and music downloads. The full catalog in one bundle.",
     images: [
       {
-        url: "https://peytspencer.com/api/og",
+        url: "https://peytspencer.com/api/og/shop",
         width: 1200,
         height: 630,
         alt: "Peyt Spencer Shop",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Shop Peyt Spencer | Merch & Music",
     description: "T-shirts and music downloads. The full catalog in one bundle.",
-    images: ["https://peytspencer.com/api/og"],
+    images: ["https://peytspencer.com/api/og/shop"],
   },
 };
 

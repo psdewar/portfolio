@@ -20,8 +20,9 @@ import {
 // Helper to simulate network delay in development
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function GET(request: NextRequest, { params }: { params: { trackId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ trackId: string }> }) {
   try {
+    const { trackId: rawTrackId } = await params;
     const ip = extractIpAddress(request);
     const isDev = process.env.NODE_ENV === "development";
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       // For now, allow but could be blocked in production
     }
 
-    const trackId = sanitizeTrackId(params.trackId);
+    const trackId = sanitizeTrackId(rawTrackId);
     if (!validateTrackId(trackId)) {
       return new NextResponse("Track not found", { status: 404 });
     }

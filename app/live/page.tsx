@@ -8,6 +8,7 @@ import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
 import LiveChat from "../components/LiveChat";
 import { calculateStripeFee } from "../lib/stripe";
+import { useLiveStatus } from "../hooks/useLiveStatus";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
 
@@ -26,16 +27,25 @@ interface StreamStatus {
 export default function LivePage() {
   const searchParams = useSearchParams();
   const posthog = usePostHog();
+  const isOgMode = searchParams.get("og") === "true";
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const viewStartTime = useRef<number>(Date.now());
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [status, setStatus] = useState<StreamStatus>({
-    online: false,
-    viewerCount: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDesktop, setIsDesktop] = useState(isOgMode); // OG mode forces desktop
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
+
+  // Use SSE-based live status (no polling!)
+  // Disable when video is playing - the stream itself is proof we're live
+  const liveStatus = useLiveStatus({ enabled: !videoPlaying });
+  const status: StreamStatus = {
+    online: liveStatus.online || videoPlaying, // If video is playing, we're online
+    viewerCount: liveStatus.viewerCount,
+    title: liveStatus.title,
+    lastConnectTime: liveStatus.lastConnectTime,
+  };
+  const isLoading = isOgMode ? false : liveStatus.isLoading;
   const [tipAmount, setTipAmount] = useState("10");
   const [isTipping, setIsTipping] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
@@ -47,7 +57,6 @@ export default function LivePage() {
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
-  const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
 
   useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
@@ -98,27 +107,7 @@ export default function LivePage() {
     }
   }, [searchParams, posthog]);
 
-  useEffect(() => {
-    async function checkStatus() {
-      try {
-        const res = await fetch("/api/live/status");
-        const data = await res.json();
-        setStatus({
-          online: data.online,
-          viewerCount: data.viewerCount || 0,
-          title: data.streamTitle,
-          lastConnectTime: data.lastConnectTime,
-        });
-      } catch {
-        setStatus({ online: false, viewerCount: 0 });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    checkStatus();
-    const interval = setInterval(checkStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  // Status now comes from useLiveStatus hook via SSE (no polling!)
 
   useEffect(() => {
     fetch("/api/schedule")
@@ -133,10 +122,11 @@ export default function LivePage() {
 
   const formatNextStream = (iso: string) => {
     const date = new Date(iso);
-    const day = date.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-    const month = date.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
-    const dayNum = date.getDate();
-    const hour = date.getHours();
+    const options: Intl.DateTimeFormatOptions = { timeZone: "America/Los_Angeles" };
+    const day = date.toLocaleDateString("en-US", { ...options, weekday: "short" }).toUpperCase();
+    const month = date.toLocaleDateString("en-US", { ...options, month: "short" }).toUpperCase();
+    const dayNum = parseInt(date.toLocaleDateString("en-US", { ...options, day: "numeric" }), 10);
+    const hour = parseInt(date.toLocaleString("en-US", { ...options, hour: "numeric", hour12: false }), 10);
     const ampm = hour >= 12 ? "PM" : "AM";
     const hour12 = hour % 12 || 12;
     return `${day} ${month} ${dayNum} · ${hour12}${ampm} PT`;
@@ -172,13 +162,18 @@ export default function LivePage() {
   }, [status.online, status.lastConnectTime]);
 
   useEffect(() => {
+    // OG mode always uses desktop layout for clean screenshots
+    if (isOgMode) {
+      setIsDesktop(true);
+      return;
+    }
     // Desktop layout needs sufficient width AND height
     const mediaQuery = window.matchMedia("(min-width: 768px) and (min-height: 500px)");
     setIsDesktop(mediaQuery.matches);
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mediaQuery.addEventListener("change", handler);
     return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
+  }, [isOgMode]);
 
   useEffect(() => {
     if (!status.online) return;
@@ -195,6 +190,7 @@ export default function LivePage() {
         .play()
         .then(() => {
           setNeedsPlayButton(false);
+          setVideoPlaying(true);
           if (hls?.liveSyncPosition) {
             video.currentTime = hls.liveSyncPosition;
           }
@@ -231,6 +227,7 @@ export default function LivePage() {
       .play()
       .then(() => {
         setNeedsPlayButton(false);
+        setVideoPlaying(true);
         if (hlsRef.current?.liveSyncPosition) {
           video.currentTime = hlsRef.current.liveSyncPosition;
         } else if (video.duration) {
@@ -516,7 +513,7 @@ export default function LivePage() {
   };
 
   return (
-    <div className="fixed top-14 left-0 right-0 bottom-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden">
+    <div className={`fixed left-0 right-0 bottom-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"}`} data-og-container>
       {/* Thank You Toast */}
       {showThanks && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
@@ -549,7 +546,7 @@ export default function LivePage() {
         ) : (
           <div className="flex h-full">
             {/* Vertical Video Container */}
-            <div className="relative h-full aspect-[9/16] rounded-l-2xl overflow-hidden bg-black">
+            <div className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : "rounded-l-2xl"}`} data-og-video>
               {status.online ? (
                 <>
                   <video
@@ -623,8 +620,8 @@ export default function LivePage() {
               )}
             </div>
 
-            {/* Sidebar */}
-            <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
+            {/* Sidebar - hidden in OG mode */}
+            {!isOgMode && <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
               {/* Tip Section */}
               <div className="p-3 lg:p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
                 <div className="flex items-center gap-2 lg:gap-3 mb-2 lg:mb-3">
@@ -693,7 +690,7 @@ export default function LivePage() {
                   isFloating={false}
                 />
               </div>
-            </div>
+            </div>}
           </div>
         )}
       </div>
@@ -816,37 +813,39 @@ export default function LivePage() {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-start justify-between">
-                      <div />
-                      <div className="flex flex-col items-end gap-4">
+                    {!isOgMode && (
+                      <div className="flex items-start justify-between">
                         <div />
-                        {/* Action icons - mobile only */}
-                        <div className="flex flex-col gap-4">
-                          <button
-                            onClick={() => {
-                              setShowNotifyPanel(false);
-                              setShowTipPanel(!showTipPanel);
-                            }}
-                          >
-                            <svg
-                              className={`w-8 h-8 drop-shadow-lg ${
-                                showTipPanel ? "text-emerald-400" : "text-white"
-                              }`}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                              viewBox="0 0 24 24"
+                        <div className="flex flex-col items-end gap-4">
+                          <div />
+                          {/* Action icons - mobile only */}
+                          <div className="flex flex-col gap-4">
+                            <button
+                              onClick={() => {
+                                setShowNotifyPanel(false);
+                                setShowTipPanel(!showTipPanel);
+                              }}
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className={`w-8 h-8 drop-shadow-lg ${
+                                  showTipPanel ? "text-emerald-400" : "text-white"
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.5}
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   <div className="absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden z-[15]">
                     <div
@@ -928,12 +927,14 @@ export default function LivePage() {
                   </div>
                 </div>
               )}
-              {/* Chat */}
-              <LiveChat
-                commenterName={status.online ? commenterName : null}
-                onRequestSignIn={() => setShowNotifyPanel(true)}
-                isFloating={true}
-              />
+              {/* Chat - hidden in OG mode */}
+              {!isOgMode && (
+                <LiveChat
+                  commenterName={status.online ? commenterName : null}
+                  onRequestSignIn={() => setShowNotifyPanel(true)}
+                  isFloating={true}
+                />
+              )}
             </div>
           </div>
         )}

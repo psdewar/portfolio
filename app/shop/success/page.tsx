@@ -11,11 +11,12 @@ export const metadata: Metadata = {
 };
 
 type Props = {
-  searchParams: { session_id?: string };
+  searchParams: Promise<{ session_id?: string }>;
 };
 
 export default async function ShopSuccessPage({ searchParams }: Props) {
-  const sessionId = searchParams.session_id;
+  const resolvedParams = await searchParams;
+  const sessionId = resolvedParams.session_id;
 
   if (!sessionId) {
     redirect("/shop");

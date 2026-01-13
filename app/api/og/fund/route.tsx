@@ -4,8 +4,7 @@ export const runtime = "edge";
 
 export async function GET(req: Request) {
   const { origin } = new URL(req.url);
-  const leftSrc = `${origin}/images/home/mb1.jpeg`;
-  const rightSrc = `${origin}/images/home/new-era-3-square.jpeg`;
+  const coverSrc = `${origin}/images/covers/fund-next-single-cover.jpg`;
 
   return new ImageResponse(
     (
@@ -15,17 +14,13 @@ export async function GET(req: Request) {
           width: "1200px",
           height: "630px",
           fontFamily: "system-ui, sans-serif",
+          background: "#000",
         }}
       >
         <img
-          src={leftSrc}
-          alt="left"
-          style={{ objectFit: "cover", width: "50%", height: "100%" }}
-        />
-        <img
-          src={rightSrc}
-          alt="right"
-          style={{ objectFit: "cover", width: "50%", height: "100%" }}
+          src={coverSrc}
+          alt="Fund"
+          style={{ objectFit: "cover", width: "100%", height: "100%" }}
         />
       </div>
     ),

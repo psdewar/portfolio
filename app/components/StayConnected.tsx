@@ -27,8 +27,11 @@ const isWithinLastFiveMinutes = (saved: string | null): boolean => {
   return now() - parseInt(saved, 10) < FIVE_MINUTES;
 };
 
+// This should only be called client-side (inside useEffect)
 export const shouldShowStayConnected = (): boolean => {
-  if (typeof window === "undefined") return true;
+  // Hide for OG screenshot captures
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("og") === "true") return false;
   const completedTime = sessionStorage.getItem("stayConnectedCompleted");
   if (isWithinLastFiveMinutes(completedTime)) return false;
   const dismissedTime = sessionStorage.getItem("stayConnectedDismissed");
@@ -62,9 +65,8 @@ export default function StayConnected({
   const [otpCode, setOtpCode] = useState("");
   const [countdown, setCountdown] = useState(0);
 
-  // If external shouldShow is provided, use it, otherwise use internal logic
-  const componentShouldShow =
-    externalShouldShow !== undefined ? externalShouldShow : shouldShowStayConnected();
+  // Visibility controlled by parent - if not provided, default to true (parent should control rendering)
+  const componentShouldShow = externalShouldShow ?? true;
 
   const handleClose = () => {
     if (typeof window !== "undefined") {

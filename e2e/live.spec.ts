@@ -19,7 +19,9 @@ async function gotoWithMock(page: Page, path: string) {
       route.continue();
     }
   });
-  await page.goto(path, { waitUntil: "load" });
+  // Using domcontentloaded instead of load because Next.js 16 Turbopack
+  // keeps HMR connections open which prevents the load event from firing
+  await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
 }
 

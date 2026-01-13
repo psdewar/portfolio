@@ -25,8 +25,9 @@ import {
 const MAX_DOWNLOADS_PER_TRACK = 5;
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
-export async function GET(request: NextRequest, { params }: { params: { trackId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ trackId: string }> }) {
   try {
+    const { trackId: rawTrackId } = await params;
     const ip = getClientIP(request);
 
     const rateCheck = checkRateLimit(ip, "download");
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: { trackId:
       return new NextResponse("Unauthorized origin", { status: 403 });
     }
 
-    const trackId = sanitizeTrackId(params.trackId);
+    const trackId = sanitizeTrackId(rawTrackId);
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("session_id");
 

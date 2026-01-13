@@ -1,30 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { PostHogProvider } from "./components/PostHogProvider";
-import { AudioProvider } from "./contexts/AudioContext";
-import { VideoProvider } from "./contexts/VideoContext";
-import { DevToolsProvider } from "./contexts/DevToolsContext";
-import dynamic from "next/dynamic";
 import localFont from "next/font/local";
 import { Bebas_Neue } from "next/font/google";
-import { Suspense } from "react";
-
-// Dynamic imports to avoid SSR issues with usePathname during error handling
-const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
-const GlobalAudioPlayer = dynamic(
-  () => import("./components/GlobalAudioPlayer").then((mod) => mod.GlobalAudioPlayer),
-  { ssr: false }
-);
-const MissingResourceIndicator = dynamic(
-  () => import("./components/MissingResourceIndicator").then((mod) => mod.MissingResourceIndicator),
-  { ssr: false }
-);
-const DevToolsPanel = dynamic(
-  () => import("./components/DevToolsPanel").then((mod) => mod.DevToolsPanel),
-  { ssr: false }
-);
+import { ClientLayout } from "./ClientLayout";
 
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.ttf",
@@ -140,25 +118,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased flex flex-col min-h-screen bg-white dark:bg-gray-900">
-        <PostHogProvider>
-          <DevToolsProvider>
-            <AudioProvider>
-              <VideoProvider>
-                <Navbar />
-                <main className="flex-auto min-w-0 flex flex-col pb-24 lg:pb-32">
-                  <Suspense>{children}</Suspense>
-                  <Analytics />
-                  <SpeedInsights />
-                </main>
-                <div className="h-24 lg:h-32">
-                  <GlobalAudioPlayer />
-                </div>
-                <MissingResourceIndicator />
-                <DevToolsPanel />
-              </VideoProvider>
-            </AudioProvider>
-          </DevToolsProvider>
-        </PostHogProvider>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

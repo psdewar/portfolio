@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   // Security headers for all requests
@@ -16,7 +16,8 @@ export function middleware(request: NextRequest) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
 
     // Rate limiting headers (for monitoring)
-    const ip = request.ip || request.headers.get("x-forwarded-for") || "unknown";
+    const ip =
+      request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     response.headers.set("X-Client-IP", ip.split(",")[0]);
 
     // Validate content type for POST requests
@@ -43,7 +44,8 @@ export function middleware(request: NextRequest) {
 
     if (suspiciousPatterns.some((pattern) => pattern.test(userAgent))) {
       if (process.env.NODE_ENV === "development") {
-        console.warn(`Suspicious user agent blocked: ${userAgent}, IP: ${request.ip}`);
+        const clientIp = request.headers.get("x-forwarded-for") || "unknown";
+        console.warn(`Suspicious user agent blocked: ${userAgent}, IP: ${clientIp}`);
       }
       return new NextResponse("Access denied", { status: 403 });
     }

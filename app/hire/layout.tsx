@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     description: "Full-stack developer for hire. Web and mobile apps.",
     images: [
       {
-        url: "https://peytspencer.com/api/og",
+        url: "https://peytspencer.com/api/og/hire",
         width: 1200,
         height: 630,
         alt: "Hire Peyt Spencer",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Hire Peyt Spencer | Developer",
     description: "Full-stack developer for hire. Web and mobile apps.",
-    images: ["https://peytspencer.com/api/og"],
+    images: ["https://peytspencer.com/api/og/hire"],
   },
 };
 

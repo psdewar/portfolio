@@ -50,7 +50,10 @@ export default defineConfig({
 
     {
       name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
+      use: {
+        ...devices["Desktop Firefox"],
+        navigationTimeout: 15000, // Firefox needs more time with Next.js 16
+      },
     },
 
     {

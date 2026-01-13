@@ -5,7 +5,12 @@ export const maxDuration = 30;
 
 export async function GET() {
   try {
-    const screenshot = await takeScreenshot({ path: "/listen" });
+    // Use mobile dimensions to show the bundle section without cutoff
+    const screenshot = await takeScreenshot({
+      path: "/shop",
+      viewport: { width: 430, height: 932 },
+      waitForTimeout: 1500,
+    });
 
     return new Response(screenshot, {
       headers: {
@@ -15,6 +20,8 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Screenshot failed:", error);
-    return Response.redirect(new URL("/images/home/atlanta.jpg", "https://peytspencer.com"));
+    return Response.redirect(
+      new URL("/images/home/new-era-3-square.jpeg", "https://peytspencer.com")
+    );
   }
 }

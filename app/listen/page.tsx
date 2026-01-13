@@ -85,7 +85,14 @@ export default function Page() {
   const { loadTrack, loadPlaylist, currentTrack, isPlaying, isLoading, toggle, playlist } =
     useAudio();
   const isSimulatingLoad = useSimulatedLoading();
-  const [showStayConnected, setShowStayConnected] = useState(() => shouldShowStayConnected());
+  const [showStayConnected, setShowStayConnected] = useState(false);
+
+  // Check sessionStorage client-side to avoid hydration mismatch
+  useEffect(() => {
+    if (shouldShowStayConnected()) {
+      setShowStayConnected(true);
+    }
+  }, []);
   const [playParam, setPlayParam] = useState<string | null>(null);
   const downloadInitiatedRef = useRef(false);
   const hasHandledAutoPlay = useRef(false);

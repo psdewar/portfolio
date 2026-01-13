@@ -65,22 +65,18 @@ export async function devDelay(): Promise<void> {
 
 // Hook to simulate slow page load - returns true while "loading"
 export function useSimulatedLoading(enabled = true): boolean {
-  const [isSimulatingLoad, setIsSimulatingLoad] = useState(() => {
-    // Check if we should simulate on initial render
-    if (!enabled) return false;
-    const state = getDevToolsState();
-    return state.isDevMode && state.simulateSlowNetwork;
-  });
+  // Initialize to false to avoid hydration mismatch (localStorage not available on server)
+  const [isSimulatingLoad, setIsSimulatingLoad] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
     const state = getDevToolsState();
     if (!state.isDevMode || !state.simulateSlowNetwork) {
-      setIsSimulatingLoad(false);
       return;
     }
 
-    // Already simulating from initial state, set timeout to end it
+    // Start simulating, then end after delay
+    setIsSimulatingLoad(true);
     const timer = setTimeout(() => {
       setIsSimulatingLoad(false);
     }, state.slowNetworkDelay);

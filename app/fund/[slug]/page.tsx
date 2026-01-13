@@ -10,10 +10,11 @@ export const revalidate = 3600;
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const { slug } = await params;
   const projects = projectsData as Record<string, any>;
-  const project = projects[params.slug];
+  const project = projects[slug];
 
   if (!project) {
     return { title: "Project Not Found" };
@@ -22,7 +23,7 @@ export async function generateMetadata({
   const title = project.title;
   const description =
     project.tagline || `Support ${project.title} - an independent project by Peyt Spencer`;
-  const ogImage = `https://peytspencer.com/api/og/fund/${params.slug}`;
+  const ogImage = `https://peytspencer.com/api/og/fund/${slug}`;
 
   return {
     title,
@@ -45,18 +46,20 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams: { success?: string; session_id?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ success?: string; session_id?: string }>;
 }) {
+  const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
   const projects = projectsData as Record<string, any>;
-  const project = projects[params.slug];
+  const project = projects[slug];
   if (!project) {
     notFound();
   }
   // Use cached stats with 60s TTL for better performance
   const stats = await getFundingStats(project.slug);
-  const success = searchParams?.success === "1" || searchParams?.success === "true";
-  const sessionId = searchParams?.session_id || null;
+  const success = resolvedSearchParams?.success === "1" || resolvedSearchParams?.success === "true";
+  const sessionId = resolvedSearchParams?.session_id || null;
   return <ProjectView project={project} stats={stats} success={success} sessionId={sessionId} />;
 }
 
