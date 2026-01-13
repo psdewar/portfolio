@@ -42,7 +42,16 @@ const nextConfig = {
       basePath: false,
     }));
 
-    const pdfRedirects = [
+    const pressRedirect = {
+      source: "/press",
+      destination: "https://lyrist.app/records/peyt-spencer",
+      permanent: true,
+    };
+
+    return [...singlesRedirects, pressRedirect];
+  },
+  async rewrites() {
+    return [
       {
         source: "/resume",
         destination: "/resume.pdf",
@@ -51,18 +60,6 @@ const nextConfig = {
         source: "/peer-reviews",
         destination: "/peer-reviews.pdf",
       },
-    ];
-
-    const pressRedirect = {
-      source: "/press",
-      destination: "https://lyrist.app/records/peyt-spencer",
-      permanent: true,
-    };
-
-    return [...singlesRedirects, ...pdfRedirects, pressRedirect];
-  },
-  async rewrites() {
-    return [
       {
         source: "/ingest/static/:path*",
         destination: "https://us-assets.i.posthog.com/static/:path*",
