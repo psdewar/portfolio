@@ -47,6 +47,7 @@ export default function LivePage() {
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
 
   useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
@@ -118,6 +119,28 @@ export default function LivePage() {
     const interval = setInterval(checkStatus, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetch("/api/schedule")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.nextStream) {
+          setNextStreamDate(data.nextStream);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const formatNextStream = (iso: string) => {
+    const date = new Date(iso);
+    const day = date.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+    const month = date.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+    const dayNum = date.getDate();
+    const hour = date.getHours();
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${day} ${month} ${dayNum} · ${hour12}${ampm} PT`;
+  };
 
   useEffect(() => {
     if (!status.online || !status.lastConnectTime) {
@@ -568,10 +591,14 @@ export default function LivePage() {
                     </div>
                   </div>
                   <div className="absolute top-16 inset-x-0 flex flex-col items-center z-10">
-                    <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                    <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
-                      TUE JAN 13 · 7PM PT
-                    </h1>
+                    {nextStreamDate && (
+                      <>
+                        <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
+                        <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
+                          {formatNextStream(nextStreamDate)}
+                        </h1>
+                      </>
+                    )}
                     <button
                       onClick={() => setShowNotifyPanel(true)}
                       className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
@@ -841,10 +868,14 @@ export default function LivePage() {
                     </div>
                   </div>
                   <div className="absolute top-14 inset-x-0 flex flex-col items-center z-[5] px-4">
-                    <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                    <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
-                      MON JAN 12 · 9PM PT
-                    </h1>
+                    {nextStreamDate && (
+                      <>
+                        <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
+                        <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
+                          {formatNextStream(nextStreamDate)}
+                        </h1>
+                      </>
+                    )}
                     <button
                       onClick={() => setShowNotifyPanel(true)}
                       className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
