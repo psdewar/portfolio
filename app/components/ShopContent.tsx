@@ -172,6 +172,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
   const handleCheckout = async (
     productId: "singles-16s-pack-2025" | "then-and-now-bundle-2025"
   ) => {
+    setCheckingOutMusic(true);
     const cancelParams = new URLSearchParams({ musicPrice: musicPrice.toString() });
     const cancelUrl = `${cancelPath}?${cancelParams.toString()}`;
 
@@ -191,12 +192,14 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
     if (!response.ok || !data.url) {
       console.error("Checkout error:", data);
       alert(data.error || "Checkout failed");
+      setCheckingOutMusic(false);
       return;
     }
     window.location.href = data.url;
   };
 
   const [checkingOutOption, setCheckingOutOption] = useState<string | null>(null);
+  const [checkingOutMusic, setCheckingOutMusic] = useState(false);
 
   const handleBundleCheckout = async () => {
     const optionKey = `${selectedColor}-${selectedSize}`;
@@ -393,11 +396,11 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               <div className="px-6 sm:px-8 py-4">
                 <label className="text-white text-base sm:text-xl font-semibold whitespace-nowrap">
                   Pay what you want{" "}
-                  <span className="font-normal text-white/70">
+                  <span className="font-normal text-white/70 tabular-nums">
                     from ${PRICING["then-and-now-bundle-2025"]}
                   </span>
                 </label>
-                <p className="text-white/50 text-sm sm:text-base">
+                <p className="text-white/50 text-sm sm:text-base tabular-nums">
                   ${bundlePrice} + ${(bundleFees.total - bundlePrice).toFixed(2)} processing
                   {deliveryMode === "delivery" && ` + $${SHIPPING} shipping`}
                 </p>
@@ -446,7 +449,9 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             className={`py-5 sm:py-6 px-6 sm:px-8 transition-all text-left flex items-center justify-between ${
               isCurrentSelectionSoldOut
                 ? "bg-white/50 text-[#A31628]/50 cursor-not-allowed"
-                : "bg-white text-[#A31628] hover:bg-white/90"
+                : selectedColor === "black"
+                  ? "bg-black text-white hover:bg-black/90"
+                  : "bg-white text-[#A31628] hover:bg-white/90"
             }`}
           >
             <div>
@@ -457,7 +462,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                     : `$${(bundleFees.total + (deliveryMode === "delivery" ? SHIPPING : 0)).toFixed(2)}`}
                 </span>
                 {bundleToast && !anyCheckingOut && !isCurrentSelectionSoldOut && (
-                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 ${
+                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
                     bundleToast.fading ? "opacity-0" : "opacity-100"
                   }`}>
                     +${bundleToast.amount} Thank you!
@@ -516,10 +521,16 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
         </div>
 
         {/* Download Card - Tap anywhere to purchase */}
-        <button
-          onClick={() => handleCheckout("singles-16s-pack-2025")}
+        {/* Note: Using div instead of button to avoid iOS Safari nested button issues */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => !checkingOutMusic && handleCheckout("singles-16s-pack-2025")}
+          onKeyDown={(e) => { if (!checkingOutMusic && (e.key === "Enter" || e.key === " ")) handleCheckout("singles-16s-pack-2025"); }}
           onMouseEnter={() => setHoveringMusicIncrement(false)}
-          className="bg-[#1628A3] flex flex-col text-left cursor-pointer hover:bg-[#1a2eb8] transition-colors group"
+          className={`bg-[#1628A3] text-left transition-colors group flex flex-col ${
+            checkingOutMusic ? "cursor-wait" : "cursor-pointer hover:bg-[#1a2eb8]"
+          }`}
         >
           <div className="flex flex-col p-6 sm:p-8 pb-0 sm:pb-0">
             <h2 className="text-white font-semibold text-2xl sm:text-3xl">
@@ -536,34 +547,34 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               "Patience" 3,000 times!
             </p>
           </div>
-          {/* Price */}
+          {/* Price - stop propagation to prevent checkout when adjusting price */}
           <div
             className="grid grid-cols-[1fr_auto_auto] bg-[#111D7A] mt-4 sm:mt-5"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             onMouseEnter={() => setHoveringMusicIncrement(true)}
             onMouseLeave={() => setHoveringMusicIncrement(false)}
           >
             <div className="px-6 sm:px-8 py-4">
               <label className="text-white text-base sm:text-xl font-semibold whitespace-nowrap">
                 Pay what you want{" "}
-                <span className="font-normal text-white/70">
+                <span className="font-normal text-white/70 tabular-nums">
                   from ${PRICING["singles-16s-pack-2025"]}
                 </span>
               </label>
-              <p className="text-white/50 text-sm sm:text-base">
+              <p className="text-white/50 text-sm sm:text-base tabular-nums">
                 ${musicPrice} + ${(musicFees.total - musicPrice).toFixed(2)} processing
               </p>
             </div>
-            <div
-              role="button"
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 setMusicPrice((p) => Math.max(PRICING["singles-16s-pack-2025"], p - 2));
               }}
-              className={`aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white ${
-                musicPrice <= PRICING["singles-16s-pack-2025"]
-                  ? "opacity-30 pointer-events-none"
-                  : ""
-              }`}
+              disabled={musicPrice <= PRICING["singles-16s-pack-2025"]}
+              className="aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg
                 className="w-8 h-8 sm:w-10 sm:h-10"
@@ -574,9 +585,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
               </svg>
-            </div>
-            <div
-              role="button"
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 setMusicPrice((p) => p + 2);
@@ -593,12 +605,12 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
               </svg>
-            </div>
+            </button>
           </div>
 
-          {/* Tap to buy indicator */}
+          {/* Tap to buy indicator - matches red panel buy button structure (flex) */}
           <div
-            className={`py-5 sm:py-6 px-6 sm:px-8 transition-all text-left flex items-center justify-between ${
+            className={`py-5 sm:py-6 px-6 sm:px-8 transition-all flex items-center justify-between ${
               hoveringMusicIncrement
                 ? "bg-transparent text-white/50"
                 : "bg-white/10 text-white group-hover:bg-white/20"
@@ -607,20 +619,22 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             <div>
               <div className="flex items-center gap-3">
                 <span className="text-4xl sm:text-5xl font-bold tabular-nums">
-                  ${musicFees.total.toFixed(2)}
+                  {checkingOutMusic ? "Processing..." : `$${musicFees.total.toFixed(2)}`}
                 </span>
-                {musicToast && (
-                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 ${
+                {musicToast && !checkingOutMusic && (
+                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
                     musicToast.fading ? "opacity-0" : "opacity-100"
                   }`}>
                     +${musicToast.amount} Thank you!
                   </span>
                 )}
               </div>
-              <span className="block text-base sm:text-lg mt-1">Tap anywhere to purchase</span>
+              <span className={`block text-base sm:text-lg mt-1 ${checkingOutMusic ? "invisible" : ""}`}>
+                Tap anywhere to purchase
+              </span>
             </div>
             <svg
-              className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4"
+              className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4 ${checkingOutMusic ? "invisible" : ""}`}
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -646,7 +660,7 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               ))}
             </div>
           </div>
-        </button>
+        </div>
       </div>
 
       {showGallery && (

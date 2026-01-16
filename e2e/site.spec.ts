@@ -172,8 +172,9 @@ test.describe("Checkout calls Stripe API", () => {
   test("digital download sends correct checkout request", async ({ page }) => {
     const { getCheckoutRequest } = await gotoShopWithMock(page);
 
-    // The entire music card is clickable - find by heading and click
-    const musicCard = page.getByRole("button", { name: /singles.*16s.*2025/i });
+    // The entire music card is clickable - find by the "Tap anywhere to purchase" text
+    const musicCard = page.getByText("Tap anywhere to purchase");
+    await expect(musicCard).toBeVisible();
 
     // Click and wait for the checkout API response
     await Promise.all([
