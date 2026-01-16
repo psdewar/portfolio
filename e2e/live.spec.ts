@@ -1,13 +1,32 @@
 import { test, expect, Page } from "@playwright/test";
 
 async function gotoWithMock(page: Page, path: string) {
-  await page.route("**/api/live/status", (route) => {
+  // Mock the SSE stream endpoint that useLiveStatus hook connects to
+  await page.route("**/riff/stream", (route) => {
+    // Return SSE response with offline status
+    route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      headers: {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+      body: `data: {"online":false,"viewerCount":0}\n\n`,
+    });
+  });
+
+  // Mock schedule API for next stream info
+  await page.route("**/api/schedule", (route) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(19, 0, 0, 0); // 7 PM
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ online: false, viewerCount: 0 }),
+      body: JSON.stringify({ nextStream: tomorrow.toISOString() }),
     });
   });
+
   await page.route("**/api/live/chat", (route) => {
     if (route.request().method() === "GET") {
       route.fulfill({
@@ -19,10 +38,10 @@ async function gotoWithMock(page: Page, path: string) {
       route.continue();
     }
   });
-  // Using domcontentloaded instead of load because Next.js 16 Turbopack
-  // keeps HMR connections open which prevents the load event from firing
+
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(500);
+  // Wait for content to render after SSE mock responds
+  await page.waitForTimeout(1000);
 }
 
 test.describe("Live page - Offline", () => {

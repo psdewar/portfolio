@@ -68,7 +68,7 @@ test.describe("Pages load successfully", () => {
     // User sees the bundle and music sections with pricing info
     await expect(page.getByText(/then & now bundle/i)).toBeVisible();
     await expect(page.getByText(/singles.*16s/i).first()).toBeVisible();
-    await expect(page.getByText(/min\. \$\d+/i).first()).toBeVisible();
+    await expect(page.getByText(/pay what you want/i).first()).toBeVisible();
   });
 });
 
@@ -108,9 +108,9 @@ test.describe("Shop page interactions", () => {
   test("user can select delivery method", async ({ page }) => {
     await goto(page, "/shop");
 
-    // User sees delivery options
+    // User sees delivery options (wait for them to appear)
     const pickUpButton = page.getByRole("button", { name: /pick up/i });
-    const shipButton = page.getByRole("button", { name: /ship to me/i });
+    const shipButton = page.getByRole("button", { name: /ship/i }).filter({ hasNotText: /pick up/i });
 
     await expect(pickUpButton).toBeVisible();
     await expect(shipButton).toBeVisible();
@@ -123,10 +123,12 @@ test.describe("Shop page interactions", () => {
   test("user can see size and color options", async ({ page }) => {
     await goto(page, "/shop");
 
-    // Combined size + color options are visible
-    await expect(page.getByRole("button", { name: /black \+ small/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /white \+ large/i })).toBeVisible();
+    // Color and size are now separate rows - use exact match to avoid matching buy button
+    await expect(page.getByRole("button", { name: "Black", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "White", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Small", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Medium", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Large", exact: true })).toBeVisible();
   });
 
   test("music card shows tap to purchase hint", async ({ page }) => {
@@ -142,9 +144,8 @@ test.describe("Shop page interactions", () => {
 // =============================================================================
 
 test.describe("Checkout calls Stripe API", () => {
-  // Helper: navigate to shop and wait for React hydration
-  // ShopContent fetches /api/inventory on mount, so we wait for that as hydration signal
-  async function gotoShopHydrated(page: Page) {
+  // Helper: set up checkout mock and navigate
+  async function gotoShopWithMock(page: Page) {
     let checkoutRequest: { productId: string; metadata?: Record<string, string> } | null = null;
 
     // Set up route interceptions BEFORE navigation
@@ -161,14 +162,15 @@ test.describe("Checkout calls Stripe API", () => {
       });
     });
 
-    // Navigate and wait for inventory fetch (signals React hydration complete)
-    await Promise.all([page.waitForResponse("**/api/inventory"), goto(page, "/shop")]);
+    await goto(page, "/shop");
+    // Wait for shop content to be interactive
+    await expect(page.getByRole("button", { name: "Black", exact: true })).toBeVisible();
 
     return { getCheckoutRequest: () => checkoutRequest };
   }
 
   test("digital download sends correct checkout request", async ({ page }) => {
-    const { getCheckoutRequest } = await gotoShopHydrated(page);
+    const { getCheckoutRequest } = await gotoShopWithMock(page);
 
     // The entire music card is clickable - find by heading and click
     const musicCard = page.getByRole("button", { name: /singles.*16s.*2025/i });
@@ -186,17 +188,17 @@ test.describe("Checkout calls Stripe API", () => {
   });
 
   test("bundle checkout sends correct request with size/color", async ({ page }) => {
-    const { getCheckoutRequest } = await gotoShopHydrated(page);
+    const { getCheckoutRequest } = await gotoShopWithMock(page);
 
-    // Click a size/color option to trigger checkout
-    const sizeColorOption = page.getByRole("button", {
-      name: /black \+ medium/i,
-    });
+    // Select color and size - use exact match to avoid matching buy button text
+    await page.getByRole("button", { name: "Black", exact: true }).click();
+    await page.getByRole("button", { name: "Medium", exact: true }).click();
 
-    // Click and wait for the checkout API response
+    // Click buy button and wait for checkout API response
+    const buyButton = page.getByRole("button", { name: /buy.*shirt and music/i });
     await Promise.all([
       page.waitForResponse("**/api/create-checkout-session"),
-      sizeColorOption.click(),
+      buyButton.click(),
     ]);
 
     // Verify checkout was initiated with correct product and options
@@ -241,10 +243,11 @@ test.describe("Mobile viewport works", () => {
     await goto(page, "/shop");
 
     // Products still visible with pricing
-    await expect(page.getByText(/min\. \$\d+/i).first()).toBeVisible();
+    await expect(page.getByText(/pay what you want/i).first()).toBeVisible();
 
-    // Size/color options still clickable
-    await expect(page.getByRole("button", { name: /black \+ medium/i })).toBeEnabled();
+    // Size/color options still clickable - use exact match to avoid matching buy button
+    await expect(page.getByRole("button", { name: "Black", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Medium", exact: true })).toBeEnabled();
   });
 
   test("navigation works on mobile", async ({ page }) => {
