@@ -44,7 +44,7 @@ interface ShopContentProps {
 
 export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopContentProps) {
   const searchParams = useSearchParams();
-  const simpleMode = searchParams.get("mode") === "simple";
+  const fullMode = searchParams.get("mode") === "full";
   const [selectedSize, setSelectedSize] = useState("Medium");
   const [selectedColor, setSelectedColor] = useState("black");
   const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("pickup");
@@ -68,7 +68,8 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
 
     if (size && ["Small", "Medium", "Large"].includes(size)) setSelectedSize(size);
     if (color && ["black", "white"].includes(color)) setSelectedColor(color);
-    if (delivery && ["pickup", "delivery"].includes(delivery)) setDeliveryMode(delivery as "pickup" | "delivery");
+    if (delivery && ["pickup", "delivery"].includes(delivery))
+      setDeliveryMode(delivery as "pickup" | "delivery");
     if (bundlePriceParam) {
       const parsed = parseInt(bundlePriceParam, 10);
       if (!isNaN(parsed) && parsed >= PRICING["then-and-now-bundle-2025"]) setBundlePrice(parsed);
@@ -83,7 +84,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
     clearTimeout(bundleToastTimers.current.fade);
     clearTimeout(bundleToastTimers.current.hide);
     setBundleToast((prev) => ({ amount: (prev?.amount || 0) + increment, fading: false }));
-    bundleToastTimers.current.fade = setTimeout(() => setBundleToast((prev) => prev ? { ...prev, fading: true } : null), 800);
+    bundleToastTimers.current.fade = setTimeout(
+      () => setBundleToast((prev) => (prev ? { ...prev, fading: true } : null)),
+      800
+    );
     bundleToastTimers.current.hide = setTimeout(() => setBundleToast(null), 1300);
   };
 
@@ -91,7 +95,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
     clearTimeout(musicToastTimers.current.fade);
     clearTimeout(musicToastTimers.current.hide);
     setMusicToast((prev) => ({ amount: (prev?.amount || 0) + increment, fading: false }));
-    musicToastTimers.current.fade = setTimeout(() => setMusicToast((prev) => prev ? { ...prev, fading: true } : null), 800);
+    musicToastTimers.current.fade = setTimeout(
+      () => setMusicToast((prev) => (prev ? { ...prev, fading: true } : null)),
+      800
+    );
     musicToastTimers.current.hide = setTimeout(() => setMusicToast(null), 1300);
   };
 
@@ -244,48 +251,68 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
   const isCurrentSelectionSoldOut = isSoldOut(selectedSize, selectedColor);
   const anyCheckingOut = checkingOutOption !== null;
 
-  // Ultra-minimal mode for shows
-  if (simpleMode) {
+  // Default: Simple show mode. Use ?mode=full for complex shop
+  if (!fullMode) {
     const processingFee = (bundleFees.total - bundlePrice).toFixed(2);
     return (
-      <div className="min-h-screen bg-[#A31628] flex flex-col-reverse lg:flex-row">
-        {/* Left column: Description + Image (shows at bottom on mobile) */}
+      <div className="min-h-screen bg-[#A31628] flex flex-col lg:flex-row">
+        {/* Left column: Description + Instructions + Image (desktop only) */}
         <div className="flex flex-col lg:w-1/2">
           {/* Description */}
-          <div className="p-6 lg:p-8 flex-1 flex flex-col justify-center">
-            <h1 className="text-white text-3xl lg:text-5xl font-bold mb-4">BUY MY THEN + NOW BUNDLE</h1>
-            <p className="text-white/80 text-xl lg:text-2xl leading-relaxed">
-              Thank you for attending the show! This is where you can purchase my first ever t-shirt design.
-              The "PSD" logo from my original rap moniker, first sketched in college. 100% cotton, made to last.
-              Includes digital download of Singles & 16s Pack.
+          <div className="p-4 sm:p-6 lg:p-10 flex flex-col justify-center">
+            <h1 className="text-white text-xl sm:text-2xl lg:text-6xl font-bold mb-3 sm:mb-6 lg:mb-8 leading-tight">
+              Thank you for coming to the Better World Concert!
+            </h1>
+            <p className="text-white/80 text-sm sm:text-lg lg:text-3xl leading-relaxed">
+              Take home a piece of the night with my first ever t-shirt design and digital music
+              pack. Follow these steps to purchase your shirt and music.
             </p>
           </div>
+          {/* Instructions */}
+          <div className="text-white/70 text-sm sm:text-lg lg:text-3xl">
+            <div className="py-2 sm:py-5 lg:py-6 px-4 sm:px-6 lg:px-10 bg-white/5">
+              <span className="text-white font-bold">0.</span> On your phone, go to peytspencer.com/shop
+            </div>
+            <div className="py-2 sm:py-5 lg:py-6 px-4 sm:px-6 lg:px-10 bg-white/10">
+              <span className="text-white font-bold">1.</span> Choose color
+            </div>
+            <div className="py-2 sm:py-5 lg:py-6 px-4 sm:px-6 lg:px-10 bg-white/5">
+              <span className="text-white font-bold">2.</span> Choose size
+            </div>
+            <div className="py-2 sm:py-5 lg:py-6 px-4 sm:px-6 lg:px-10 bg-white/10">
+              <span className="text-white font-bold">3.</span> Name your price{" "}
+              <span className="text-white/50">(min $30)</span>
+            </div>
+          </div>
 
-          {/* Image with info */}
+          {/* Image with info - desktop only */}
           <button
+            aria-label="Toggle shirt info panel"
+            aria-expanded={showInfo}
             onClick={() => setShowInfo(!showInfo)}
-            className="relative aspect-square lg:aspect-auto lg:flex-1 overflow-hidden"
+            className="hidden lg:block relative lg:flex-1 overflow-hidden focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none"
           >
             <Image
               src="/images/merch/lu-psd-merch.JPG"
               alt="Shirt"
               fill
-              className="object-cover object-top"
+              className="object-cover object-bottom"
             />
             <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-2">
               <span className="text-white font-medium text-lg">Exhibit PSD Shirt</span>
               <InfoIcon className="w-6 h-6 text-white" />
             </div>
             <div
-              className={`absolute top-0 right-0 h-full w-2/3 bg-black/90 backdrop-blur-sm transform transition-transform duration-300 ${
+              className={`absolute top-0 right-0 h-full w-1/2 bg-black/80 backdrop-blur-sm transform transition-transform duration-300 ${
                 showInfo ? "translate-x-0" : "translate-x-full"
               }`}
             >
-              <div className="p-6 h-full flex flex-col justify-center">
+              <div className="p-6 h-full flex flex-col justify-center items-end text-right">
                 <h3 className="font-bold text-white text-xl mb-3">From The Archives</h3>
                 <p className="text-white/80 text-lg">
-                  My first design, a decade in the making. The "PSD" logo from my original rap moniker,
-                  first sketched in college at the University of Florida. 100% cotton, made to last.
+                  My first design, a decade in the making. The "PSD" logo from my original rap
+                  moniker, first sketched in college at the University of Florida. 100% cotton, made
+                  to last.
                 </p>
               </div>
             </div>
@@ -294,39 +321,20 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
 
         {/* Right column: All buttons */}
         <div className="flex flex-col lg:w-1/2">
-          {/* Size */}
-          <div className="flex flex-1">
-            {["Small", "Medium", "Large"].map((size) => {
-              const soldOut = isSoldOut(size, selectedColor);
-              const selected = selectedSize === size;
-              return (
-                <button
-                  key={size}
-                  onClick={() => !soldOut && setSelectedSize(size)}
-                  disabled={soldOut}
-                  className={`flex-1 text-3xl lg:text-5xl font-bold transition-all flex flex-col items-center justify-center relative ${
-                    soldOut
-                      ? "bg-black/40 text-white/30"
-                      : selected
-                        ? "bg-white text-[#A31628]"
-                        : "bg-white/20 text-white active:bg-white/30"
-                  }`}
-                >
-                  <span className={soldOut ? "line-through" : ""}>{size}</span>
-                  {soldOut && <span className="text-base lg:text-xl text-white/50 absolute bottom-2">SOLD OUT</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Color */}
-          <div className="flex flex-1">
-            {[{ name: "Black", value: "black" }, { name: "White", value: "white" }].map((color) => {
+          {/* Color - step 1 (2 boxes = 50% each) */}
+          <div className="grid grid-cols-2 min-h-[80px] lg:flex-1 relative">
+            <span className="absolute top-2 left-2 lg:top-3 lg:left-3 text-white/50 text-lg lg:text-2xl font-bold z-10">1.</span>
+            {[
+              { name: "Black", value: "black" },
+              { name: "White", value: "white" },
+            ].map((color) => {
               const allSoldOut = sizes.every((s) => isSoldOut(s.value, color.value));
               const selected = selectedColor === color.value;
               return (
                 <button
                   key={color.value}
+                  aria-pressed={selected}
+                  aria-label={`${color.name} color${allSoldOut ? ", sold out" : ""}`}
                   onClick={() => {
                     if (allSoldOut) return;
                     setSelectedColor(color.value);
@@ -336,67 +344,151 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
                     }
                   }}
                   disabled={allSoldOut}
-                  className={`flex-1 text-3xl lg:text-5xl font-bold transition-all flex flex-col items-center justify-center relative ${
+                  className={`py-6 lg:py-0 text-[8vw] lg:text-[4vw] font-bold transition-all flex flex-col items-center justify-center relative focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none ${
                     allSoldOut
                       ? "bg-black/40 text-white/30"
                       : selected
-                        ? "bg-white text-[#A31628]"
-                        : "bg-white/20 text-white active:bg-white/30"
+                      ? color.value === "black"
+                        ? "bg-black text-white"
+                        : "bg-white text-[#A31628]"
+                      : "bg-white/20 text-white active:bg-white/30"
                   }`}
                 >
                   <span className={allSoldOut ? "line-through" : ""}>{color.name}</span>
-                  {allSoldOut && <span className="text-base lg:text-xl text-white/50 absolute bottom-2">SOLD OUT</span>}
+                  {allSoldOut && (
+                    <span className="text-base lg:text-xl text-white/50 absolute bottom-2">
+                      SOLD OUT
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Price adjust */}
-          <div className="flex flex-1 bg-[#8A1222]">
+          {/* Size - step 2 (3 boxes = 33% each) */}
+          <div className="grid grid-cols-3 min-h-[80px] lg:flex-1 relative">
+            <span className="absolute top-2 left-2 lg:top-3 lg:left-3 text-white/50 text-lg lg:text-2xl font-bold z-10">2.</span>
+            {["Small", "Medium", "Large"].map((size) => {
+              const soldOut = isSoldOut(size, selectedColor);
+              const selected = selectedSize === size;
+              return (
+                <button
+                  key={size}
+                  aria-pressed={selected}
+                  aria-label={`${size} size${soldOut ? ", sold out" : ""}`}
+                  onClick={() => !soldOut && setSelectedSize(size)}
+                  disabled={soldOut}
+                  className={`py-6 lg:py-0 text-[5vw] lg:text-[2.5vw] font-bold transition-all flex flex-col items-center justify-center relative focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none ${
+                    soldOut
+                      ? "bg-black/40 text-white/30"
+                      : selected
+                      ? selectedColor === "black"
+                        ? "bg-black text-white"
+                        : "bg-white text-[#A31628]"
+                      : "bg-white/20 text-white active:bg-white/30"
+                  }`}
+                >
+                  <span className={soldOut ? "line-through" : ""}>{size}</span>
+                  {soldOut && (
+                    <span className="text-base lg:text-xl text-white/50 absolute bottom-2">
+                      SOLD OUT
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Price adjust - step 3 */}
+          <div className="flex min-h-[140px] lg:flex-1 bg-[#8A1222] relative">
+            <span className="absolute top-2 left-2 lg:top-3 lg:left-3 text-white/50 text-lg lg:text-2xl font-bold z-10">3.</span>
             <button
-              onClick={() => setBundlePrice((p) => Math.max(PRICING["then-and-now-bundle-2025"], p - 5))}
+              aria-label="Decrease price by $5"
+              onClick={() =>
+                setBundlePrice((p) => Math.max(PRICING["then-and-now-bundle-2025"], p - 5))
+              }
               disabled={bundlePrice <= PRICING["then-and-now-bundle-2025"]}
-              className="aspect-square h-full text-6xl lg:text-8xl font-bold text-white disabled:opacity-30 active:bg-[#6A0E1A] flex items-center justify-center"
+              className="flex-1 text-5xl lg:text-8xl font-bold text-white disabled:opacity-30 active:bg-[#6A0E1A] flex items-center justify-center border-4 border-white/30 focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none"
             >
-              −
+              −5
             </button>
-            <div className="flex-1 flex flex-col items-center justify-center text-white">
-              <span className="text-2xl lg:text-3xl text-white/70 uppercase tracking-wide">Name Your Price</span>
-              <span className="text-7xl lg:text-9xl font-bold tabular-nums">${bundlePrice}</span>
-              <span className="text-xl lg:text-2xl text-white/50 tabular-nums">
-                min ${PRICING["then-and-now-bundle-2025"]} · + ${processingFee} processing
+            <div className="flex-[2] py-4 lg:py-0 flex flex-col items-center justify-center text-white">
+              <span className="text-6xl lg:text-9xl font-bold tabular-nums">${bundlePrice}</span>
+              <span className="text-base lg:text-2xl text-white/50 tabular-nums">
+                + ${processingFee} processing
               </span>
             </div>
             <button
+              aria-label="Increase price by $5"
               onClick={() => {
                 setBundlePrice((p) => p + 5);
                 showBundleToast(5);
               }}
-              className="aspect-square h-full text-6xl lg:text-8xl font-bold text-white active:bg-[#6A0E1A] flex items-center justify-center"
+              className="flex-1 text-5xl lg:text-8xl font-bold text-white active:bg-[#6A0E1A] flex items-center justify-center border-4 border-white/30 focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none"
             >
-              +
+              +5
             </button>
           </div>
 
-          {/* Buy Button */}
+          {/* Buy Button - prominent with shadow and border */}
           <button
+            aria-label={isCurrentSelectionSoldOut ? "Sold out" : `Pay $${bundleFees.total.toFixed(2)}`}
             onClick={handleBundleCheckout}
             disabled={isCurrentSelectionSoldOut || anyCheckingOut}
-            className={`flex-1 text-4xl lg:text-6xl font-bold transition-all flex items-center justify-center ${
+            className={`min-h-[120px] lg:flex-1 py-6 lg:py-0 text-4xl lg:text-6xl font-bold transition-all flex items-center justify-center border-8 border-yellow-400 shadow-2xl focus-visible:ring-4 focus-visible:ring-white focus-visible:outline-none ${
               isCurrentSelectionSoldOut
                 ? "bg-white/30 text-white/50"
                 : anyCheckingOut
-                  ? "bg-white/80 text-[#A31628]"
-                  : "bg-white text-[#A31628] active:bg-white/90"
+                ? selectedColor === "black"
+                  ? "bg-black/80 text-white"
+                  : "bg-white/80 text-[#A31628]"
+                : selectedColor === "black"
+                  ? "bg-black text-white active:bg-black/90 hover:scale-[1.02]"
+                  : "bg-white text-[#A31628] active:bg-white/90 hover:scale-[1.02]"
             }`}
           >
-            {anyCheckingOut
-              ? "PROCESSING..."
-              : isCurrentSelectionSoldOut
-                ? "SOLD OUT"
-                : <span className="tabular-nums">PAY ${bundleFees.total.toFixed(2)}</span>}
+            {anyCheckingOut ? (
+              "PROCESSING..."
+            ) : isCurrentSelectionSoldOut ? (
+              "SOLD OUT"
+            ) : (
+              <span className="tabular-nums">PAY ${bundleFees.total.toFixed(2)}</span>
+            )}
           </button>
         </div>
+
+        {/* Mobile-only image at bottom */}
+        <button
+          aria-label="Toggle shirt info panel"
+          aria-expanded={showInfo}
+          onClick={() => setShowInfo(!showInfo)}
+          className="lg:hidden relative aspect-square overflow-hidden focus-visible:ring-4 focus-visible:ring-yellow-400 focus-visible:outline-none"
+        >
+          <Image
+            src="/images/merch/lu-psd-merch.JPG"
+            alt="Shirt"
+            fill
+            className="object-cover object-bottom"
+          />
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-2">
+            <span className="text-white font-medium text-lg">Exhibit PSD Shirt</span>
+            <InfoIcon className="w-6 h-6 text-white" />
+          </div>
+          <div
+            className={`absolute top-0 right-0 h-full w-1/2 bg-black/80 backdrop-blur-sm transform transition-transform duration-300 ${
+              showInfo ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="p-6 h-full flex flex-col justify-start">
+              <h3 className="font-bold text-white text-xl mb-3">From The Archives</h3>
+              <p className="text-white/80 text-lg">
+                My first design, a decade in the making. The "PSD" logo from my original rap
+                moniker, first sketched in college at the University of Florida. 100% cotton, made
+                to last.
+              </p>
+            </div>
+          </div>
+        </button>
       </div>
     );
   }
@@ -608,31 +700,43 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
               isCurrentSelectionSoldOut
                 ? "bg-white/50 text-[#A31628]/50 cursor-not-allowed"
                 : selectedColor === "black"
-                  ? "bg-black text-white hover:bg-black/90"
-                  : "bg-white text-[#A31628] hover:bg-white/90"
+                ? "bg-black text-white hover:bg-black/90"
+                : "bg-white text-[#A31628] hover:bg-white/90"
             }`}
           >
             <div>
               <div className="flex items-center gap-3">
                 <span className="text-4xl sm:text-5xl font-bold tabular-nums">
                   {anyCheckingOut || isCurrentSelectionSoldOut
-                    ? (anyCheckingOut ? "Processing..." : "Sold Out")
-                    : `$${(bundleFees.total + (deliveryMode === "delivery" ? SHIPPING : 0)).toFixed(2)}`}
+                    ? anyCheckingOut
+                      ? "Processing..."
+                      : "Sold Out"
+                    : `$${(bundleFees.total + (deliveryMode === "delivery" ? SHIPPING : 0)).toFixed(
+                        2
+                      )}`}
                 </span>
                 {bundleToast && !anyCheckingOut && !isCurrentSelectionSoldOut && (
-                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
-                    bundleToast.fading ? "opacity-0" : "opacity-100"
-                  }`}>
+                  <span
+                    className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
+                      bundleToast.fading ? "opacity-0" : "opacity-100"
+                    }`}
+                  >
                     +${bundleToast.amount} Thank you!
                   </span>
                 )}
               </div>
-              <span className={`block text-base sm:text-lg mt-1 ${anyCheckingOut || isCurrentSelectionSoldOut ? "invisible" : ""}`}>
+              <span
+                className={`block text-base sm:text-lg mt-1 ${
+                  anyCheckingOut || isCurrentSelectionSoldOut ? "invisible" : ""
+                }`}
+              >
                 Buy {selectedColor} {selectedSize.toLowerCase()} shirt and music
               </span>
             </div>
             <svg
-              className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4 ${anyCheckingOut || isCurrentSelectionSoldOut ? "invisible" : ""}`}
+              className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4 ${
+                anyCheckingOut || isCurrentSelectionSoldOut ? "invisible" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -679,150 +783,161 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
         </div>
 
         {/* Download Card */}
-        {(
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => !checkingOutMusic && handleCheckout("singles-16s-pack-2025")}
-          onKeyDown={(e) => { if (!checkingOutMusic && (e.key === "Enter" || e.key === " ")) handleCheckout("singles-16s-pack-2025"); }}
-          onMouseEnter={() => setHoveringMusicIncrement(false)}
-          className={`bg-[#1628A3] text-left transition-colors group flex flex-col ${
-            checkingOutMusic ? "cursor-wait" : "cursor-pointer hover:bg-[#1a2eb8]"
-          }`}
-        >
-          <div className="flex flex-col p-6 sm:p-8 pb-0 sm:pb-0">
-            <h2 className="text-white font-semibold text-2xl sm:text-3xl">
-              Buy Singles & 16s Pack (2025)
-              <p className="font-normal text-white/80 text-base lg:text-lg">
-                Digital download with mp3s and lyricbook
-              </p>
-            </h2>
-          </div>
-          <div className="px-6 sm:px-8 py-4">
-            <p className="text-white/80 text-base lg:text-lg">
-              A "16" is the number of bars, the typical length of one rap verse. I write every bar
-              myself, and grabbing this pack supports my independence the same as streaming
-              "Patience" 3,000 times!
-            </p>
-          </div>
-          {/* Price - stop propagation to prevent checkout when adjusting price */}
+        {
           <div
-            className="grid grid-cols-[1fr_auto_auto] bg-[#111D7A] mt-4 sm:mt-5"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onMouseEnter={() => setHoveringMusicIncrement(true)}
-            onMouseLeave={() => setHoveringMusicIncrement(false)}
-          >
-            <div className="px-6 sm:px-8 py-4">
-              <label className="text-white text-base sm:text-xl font-semibold whitespace-nowrap">
-                Pay what you want{" "}
-                <span className="font-normal text-white/70 tabular-nums">
-                  from ${PRICING["singles-16s-pack-2025"]}
-                </span>
-              </label>
-              <p className="text-white/50 text-sm sm:text-base tabular-nums">
-                ${musicPrice} + ${(musicFees.total - musicPrice).toFixed(2)} processing
-              </p>
-            </div>
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setMusicPrice((p) => Math.max(PRICING["singles-16s-pack-2025"], p - 2));
-              }}
-              disabled={musicPrice <= PRICING["singles-16s-pack-2025"]}
-              className="aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <svg
-                className="w-8 h-8 sm:w-10 sm:h-10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setMusicPrice((p) => p + 2);
-                showMusicToast(2);
-              }}
-              className="aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white"
-            >
-              <svg
-                className="w-8 h-8 sm:w-10 sm:h-10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Tap to buy indicator - matches red panel buy button structure (flex) */}
-          <div
-            className={`py-5 sm:py-6 px-6 sm:px-8 transition-all flex items-center justify-between ${
-              hoveringMusicIncrement
-                ? "bg-transparent text-white/50"
-                : "bg-white/10 text-white group-hover:bg-white/20"
+            role="button"
+            tabIndex={0}
+            onClick={() => !checkingOutMusic && handleCheckout("singles-16s-pack-2025")}
+            onKeyDown={(e) => {
+              if (!checkingOutMusic && (e.key === "Enter" || e.key === " "))
+                handleCheckout("singles-16s-pack-2025");
+            }}
+            onMouseEnter={() => setHoveringMusicIncrement(false)}
+            className={`bg-[#1628A3] text-left transition-colors group flex flex-col ${
+              checkingOutMusic ? "cursor-wait" : "cursor-pointer hover:bg-[#1a2eb8]"
             }`}
           >
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="text-4xl sm:text-5xl font-bold tabular-nums">
-                  {checkingOutMusic ? "Processing..." : `$${musicFees.total.toFixed(2)}`}
-                </span>
-                {musicToast && !checkingOutMusic && (
-                  <span className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
-                    musicToast.fading ? "opacity-0" : "opacity-100"
-                  }`}>
-                    +${musicToast.amount} Thank you!
-                  </span>
-                )}
-              </div>
-              <span className={`block text-base sm:text-lg mt-1 ${checkingOutMusic ? "invisible" : ""}`}>
-                Tap anywhere to purchase
-              </span>
+            <div className="flex flex-col p-6 sm:p-8 pb-0 sm:pb-0">
+              <h2 className="text-white font-semibold text-2xl sm:text-3xl">
+                Buy Singles & 16s Pack (2025)
+                <p className="font-normal text-white/80 text-base lg:text-lg">
+                  Digital download with mp3s and lyricbook
+                </p>
+              </h2>
             </div>
-            <svg
-              className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4 ${checkingOutMusic ? "invisible" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
+            <div className="px-6 sm:px-8 py-4">
+              <p className="text-white/80 text-base lg:text-lg">
+                A "16" is the number of bars, the typical length of one rap verse. I write every bar
+                myself, and grabbing this pack supports my independence the same as streaming
+                "Patience" 3,000 times!
+              </p>
+            </div>
+            {/* Price - stop propagation to prevent checkout when adjusting price */}
+            <div
+              className="grid grid-cols-[1fr_auto_auto] bg-[#111D7A] mt-4 sm:mt-5"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onMouseEnter={() => setHoveringMusicIncrement(true)}
+              onMouseLeave={() => setHoveringMusicIncrement(false)}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-
-          {/* Description + Tracklist */}
-          <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
-            <div className="space-y-1">
-              {TRACKLIST.map((track) => (
-                <div
-                  key={track.name}
-                  className="py-3 pl-4 pr-3 border-l-2 border-white/40 flex items-center justify-between"
-                >
-                  <span className="font-bebas text-white text-3xl lg:text-4xl">{track.name}</span>
-                  <span className="font-mono text-white/70 text-xl lg:text-2xl">
-                    {track.duration}
+              <div className="px-6 sm:px-8 py-4">
+                <label className="text-white text-base sm:text-xl font-semibold whitespace-nowrap">
+                  Pay what you want{" "}
+                  <span className="font-normal text-white/70 tabular-nums">
+                    from ${PRICING["singles-16s-pack-2025"]}
                   </span>
+                </label>
+                <p className="text-white/50 text-sm sm:text-base tabular-nums">
+                  ${musicPrice} + ${(musicFees.total - musicPrice).toFixed(2)} processing
+                </p>
+              </div>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMusicPrice((p) => Math.max(PRICING["singles-16s-pack-2025"], p - 2));
+                }}
+                disabled={musicPrice <= PRICING["singles-16s-pack-2025"]}
+                className="aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <svg
+                  className="w-8 h-8 sm:w-10 sm:h-10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMusicPrice((p) => p + 2);
+                  showMusicToast(2);
+                }}
+                className="aspect-square flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/10 transition-colors text-white/70 hover:text-white"
+              >
+                <svg
+                  className="w-8 h-8 sm:w-10 sm:h-10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Tap to buy indicator - matches red panel buy button structure (flex) */}
+            <div
+              className={`py-5 sm:py-6 px-6 sm:px-8 transition-all flex items-center justify-between ${
+                hoveringMusicIncrement
+                  ? "bg-transparent text-white/50"
+                  : "bg-white/10 text-white group-hover:bg-white/20"
+              }`}
+            >
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl sm:text-5xl font-bold tabular-nums">
+                    {checkingOutMusic ? "Processing..." : `$${musicFees.total.toFixed(2)}`}
+                  </span>
+                  {musicToast && !checkingOutMusic && (
+                    <span
+                      className={`text-lg sm:text-xl font-medium transition-opacity duration-500 tabular-nums ${
+                        musicToast.fading ? "opacity-0" : "opacity-100"
+                      }`}
+                    >
+                      +${musicToast.amount} Thank you!
+                    </span>
+                  )}
                 </div>
-              ))}
+                <span
+                  className={`block text-base sm:text-lg mt-1 ${
+                    checkingOutMusic ? "invisible" : ""
+                  }`}
+                >
+                  Tap anywhere to purchase
+                </span>
+              </div>
+              <svg
+                className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 ml-4 ${
+                  checkingOutMusic ? "invisible" : ""
+                }`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+
+            {/* Description + Tracklist */}
+            <div className="flex flex-col p-6 sm:p-8 gap-4 sm:gap-5">
+              <div className="space-y-1">
+                {TRACKLIST.map((track) => (
+                  <div
+                    key={track.name}
+                    className="py-3 pl-4 pr-3 border-l-2 border-white/40 flex items-center justify-between"
+                  >
+                    <span className="font-bebas text-white text-3xl lg:text-4xl">{track.name}</span>
+                    <span className="font-mono text-white/70 text-xl lg:text-2xl">
+                      {track.duration}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-        )}
+        }
       </div>
 
-      {showGallery && !simpleMode && (
+      {showGallery && fullMode && (
         <>
           <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mt-12 sm:mt-16">
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-6">
@@ -878,7 +993,6 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
           <div className="h-12 sm:h-16" />
         </>
       )}
-
     </div>
   );
 }

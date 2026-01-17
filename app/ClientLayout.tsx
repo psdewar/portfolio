@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
 import { PostHogProvider } from "./components/PostHogProvider";
 import { AudioProvider } from "./contexts/AudioContext";
 import { VideoProvider } from "./contexts/VideoContext";
@@ -26,10 +26,12 @@ const DevToolsPanel = dynamic(
 
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const isOgMode = searchParams?.get("og") === "true";
+  const isShopSimpleMode = pathname === "/shop" && searchParams?.get("mode") !== "full";
 
-  // OG mode: render only the content, no navbar/player/devtools
-  if (isOgMode) {
+  // OG mode or Shop simple mode: render only the content, no navbar/player/devtools
+  if (isOgMode || isShopSimpleMode) {
     return (
       <main className="flex-auto min-w-0 flex flex-col">
         <Suspense>{children}</Suspense>
