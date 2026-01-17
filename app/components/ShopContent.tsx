@@ -44,6 +44,7 @@ interface ShopContentProps {
 
 export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopContentProps) {
   const searchParams = useSearchParams();
+  const simpleMode = searchParams.get("mode") === "simple";
   const [selectedSize, setSelectedSize] = useState("Medium");
   const [selectedColor, setSelectedColor] = useState("black");
   const [deliveryMode, setDeliveryMode] = useState<"pickup" | "delivery">("pickup");
@@ -242,6 +243,163 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
 
   const isCurrentSelectionSoldOut = isSoldOut(selectedSize, selectedColor);
   const anyCheckingOut = checkingOutOption !== null;
+
+  // Ultra-minimal mode for shows
+  if (simpleMode) {
+    const processingFee = (bundleFees.total - bundlePrice).toFixed(2);
+    return (
+      <div className="min-h-screen bg-[#A31628] flex flex-col-reverse lg:flex-row">
+        {/* Left column: Description + Image (shows at bottom on mobile) */}
+        <div className="flex flex-col lg:w-1/2">
+          {/* Description */}
+          <div className="p-6 lg:p-8 flex-1 flex flex-col justify-center">
+            <h1 className="text-white text-3xl lg:text-5xl font-bold mb-4">BUY MY THEN + NOW BUNDLE</h1>
+            <p className="text-white/80 text-xl lg:text-2xl leading-relaxed">
+              Thank you for attending the show! This is where you can purchase my first ever t-shirt design.
+              The "PSD" logo from my original rap moniker, first sketched in college. 100% cotton, made to last.
+              Includes digital download of Singles & 16s Pack.
+            </p>
+          </div>
+
+          {/* Image with info */}
+          <button
+            onClick={() => setShowInfo(!showInfo)}
+            className="relative aspect-square lg:aspect-auto lg:flex-1 overflow-hidden"
+          >
+            <Image
+              src="/images/merch/lu-psd-merch.JPG"
+              alt="Shirt"
+              fill
+              className="object-cover object-top"
+            />
+            <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-2">
+              <span className="text-white font-medium text-lg">Exhibit PSD Shirt</span>
+              <InfoIcon className="w-6 h-6 text-white" />
+            </div>
+            <div
+              className={`absolute top-0 right-0 h-full w-2/3 bg-black/90 backdrop-blur-sm transform transition-transform duration-300 ${
+                showInfo ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
+              <div className="p-6 h-full flex flex-col justify-center">
+                <h3 className="font-bold text-white text-xl mb-3">From The Archives</h3>
+                <p className="text-white/80 text-lg">
+                  My first design, a decade in the making. The "PSD" logo from my original rap moniker,
+                  first sketched in college at the University of Florida. 100% cotton, made to last.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Right column: All buttons */}
+        <div className="flex flex-col lg:w-1/2">
+          {/* Size */}
+          <div className="flex flex-1">
+            {["Small", "Medium", "Large"].map((size) => {
+              const soldOut = isSoldOut(size, selectedColor);
+              const selected = selectedSize === size;
+              return (
+                <button
+                  key={size}
+                  onClick={() => !soldOut && setSelectedSize(size)}
+                  disabled={soldOut}
+                  className={`flex-1 text-3xl lg:text-5xl font-bold transition-all flex flex-col items-center justify-center relative ${
+                    soldOut
+                      ? "bg-black/40 text-white/30"
+                      : selected
+                        ? "bg-white text-[#A31628]"
+                        : "bg-white/20 text-white active:bg-white/30"
+                  }`}
+                >
+                  <span className={soldOut ? "line-through" : ""}>{size}</span>
+                  {soldOut && <span className="text-base lg:text-xl text-white/50 absolute bottom-2">SOLD OUT</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Color */}
+          <div className="flex flex-1">
+            {[{ name: "Black", value: "black" }, { name: "White", value: "white" }].map((color) => {
+              const allSoldOut = sizes.every((s) => isSoldOut(s.value, color.value));
+              const selected = selectedColor === color.value;
+              return (
+                <button
+                  key={color.value}
+                  onClick={() => {
+                    if (allSoldOut) return;
+                    setSelectedColor(color.value);
+                    if (isSoldOut(selectedSize, color.value)) {
+                      const available = sizes.find((s) => !isSoldOut(s.value, color.value));
+                      if (available) setSelectedSize(available.value);
+                    }
+                  }}
+                  disabled={allSoldOut}
+                  className={`flex-1 text-3xl lg:text-5xl font-bold transition-all flex flex-col items-center justify-center relative ${
+                    allSoldOut
+                      ? "bg-black/40 text-white/30"
+                      : selected
+                        ? "bg-white text-[#A31628]"
+                        : "bg-white/20 text-white active:bg-white/30"
+                  }`}
+                >
+                  <span className={allSoldOut ? "line-through" : ""}>{color.name}</span>
+                  {allSoldOut && <span className="text-base lg:text-xl text-white/50 absolute bottom-2">SOLD OUT</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Price adjust */}
+          <div className="flex flex-1 bg-[#8A1222]">
+            <button
+              onClick={() => setBundlePrice((p) => Math.max(PRICING["then-and-now-bundle-2025"], p - 5))}
+              disabled={bundlePrice <= PRICING["then-and-now-bundle-2025"]}
+              className="aspect-square h-full text-6xl lg:text-8xl font-bold text-white disabled:opacity-30 active:bg-[#6A0E1A] flex items-center justify-center"
+            >
+              −
+            </button>
+            <div className="flex-1 flex flex-col items-center justify-center text-white">
+              <span className="text-2xl lg:text-3xl text-white/70 uppercase tracking-wide">Name Your Price</span>
+              <span className="text-7xl lg:text-9xl font-bold tabular-nums">${bundlePrice}</span>
+              <span className="text-xl lg:text-2xl text-white/50 tabular-nums">
+                min ${PRICING["then-and-now-bundle-2025"]} · + ${processingFee} processing
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setBundlePrice((p) => p + 5);
+                showBundleToast(5);
+              }}
+              className="aspect-square h-full text-6xl lg:text-8xl font-bold text-white active:bg-[#6A0E1A] flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Buy Button */}
+          <button
+            onClick={handleBundleCheckout}
+            disabled={isCurrentSelectionSoldOut || anyCheckingOut}
+            className={`flex-1 text-4xl lg:text-6xl font-bold transition-all flex items-center justify-center ${
+              isCurrentSelectionSoldOut
+                ? "bg-white/30 text-white/50"
+                : anyCheckingOut
+                  ? "bg-white/80 text-[#A31628]"
+                  : "bg-white text-[#A31628] active:bg-white/90"
+            }`}
+          >
+            {anyCheckingOut
+              ? "PROCESSING..."
+              : isCurrentSelectionSoldOut
+                ? "SOLD OUT"
+                : <span className="tabular-nums">PAY ${bundleFees.total.toFixed(2)}</span>}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -520,8 +678,8 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
           </div>
         </div>
 
-        {/* Download Card - Tap anywhere to purchase */}
-        {/* Note: Using div instead of button to avoid iOS Safari nested button issues */}
+        {/* Download Card */}
+        {(
         <div
           role="button"
           tabIndex={0}
@@ -661,9 +819,10 @@ export function ShopContent({ showGallery = true, cancelPath = "/shop" }: ShopCo
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      {showGallery && (
+      {showGallery && !simpleMode && (
         <>
           <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mt-12 sm:mt-16">
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-6">
