@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { firstName, email, phone } = body;
+    const { firstName, email, phone, tier } = body;
 
     if (!firstName?.trim()) {
       return NextResponse.json(
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       code,
       firstName: firstName.trim(),
       phone: phone?.trim() || "",
+      tier: tier?.trim() || "",
       expiresAt: Date.now() + OTP_EXPIRY_MS,
     });
 

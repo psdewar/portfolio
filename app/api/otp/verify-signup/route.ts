@@ -7,10 +7,11 @@ function toDelimited(
   firstName: string,
   email: string,
   phone: string,
+  tier: string,
   delim = ",",
 ): string {
   const createdAt = Date.now();
-  return [firstName, email, phone, createdAt]
+  return [firstName, email, phone, tier, createdAt]
     .map((v) => String(v).replaceAll(delim, `\\${delim}`))
     .join(delim);
 }
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
       payload.firstName,
       payload.email,
       payload.phone || "",
+      payload.tier || "",
     );
 
     const { error: dbError } = await supabaseAdmin

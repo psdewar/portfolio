@@ -4,24 +4,19 @@ import Link from "next/link";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useAudio } from "app/contexts/AudioContext";
 import { TRACK_DATA } from "app/data/tracks";
-import React from "react";
 
 interface Props {
   trackId: string;
   coverSrc: string;
   href?: string;
-  fixedCheckoutTrack: string | null;
   onClose: () => void;
-  handleDownloadClick: (trackId: string) => void;
 }
 
 export default function FreestyleOverlay({
   trackId,
   coverSrc,
   href,
-  fixedCheckoutTrack,
   onClose,
-  handleDownloadClick,
 }: Props) {
   const { loadTrack, currentTrack, isPlaying, toggle } = useAudio();
 
@@ -77,14 +72,12 @@ export default function FreestyleOverlay({
           <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
 
           {/* Title overlay */}
-          <h3 className="absolute bottom-4 left-0 right-0 font-bebas text-2xl text-white tracking-tight text-center px-4 z-10">
+          <h3 className="absolute bottom-4 left-0 right-0 font-bebas text-2xl text-white tracking-tight text-center px-4 z-10 leading-none">
             Peyt Spencer - Mula Freestyle
           </h3>
 
           <button
-            onClick={async (e) => {
-              handlePlayToggle();
-            }}
+            onClick={handlePlayToggle}
             aria-label={playing ? "Pause" : "Play"}
             className="absolute inset-0 flex items-center justify-center z-10"
           >
@@ -111,29 +104,17 @@ export default function FreestyleOverlay({
           </button>
         </div>
 
-        {/* Bottom section with download button */}
-        <div className="bg-slate-500 rounded-b-xl overflow-hidden">
-          <div className="flex flex-col">
-            <button
-              onClick={() => handleDownloadClick(trackId)}
-              disabled={fixedCheckoutTrack === trackId}
-              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-none font-medium text-lg transition-colors shadow-lg disabled:opacity-70 disabled:cursor-wait"
-            >
-              {fixedCheckoutTrack === trackId ? "Redirecting..." : "DOWNLOAD FOR $1.00"}
-            </button>
-
-            {href && (
-              <Link
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 bg-white/90 hover:bg-white text-black rounded-none font-medium text-lg shadow-lg"
-              >
-                STREAM <ArrowIcon />
-              </Link>
-            )}
-          </div>
-        </div>
+        {/* Stream link */}
+        {href && (
+          <Link
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 py-3 bg-white/90 hover:bg-white text-black rounded-b-xl font-medium text-lg shadow-lg"
+          >
+            STREAM <ArrowIcon />
+          </Link>
+        )}
       </div>
     </div>
   );

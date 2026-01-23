@@ -29,7 +29,7 @@ export const VIDEO_REGISTRY = {
   "fund-next-single": {
     src: "/videos/fund-next-single-45sec.mp4",
     title: "Fund My Next Single",
-    description: "Help fund my next single release",
+    description: "Help fund my next Single",
   },
 
   // Add more videos here as needed

@@ -17,9 +17,9 @@ const bebasNeue = Bebas_Neue({
 const siteConfig = {
   name: "Peyt Spencer",
   title: "Peyt Spencer | Rapper & Developer",
-  description: "Here, I rap lyrics and here's my app, Lyrist.",
+  description: "Independent rapper from the Bay Area. Stream singles, watch live performances, and support the journey.",
   url: "https://peytspencer.com",
-  keywords: ["Peyt Spencer", "rapper", "hip-hop", "Lyrist app", "software developer", "music"],
+  keywords: ["Peyt Spencer", "rapper", "hip-hop", "Bay Area", "independent artist", "live music", "Lyrist"],
   ogImage: "https://peytspencer.com/api/og",
   social: {
     ig: "https://instagram.com/peytspencer",

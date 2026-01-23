@@ -5,8 +5,6 @@ import {
   extractIpAddress,
   validateOrigin,
   validateTrackId,
-  fetchAudioBlob,
-  fetchAudioBuffer,
   generateETag,
   checkConditionalHeaders,
   createBaseHeaders,
@@ -16,6 +14,12 @@ import {
   logDevWarning,
   generateMockAudioBuffer,
 } from "../../shared/audio-utils";
+import { isPatronTrack } from "../../../data/patron-config";
+
+// VPS URL for audio files
+const VPS_AUDIO_BASE_URL = process.env.VPS_AUDIO_URL || "https://assets.peytspencer.com/audio";
+const CF_ACCESS_CLIENT_ID = process.env.CF_ACCESS_CLIENT_ID || "";
+const CF_ACCESS_CLIENT_SECRET = process.env.CF_ACCESS_CLIENT_SECRET || "";
 
 // Helper to simulate network delay in development
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,17 +54,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return new NextResponse("Track not found", { status: 404 });
     }
 
+    // Check patron access for patron-exclusive tracks
+    if (isPatronTrack(trackId)) {
+      const patronToken = request.cookies.get("patronToken")?.value;
+      if (patronToken !== "active") {
+        return new NextResponse("Patron access required", { status: 403 });
+      }
+    }
+
     let audioBuffer: ArrayBuffer;
 
-    // Use local mock audio in dev mode to avoid Vercel Blob egress costs
+    // Use local mock audio in dev mode
     if (useLocalAudio) {
       audioBuffer = generateMockAudioBuffer();
     } else {
-      const audioBlob = await fetchAudioBlob(trackId);
-      if (!audioBlob) {
+      // All tracks: fetch from VPS via Cloudflare Access
+      const vpsUrl = `${VPS_AUDIO_BASE_URL}/${trackId}.mp3`;
+      const vpsHeaders: HeadersInit = {};
+      if (CF_ACCESS_CLIENT_ID && CF_ACCESS_CLIENT_SECRET) {
+        vpsHeaders["CF-Access-Client-Id"] = CF_ACCESS_CLIENT_ID;
+        vpsHeaders["CF-Access-Client-Secret"] = CF_ACCESS_CLIENT_SECRET;
+      }
+      const response = await fetch(vpsUrl, { headers: vpsHeaders });
+      if (!response.ok) {
+        console.error(`VPS fetch failed: ${response.status} for ${vpsUrl}`);
         return new NextResponse("Track not found", { status: 404 });
       }
-      audioBuffer = await fetchAudioBuffer(audioBlob.url);
+      audioBuffer = await response.arrayBuffer();
     }
 
     // For caching

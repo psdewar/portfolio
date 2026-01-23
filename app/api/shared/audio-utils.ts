@@ -119,14 +119,7 @@ export async function fetchAudioBlob(
   const assetConfig = DIGITAL_ASSETS[trackId];
   const blobPrefix = assetConfig?.blobPrefix || `audio/${trackId}`;
   const { blobs } = await list({ prefix: `${blobPrefix}.${fileFormat}`, limit: 1 });
-  let audioBlob = blobs[0];
-
-  // Fallback for mp3s only (not for zip bundles)
-  if (!audioBlob && fileFormat === "mp3" && trackId !== "patience") {
-    const { blobs: fallbackBlobs } = await list({ prefix: `audio/patience.mp3`, limit: 10 });
-    audioBlob = fallbackBlobs[0];
-  }
-  return audioBlob || null;
+  return blobs[0] || null;
 }
 
 /**

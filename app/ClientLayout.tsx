@@ -9,6 +9,7 @@ import { VideoProvider } from "./contexts/VideoContext";
 import { DevToolsProvider } from "./contexts/DevToolsContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Footer } from "./components/Footer";
 
 const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
 const GlobalAudioPlayer = dynamic(
@@ -28,10 +29,13 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const isOgMode = searchParams?.get("og") === "true";
-  const isShopSimpleMode = pathname === "/shop" && searchParams?.get("mode") !== "full";
+  const isPatronPage = pathname === "/patron";
+  const isHomePage = pathname === "/";
+  const isListenPage = pathname === "/listen";
+  const isLivePage = pathname === "/live";
 
-  // OG mode or Shop simple mode: render only the content, no navbar/player/devtools
-  if (isOgMode || isShopSimpleMode) {
+  // OG mode: render only the content, no navbar/player/devtools
+  if (isOgMode) {
     return (
       <main className="flex-auto min-w-0 flex flex-col">
         <Suspense>{children}</Suspense>
@@ -39,17 +43,78 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <>
-      <Navbar />
-      <main className="flex-auto min-w-0 flex flex-col pb-24 lg:pb-32">
+  // Homepage: fullscreen immersive hero, no navbar, no audio player
+  if (isHomePage) {
+    return (
+      <div className="h-dvh overflow-hidden">
         <Suspense>{children}</Suspense>
         <Analytics />
         <SpeedInsights />
-      </main>
-      <div className="h-24 lg:h-32">
-        <GlobalAudioPlayer />
+        <MissingResourceIndicator />
+        <DevToolsPanel />
       </div>
+    );
+  }
+
+  // Patron page: fullscreen with internal scroll, with audio player
+  if (isPatronPage) {
+    return (
+      <>
+        <Navbar />
+        <Suspense>{children}</Suspense>
+        <GlobalAudioPlayer />
+        <Analytics />
+        <SpeedInsights />
+        <MissingResourceIndicator />
+        <DevToolsPanel />
+      </>
+    );
+  }
+
+  // Live page: no footer
+  if (isLivePage) {
+    return (
+      <>
+        <Navbar />
+        <main className="flex-auto min-w-0 flex flex-col pb-20">
+          <Suspense>{children}</Suspense>
+        </main>
+        <GlobalAudioPlayer />
+        <Analytics />
+        <SpeedInsights />
+        <MissingResourceIndicator />
+        <DevToolsPanel />
+      </>
+    );
+  }
+
+  // Listen page: edge-to-edge grid, no footer, minimal padding for audio player
+  if (isListenPage) {
+    return (
+      <>
+        <Navbar />
+        <main className="flex-auto min-w-0 flex flex-col pb-20">
+          <Suspense>{children}</Suspense>
+        </main>
+        <GlobalAudioPlayer />
+        <Analytics />
+        <SpeedInsights />
+        <MissingResourceIndicator />
+        <DevToolsPanel />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Navbar />
+      <main className="flex-auto min-w-0 flex flex-col pb-20">
+        <Suspense>{children}</Suspense>
+      </main>
+      <Footer />
+      <GlobalAudioPlayer />
+      <Analytics />
+      <SpeedInsights />
       <MissingResourceIndicator />
       <DevToolsPanel />
     </>

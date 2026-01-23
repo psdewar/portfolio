@@ -7,15 +7,21 @@ import Image from "next/image";
 import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
 import LiveChat from "../components/LiveChat";
-import { calculateStripeFee } from "../lib/stripe";
+import { PatronModal } from "../components/PatronModal";
 import { useLiveStatus } from "../hooks/useLiveStatus";
+import { formatNextStream } from "../lib/dates";
+import {
+  EyeIcon,
+  GiftIcon,
+  BellIcon,
+  SpeakerSlashIcon,
+  PlayIcon,
+  MicrophoneStageIcon,
+} from "@phosphor-icons/react";
+import { useAudio } from "../contexts/AudioContext";
+import { useDevTools } from "../contexts/DevToolsContext";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
-
-const TIP_AMOUNTS = [10, 25, 50, 100, 250, 500, 1000].map((base) => ({
-  base,
-  ...calculateStripeFee(base),
-}));
 
 interface StreamStatus {
   online: boolean;
@@ -27,6 +33,9 @@ interface StreamStatus {
 export default function LivePage() {
   const searchParams = useSearchParams();
   const posthog = usePostHog();
+  const { currentTrack } = useAudio();
+  const { simulatePatron } = useDevTools();
+  const hasAudioPlayer = !!currentTrack;
   const isOgMode = searchParams.get("og") === "true";
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
@@ -46,13 +55,12 @@ export default function LivePage() {
     lastConnectTime: liveStatus.lastConnectTime,
   };
   const isLoading = isOgMode ? false : liveStatus.isLoading;
-  const [tipAmount, setTipAmount] = useState("10");
-  const [isTipping, setIsTipping] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
   const [isLocalhost, setIsLocalhost] = useState(false);
-  const [showTipPanel, setShowTipPanel] = useState(false);
+  const [showPatronModal, setShowPatronModal] = useState(false);
   const [showNotifyPanel, setShowNotifyPanel] = useState(false);
   const [commenterName, setCommenterName] = useState<string | null>(null);
+  const [isPatron, setIsPatron] = useState(false);
   const [mockNameInput, setMockNameInput] = useState("");
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
@@ -76,7 +84,10 @@ export default function LivePage() {
   useEffect(() => {
     const storedName = localStorage.getItem("liveCommenterName");
     setCommenterName(storedName);
-  }, [showNotifyPanel]);
+    const patronStatus = localStorage.getItem("patronStatus");
+    const patronEmail = localStorage.getItem("patronEmail");
+    setIsPatron((patronStatus === "active" && !!patronEmail) || simulatePatron);
+  }, [showNotifyPanel, simulatePatron]);
 
   useEffect(() => {
     const hostname = window.location.hostname;
@@ -99,8 +110,10 @@ export default function LivePage() {
 
   useEffect(() => {
     if (searchParams.get("thanks") === "1") {
+      localStorage.setItem("patronStatus", "active");
+      setIsPatron(true);
       setShowThanks(true);
-      posthog?.capture("tip_completed", { source: "live" });
+      posthog?.capture("patron_checkout_completed", { source: "live" });
       window.history.replaceState({}, "", "/live");
       const timer = setTimeout(() => setShowThanks(false), 5000);
       return () => clearTimeout(timer);
@@ -120,17 +133,6 @@ export default function LivePage() {
       .catch(() => {});
   }, []);
 
-  const formatNextStream = (iso: string) => {
-    const date = new Date(iso);
-    const options: Intl.DateTimeFormatOptions = { timeZone: "America/Los_Angeles" };
-    const day = date.toLocaleDateString("en-US", { ...options, weekday: "short" }).toUpperCase();
-    const month = date.toLocaleDateString("en-US", { ...options, month: "short" }).toUpperCase();
-    const dayNum = parseInt(date.toLocaleDateString("en-US", { ...options, day: "numeric" }), 10);
-    const hour = parseInt(date.toLocaleString("en-US", { ...options, hour: "numeric", hour12: false }), 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${day} ${month} ${dayNum} · ${hour12}${ampm} PT`;
-  };
 
   useEffect(() => {
     if (!status.online || !status.lastConnectTime) {
@@ -244,45 +246,8 @@ export default function LivePage() {
     setIsMuted(false);
   };
 
-  const handleTipWithAmount = async (amount: number) => {
-    if (amount < 1) {
-      alert("Minimum tip is $1");
-      return;
-    }
-    setIsTipping(true);
-    try {
-      const res = await fetch("/api/fund-project", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectTitle: "Live Stream Support",
-          projectId: "live-stream",
-          amount: Math.round(amount * 100),
-        }),
-      });
-      const { url, error } = await res.json();
-      if (error || !url) throw new Error(error || "Failed to create checkout");
-      if (!url.startsWith("https://checkout.stripe.com/")) throw new Error("Invalid URL");
-      window.location.href = url;
-    } catch {
-      alert("Something went wrong. Please try again.");
-    } finally {
-      setIsTipping(false);
-    }
-  };
-
-  const handleTip = async () => {
-    const amount = parseFloat(tipAmount);
-    if (isNaN(amount) || amount < 1) {
-      alert("Minimum tip is $1");
-      return;
-    }
-    const { total } = calculateStripeFee(amount);
-    handleTipWithAmount(total);
-  };
-
   const closePanels = () => {
-    setShowTipPanel(false);
+    setShowPatronModal(false);
     setShowNotifyPanel(false);
   };
 
@@ -290,87 +255,6 @@ export default function LivePage() {
     <>
       {/* Top bar */}
       <div className={`absolute top-0 inset-x-0 z-10 ${isMobile ? "p-3" : "p-4"}`}>
-        {/* Slide-in tip panel from left - mobile only */}
-        {isMobile && showTipPanel && (
-          <div
-            className="absolute top-0 left-0 right-12 h-auto backdrop-blur z-20"
-            style={{ animation: "slideInLeft 0.2s ease-out" }}
-          >
-            <div className="p-5 bg-gradient-to-br from-white/95 to-neutral-100/95 dark:from-neutral-900/95 dark:to-neutral-800/95 rounded-br-2xl">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-emerald-500 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                    />
-                  </svg>
-                  <h2 className="text-xl font-medium text-neutral-900 dark:text-white">
-                    Support my independence
-                  </h2>
-                </div>
-                <button
-                  onClick={closePanels}
-                  className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-white transition-colors p-1"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex gap-2 mb-2 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
-                {TIP_AMOUNTS.map(({ base, total }) => (
-                  <button
-                    key={base}
-                    onClick={() => handleTipWithAmount(total)}
-                    disabled={isTipping}
-                    className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
-                  >
-                    ${base}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
-                Thanks for covering the processing fee
-              </p>
-              <div className="flex gap-2">
-                <div className="relative flex-[5] min-w-0">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-lg">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    value={tipAmount}
-                    onChange={(e) => setTipAmount(e.target.value)}
-                    min="1"
-                    placeholder="10"
-                    className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
-                  />
-                </div>
-                <button
-                  onClick={handleTip}
-                  disabled={isTipping || !tipAmount}
-                  className="flex-[3] min-w-0 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
-                >
-                  {isTipping ? "..." : "Leave a tip"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex items-start justify-between">
           {/* Elapsed time - top left */}
           {elapsedTime && (
@@ -386,64 +270,37 @@ export default function LivePage() {
                 LIVE
               </div>
               <div className="bg-black/40 px-2.5 py-1 rounded-full text-sm flex items-center gap-1.5 text-white">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path
-                    fillRule="evenodd"
-                    d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <EyeIcon size={16} weight="fill" />
                 {status.viewerCount}
               </div>
             </div>
             {/* Action icons - mobile only */}
             {isMobile && (
               <div className="flex flex-col gap-4">
-                <button
-                  onClick={() => {
-                    setShowNotifyPanel(false);
-                    setShowTipPanel(!showTipPanel);
-                  }}
-                >
-                  <svg
-                    className={`w-8 h-8 drop-shadow-lg ${
-                      showTipPanel ? "text-emerald-400" : "text-white"
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTipPanel(false);
-                    setShowNotifyPanel(!showNotifyPanel);
-                  }}
-                >
-                  <svg
-                    className={`w-8 h-8 drop-shadow-lg ${
-                      showNotifyPanel ? "text-blue-400" : "text-white"
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-                    />
-                  </svg>
-                </button>
+                {!isPatron && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowNotifyPanel(false);
+                        setShowPatronModal(true);
+                      }}
+                    >
+                      <GiftIcon size={32} weight="duotone" className="drop-shadow-lg text-white" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPatronModal(false);
+                        setShowNotifyPanel(!showNotifyPanel);
+                      }}
+                    >
+                      <BellIcon
+                        size={32}
+                        weight="duotone"
+                        className={`drop-shadow-lg ${showNotifyPanel ? "text-blue-400" : "text-white"}`}
+                      />
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -457,9 +314,7 @@ export default function LivePage() {
           data-testid="unmute-overlay"
         >
           <div className="absolute top-14 left-3 p-2 rounded-full bg-black/50 backdrop-blur">
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-            </svg>
+            <SpeakerSlashIcon size={20} weight="fill" className="text-white" />
           </div>
         </button>
       )}
@@ -470,9 +325,7 @@ export default function LivePage() {
           className="absolute inset-0 z-20 flex items-center justify-center bg-black/30"
         >
           <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center hover:bg-white/30 transition-colors">
-            <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <PlayIcon size={40} weight="fill" className="text-white ml-1" />
           </div>
         </button>
       )}
@@ -513,7 +366,7 @@ export default function LivePage() {
   };
 
   return (
-    <div className={`fixed left-0 right-0 bottom-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"}`} data-og-container>
+    <div className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`} data-og-container>
       {/* Thank You Toast */}
       {showThanks && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
@@ -536,6 +389,9 @@ export default function LivePage() {
           </div>
         </div>
       )}
+
+      {/* Patron Modal */}
+      <PatronModal isOpen={showPatronModal} onClose={() => setShowPatronModal(false)} />
 
       {/* Desktop Layout */}
       <div className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute inset-4 items-center justify-center z-[2]">
@@ -591,30 +447,20 @@ export default function LivePage() {
                     {nextStreamDate && (
                       <>
                         <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                        <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1">
+                        <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1 leading-none">
                           {formatNextStream(nextStreamDate)}
                         </h1>
                       </>
                     )}
-                    <button
-                      onClick={() => setShowNotifyPanel(true)}
-                      className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        viewBox="0 0 24 24"
+                    {!isPatron && (
+                      <button
+                        onClick={() => setShowNotifyPanel(true)}
+                        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                        />
-                      </svg>
-                      Notify me by email
-                    </button>
+                        <BellIcon size={16} weight="regular" />
+                        Notify me by email
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -622,64 +468,38 @@ export default function LivePage() {
 
             {/* Sidebar - hidden in OG mode */}
             {!isOgMode && <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
-              {/* Tip Section */}
-              <div className="p-3 lg:p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                <div className="flex items-center gap-2 lg:gap-3 mb-2 lg:mb-3">
-                  <svg
-                    className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-500 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                    />
-                  </svg>
-                  <h3 className="font-semibold text-sm lg:text-lg text-neutral-900 dark:text-white">
-                    Support my independence
-                  </h3>
-                </div>
-                <div className="flex gap-1 lg:gap-1.5 mb-1 lg:mb-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-3 lg:-mx-4 px-3 lg:px-4">
-                  {TIP_AMOUNTS.map(({ base, total }) => (
-                    <button
-                      key={base}
-                      onClick={() => handleTipWithAmount(total)}
-                      disabled={isTipping}
-                      className="py-1.5 lg:py-2.5 px-2 lg:px-3 rounded-lg text-sm lg:text-lg font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600 shrink-0"
-                    >
-                      ${base}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-neutral-500 mb-2 lg:mb-3">
-                  Thanks for covering the processing fee
-                </p>
-                <div className="flex gap-1.5 lg:gap-2">
-                  <div className="relative flex-[5] min-w-0">
-                    <span className="absolute left-2 lg:left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-base lg:text-lg">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      value={tipAmount}
-                      onChange={(e) => setTipAmount(e.target.value)}
-                      min="1"
-                      placeholder="10"
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg py-1.5 lg:py-2 pl-5 lg:pl-7 pr-2 lg:pr-3 text-base lg:text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
-                    />
-                  </div>
+              {/* Support Section - only show for non-patrons */}
+              {!isPatron && (
+                <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
                   <button
-                    onClick={handleTip}
-                    disabled={isTipping || !tipAmount}
-                    className="flex-[3] min-w-0 py-1.5 lg:py-2 px-2 lg:px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 font-semibold rounded-lg text-xs lg:text-sm text-white transition-all shadow-md shadow-emerald-500/20"
+                    onClick={() => setShowPatronModal(true)}
+                    className="w-full py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium flex items-center justify-center gap-2 transition-colors"
                   >
-                    {isTipping ? "..." : "Leave a tip"}
+                    <MicrophoneStageIcon size={28} weight="regular" />
+                    Become my patron
                   </button>
                 </div>
-              </div>
+              )}
+
+              {/* Merch teaser - show when offline */}
+              {!status.online && (
+                <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
+                      <Image
+                        src="/images/merch/exhibit-psd-merch.JPG"
+                        alt="Exhibit PSD Shirt"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-white">Limited Edition Tee</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Available at shows</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Chat - always visible, gated when offline */}
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -728,121 +548,24 @@ export default function LivePage() {
                   <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
                   {/* Offline top bar - below marquee */}
                   <div className="absolute top-10 inset-x-0 z-10 p-3">
-                    {/* Slide-in tip panel from left */}
-                    {showTipPanel && (
-                      <div
-                        className="absolute top-0 left-0 right-12 h-auto backdrop-blur z-20"
-                        style={{ animation: "slideInLeft 0.2s ease-out" }}
-                      >
-                        <div className="p-5 bg-gradient-to-br from-white/95 to-neutral-100/95 dark:from-neutral-900/95 dark:to-neutral-800/95 rounded-br-2xl">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-2">
-                              <svg
-                                className="w-5 h-5 text-emerald-500 shrink-0"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                                />
-                              </svg>
-                              <h2 className="text-xl font-medium text-neutral-900 dark:text-white">
-                                Support my independence
-                              </h2>
-                            </div>
-                            <button
-                              onClick={closePanels}
-                              className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-white transition-colors p-1"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                          <div className="flex gap-2 mb-2 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5">
-                            {TIP_AMOUNTS.map(({ base, total }) => (
-                              <button
-                                key={base}
-                                onClick={() => handleTipWithAmount(total)}
-                                disabled={isTipping}
-                                className="py-3 px-4 rounded-xl text-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-50 transition-all text-neutral-700 dark:text-white border border-neutral-300 dark:border-white/10 hover:border-neutral-400 dark:hover:border-white/20 shrink-0"
-                              >
-                                ${base}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
-                            Thanks for covering the processing fee
-                          </p>
-                          <div className="flex gap-2">
-                            <div className="relative flex-[5] min-w-0">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-lg">
-                                $
-                              </span>
-                              <input
-                                type="number"
-                                value={tipAmount}
-                                onChange={(e) => setTipAmount(e.target.value)}
-                                min="1"
-                                placeholder="10"
-                                className="w-full bg-neutral-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl py-2.5 pl-7 pr-3 text-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-500/50 transition-all"
-                              />
-                            </div>
-                            <button
-                              onClick={handleTip}
-                              disabled={isTipping || !tipAmount}
-                              className="flex-[3] min-w-0 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:hover:from-emerald-500 disabled:hover:to-emerald-600 font-semibold rounded-xl text-sm text-white transition-all shadow-lg shadow-emerald-500/20"
-                            >
-                              {isTipping ? "..." : "Leave a tip"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                     {!isOgMode && (
                       <div className="flex items-start justify-between">
                         <div />
                         <div className="flex flex-col items-end gap-4">
                           <div />
-                          {/* Action icons - mobile only */}
-                          <div className="flex flex-col gap-4">
-                            <button
-                              onClick={() => {
-                                setShowNotifyPanel(false);
-                                setShowTipPanel(!showTipPanel);
-                              }}
-                            >
-                              <svg
-                                className={`w-8 h-8 drop-shadow-lg ${
-                                  showTipPanel ? "text-emerald-400" : "text-white"
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                                viewBox="0 0 24 24"
+                          {/* Action icons - mobile only, hidden for patrons */}
+                          {!isPatron && (
+                            <div className="flex flex-col gap-4">
+                              <button
+                                onClick={() => {
+                                  setShowNotifyPanel(false);
+                                  setShowPatronModal(true);
+                                }}
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M21 11v10H3V11M1 6h22v5H1zM12 21V6M12 6s-1-4-4.5-4a2.5 2.5 0 000 5H12zM12 6s1-4 4.5-4a2.5 2.5 0 010 5H12z"
-                                />
-                              </svg>
-                            </button>
-                          </div>
+                                <GiftIcon size={32} weight="duotone" className="drop-shadow-lg text-white" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -870,30 +593,20 @@ export default function LivePage() {
                     {nextStreamDate && (
                       <>
                         <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                        <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1">
+                        <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1 leading-none">
                           {formatNextStream(nextStreamDate)}
                         </h1>
                       </>
                     )}
-                    <button
-                      onClick={() => setShowNotifyPanel(true)}
-                      className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        viewBox="0 0 24 24"
+                    {!isPatron && (
+                      <button
+                        onClick={() => setShowNotifyPanel(true)}
+                        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                        />
-                      </svg>
-                      Notify me by email
-                    </button>
+                        <BellIcon size={16} weight="regular" />
+                        Notify me by email
+                      </button>
+                    )}
                   </div>
                 </>
               )}

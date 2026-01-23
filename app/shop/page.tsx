@@ -1,5 +1,5 @@
 import { ShopContent } from "../components/ShopContent";
 
 export default function Page() {
-  return <ShopContent showGallery={true} />;
+  return <ShopContent />;
 }

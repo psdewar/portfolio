@@ -400,6 +400,22 @@ table {
   animation: gradient-shift 3s linear infinite;
 }
 
+/* Text vertical alignment for display fonts (font-bebas)
+ * Reference: https://lik.ai/guides/css-text-metrics-and-alignment/
+ * Uses margin-block fallback for browsers without text-box-trim support
+ */
+.text-trim {
+  margin-block: calc(0.5cap - 0.5lh);
+}
+
+@supports (text-box-trim: trim-both) {
+  .text-trim {
+    margin-block: 0;
+    text-box-trim: trim-both;
+    text-box-edge: cap alphabetic;
+  }
+}
+
 .electric-border {
   position: relative;
 }

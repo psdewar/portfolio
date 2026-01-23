@@ -4,6 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
 import { usePathname } from "next/navigation";
+import {
+  PlayIcon,
+  PauseIcon,
+  ChatTextIcon,
+  ArrowRightIcon,
+} from "@phosphor-icons/react";
 
 // Parsed lyrics data - imported at build time from SRT files
 // Format: { start: seconds, end: seconds, text: string, isCTA?: boolean }
@@ -14,36 +20,7 @@ const LYRICS_DATA: Record<string, LyricLine[]> = {
   patience: patienceLyrics as LyricLine[],
 };
 
-// CTA marker - when lyrics contain this, show the buy link instead
 const CTA_MARKER = "[GET FULL LYRICS]";
-
-const PlayIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M8 5v14l11-7z" />
-  </svg>
-);
-
-const PauseIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-  </svg>
-);
-
-const LyricsIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    strokeWidth={1.5}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
-    />
-  </svg>
-);
 
 export const GlobalAudioPlayer: React.FC = () => {
   const pathname = usePathname() ?? "/";
@@ -134,19 +111,7 @@ export const GlobalAudioPlayer: React.FC = () => {
                     className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white text-xs sm:text-sm font-medium rounded-full transition-all hover:scale-105 flex-shrink-0"
                   >
                     Get full lyrics
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
+                    <ArrowRightIcon size={14} weight="bold" />
                   </Link>
                 ) : (
                   <p
@@ -186,7 +151,7 @@ export const GlobalAudioPlayer: React.FC = () => {
                   }`}
                   aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
                 >
-                  <LyricsIcon className="w-5 h-5" />
+                  <ChatTextIcon size={20} weight="regular" />
                 </button>
               )}
 
@@ -204,9 +169,9 @@ export const GlobalAudioPlayer: React.FC = () => {
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 ) : isPlaying ? (
-                  <PauseIcon className="w-5 h-5" />
+                  <PauseIcon size={20} weight="fill" />
                 ) : (
-                  <PlayIcon className="w-5 h-5 ml-0.5" />
+                  <PlayIcon size={20} weight="fill" className="ml-0.5" />
                 )}
               </button>
             </div>

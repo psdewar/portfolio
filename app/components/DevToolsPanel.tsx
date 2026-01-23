@@ -10,10 +10,12 @@ export function DevToolsPanel() {
     useLocalAudio,
     slowNetworkDelay,
     enableIngConversion,
+    simulatePatron,
     setSimulateSlowNetwork,
     setUseLocalAudio,
     setSlowNetworkDelay,
     setEnableIngConversion,
+    setSimulatePatron,
   } = useDevTools();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -148,6 +150,28 @@ export function DevToolsPanel() {
               </label>
               <p className="text-xs text-gray-400 pl-4">
                 Lyrics sync: convert -ing to -in' (hip-hop style)
+              </p>
+            </div>
+
+            {/* Simulate Patron */}
+            <div className="space-y-2">
+              <label className="flex items-center justify-between">
+                <span className="text-sm font-medium">👑 Simulate Patron</span>
+                <button
+                  onClick={() => setSimulatePatron(!simulatePatron)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    simulatePatron ? "bg-orange-500" : "bg-gray-600"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                      simulatePatron ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+              </label>
+              <p className="text-xs text-gray-400 pl-4">
+                View patron experience on /patron page
               </p>
             </div>
 

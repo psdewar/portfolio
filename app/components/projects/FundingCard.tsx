@@ -35,10 +35,13 @@ export function FundingCard({
     { amount: 1000, label: "keep going" },
     { amount: 2500, label: "your music is great" },
     { amount: 5000, label: "you're a top-notch artist" },
-    {
-      amount: 10000,
-      label: "your live show is must-see",
-    },
+    { amount: 10000, label: "your live show is must-see" },
+  ];
+
+  const higherTiers = [
+    { amount: 25000, label: "Become my patron" },
+    { amount: 50000, label: "Inner circle access" },
+    { amount: 100000, label: "Founding supporter" },
   ];
 
   const handlePayment = async (amountInCents: number) => {
@@ -146,6 +149,37 @@ export function FundingCard({
               <span className="text-sm lg:text-base text-gray-600 dark:text-gray-300 leading-snug">
                 {isLoading && selectedAmount === amount ? "Processing..." : label}
               </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Higher Tiers */}
+      <div className="space-y-2 mb-3">
+        {higherTiers.map(({ amount, label }) => {
+          const count = tierCounts ? tierCounts[String(amount)] || 0 : 0;
+          return (
+            <button
+              key={amount}
+              onClick={() => handlePayment(amount)}
+              disabled={isLoading}
+              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
+                selectedAmount === amount
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <span className="text-base lg:text-lg text-gray-600 dark:text-gray-300">
+                {isLoading && selectedAmount === amount ? "Processing..." : label}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xl lg:text-2xl font-medium text-gray-900 dark:text-white tabular-nums">
+                  ${(amount / 100).toFixed(0)}
+                </span>
+                <span className="inline-flex justify-center items-center w-6 h-6 rounded-full bg-green-600 text-white text-xs lg:text-sm font-medium shadow-sm ring-2 ring-white/60 dark:ring-gray-800/60 tabular-nums flex-shrink-0">
+                  {count}
+                </span>
+              </div>
             </button>
           );
         })}

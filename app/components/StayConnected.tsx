@@ -4,10 +4,24 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { usePostHog } from "posthog-js/react";
 import { ContactFormData } from "../actions";
 
+interface SelectedTier {
+  name: string;
+  amount: number;
+  period: "monthly" | "annually";
+}
+
+const TIER_ELEMENTS: Record<string, string> = {
+  Pen: "words that paint the art",
+  Flow: "rhythm that moves the art",
+  Mind: "ideas that shape the art",
+  Soul: "fire that fuels the art",
+};
+
 interface StayConnectedProps {
   onClose?: () => void;
   isModal?: boolean;
   shouldShow?: boolean;
+  selectedTier?: SelectedTier;
 }
 
 interface FormErrors {
@@ -32,6 +46,9 @@ export const shouldShowStayConnected = (): boolean => {
   // Hide for OG screenshot captures
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("og") === "true") return false;
+  // Never show to patrons - they've already committed
+  const patronStatus = localStorage.getItem("patronStatus");
+  if (patronStatus === "active") return false;
   const completedTime = sessionStorage.getItem("stayConnectedCompleted");
   if (isWithinLastFiveMinutes(completedTime)) return false;
   const dismissedTime = sessionStorage.getItem("stayConnectedDismissed");
@@ -43,6 +60,7 @@ export default function StayConnected({
   onClose,
   isModal = false,
   shouldShow: externalShouldShow,
+  selectedTier,
 }: StayConnectedProps) {
   const posthog = usePostHog();
   const [contactFormData, setContactFormData] = useState<ContactFormData>({
@@ -145,7 +163,7 @@ export default function StayConnected({
       const res = await fetch("/api/otp/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(contactFormData),
+        body: JSON.stringify({ ...contactFormData, tier: selectedTier?.name || "" }),
       });
 
       const data = await res.json();
@@ -293,7 +311,7 @@ export default function StayConnected({
       {isModal && onClose && (
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 md:top-8 md:right-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10"
           aria-label="Close"
         >
           <svg
@@ -312,21 +330,31 @@ export default function StayConnected({
         </button>
       )}
 
-      <div className="my-4 inline-flex items-center gap-2">
+      <div className="my-4 inline-flex items-center gap-3 pr-6">
         <Image
-          src="/images/home/new-era-5-square.jpeg"
+          src="/images/home/openmic-square.jpeg"
           alt="Peyt rhymes with heat"
           width={48}
           height={48}
-          className="sm:w-16 sm:h-16 mx-auto rounded-full border-2 border-blue-500"
+          className="sm:w-16 sm:h-16 mx-auto rounded-full"
         />
-        <p className="text-gray-600 dark:text-gray-100 text-sm sm:text-base font-medium text-left">
-          {step === "code"
-            ? "Enter the verification code sent to your email."
-            : mode === "signup"
-            ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
-            : "Enter your email to get a verification code."}
-        </p>
+        <div className="text-left">
+          {selectedTier && step !== "code" && (
+            <p className="text-gray-900 dark:text-white text-sm sm:text-base font-medium">
+              You chose {selectedTier.name}:{" "}
+              {TIER_ELEMENTS[selectedTier.name] || "the element that puts it all together"}
+            </p>
+          )}
+          <p className="text-gray-600 dark:text-gray-100 text-sm sm:text-base font-medium">
+            {step === "code"
+              ? "Enter the verification code sent to your email."
+              : selectedTier
+                ? "Sign in or create an account to continue."
+                : mode === "signup"
+                  ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
+                  : "Enter your email to get a verification code."}
+          </p>
+        </div>
       </div>
 
       {step === "code" ? (
@@ -358,7 +386,7 @@ export default function StayConnected({
               className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-center tracking-[0.5em] font-mono ${
                 errors.otp
                   ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
+                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
               } focus:outline-none`}
             />
             {errors.otp && (
@@ -369,7 +397,7 @@ export default function StayConnected({
             type="button"
             onClick={handleVerifyCode}
             disabled={isLoading || countdown <= 0}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+            className="w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
           >
             {isLoading ? "Verifying..." : countdown <= 0 ? "Code expired" : "Verify"}
           </button>
@@ -377,7 +405,7 @@ export default function StayConnected({
             <button
               type="button"
               onClick={() => setStep("form")}
-              className="w-full text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="w-full text-sm text-neutral-900 dark:text-neutral-100 underline hover:underline"
             >
               Request new code
             </button>
@@ -385,7 +413,7 @@ export default function StayConnected({
           <button
             type="button"
             onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
-            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
           >
             {mode === "signup" ? "Already signed up? Sign in" : "New here? Sign up"}
           </button>
@@ -402,7 +430,7 @@ export default function StayConnected({
               className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
                 errors.firstName
                   ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
+                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
               } focus:outline-none`}
             />
             {errors.firstName && (
@@ -418,7 +446,7 @@ export default function StayConnected({
               className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
                 errors.email
                   ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
+                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
               } focus:outline-none`}
             />
             {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
@@ -429,20 +457,20 @@ export default function StayConnected({
               placeholder="Phone number"
               value={contactFormData.phone}
               onChange={(e) => handleInputChange("phone", e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-none transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+            className="w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
           >
             {isLoading ? "Sending code..." : "Stay connected"}
           </button>
           <button
             type="button"
             onClick={() => switchMode("signin")}
-            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
           >
             Already signed up? Sign in
           </button>
@@ -463,7 +491,7 @@ export default function StayConnected({
               className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
                 errors.email
                   ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-blue-500 dark:focus:border-blue-400"
+                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
               } focus:outline-none`}
             />
             {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
@@ -472,14 +500,14 @@ export default function StayConnected({
             type="button"
             onClick={handleRequestSignInCode}
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+            className="w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
           >
             {isLoading ? "Sending..." : "Send code"}
           </button>
           <button
             type="button"
             onClick={() => switchMode("signup")}
-            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
           >
             New here? Sign up
           </button>

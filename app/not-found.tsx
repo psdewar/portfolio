@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
-        <h1 className="font-bebas text-[20vw] sm:text-[15vw] leading-none text-neutral-800 dark:text-neutral-200 mb-2">
+        <h1 className="font-bebas text-[20vw] sm:text-[15vw] leading-none text-neutral-800 dark:text-neutral-200 mb-1">
           404
         </h1>
         <p className="text-neutral-600 dark:text-neutral-400 mb-8">This page doesn't exist.</p>

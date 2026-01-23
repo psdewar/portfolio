@@ -22,6 +22,7 @@ export interface Track {
 
 interface AudioState {
   currentTrack: Track | null;
+  loadingTrack: Track | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -88,7 +89,7 @@ const fetchAudioBlob = async (trackId: string): Promise<string> => {
     headers: { "Cache-Control": "private, max-age=86400" },
   });
 
-  if (!response.ok) throw new Error("Failed to fetch audio");
+  if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
 
   const blob = await response.blob();
   const blobUrl = URL.createObjectURL(blob);
@@ -108,6 +109,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const audio = getGlobalAudio();
   const [state, setState] = useState<AudioState>({
     currentTrack: null,
+    loadingTrack: null,
     isPlaying: false,
     currentTime: 0,
     duration: 0,
@@ -256,7 +258,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
 
       loadingTrackId.current = track.id;
-      setState((prev) => ({ ...prev, isLoading: true, isPlaying: false }));
+      setState((prev) => ({ ...prev, isLoading: true, isPlaying: false, loadingTrack: track }));
 
       try {
         const blobUrl = await fetchAudioBlob(track.id);
@@ -268,6 +270,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
           setState((prev) => ({
             ...prev,
             currentTrack: track,
+            loadingTrack: null,
             duration: track.duration || 0,
             isLoading: false,
           }));
@@ -277,8 +280,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
           }
         }
       } catch (error) {
-        console.error("Load track failed", error);
-        setState((prev) => ({ ...prev, isLoading: false }));
+        console.error("Load track failed:", error);
+        setState((prev) => ({ ...prev, isLoading: false, loadingTrack: null }));
       } finally {
         if (loadingTrackId.current === track.id) {
           loadingTrackId.current = null;

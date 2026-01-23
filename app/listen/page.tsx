@@ -2,16 +2,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
+import { MicrophoneStageIcon, Waveform, LockSimple } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
 import FreestyleOverlay from "app/components/FreestyleOverlay";
 import { useAudio } from "../contexts/AudioContext";
-import { useSimulatedLoading } from "../contexts/DevToolsContext";
+import { useSimulatedLoading, useDevTools } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
+import { isPatronTrack } from "../data/patron-config";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
-import { SINGLE_PRICE_OVERRIDES } from "../api/shared/products";
 import ListenLoading from "./loading";
 
 interface TrackCard {
@@ -28,13 +28,6 @@ const formatTrackTitle = (id: string) =>
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
     .trim();
 
-const PaymentModal = dynamic(
-  () =>
-    import("../components/PaymentModal").then((mod) => ({
-      default: mod.PaymentModal,
-    })),
-  { ssr: false }
-);
 
 const BASE_TRACKS: TrackCard[] = singles.filter(Boolean).map((s) => {
   const thumbs: Record<string, string> = {
@@ -63,29 +56,54 @@ const BASE_TRACKS: TrackCard[] = singles.filter(Boolean).map((s) => {
 const EXTRA_TRACKS: TrackCard[] = [
   {
     id: "mula-freestyle",
-    title: "Peyt Spencer - Mula Freestyle",
+    title: "Mula Freestyle",
     src: "/images/covers/mula.jpg",
   },
 ];
 
-const ALL_TRACKS: TrackCard[] = [...EXTRA_TRACKS, ...BASE_TRACKS];
-const TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
+// Patron-exclusive tracks (Welcome Pack)
+const PATRON_TRACKS: TrackCard[] = [
+  {
+    id: "so-good",
+    title: "So Good (2026)",
+    src: "/images/covers/so-good.jpg",
+  },
+  {
+    id: "crg-freestyle",
+    title: "Can't Rush Greatness Freestyle (2026)",
+    src: "/images/covers/crg-freestyle.jpg",
+  },
+];
 
-// Build fixed-price downloads from product config - only tracks with price overrides
-const FIXED_PRICE_DOWNLOADS: Record<string, number> = {
-  ...SINGLE_PRICE_OVERRIDES,
-};
+// Tracks awaiting artwork
+const ARTWORK_PENDING = new Set(["crg-freestyle", "so-good"]);
 
-const PLAYABLE_TRACK_IDS = new Set(["patience", "mula-freestyle"]);
+const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
+const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 
-// All singles + mula-freestyle are downloadable
-const DOWNLOADABLE_TRACK_IDS = new Set([...singles, "mula-freestyle"]);
+// All tracks in TRACK_DATA are playable
+const PLAYABLE_TRACK_IDS = new Set(TRACK_DATA.map((t) => t.id));
 
 export default function Page() {
-  const { loadTrack, loadPlaylist, currentTrack, isPlaying, isLoading, toggle, playlist } =
+  const { loadTrack, loadPlaylist, currentTrack, loadingTrack, isPlaying, isLoading, toggle, playlist } =
     useAudio();
   const isSimulatingLoad = useSimulatedLoading();
+  const { simulatePatron } = useDevTools();
   const [showStayConnected, setShowStayConnected] = useState(false);
+  const [isPatron, setIsPatron] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+
+  // Check patron status
+  useEffect(() => {
+    const patronStatus = localStorage.getItem("patronStatus");
+    const patronEmail = localStorage.getItem("patronEmail");
+    if ((patronStatus === "active" && patronEmail) || simulatePatron) {
+      setIsPatron(true);
+    }
+  }, [simulatePatron]);
+
+  // All tracks visible - playback gated by patron status
+  const visibleTracks = ALL_VISIBLE_TRACKS;
 
   // Check sessionStorage client-side to avoid hydration mismatch
   useEffect(() => {
@@ -94,20 +112,16 @@ export default function Page() {
     }
   }, []);
   const [playParam, setPlayParam] = useState<string | null>(null);
-  const downloadInitiatedRef = useRef(false);
   const hasHandledAutoPlay = useRef(false);
 
-  const [fixedCheckoutTrack, setFixedCheckoutTrack] = useState<string | null>(null);
-  const [paymentModal, setPaymentModal] = useState<{
-    isOpen: boolean;
-    trackId: string;
-    trackTitle: string;
-    trackThumbnail: string;
-  }>({ isOpen: false, trackId: "", trackTitle: "", trackThumbnail: "" });
-
-  // Initial Playlist Load
+  // Initial Playlist Load - skip if a track is already loading or loaded to avoid race condition
   useEffect(() => {
-    if (playlist.length === 0) {
+    if (playlist.length === 0 && !currentTrack && !loadingTrack) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPlayParam = urlParams.get("play");
+      if (urlPlayParam && PLAYABLE_TRACK_IDS.has(urlPlayParam)) {
+        return;
+      }
       const patienceTrack = TRACK_DATA.find((track) => track.id === "patience");
       if (patienceTrack) {
         loadPlaylist([
@@ -122,7 +136,7 @@ export default function Page() {
         ]);
       }
     }
-  }, [loadPlaylist, playlist.length]);
+  }, [loadPlaylist, playlist.length, currentTrack, loadingTrack]);
 
   // Read URL param
   useEffect(() => {
@@ -172,98 +186,6 @@ export default function Page() {
     }
   }, [playParam, handlePlayTrack]);
 
-  // Handle successful payment
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get("success");
-    const sessionId = urlParams.get("session_id");
-
-    if (
-      success === "true" &&
-      sessionId &&
-      sessionId.startsWith("cs_") &&
-      !downloadInitiatedRef.current
-    ) {
-      downloadInitiatedRef.current = true;
-      const downloadTrack = async () => {
-        try {
-          const sessionResponse = await fetch(`/api/download/session-info?session_id=${sessionId}`);
-          if (!sessionResponse.ok) throw new Error("Failed to verify session");
-          const sessionData = await sessionResponse.json();
-          if (sessionData.paymentStatus !== "paid") throw new Error("Payment not completed");
-
-          const response = await fetch(
-            `/api/download/${sessionData.trackId}?session_id=${sessionId}`
-          );
-          if (!response.ok) throw new Error(`Download failed`);
-
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          const filename =
-            response.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ||
-            "download.mp3";
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } catch (error) {
-          console.error("Download failed:", error);
-          downloadInitiatedRef.current = false;
-          window.history.replaceState({}, document.title, window.location.pathname);
-          alert("Download failed. Please try again.");
-        }
-      };
-      downloadTrack();
-    }
-  }, []);
-
-  const openPaymentModal = (trackId: string) => {
-    const track = ALL_TRACKS.find((t) => t.id === trackId);
-    if (track) {
-      setPaymentModal({
-        isOpen: true,
-        trackId,
-        trackTitle: track.title,
-        trackThumbnail: track.src,
-      });
-    }
-  };
-
-  const startFixedPriceCheckout = async (trackId: string) => {
-    const amount = FIXED_PRICE_DOWNLOADS[trackId];
-    if (!amount) return;
-    try {
-      setFixedCheckoutTrack(trackId);
-      const res = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: trackId, // trackId === productId for individual singles
-          amount,
-          metadata: {
-            trackTitle: ALL_TRACKS.find((t) => t.id === trackId)?.title,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
-      window.location.href = data.url;
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Checkout failed");
-    } finally {
-      setFixedCheckoutTrack(null);
-    }
-  };
-
-  const handleDownloadClick = (trackId: string) => {
-    if (FIXED_PRICE_DOWNLOADS[trackId]) return void startFixedPriceCheckout(trackId);
-    openPaymentModal(trackId);
-  };
-
   const playMula = playParam === "mula-freestyle";
 
   // Show skeleton while simulating slow network (dev only)
@@ -272,13 +194,14 @@ export default function Page() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <>
       {showStayConnected && !playParam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />
         </div>
       )}
 
+      <div className="animate-fade-in">
       {playMula && (
         <FreestyleOverlay
           trackId="mula-freestyle"
@@ -286,68 +209,86 @@ export default function Page() {
             ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/covers/mula.jpg"
           }
           href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
-          fixedCheckoutTrack={fixedCheckoutTrack}
           onClose={() => {
             window.history.replaceState({}, document.title, window.location.pathname);
             setPlayParam(null);
             setShowStayConnected(false);
           }}
-          handleDownloadClick={handleDownloadClick}
         />
       )}
 
       <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {TRACKS.map((t) => {
+        {visibleTracks.map((t) => {
           const isCurrent = currentTrack?.id === t.id;
-          const isPlayable = PLAYABLE_TRACK_IDS.has(t.id);
-          const isDownloadable = DOWNLOADABLE_TRACK_IDS.has(t.id);
+          const isLoadingThis = loadingTrack?.id === t.id;
+          const isPatronOnly = isPatronTrack(t.id);
+          const canPlay = PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
 
           return (
             <div
               key={t.id}
               className="relative overflow-hidden aspect-square group cursor-pointer"
-              onClick={() => isPlayable && handlePlayTrack(t.id)}
+              onClick={() => canPlay && handlePlayTrack(t.id)}
             >
-              <Image
-                alt={t.title}
-                src={t.src}
-                fill
-                className="object-cover absolute inset-0"
-                loading="lazy"
-                sizes="(max-width: 768px) 50vw, 25vw"
-              />
+              {brokenImages.has(t.id) ? (
+                <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
+                  <Waveform size={48} weight="light" className="text-neutral-600" />
+                </div>
+              ) : (
+                <Image
+                  alt={t.title}
+                  src={t.src}
+                  fill
+                  className="object-cover absolute inset-0"
+                  loading="lazy"
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
+                />
+              )}
 
-              {isPlayable && isCurrent && (
+              {brokenImages.has(t.id) && (
+                <div className="absolute bottom-2 right-2 z-10">
+                  <span className="text-sm font-medium text-white/80">{t.title}</span>
+                </div>
+              )}
+
+              
+              {ARTWORK_PENDING.has(t.id) && (
+                <div className="absolute bottom-2 left-2 z-10">
+                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
+                    Early Listen
+                  </span>
+                </div>
+              )}
+
+              {canPlay && isCurrent && !isLoadingThis && (
                 <div className="absolute top-2 right-2 z-10">
                   <BlockVisualizer />
                 </div>
               )}
 
               {/* Loading overlay for audio fetch */}
-              {isLoading && isCurrent && (
+              {isLoadingThis && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 border-4 border-yellow-500/30 rounded-full" />
-                      <div className="absolute inset-0 w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                    <span className="text-white text-sm font-medium">Queuing up the track...</span>
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-yellow-500/30 rounded-full" />
+                    <div className="absolute inset-0 w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                   </div>
                 </div>
               )}
 
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center p-4">
                 <div className="w-full flex flex-col gap-2">
-                  {isPlayable && (
+                  {canPlay && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handlePlayTrack(t.id);
                       }}
-                      disabled={isLoading && isCurrent}
-                      className={`w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2`}
+                      disabled={isLoadingThis}
+                      className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
                     >
-                      {isLoading && isCurrent ? (
+                      {isLoadingThis ? (
                         <>
                           <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle
@@ -364,26 +305,24 @@ export default function Page() {
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             />
                           </svg>
-                          LOADING
+                          Loading
                         </>
                       ) : isCurrent && isPlaying ? (
-                        "PAUSE"
+                        "Pause"
                       ) : (
-                        "PLAY"
+                        "Play"
                       )}
                     </button>
                   )}
-                  {isDownloadable && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadClick(t.id);
-                      }}
-                      disabled={fixedCheckoutTrack === t.id}
-                      className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium shadow-lg disabled:opacity-70"
+                  {isPatronOnly && !isPatron && (
+                    <Link
+                      href="/patron"
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
                     >
-                      {fixedCheckoutTrack === t.id ? "..." : "DOWNLOAD"}
-                    </button>
+                      <MicrophoneStageIcon size={18} weight="regular" />
+                      Play
+                    </Link>
                   )}
                   {t.href && (
                     <Link
@@ -392,7 +331,7 @@ export default function Page() {
                       onClick={(e) => e.stopPropagation()}
                       className="w-full py-2 bg-white/90 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
                     >
-                      STREAM <ArrowIcon />
+                      Stream <ArrowIcon />
                     </Link>
                   )}
                 </div>
@@ -401,14 +340,7 @@ export default function Page() {
           );
         })}
       </div>
-
-      <PaymentModal
-        isOpen={paymentModal.isOpen}
-        onClose={() => setPaymentModal((p) => ({ ...p, isOpen: false }))}
-        trackId={paymentModal.trackId}
-        trackTitle={paymentModal.trackTitle}
-        trackThumbnail={paymentModal.trackThumbnail}
-      />
-    </div>
+      </div>
+    </>
   );
 }

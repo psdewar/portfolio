@@ -15,6 +15,7 @@ const nextConfig = {
       { protocol: "https", hostname: "distrokid.com" },
       { protocol: "https", hostname: "distrokid.imgix.net" },
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "assets.peytspencer.com" },
     ],
   },
   async headers() {

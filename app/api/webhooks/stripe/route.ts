@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
       break;
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+      await handleSubscriptionChange(event.data.object as Stripe.Subscription);
+      break;
+    case "customer.subscription.deleted":
+      await handleSubscriptionCancelled(event.data.object as Stripe.Subscription);
+      break;
     case "payment_intent.succeeded":
       break;
     case "charge.refunded":
@@ -149,6 +156,62 @@ async function updateProjectFunding(session: Stripe.Checkout.Session) {
     revalidatePath(`/fund/${projectId}`);
   } catch (error) {
     console.error("Error updating project funding:", error);
+  }
+}
+
+async function handleSubscriptionChange(subscription: Stripe.Subscription) {
+  try {
+    const customerId = typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
+    const status = subscription.status;
+
+    // Log subscription changes for now
+    // Future: Update patron status in database
+    console.log(`Subscription ${subscription.id} for customer ${customerId}: ${status}`);
+
+    // Track in PostHog
+    const posthog = PostHogClient();
+    posthog.capture({
+      distinctId: customerId,
+      event: "subscription_updated",
+      properties: {
+        subscription_id: subscription.id,
+        status,
+        plan_amount: subscription.items.data[0]?.price?.unit_amount,
+        plan_interval: subscription.items.data[0]?.price?.recurring?.interval,
+      },
+    });
+    await posthog.shutdown();
+  } catch (error) {
+    console.error("Error handling subscription change:", error);
+  }
+}
+
+async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
+  try {
+    const customerId = typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
+
+    console.log(`Subscription ${subscription.id} cancelled for customer ${customerId}`);
+
+    // Track in PostHog
+    const posthog = PostHogClient();
+    posthog.capture({
+      distinctId: customerId,
+      event: "subscription_cancelled",
+      properties: {
+        subscription_id: subscription.id,
+        canceled_at: subscription.canceled_at,
+      },
+    });
+    await posthog.shutdown();
+
+    // Future: Revoke patron status in database
+    // For now, patron cookie will eventually expire
+  } catch (error) {
+    console.error("Error handling subscription cancellation:", error);
   }
 }
 

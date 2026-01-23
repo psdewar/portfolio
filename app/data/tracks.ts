@@ -12,6 +12,24 @@ export interface TrackData {
 // Your track data with audio URLs
 // Note: You'll need to add actual MP3 files to /public/audio/ or use external URLs
 export const TRACK_DATA: TrackData[] = [
+  // Patron-exclusive tracks (Welcome Pack)
+  {
+    id: "so-good",
+    title: "So Good",
+    artist: "Peyt Spencer",
+    audioUrl: "/api/audio/so-good",
+    thumbnail: "/images/covers/so-good.jpg",
+    duration: 180,
+  },
+  {
+    id: "crg-freestyle",
+    title: "Can't Rush Greatness Freestyle",
+    artist: "Peyt Spencer",
+    audioUrl: "/api/audio/crg-freestyle",
+    thumbnail: "/images/covers/crg-freestyle.jpg",
+    duration: 150,
+  },
+  // Public tracks
   {
     id: "patience",
     title: "Patience",
@@ -59,25 +77,5 @@ export const TRACK_DATA: TrackData[] = [
       "https://distrokid.imgix.net/http%3A%2F%2Fgather.fandalism.com%2F817413--A0B1CB84-B25F-4D2D-9C327C33C11F567E--0--2456000--COVER5.jpg?fm=jpg&q=75&w=800&s=6a5ae0521975c2961d5d92519de8c03d",
     streamUrl: "https://distrokid.com/hyperfollow/peytspencer/where-i-wanna-be",
     duration: 188,
-  },
-  {
-    id: "critical-race-theory",
-    title: "Critical Race Theory",
-    artist: "Peyt Spencer",
-    audioUrl: "/api/audio/critical-race-theory",
-    thumbnail:
-      "https://distrokid.imgix.net/http%3A%2F%2Fgather.fandalism.com%2F817413--B18841A8-9A82-4802-AFDCD18E90A862B2--1599661443477--CRT2HD.jpg?fm=jpg&q=75&w=800&s=7fff4afae1ff89a3377a51d11677beb1",
-    streamUrl: "https://distrokid.com/hyperfollow/peytspencer/critical-race-theory",
-    duration: 165,
-  },
-  {
-    id: "better-days",
-    title: "Better Days",
-    artist: "Peyt Spencer",
-    audioUrl: "/api/audio/better-days",
-    thumbnail:
-      "https://distrokid.imgix.net/http%3A%2F%2Fgather.fandalism.com%2F817413--EF18880B-ADEA-42AB-AE111E4C3BFF353C--1576131163403--BetterDays.png?fm=jpg&q=75&w=800&s=281230a8f09faa3af7001b15d0e172c1",
-    streamUrl: "https://distrokid.com/hyperfollow/peytspencer/better-days",
-    duration: 201,
   },
 ];

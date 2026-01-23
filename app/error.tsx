@@ -11,7 +11,7 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
-        <h1 className="font-bebas text-[15vw] sm:text-[10vw] leading-none text-neutral-800 dark:text-neutral-200 mb-2">
+        <h1 className="font-bebas text-[15vw] sm:text-[10vw] leading-none text-neutral-800 dark:text-neutral-200 mb-1">
           Oops
         </h1>
         <p className="text-neutral-600 dark:text-neutral-400 mb-8">Something went wrong.</p>

@@ -16,6 +16,7 @@ interface OtpPayload {
   code: string;
   firstName: string;
   phone?: string;
+  tier?: string;
   expiresAt: number;
 }
 
