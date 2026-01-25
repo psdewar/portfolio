@@ -17,7 +17,9 @@ import {
   SpeakerSlashIcon,
   PlayIcon,
   MicrophoneStageIcon,
+  MapPinIcon,
 } from "@phosphor-icons/react";
+import { TIMELINE, formatEventDate } from "../data/timeline";
 import { useAudio } from "../contexts/AudioContext";
 import { useDevTools } from "../contexts/DevToolsContext";
 
@@ -133,7 +135,6 @@ export default function LivePage() {
       .catch(() => {});
   }, []);
 
-
   useEffect(() => {
     if (!status.online || !status.lastConnectTime) {
       setElapsedTime("");
@@ -151,7 +152,7 @@ export default function LivePage() {
 
       if (hours > 0) {
         setElapsedTime(
-          `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+          `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`,
         );
       } else {
         setElapsedTime(`${mins}:${secs.toString().padStart(2, "0")}`);
@@ -366,7 +367,10 @@ export default function LivePage() {
   };
 
   return (
-    <div className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`} data-og-container>
+    <div
+      className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`}
+      data-og-container
+    >
       {/* Thank You Toast */}
       {showThanks && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
@@ -402,7 +406,10 @@ export default function LivePage() {
         ) : (
           <div className="flex h-full">
             {/* Vertical Video Container */}
-            <div className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : "rounded-l-2xl"}`} data-og-video>
+            <div
+              className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : "rounded-l-2xl"}`}
+              data-og-video
+            >
               {status.online ? (
                 <>
                   <video
@@ -467,50 +474,71 @@ export default function LivePage() {
             </div>
 
             {/* Sidebar - hidden in OG mode */}
-            {!isOgMode && <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
-              {/* Support Section - only show for non-patrons */}
-              {!isPatron && (
-                <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                  <button
-                    onClick={() => setShowPatronModal(true)}
-                    className="w-full py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <MicrophoneStageIcon size={28} weight="regular" />
-                    Become my patron
-                  </button>
-                </div>
-              )}
+            {!isOgMode && (
+              <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
+                {/* Support Section - only show for non-patrons */}
+                {!isPatron && (
+                  <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+                    <button
+                      onClick={() => setShowPatronModal(true)}
+                      className="w-full py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <MicrophoneStageIcon size={28} weight="regular" />
+                      Become my patron
+                    </button>
+                  </div>
+                )}
 
-              {/* Merch teaser - show when offline */}
-              {!status.online && (
-                <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                      <Image
-                        src="/images/merch/exhibit-psd-merch.JPG"
-                        alt="Exhibit PSD Shirt"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-neutral-900 dark:text-white">Limited Edition Tee</p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Available at shows</p>
+                {/* Shows list - show when offline */}
+                {!status.online && (
+                  <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 overflow-y-auto max-h-64">
+                    <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
+                      Recent Shows
+                    </p>
+                    <div className="space-y-2">
+                      {TIMELINE.filter((e) => e.type === "show")
+                        .slice(0, 6)
+                        .map((show) => {
+                          const date = formatEventDate(show.date);
+                          return (
+                            <div key={show.id} className="flex items-start gap-3">
+                              <div className="text-center shrink-0 w-10">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                  {date.month}
+                                </p>
+                                <p className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
+                                  {date.day}
+                                </p>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                                  {show.title}
+                                </p>
+                                {show.location && (
+                                  <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
+                                    <MapPinIcon size={12} weight="fill" />
+                                    {show.location}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Chat - always visible, gated when offline */}
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                {isLocalhost && !commenterName && renderLocalhostNameInput()}
-                <LiveChat
-                  commenterName={status.online ? commenterName : null}
-                  onRequestSignIn={() => setShowNotifyPanel(true)}
-                  isFloating={false}
-                />
+                {/* Chat - always visible, gated when offline */}
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  {isLocalhost && !commenterName && renderLocalhostNameInput()}
+                  <LiveChat
+                    commenterName={status.online ? commenterName : null}
+                    onRequestSignIn={() => setShowNotifyPanel(true)}
+                    isFloating={false}
+                  />
+                </div>
               </div>
-            </div>}
+            )}
           </div>
         )}
       </div>
@@ -562,7 +590,11 @@ export default function LivePage() {
                                   setShowPatronModal(true);
                                 }}
                               >
-                                <GiftIcon size={32} weight="duotone" className="drop-shadow-lg text-white" />
+                                <GiftIcon
+                                  size={32}
+                                  weight="duotone"
+                                  className="drop-shadow-lg text-white"
+                                />
                               </button>
                             </div>
                           )}

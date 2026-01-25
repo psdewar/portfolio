@@ -1,5 +1,19 @@
 import { test, expect, Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "dev-tools-state",
+      JSON.stringify({
+        simulateSlowNetwork: false,
+        useLocalAudio: true,
+        slowNetworkDelay: 0,
+        enableIngConversion: false,
+      }),
+    );
+  });
+});
+
 async function gotoWithMock(page: Page, path: string) {
   await page.route("**/riff/stream", (route) => {
     route.fulfill({
@@ -34,12 +48,12 @@ async function gotoWithMock(page: Page, path: string) {
   });
 
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
 }
 
 test.describe("Live page", () => {
   test("loads successfully", async ({ page }) => {
     await gotoWithMock(page, "/live");
-    await expect(page.locator("body")).toBeVisible();
+    // Page should show offline state with "I AM OFFLINE" marquee or image
+    await expect(page.getByAltText("Peyt Spencer").first()).toBeVisible({ timeout: 5000 });
   });
 });

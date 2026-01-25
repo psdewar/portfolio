@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import posthog from "posthog-js";
+import { useHydrated } from "../hooks/useHydrated";
 import {
   RadioIcon,
   BroadcastIcon,
@@ -92,6 +93,7 @@ export function PatronContent({
   initialViewMode = "patron",
   forcePatron = false,
 }: PatronContentProps) {
+  const hydrated = useHydrated();
   const { simulatePatron } = useDevTools();
   const { loadTrack, toggle, isPlaying, currentTrack, isLoading: isAudioLoading } = useAudio();
   const [isLoading, setIsLoading] = useState(false);
@@ -661,7 +663,8 @@ export function PatronContent({
                             e.stopPropagation();
                             handleSubscribe(tier.chargeCents);
                           }}
-                          disabled={isLoading}
+                          disabled={isLoading || !hydrated}
+                          data-hydrated={hydrated}
                           className="w-full py-4 md:py-5 text-white text-[18px] md:text-[22px] font-medium rounded-xl transition-all mb-5 flex items-center justify-center disabled:opacity-50"
                           style={{
                             background: "linear-gradient(to right, #f97316, #ec4899)",

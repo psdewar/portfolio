@@ -17,9 +17,19 @@ const bebasNeue = Bebas_Neue({
 const siteConfig = {
   name: "Peyt Spencer",
   title: "Peyt Spencer | Rapper & Developer",
-  description: "Independent rapper from the Bay Area. Stream singles, watch live performances, and support the journey.",
+  description:
+    "Rapper and Microsoft engineer from Bellevue, WA. Stream singles, watch live performances, and support the journey.",
   url: "https://peytspencer.com",
-  keywords: ["Peyt Spencer", "rapper", "hip-hop", "Bay Area", "independent artist", "live music", "Lyrist"],
+  keywords: [
+    "Peyt Spencer",
+    "rapper",
+    "hip-hop",
+    "Bellevue",
+    "Seattle",
+    "independent artist",
+    "live music",
+    "Lyrist",
+  ],
   ogImage: "https://peytspencer.com/api/og",
   social: {
     ig: "https://instagram.com/peytspencer",
@@ -84,13 +94,27 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
+    "@id": "https://peytspencer.com/#artist",
     name: siteConfig.name,
     alternateName: siteConfig.name,
-    description: siteConfig.description,
+    description:
+      "Hip-hop artist from Bellevue, WA known for East Coast cadence and confident delivery. Microsoft engineer who built Lyrist (songwriting app) and his own live streaming infrastructure. Influenced by Jay-Z, Ja Rule, LL Cool J, Ludacris, and T.I.",
     url: siteConfig.url,
-    sameAs: Object.values(siteConfig.social),
-    jobTitle: ["Father", "Founder", "Rapper"],
-    worksFor: [{ "@type": "Organization", name: "Lyrist", url: "https://lyrist.app" }],
+    sameAs: [
+      ...Object.values(siteConfig.social),
+      "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN",
+      "https://lyrist.app/records/peyt-spencer",
+    ],
+    jobTitle: ["Rapper", "Software Engineer", "Founder"],
+    worksFor: [
+      { "@type": "Organization", name: "Microsoft" },
+      { "@type": "Organization", name: "Lyrist", url: "https://lyrist.app" },
+    ],
+    homeLocation: {
+      "@type": "Place",
+      name: "Bellevue, Washington",
+    },
+    genre: ["Hip-Hop", "Rap"],
     knowsAbout: [
       "Hip-Hop",
       "Rapping",

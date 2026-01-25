@@ -49,7 +49,21 @@ const nextConfig = {
       permanent: true,
     };
 
-    return [...singlesRedirects, pressRedirect];
+    const aliasRedirects = [
+      { source: "/music", destination: "/listen", permanent: true },
+      { source: "/songs", destination: "/listen", permanent: true },
+      { source: "/tracks", destination: "/listen", permanent: true },
+      { source: "/support", destination: "/patron", permanent: true },
+      { source: "/join", destination: "/patron", permanent: true },
+      { source: "/subscribe", destination: "/patron", permanent: true },
+      { source: "/membership", destination: "/patron", permanent: true },
+      { source: "/shows", destination: "/live", permanent: true },
+      { source: "/events", destination: "/live", permanent: true },
+      { source: "/concert", destination: "/live", permanent: true },
+      { source: "/concerts", destination: "/live", permanent: true },
+    ];
+
+    return [...singlesRedirects, pressRedirect, ...aliasRedirects];
   },
   async rewrites() {
     return [

@@ -11,10 +11,10 @@ interface SelectedTier {
 }
 
 const TIER_ELEMENTS: Record<string, string> = {
-  Pen: "words that paint the art",
-  Flow: "rhythm that moves the art",
-  Mind: "ideas that shape the art",
-  Soul: "fire that fuels the art",
+  Pen: "Words That Paint the Art",
+  Flow: "Rhythm That Moves the Art",
+  Mind: "Ideas That Shape the Art",
+  Soul: "Fire That Fuels the Art",
 };
 
 interface StayConnectedProps {

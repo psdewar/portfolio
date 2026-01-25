@@ -4,6 +4,13 @@ async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
 }
 
+async function clickHydratedJoinButton(page: Page) {
+  const joinButton = page.getByRole("button", { name: "Join" }).first();
+  await expect(joinButton).toBeVisible({ timeout: 3000 });
+  await expect(joinButton).toHaveAttribute("data-hydrated", "true", { timeout: 5000 });
+  await joinButton.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
@@ -13,7 +20,7 @@ test.beforeEach(async ({ page }) => {
         useLocalAudio: true,
         slowNetworkDelay: 0,
         enableIngConversion: false,
-      })
+      }),
     );
   });
 });
@@ -21,41 +28,42 @@ test.beforeEach(async ({ page }) => {
 test.describe("Patron page", () => {
   test("loads with patron content", async ({ page }) => {
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
 test.describe("Auth gate", () => {
   test("shows auth modal when non-logged-in user clicks join", async ({ page }) => {
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({ timeout: 30000 });
-    await page.waitForLoadState("networkidle");
+    const heading = page.getByRole("heading", { name: /become my patron/i });
+    await expect(heading).toBeVisible({ timeout: 5000 });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await expect(joinButton).toBeEnabled({ timeout: 10000 });
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
     // Auth modal should appear with form inputs
-    await expect(page.getByRole("textbox").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByPlaceholder("First name *")).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe("Checkout API", () => {
   test("join button shows auth modal for non-authenticated user", async ({ page }) => {
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await expect(joinButton).toBeEnabled({ timeout: 10000 });
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
     // Should show auth modal
-    await expect(page.getByRole("textbox").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByPlaceholder("First name *")).toBeVisible({ timeout: 5000 });
   });
 
   test("checkout triggers for authenticated user", async ({ page }) => {
     let checkoutCalled = false;
 
+    // Set up route interception BEFORE navigation
     await page.route("**/api/fund-project", async (route) => {
       checkoutCalled = true;
       await route.fulfill({
@@ -72,13 +80,13 @@ test.describe("Checkout API", () => {
     });
 
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await expect(joinButton).toBeEnabled({ timeout: 5000 });
-    await joinButton.click({ force: true });
+    await clickHydratedJoinButton(page);
 
-    // Wait for API call with polling
+    // Wait for API call
     await expect(async () => {
       expect(checkoutCalled).toBe(true);
     }).toPass({ timeout: 5000 });
@@ -88,10 +96,9 @@ test.describe("Checkout API", () => {
 test.describe("Patron content access", () => {
   test("listen page loads for non-patron", async ({ page }) => {
     await goto(page, "/listen");
-    await page.waitForLoadState("networkidle");
 
     // Page should load with track grid
-    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("listen page loads for patron", async ({ page }) => {
@@ -101,10 +108,9 @@ test.describe("Patron content access", () => {
     });
 
     await goto(page, "/listen");
-    await page.waitForLoadState("networkidle");
 
     // Page should load with track grid
-    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("patron page shows journey view for active patrons", async ({ page }) => {
@@ -114,10 +120,11 @@ test.describe("Patron content access", () => {
     });
 
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
 
     // Should show journey view with "Stacking the days" heading
-    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
@@ -155,83 +162,86 @@ test.describe("Checkout success flow", () => {
     });
 
     await goto(page, "/patron?thanks=1&session_id=test_session");
-    await page.waitForLoadState("networkidle");
 
-    // Check localStorage was set with polling
+    // Check localStorage was set
     await expect(async () => {
       const patronStatus = await page.evaluate(() => localStorage.getItem("patronStatus"));
       expect(patronStatus).toBe("active");
-    }).toPass({ timeout: 5000 });
+    }).toPass({ timeout: 3000 });
   });
 });
 
 test.describe("Auth modal", () => {
   test("shows sign up form when non-logged-in user clicks join", async ({ page }) => {
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
     // Should show form with input fields
-    await expect(page.getByRole("textbox").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByPlaceholder("First name *")).toBeVisible({ timeout: 5000 });
   });
 
   test("can switch between sign up and sign in modes", async ({ page }) => {
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
-    // Sign up mode has multiple inputs
-    const inputCount = await page.getByRole("textbox").count();
-    expect(inputCount).toBeGreaterThan(1);
+    // Sign up mode has first name field
+    await expect(page.getByPlaceholder("First name *")).toBeVisible({ timeout: 5000 });
 
-    // Switch to sign in
+    // Switch to sign in - first name field should disappear
     await page.getByText(/already signed up/i).click();
-    const signInInputCount = await page.getByRole("textbox").count();
-    expect(signInInputCount).toBeLessThan(inputCount);
+    await expect(page.getByPlaceholder("First name *")).not.toBeVisible();
+    await expect(page.getByPlaceholder("Email address")).toBeVisible();
 
     // Switch back to sign up
     await page.getByText(/new here/i).click();
-    const backToSignUpCount = await page.getByRole("textbox").count();
-    expect(backToSignUpCount).toBeGreaterThan(1);
+    await expect(page.getByPlaceholder("First name *")).toBeVisible();
   });
 
   test("shows selected tier info in auth modal", async ({ page }) => {
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
     // Modal should appear with tier info
-    await expect(page.getByText(/you chose/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/you chose/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("auth modal can be closed", async ({ page }) => {
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await joinButton.dispatchEvent("click");
+    await clickHydratedJoinButton(page);
 
     // Modal is open
-    await expect(page.getByRole("textbox").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByPlaceholder("First name *")).toBeVisible({ timeout: 5000 });
 
-    // Close modal
-    await page.getByRole("button", { name: /close/i }).click();
+    // Close modal (button has aria-label="Close")
+    await page.getByLabel("Close").click();
 
     // Modal should be closed - form inputs no longer visible
-    await expect(page.getByRole("textbox")).not.toBeVisible();
+    await expect(page.getByPlaceholder("First name *")).not.toBeVisible();
   });
 });
 
 test.describe("Billing period toggle", () => {
   test("billing toggle is functional", async ({ page }) => {
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
     // Toggle should be visible and clickable
     const toggle = page.getByText(/pay annually/i);
@@ -259,20 +269,25 @@ test.describe("Billing period toggle", () => {
     });
 
     await goto(page, "/patron");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
-    // Click annual toggle and wait for state update
+    // Wait for hydration before interacting with toggle
+    const joinButton = page.getByRole("button", { name: "Join" }).first();
+    await expect(joinButton).toHaveAttribute("data-hydrated", "true", { timeout: 5000 });
+
+    // Click annual toggle and wait for UI to update
     const toggle = page.getByText(/pay annually/i);
     await toggle.click();
-    await page.waitForTimeout(100);
+    await expect(page.getByText(/\/year/).first()).toBeVisible({ timeout: 3000 });
 
-    const joinButton = page.getByRole("button", { name: "Join" }).first();
-    await joinButton.dispatchEvent("click");
+    await joinButton.click();
 
-    // Wait for request with polling
+    // Wait for request
     await expect(async () => {
       expect(requestBody.interval).toBe("year");
-    }).toPass({ timeout: 5000 });
+    }).toPass({ timeout: 3000 });
   });
 });
 
@@ -284,32 +299,40 @@ test.describe("Patron mode - Journey view", () => {
     });
 
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("non-patron sees tier selection by default", async ({ page }) => {
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("non-patron can navigate to journey view", async ({ page }) => {
     await goto(page, "/patron");
-    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /become my patron/i })).toBeVisible({
+      timeout: 5000,
+    });
 
     await page.getByText(/shows.*releases/i).click();
-    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /stacking the days/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("journey view shows archive section", async ({ page }) => {
     await goto(page, "/patron?view=journey");
-    await expect(page.getByText(/from the archives/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/from the archives/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("archive section is interactive", async ({ page }) => {
     await goto(page, "/patron?view=journey");
 
     const archiveButton = page.getByRole("button", { name: /from the archives/i });
-    await expect(archiveButton).toBeVisible({ timeout: 30000 });
+    await expect(archiveButton).toBeVisible({ timeout: 5000 });
 
     // Archive should be clickable
     await archiveButton.click();
@@ -321,10 +344,9 @@ test.describe("Patron mode - Journey view", () => {
 test.describe("Patron mode - Listen page gating", () => {
   test("listen page shows track grid for non-patron", async ({ page }) => {
     await goto(page, "/listen");
-    await page.waitForLoadState("networkidle");
 
     // Track images should be visible
-    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("img").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("patron sees play controls on listen page", async ({ page }) => {
@@ -334,21 +356,25 @@ test.describe("Patron mode - Listen page gating", () => {
     });
 
     await goto(page, "/listen");
-    await page.waitForLoadState("networkidle");
+
+    // Wait for images to load first
+    const trackImage = page.getByRole("img").first();
+    await expect(trackImage).toBeVisible({ timeout: 5000 });
 
     // Hover over a track image to reveal overlay
-    const trackImage = page.getByRole("img").first();
     await trackImage.hover();
 
     // Patron should see Play button
-    await expect(page.getByRole("button", { name: /play/i }).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: /play/i }).first()).toBeVisible({
+      timeout: 3000,
+    });
   });
 });
 
 test.describe("Homepage patron CTA", () => {
   test("non-patron sees 'Become my patron' on homepage", async ({ page }) => {
     await goto(page, "/");
-    await expect(page.getByText(/become my patron/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/become my patron/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("patron sees 'Listen now' on homepage", async ({ page }) => {
@@ -357,7 +383,7 @@ test.describe("Homepage patron CTA", () => {
     });
 
     await goto(page, "/");
-    await expect(page.getByText(/listen now/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/listen now/i)).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -369,6 +395,6 @@ test.describe("Stripe portal access", () => {
     });
 
     await goto(page, "/patron");
-    await expect(page.getByText(/manage subscription/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/manage subscription/i)).toBeVisible({ timeout: 5000 });
   });
 });
