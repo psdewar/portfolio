@@ -3,6 +3,8 @@ import Image from "next/image";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePostHog } from "posthog-js/react";
 import { ContactFormData } from "../actions";
+import FormInput from "./FormInput";
+import ContactFields from "./ContactFields";
 
 interface SelectedTier {
   name: string;
@@ -25,7 +27,6 @@ interface StayConnectedProps {
 }
 
 interface FormErrors {
-  firstName?: string;
   email?: string;
   otp?: string;
 }
@@ -64,14 +65,13 @@ export default function StayConnected({
 }: StayConnectedProps) {
   const posthog = usePostHog();
   const [contactFormData, setContactFormData] = useState<ContactFormData>({
-    firstName: "",
+    name: "",
     email: "",
     phone: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const firstNameRef = useRef<HTMLInputElement | null>(null);
   const emailRef = useRef<HTMLInputElement | null>(null);
   const otpRef = useRef<HTMLInputElement | null>(null);
 
@@ -97,8 +97,6 @@ export default function StayConnected({
     const id = setTimeout(() => {
       if (step === "code") {
         otpRef.current?.focus();
-      } else if (mode === "signup") {
-        firstNameRef.current?.focus();
       } else {
         emailRef.current?.focus();
       }
@@ -163,7 +161,12 @@ export default function StayConnected({
       const res = await fetch("/api/otp/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...contactFormData, tier: selectedTier?.name || "" }),
+        body: JSON.stringify({
+          name: contactFormData.name,
+          email: contactFormData.email,
+          phone: contactFormData.phone,
+          tier: selectedTier?.name || "",
+        }),
       });
 
       const data = await res.json();
@@ -211,9 +214,9 @@ export default function StayConnected({
         return;
       }
 
-      // Success - store firstName and close
+      // Success - store name and close
       if (typeof window !== "undefined") {
-        localStorage.setItem("liveCommenterName", data.firstName);
+        if (data.firstName) localStorage.setItem("liveCommenterName", data.firstName);
         sessionStorage.setItem("stayConnectedCompleted", now().toString());
       }
 
@@ -245,10 +248,6 @@ export default function StayConnected({
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-
-    if (!contactFormData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    }
 
     if (!contactFormData.email.trim()) {
       newErrors.email = "Email is required";
@@ -420,46 +419,16 @@ export default function StayConnected({
         </div>
       ) : mode === "signup" ? (
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-          <div>
-            <input
-              ref={firstNameRef}
-              type="text"
-              placeholder="First name *"
-              value={contactFormData.firstName}
-              onChange={(e) => handleInputChange("firstName", e.target.value)}
-              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                errors.firstName
-                  ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
-              } focus:outline-none`}
-            />
-            {errors.firstName && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.firstName}</p>
-            )}
-          </div>
-          <div>
-            <input
-              type="email"
-              placeholder="Email address *"
-              value={contactFormData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                errors.email
-                  ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
-              } focus:outline-none`}
-            />
-            {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
-          </div>
-          <div>
-            <input
-              type="tel"
-              placeholder="Phone number"
-              value={contactFormData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-none transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
+          <ContactFields
+            ref={emailRef}
+            email={contactFormData.email}
+            name={contactFormData.name}
+            phone={contactFormData.phone}
+            onEmailChange={(v) => handleInputChange("email", v)}
+            onNameChange={(v) => handleInputChange("name", v)}
+            onPhoneChange={(v) => handleInputChange("phone", v)}
+            errors={errors}
+          />
           <button
             type="submit"
             disabled={isLoading}
@@ -477,25 +446,18 @@ export default function StayConnected({
         </form>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          <div>
-            <input
-              ref={emailRef}
-              type="email"
-              placeholder="Email address"
-              value={signInEmail}
-              onChange={(e) => {
-                setSignInEmail(e.target.value);
-                if (errors.email) setErrors({});
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleRequestSignInCode()}
-              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                errors.email
-                  ? "border-red-500 focus:border-red-500"
-                  : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
-              } focus:outline-none`}
-            />
-            {errors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email}</p>}
-          </div>
+          <FormInput
+            ref={emailRef}
+            type="email"
+            placeholder="Email address"
+            value={signInEmail}
+            onChange={(e) => {
+              setSignInEmail(e.target.value);
+              if (errors.email) setErrors({});
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleRequestSignInCode()}
+            error={errors.email}
+          />
           <button
             type="button"
             onClick={handleRequestSignInCode}
