@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { stripe } from "../../api/shared/stripe-utils";
 import { getProduct, getDownloadableAssets, hasDigitalAssets } from "../../api/shared/products";
+import { getPurchaseBySessionId } from "../../../lib/supabase-admin";
 import { SuccessClient } from "./SuccessClient";
 
 export const metadata: Metadata = {
@@ -52,6 +53,10 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
   const assets = product ? getDownloadableAssets(product) : [];
   const customerEmail = session.customer_details?.email || "";
 
+  // Check if email was already sent (by webhook)
+  const purchase = await getPurchaseBySessionId(sessionId);
+  const emailAlreadySent = purchase?.email_sent ?? false;
+
   return (
     <SuccessClient
       sessionId={sessionId}
@@ -59,6 +64,7 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
       customerEmail={customerEmail}
       hasDigital={hasDigital}
       assets={assets}
+      emailAlreadySent={emailAlreadySent}
     />
   );
 }

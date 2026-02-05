@@ -7,8 +7,10 @@ import {
   requiresShipping,
   hasDigitalAssets,
   getDownloadableAssets,
+  isTestMode,
 } from "../../shared/products";
-import { savePurchase, isKeepalive, decrementInventory } from "../../../../lib/supabase-admin";
+import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "../../../../lib/supabase-admin";
+import { sendDownloadEmail } from "../../../../lib/sendgrid";
 import PostHogClient from "../../../../lib/posthog";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -30,6 +32,11 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`Webhook signature verification failed: ${message}`);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  const testMode = isTestMode();
+  if (testMode) {
+    console.log(`[Webhook] TEST MODE - Event: ${event.type}`);
   }
 
   switch (event.type) {
@@ -110,8 +117,19 @@ async function handleDigitalFulfillment(
 
   const assets = getDownloadableAssets(product);
   const email = session.customer_details?.email;
+  const testMode = isTestMode();
+
+  if (testMode) {
+    console.log("[Webhook] TEST MODE - Digital fulfillment:", {
+      sessionId: session.id,
+      email,
+      productId: product.id,
+      assets,
+    });
+  }
 
   if (email) {
+    // Save purchase to database
     await savePurchase({
       sessionId: session.id,
       email,
@@ -121,6 +139,31 @@ async function handleDigitalFulfillment(
       amountCents: session.amount_total || undefined,
       paymentStatus: "paid",
     });
+
+    // Send download email automatically
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://peytspencer.com";
+    const downloadUrl = `${baseUrl}/shop/success?session_id=${session.id}`;
+
+    if (testMode) {
+      console.log("[Webhook] TEST MODE - Would send email:", {
+        to: email,
+        productName: product.name,
+        downloadUrl,
+      });
+    }
+
+    const emailSent = await sendDownloadEmail({
+      to: email,
+      productName: product.name,
+      downloadUrl,
+    });
+
+    if (emailSent) {
+      await markEmailSent(session.id);
+      console.log(`[Webhook] Download email sent to ${email} for ${product.name}`);
+    } else {
+      console.error(`[Webhook] Failed to send download email to ${email}`);
+    }
   }
 }
 

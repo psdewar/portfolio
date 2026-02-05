@@ -10,6 +10,7 @@ type Props = {
   customerEmail: string;
   hasDigital: boolean;
   assets: string[];
+  emailAlreadySent?: boolean;
 };
 
 export function SuccessClient({
@@ -18,11 +19,16 @@ export function SuccessClient({
   customerEmail,
   hasDigital,
   assets,
+  emailAlreadySent = false,
 }: Props) {
   const router = useRouter();
-  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    emailAlreadySent ? "sent" : "idle"
+  );
   const [countdown, setCountdown] = useState(5);
-  const [emailMessage, setEmailMessage] = useState("");
+  const [emailMessage, setEmailMessage] = useState(
+    emailAlreadySent ? `Download link sent to ${customerEmail}` : ""
+  );
 
   // Auto-redirect countdown after email is sent
   useEffect(() => {
@@ -121,6 +127,12 @@ export function SuccessClient({
                       className="w-full bg-white text-black font-bold py-5 px-6 rounded-xl transition-all active:scale-[0.98] text-xl"
                     >
                       Back to Shop ({countdown}s)
+                    </button>
+                    <button
+                      onClick={() => setEmailStatus("idle")}
+                      className="w-full text-neutral-400 hover:text-white text-sm transition-colors"
+                    >
+                      Didn't receive it? Resend email
                     </button>
                   </div>
                 )}
