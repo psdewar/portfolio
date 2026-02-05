@@ -3,19 +3,6 @@ import { verifyOtpToken, verifyOtpCodeSafe } from "../../../../lib/otp-token";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
-function toDelimited(
-  firstName: string,
-  email: string,
-  phone: string,
-  tier: string,
-  delim = ",",
-): string {
-  const createdAt = Date.now();
-  return [firstName, email, phone, tier, createdAt]
-    .map((v) => String(v).replaceAll(delim, `\\${delim}`))
-    .join(delim);
-}
-
 export async function POST(request: Request) {
   try {
     const ip = getClientIP(request);
@@ -60,16 +47,14 @@ export async function POST(request: Request) {
     }
 
     // Store in Supabase
-    const entryData = toDelimited(
-      payload.firstName,
-      payload.email,
-      payload.phone || "",
-      payload.tier || "",
-    );
-
     const { error: dbError } = await supabaseAdmin
       .from("stay-connected")
-      .insert({ entry: entryData });
+      .insert({
+        email: payload.email.toLowerCase().trim(),
+        name: payload.firstName?.trim() || null,
+        phone: payload.phone?.trim() || null,
+        tier: payload.tier?.trim() || null,
+      });
 
     if (dbError) {
       console.error("[OTP Verify-Signup] Database error:", dbError);

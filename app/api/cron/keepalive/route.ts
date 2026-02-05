@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     // Stay-connected: insert/delete dummy entry
     const { data: inserted } = await supabase
       .from("stay-connected")
-      .insert({ entry: KEEPALIVE_ENTRY })
+      .insert({ email: KEEPALIVE_ENTRY })
       .select("id")
       .single();
 

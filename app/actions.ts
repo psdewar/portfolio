@@ -5,7 +5,7 @@ import { IdeaFormData } from "./IdeaFormData";
 import { createClient } from "@supabase/supabase-js";
 
 export interface ContactFormData {
-  firstName: string;
+  name: string;
   email: string;
   phone: string;
 }
@@ -49,18 +49,12 @@ export async function processFormData(formData: IdeaFormData) {
   });
 }
 
-const toDelimited = (c: ContactFormData, delim = ",") => {
-  const createdAt = Date.now();
-  return [c.firstName, c.email, c.phone ?? "", createdAt]
-    .map((v) => String(v).replaceAll(delim, `\\${delim}`))
-    .join(delim);
-};
 export async function processStayConnected(formData: ContactFormData) {
   if (process.env.NODE_ENV === "development") {
     console.log("Processing stay connected form data:", formData);
   }
 
-  if (!formData || !formData.firstName || !formData.email) {
+  if (!formData || !formData.email) {
     return {
       data: null,
       error: { message: "Invalid form data: missing required fields" },
@@ -68,12 +62,11 @@ export async function processStayConnected(formData: ContactFormData) {
   }
 
   try {
-    const entryData = toDelimited(formData);
-    if (process.env.NODE_ENV === "development") {
-      console.log("Entry data:", entryData);
-    }
-
-    const { data, error } = await client.from("stay-connected").insert({ entry: entryData });
+    const { data, error } = await client.from("stay-connected").insert({
+      email: formData.email.toLowerCase().trim(),
+      name: formData.name?.trim() || null,
+      phone: formData.phone?.trim() || null,
+    });
 
     if (process.env.NODE_ENV === "development") {
       console.log("Database result:", { data, error });

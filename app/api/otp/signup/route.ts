@@ -22,14 +22,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { firstName, email, phone, tier } = body;
-
-    if (!firstName?.trim()) {
-      return NextResponse.json(
-        { error: "First name is required" },
-        { status: 400 },
-      );
-    }
+    const { name, email, phone, tier } = body;
 
     if (!email?.trim() || !email.includes("@")) {
       return NextResponse.json(
@@ -43,7 +36,7 @@ export async function POST(request: Request) {
     const token = createOtpToken({
       email: email.trim(),
       code,
-      firstName: firstName.trim(),
+      firstName: name?.trim() || "",
       phone: phone?.trim() || "",
       tier: tier?.trim() || "",
       expiresAt: Date.now() + OTP_EXPIRY_MS,

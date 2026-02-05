@@ -8,17 +8,6 @@ import {
 const NOTIFY_SECRET = process.env.LIVE_NOTIFY_SECRET;
 const TEST_EMAIL = process.env.LIVE_NOTIFY_TEST_EMAIL;
 
-// Parse the comma-delimited entry format: firstName,email,phone,createdAt
-function parseEntry(
-  entry: string,
-): { firstName: string; email: string } | null {
-  const parts = entry.split(",");
-  if (parts.length < 2) return null;
-  return {
-    firstName: parts[0].replace(/\\,/g, ","),
-    email: parts[1].replace(/\\,/g, ","),
-  };
-}
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -46,7 +35,8 @@ export async function POST(request: NextRequest) {
   try {
     const { data: subscribers, error } = await supabaseAdmin
       .from("stay-connected")
-      .select("entry");
+      .select("email, name")
+      .not("email", "like", "_keepalive_%");
 
     if (error) {
       console.error("[Notify] Database error:", error);
@@ -60,20 +50,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0, message: "No subscribers" });
     }
 
-    const recipients: Array<{ to: string; firstName: string }> = [];
-    let parseFailures = 0;
-
-    for (const row of subscribers) {
-      const parsed = parseEntry(row.entry);
-      if (parsed) {
-        recipients.push({ to: parsed.email, firstName: parsed.firstName });
-      } else {
-        parseFailures++;
-      }
-    }
+    const recipients = subscribers.map((row) => ({
+      to: row.email,
+      firstName: row.name?.split(" ")[0] || "there",
+    }));
 
     const { sent, failed } = await sendGoLiveEmailBatch(recipients);
-    const totalFailed = failed + parseFailures;
+    const totalFailed = failed;
 
     console.log(`[Notify] Sent ${sent} emails, ${totalFailed} failed`);
     return NextResponse.json({ sent, failed: totalFailed });
