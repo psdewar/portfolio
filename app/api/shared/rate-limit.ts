@@ -18,6 +18,7 @@ export const RATE_LIMIT_CONFIGS = {
   funding: { windowMs: 60 * 60 * 1000, maxRequests: 10 },
   otpRequest: { windowMs: 15 * 60 * 1000, maxRequests: 5 }, // 5 requests per 15 min
   otpVerify: { windowMs: 15 * 60 * 1000, maxRequests: 10 }, // 10 attempts per 15 min
+  rsvp: { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 RSVPs per hour
 } as const;
 
 export type RateLimitCategory = keyof typeof RATE_LIMIT_CONFIGS;

@@ -97,9 +97,12 @@ export async function POST(request: NextRequest) {
       productId,
       amount,
       metadata,
+      successPath: customSuccessPath,
       cancelPath: customCancelPath,
       skipShipping,
     } = body;
+
+    console.log("[Checkout] Product:", productId, "amount:", amount, "successPath:", customSuccessPath, "cancelPath:", customCancelPath);
 
     if (!productId) {
       return NextResponse.json(
@@ -131,7 +134,13 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = getBaseUrl(request);
-    const separator = product.successPath.includes("?") ? "&" : "?";
+
+    // Validate successPath to prevent open redirects
+    const safeSuccessPath =
+      customSuccessPath?.startsWith("/") && !customSuccessPath.startsWith("//")
+        ? customSuccessPath
+        : product.successPath;
+    const separator = safeSuccessPath.includes("?") ? "&" : "?";
 
     // Validate cancelPath to prevent open redirects
     const safeCancelPath =
@@ -142,7 +151,7 @@ export async function POST(request: NextRequest) {
     // Build Tiger request
     const tigerRequest: Parameters<typeof createCheckout>[0] = {
       mode: "payment",
-      successUrl: `${baseUrl}${product.successPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${baseUrl}${safeSuccessPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}${safeCancelPath}`,
       metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
     };
@@ -174,6 +183,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { sessionId, url } = await createCheckout(tigerRequest);
+    console.log("[Checkout] Session created:", { sessionId, url });
     return NextResponse.json({ sessionId, url });
   } catch (error) {
     console.error("Checkout session creation error:", error);

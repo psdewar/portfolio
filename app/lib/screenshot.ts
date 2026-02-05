@@ -7,6 +7,7 @@ interface ScreenshotOptions {
   path: string; // Path like "/live" or "/shop"
   selector?: string; // Optional: screenshot specific element
   viewport?: { width: number; height: number };
+  deviceScaleFactor?: number;
   waitForSelector?: string;
   waitForTimeout?: number;
 }
@@ -31,13 +32,17 @@ export async function takeScreenshot({
   path,
   selector,
   viewport = { width: 1200, height: 630 },
+  deviceScaleFactor,
   waitForSelector,
   waitForTimeout = 2000,
 }: ScreenshotOptions) {
   const browser = await launchBrowser();
 
   try {
-    const page = await browser.newPage({ viewport });
+    const page = await browser.newPage({
+      viewport,
+      ...(deviceScaleFactor ? { deviceScaleFactor } : {}),
+    });
 
     // Build URL with og=true to hide modals
     const url = new URL(path, BASE_URL);
