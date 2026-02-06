@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/patron" },
   title: "Patron",
-  description: "Support Peyt Spencer's music journey. Get early access to unreleased tracks, exclusive downloads, and follow along as the story unfolds.",
+  description: "Support rapper and Microsoft engineer Peyt Spencer. Get early access to unreleased tracks, exclusive downloads, and follow along as the story unfolds.",
   openGraph: {
     title: "Become a Patron | Peyt Spencer",
-    description: "Support independent music. Early access to unreleased tracks, exclusive downloads, and a front-row seat to the journey.",
+    description: "Support rapper and Microsoft engineer Peyt Spencer. Early access to unreleased tracks, exclusive downloads, and a front-row seat to the journey.",
     images: [
       {
         url: "https://peytspencer.com/api/og/patron",
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Become a Patron | Peyt Spencer",
-    description: "Support independent music. Early access to unreleased tracks, exclusive downloads, and a front-row seat to the journey.",
+    description: "Support rapper and Microsoft engineer Peyt Spencer. Early access to unreleased tracks, exclusive downloads, and a front-row seat to the journey.",
     images: ["https://peytspencer.com/api/og/patron"],
   },
 };

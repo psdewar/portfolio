@@ -26,15 +26,17 @@ import {
   DiscIcon,
 } from "@phosphor-icons/react";
 
-const TIER_ICONS = [PencilIcon, WavesIcon, LightbulbIcon, FireIcon];
 import StayConnected from "./StayConnected";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
-import { PATRON_CONFIG } from "../data/patron-config";
+import { TIER_ELEMENTS, TIER_DESCRIPTIONS } from "../data/patron-config";
 import { TRACKLIST } from "../shop/shared";
 import { useDevTools } from "../contexts/DevToolsContext";
 import { useAudio } from "../contexts/AudioContext";
 import { formatNextStream } from "../lib/dates";
+
+const TIER_ICONS = [PencilIcon, WavesIcon, LightbulbIcon, FireIcon];
+const TIER_COLORS = ["#f97316", "#f56542", "#f0566d", "#ec4899"];
 
 const TIER_NAMES = ["Pen", "Flow", "Mind", "Soul"];
 const SUPPORT_AMOUNTS = [5, 10, 25, 100].map((net, i) => {
@@ -552,6 +554,352 @@ export function PatronContent({
       (e.type === "content" && e.relatedSong?.includes("Freestyle")),
   ).length;
 
+  const patienceTrack = TRACK_DATA.find((t) => t.id === "patience");
+
+  function renderTimeline(): React.ReactNode {
+    return years.map((year) => {
+      const isActiveYear = year === activeYear;
+      return (
+        <section
+          key={year}
+          data-year={year}
+          ref={(el) => {
+            if (el) yearRefs.current.set(year, el);
+            else yearRefs.current.delete(year);
+          }}
+          className="mb-16 last:mb-0"
+        >
+          <h2
+            className={`font-bebas text-[80px] md:text-[120px] leading-none pointer-events-none select-none mb-2 sticky top-0 backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-2 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 transition-colors ${
+              isActiveYear
+                ? "text-neutral-900 dark:text-neutral-100"
+                : "text-neutral-200 dark:text-neutral-800"
+            }`}
+          >
+            {year}
+          </h2>
+
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-800 -mx-4 sm:-mx-6 lg:-mx-8">
+            {eventsByYear[year].map((event) => {
+              const dateInfo = formatEventDate(event.date);
+              const style = eventTypeStyles[event.type];
+              const isFeature = event.type === "feature";
+              const isContent = event.type === "content";
+              const isSingle = event.type === "single";
+              const isMusic = isSingle || isFeature;
+              const isCheckpoint = event.type === "checkpoint";
+
+              if (isCheckpoint) {
+                return (
+                  <div key={event.id} className="relative">
+                    <button
+                      onClick={() => setShowCalendarInfo(true)}
+                      className="w-full flex items-center gap-3 sm:gap-4 lg:gap-5 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group"
+                    >
+                      <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
+                        <div className="text-sm lg:text-base uppercase tracking-wide leading-none text-neutral-500">
+                          {dateInfo.month}
+                        </div>
+                        <div className="font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none text-neutral-400 dark:text-neutral-500">
+                          {dateInfo.day}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
+                          {event.title}
+                        </h3>
+                      </div>
+                      <div className="shrink-0 w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center font-serif text-sm lg:text-base italic text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors">
+                        i
+                      </div>
+                    </button>
+                  </div>
+                );
+              }
+
+              const isPatience =
+                isSingle && event.title === "Patience" && patienceTrack;
+              const isPatiencePlaying =
+                isPatience && isPlaying && currentTrack?.id === "patience";
+
+              return (
+                <div
+                  key={event.id}
+                  className={`flex items-center gap-3 sm:gap-4 lg:gap-5 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 ${
+                    isMusic
+                      ? "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30"
+                      : ""
+                  }`}
+                >
+                  <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
+                    <div
+                      className={`text-sm lg:text-base uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
+                    >
+                      {dateInfo.month}
+                    </div>
+                    <div
+                      className={`font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}
+                    >
+                      {dateInfo.day}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {style && (
+                      <div className="flex items-center gap-2 lg:gap-3">
+                        <span
+                          className={`px-2 lg:px-3 py-0.5 lg:py-1 rounded text-xs lg:text-sm font-medium ${style.bg} ${style.text}`}
+                        >
+                          {style.label}
+                        </span>
+                        {event.location && (
+                          <span className="text-neutral-500 text-sm lg:text-base truncate">
+                            {event.location}
+                          </span>
+                        )}
+                        {isContent && event.relatedSong && (
+                          <span className="text-neutral-500 text-sm lg:text-base truncate">
+                            {event.relatedSong}
+                          </span>
+                        )}
+                        {isFeature && event.artist && (
+                          <span className="text-neutral-500 text-sm lg:text-base truncate flex items-center gap-1">
+                            <UserIcon className="w-3 h-3 lg:w-4 lg:h-4" />
+                            {event.artist}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <h3
+                      className={`font-bebas leading-none ${style ? "mt-2.5 lg:mt-3" : ""} mb-0.5 ${isMusic ? "text-2xl sm:text-3xl lg:text-4xl text-amber-800 dark:text-amber-200" : "text-xl sm:text-2xl lg:text-3xl text-neutral-900 dark:text-white"}`}
+                    >
+                      {event.title}
+                    </h3>
+                    {event.description && (
+                      <p className="text-neutral-500 dark:text-neutral-400 text-sm lg:text-base">
+                        {event.description}
+                      </p>
+                    )}
+                    {event.url && event.urlLabel && (
+                      <Link
+                        href={event.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-sm lg:text-base text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
+                      >
+                        {event.urlLabel}
+                      </Link>
+                    )}
+                  </div>
+
+                  {isPatience &&
+                    patienceTrack &&
+                    (() => {
+                      const isPatienceLoading =
+                        isAudioLoading && currentTrack?.id === "patience";
+                      return (
+                        <button
+                          onClick={() => {
+                            if (currentTrack?.id === "patience") {
+                              toggle();
+                            } else {
+                              loadTrack(
+                                {
+                                  id: patienceTrack.id,
+                                  title: patienceTrack.title,
+                                  artist: patienceTrack.artist,
+                                  src: patienceTrack.audioUrl,
+                                  thumbnail: patienceTrack.thumbnail,
+                                  duration: patienceTrack.duration,
+                                },
+                                true,
+                              );
+                            }
+                          }}
+                          className="shrink-0 w-20 sm:w-24 lg:w-28 self-stretch -my-3 sm:-my-4 lg:-my-5 -mr-4 sm:-mr-6 lg:-mr-8 overflow-hidden relative group"
+                        >
+                          <img
+                            src={patienceTrack.thumbnail}
+                            alt="Patience"
+                            className="w-full h-full object-cover"
+                            loading="eager"
+                          />
+                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                            {isPatienceLoading ? (
+                              <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : isPatiencePlaying ? (
+                              <PauseIcon
+                                className="w-8 h-8 text-white"
+                                weight="regular"
+                              />
+                            ) : (
+                              <PlayIcon
+                                className="w-8 h-8 text-white"
+                                weight="regular"
+                              />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })()}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      );
+    });
+  }
+
+  function renderArchiveSection(): React.ReactNode {
+    return (
+      <section ref={archiveSectionRef} className="mt-8 mb-0 -mx-4 sm:-mx-6 lg:-mx-8">
+        <button
+          onClick={() => {
+            const willExpand = !archiveExpanded;
+            setArchiveExpanded(willExpand);
+            if (willExpand && archiveSectionRef.current) {
+              setTimeout(() => {
+                archiveSectionRef.current?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              }, 50);
+            }
+          }}
+          className="w-full flex items-center gap-3 sm:gap-4 lg:gap-5 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group border-y border-neutral-200 dark:border-neutral-800"
+        >
+          <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex items-center justify-center">
+            <ArchiveIcon className="w-8 h-8 lg:w-10 lg:h-10 text-neutral-400 dark:text-neutral-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
+              From The Archives: Exhibit PSD
+            </h3>
+          </div>
+          <CaretDownIcon
+            className={`w-5 h-5 lg:w-6 lg:h-6 text-neutral-400 transition-transform duration-200 ${
+              archiveExpanded ? "rotate-180" : ""
+            }`}
+            weight="bold"
+          />
+        </button>
+
+        <div
+          className={`grid transition-all duration-300 ease-out ${
+            archiveExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="relative overflow-hidden">
+              <div className="flex flex-col-reverse sm:flex-row">
+                <div className="aspect-[9/16] sm:w-1/2 relative bg-neutral-900 shrink-0">
+                  <video
+                    src="/videos/exhibit-psd-live.mp4"
+                    className="w-full h-full object-cover"
+                    controls
+                    playsInline
+                    poster="/images/covers/exhibit-psd-live-cover.jpg"
+                  />
+                  <div className="absolute top-0 left-0 p-3 pointer-events-none">
+                    <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
+                      <p className="text-white text-sm font-medium">
+                        Live with the band at High Dive
+                      </p>
+                      <p className="text-white/70 text-xs">Gainesville, FL · 2015</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="sm:w-1/2 flex flex-col-reverse sm:flex-col">
+                  <div className="aspect-[4/3] sm:aspect-auto sm:flex-[1] relative bg-neutral-900">
+                    <img
+                      src="/images/merch/lu-psd-merch.JPG"
+                      alt="With the homie Ludger"
+                      className="w-full h-full object-cover object-bottom"
+                    />
+                    <div className="absolute top-0 left-0 p-3">
+                      <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
+                        <p className="text-white text-sm font-medium">
+                          With the homie Ludger
+                        </p>
+                        <p className="text-white/70 text-xs">Los Angeles, CA · 2018</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="aspect-square sm:aspect-auto sm:flex-[2] relative bg-neutral-900">
+                    <img
+                      src="/images/merch/exhibit-psd-merch.JPG"
+                      alt="Exhibit PSD T-Shirt"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => setArchiveInfoVisible(true)}
+                      className={`absolute bottom-0 left-0 p-3 transition-opacity ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                    >
+                      <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5">
+                        <p className="text-white/90 text-xs">
+                          Shirts available at live shows
+                        </p>
+                        <span className="font-serif text-xs italic text-white/70">i</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setArchiveInfoVisible(true)}
+                      className={`absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full transition-all z-10 flex items-center justify-center ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                      aria-label="Show info"
+                    >
+                      <span className="font-serif text-base italic text-white">i</span>
+                    </button>
+                    <div
+                      onClick={() => setArchiveInfoVisible(false)}
+                      className={`absolute inset-0 bg-black/85 backdrop-blur-sm transform transition-transform duration-300 ease-out z-20 cursor-pointer flex flex-col justify-center px-5 py-4 sm:p-5 lg:p-8 overflow-y-auto ${
+                        archiveInfoVisible ? "translate-x-0" : "translate-x-full"
+                      }`}
+                    >
+                      <h3 className="font-medium text-white text-base sm:text-xl lg:text-2xl mb-2">
+                        Exhibit PSD
+                      </h3>
+                      <p className="text-white/90 text-xs sm:text-base lg:text-lg leading-relaxed mb-3 lg:mb-6">
+                        Back when I attended the University of Florida, I gave out mixtape
+                        CDs and performed at various clubs and venues in downtown
+                        Gainesville. During my three-mixtape run from 2013 to when I
+                        graduated in 2015, I wrote raps to songs from The xx (Intro),
+                        Tinashe (2 On), and Carlos Santana (Maria Maria), recording them
+                        on Mixcraft in my apartment room closet. While making my third
+                        mixtape, I designed shirts with my initials--my original rap
+                        moniker--to share with the music. 100% cotton, still holding up.
+                        Can you spot the writing tool in my album artwork?
+                      </p>
+                      <div className="flex justify-center">
+                        <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm bg-white/10 px-2 sm:px-3 py-1 lg:px-4 lg:py-1.5 rounded-full">
+                          Tap anywhere to see my vintage merch
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  function handleManageSubscription(): void {
+    const storedEmail = localStorage.getItem("patronEmail");
+    const email = storedEmail || (simulatePatron ? "test@example.com" : null);
+    if (email) {
+      window.location.href = `/api/stripe-portal?email=${encodeURIComponent(email)}`;
+    } else {
+      const inputEmail = prompt("Enter the email you used to subscribe:");
+      if (inputEmail) {
+        localStorage.setItem("patronEmail", inputEmail);
+        window.location.href = `/api/stripe-portal?email=${encodeURIComponent(inputEmail)}`;
+      }
+    }
+  }
+
   return (
     <div className="h-full bg-neutral-50 dark:bg-neutral-950 overflow-hidden relative">
       {/* Modal header with close button */}
@@ -580,8 +928,8 @@ export function PatronContent({
           style={{ transform: viewMode === "journey" ? "translateX(-100%)" : "translateX(0)" }}
         >
           {/* Left: Patron View */}
-          <main className="w-full h-full shrink-0 flex flex-col items-center justify-center">
-            <section className={`text-center mb-6 px-8 ${isModal ? "pt-16" : ""}`}>
+          <main className="w-full h-full shrink-0 flex flex-col items-center justify-start overflow-y-auto py-4 [@media(min-height:700px)]:py-8 md:justify-center md:py-0">
+            <section className={`text-center mb-3 [@media(min-height:700px)]:mb-6 px-8 ${isModal ? "pt-16" : ""}`}>
               <h1 className="font-bebas text-[40px] md:text-[64px] leading-none">
                 <span className="text-neutral-900 dark:text-white">BECOME MY</span>{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
@@ -624,37 +972,96 @@ export function PatronContent({
               </div>
             </section>
 
+            {(() => {
+              const latest = journeyEvents[0];
+              if (!latest) return null;
+              const dateInfo = formatEventDate(latest.date);
+              const style = eventTypeStyles[latest.type];
+              const isMusic = latest.type === "single" || latest.type === "feature";
+              return (
+                <button
+                  onClick={() => handleViewModeChange("journey")}
+                  className="w-full max-w-md mx-auto mb-3 [@media(min-height:700px)]:mb-6 text-left group cursor-pointer relative"
+                >
+                  <div
+                    className={`flex items-center gap-3 px-4 py-3 border border-neutral-200 dark:border-neutral-800 ${
+                      isMusic
+                        ? "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30"
+                        : "bg-neutral-50 dark:bg-neutral-800/50"
+                    }`}
+                  >
+                    <div className="w-14 shrink-0 flex flex-col items-center">
+                      <div className="text-[9px] font-medium uppercase tracking-wider text-neutral-400 mb-1">Latest</div>
+                      <div className={`text-sm uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}>
+                        {dateInfo.month}
+                      </div>
+                      <div className={`font-bebas text-4xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}>
+                        {dateInfo.day}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {style && (
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text}`}>
+                            {style.label}
+                          </span>
+                          {latest.location && (
+                            <span className="text-neutral-500 text-sm truncate">{latest.location}</span>
+                          )}
+                        </div>
+                      )}
+                      <h3 className={`font-bebas leading-none ${style ? "mt-2" : ""} ${isMusic ? "text-2xl text-amber-800 dark:text-amber-200" : "text-xl text-neutral-900 dark:text-white"}`}>
+                        {latest.title}
+                      </h3>
+                    </div>
+                    <CaretRightIcon size={20} weight="bold" className="shrink-0 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors" />
+                  </div>
+                  <div className="text-center py-2">
+                    <span className="text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors text-sm leading-none">
+                      {showCount} shows, {releaseCount} releases since Naw-Ruz 2025
+                    </span>
+                  </div>
+                </button>
+              );
+            })()}
+
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="w-full flex overflow-x-auto scrollbar-hide px-8 sm:px-[calc((100vw-320px)/2)] md:px-[calc((100vw-400px)/2)] touch-pan-y"
+              className="w-full flex overflow-x-auto scrollbar-hide px-[calc((100vw-220px)/2-8px)] min-[420px]:px-[calc((100vw-280px)/2-12px)] sm:px-[calc((100vw-320px)/2-24px)] md:px-[calc((100vw-400px)/2-32px)] touch-pan-y"
             >
               {[0, 1, 2].map((setIndex) => (
                 <div key={setIndex} className="flex shrink-0">
                   {SUPPORT_AMOUNTS.map((tier, index) => {
-                    const isActive = index === activeCardIndex;
                     const TierIcon = TIER_ICONS[index];
                     return (
                       <div
                         key={`${setIndex}-${tier.net}`}
                         data-card
                         onClick={() => handleSubscribe(tier.chargeCents)}
-                        className="shrink-0 w-[300px] sm:w-[320px] md:w-[400px] mx-2 sm:mx-3 p-6 sm:p-8 md:p-10 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-[border-color,background-color] duration-200 cursor-pointer hover:border-orange-500/50 active:border-orange-500/50 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-50 dark:active:bg-neutral-800"
+                        className="shrink-0 w-[220px] min-[420px]:w-[280px] sm:w-[320px] md:w-[400px] mx-2 sm:mx-3 p-5 min-[420px]:p-6 sm:p-8 md:p-10 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-50 dark:active:bg-neutral-800"
                         style={{
                           transition:
                             "transform 150ms ease-out, opacity 150ms ease-out, border-color 200ms, background-color 200ms",
                           willChange: "transform, opacity",
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`}
+                        onMouseLeave={(e) => e.currentTarget.style.borderColor = ""}
+                        onPointerDown={(e) => e.currentTarget.style.borderColor = TIER_COLORS[index]}
+                        onPointerUp={(e) => e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`}
                       >
-                        <div className="text-[16px] md:text-[20px] font-medium text-orange-500 mb-3 uppercase tracking-wide flex items-center gap-2">
-                          <TierIcon size={24} weight="regular" />
-                          {tier.name}
+                        <div className="mb-3 sm:mb-3 flex items-center gap-2 sm:gap-3" style={{ color: TIER_COLORS[index] }}>
+                          <TierIcon className="shrink-0 w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 sm:w-10 sm:h-10 md:w-12 md:h-12" weight="regular" />
+                          <div>
+                            <div className="text-[14px] min-[420px]:text-[15px] sm:text-[16px] md:text-[20px] font-medium uppercase tracking-wide">{tier.name}</div>
+                            <div className="text-[11px] min-[420px]:text-[12px] sm:text-[13px] md:text-[15px] font-normal tracking-wide">{TIER_ELEMENTS[tier.name]}</div>
+                          </div>
                         </div>
-                        <div className="flex items-baseline gap-1 mb-6">
-                          <span className="text-[64px] md:text-[88px] font-bold text-neutral-900 dark:text-white leading-none tabular-nums">
+                        <div className="flex items-baseline gap-1 mb-3 sm:mb-6">
+                          <span className="text-[36px] min-[420px]:text-[48px] sm:text-[64px] md:text-[88px] font-bold text-neutral-900 dark:text-white leading-none tabular-nums">
                             ${billingPeriod === "annually" ? tier.net * 10 : tier.net}
                           </span>
-                          <span className="text-[22px] md:text-[28px] text-neutral-500">
+                          <span className="text-[14px] min-[420px]:text-[18px] sm:text-[22px] md:text-[28px] text-neutral-500">
                             /{billingPeriod === "annually" ? "year" : "month"}
                           </span>
                         </div>
@@ -665,7 +1072,7 @@ export function PatronContent({
                           }}
                           disabled={isLoading || !hydrated}
                           data-hydrated={hydrated}
-                          className="w-full py-4 md:py-5 text-white text-[18px] md:text-[22px] font-medium rounded-xl transition-all mb-5 flex items-center justify-center disabled:opacity-50"
+                          className="w-full py-2.5 min-[420px]:py-3 sm:py-4 md:py-5 text-white text-[14px] min-[420px]:text-[16px] sm:text-[18px] md:text-[22px] font-medium rounded-xl transition-all mb-3 sm:mb-5 flex items-center justify-center disabled:opacity-50"
                           style={{
                             background: "linear-gradient(to right, #f97316, #ec4899)",
                             backgroundSize: `${TOTAL_CARDS * 100}% 100%`,
@@ -678,9 +1085,8 @@ export function PatronContent({
                             "Join"
                           )}
                         </button>
-                        <p className="text-[16px] md:text-[18px] text-neutral-400 leading-relaxed">
-                          Your support funds new music, tours, livestreaming, and creative projects.
-                          Thank you for being part of my journey.
+                        <p className="text-[11px] min-[420px]:text-[12px] sm:text-[13px] md:text-[15px] text-neutral-400 leading-snug text-left">
+                          {TIER_DESCRIPTIONS[tier.name]}
                         </p>
                       </div>
                     );
@@ -689,17 +1095,23 @@ export function PatronContent({
               ))}
             </div>
 
-            <div className="text-center mt-8 space-y-4">
-              <button
-                onClick={() => handleViewModeChange("journey")}
-                className="w-full max-w-md mx-auto text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 active:bg-neutral-200 dark:active:bg-neutral-800 transition-colors text-base md:text-lg py-4 px-6 rounded-xl flex items-center justify-center gap-2"
-              >
-                <span className="leading-none">
-                  {showCount} shows, {releaseCount} releases since Naw-Ruz 2025
-                </span>
-                <CaretRightIcon size={20} weight="bold" className="shrink-0" />
-              </button>
+            <div className="flex justify-center gap-2 mt-2 [@media(min-height:700px)]:mt-4">
+              {SUPPORT_AMOUNTS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => animateToIndex(TOTAL_CARDS + i)}
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                    i !== activeCardIndex
+                      ? "bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600"
+                      : ""
+                  }`}
+                  style={i === activeCardIndex ? { backgroundColor: TIER_COLORS[i] } : undefined}
+                  aria-label={`Go to ${SUPPORT_AMOUNTS[i].name} tier`}
+                />
+              ))}
+            </div>
 
+            <div className="text-center mt-4 [@media(min-height:700px)]:mt-8 space-y-4">
               {!showVerifyForm ? (
                 <button
                   onClick={() => setShowVerifyForm(true)}
@@ -748,58 +1160,15 @@ export function PatronContent({
               ref={journeyScrollRef}
               className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
             >
-              <div
-                className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isPatron ? "pt-8 pb-20" : isModal ? "pt-20 pb-32" : "pt-2 pb-32"}`}
-              >
-                {/* Back/Manage button */}
-                {isPatron ? (
-                  <button
-                    ref={topCtaRef}
-                    onClick={() => {
-                      const email =
-                        localStorage.getItem("patronEmail") ||
-                        (simulatePatron ? "test@example.com" : null);
-                      if (email) {
-                        window.location.href = `/api/stripe-portal?email=${encodeURIComponent(email)}`;
-                      }
-                    }}
-                    className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm lg:text-base underline underline-offset-2 cursor-pointer mb-4"
-                  >
-                    Manage subscription
-                  </button>
-                ) : (
-                  <button
-                    ref={topCtaRef}
-                    onClick={() => handleViewModeChange("patron")}
-                    className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors text-sm flex items-center gap-2 py-4 cursor-pointer mb-4"
-                  >
-                    <CaretLeftIcon size={16} weight="bold" />
-                    Become my patron
-                  </button>
-                )}
-
-                {/* Early Access for patrons */}
-                {isPatron && (
-                  <Link
-                    href="/listen"
-                    className="flex items-center justify-between p-4 lg:p-5 mb-8 rounded-xl border border-orange-500/30 hover:border-orange-500 bg-orange-500/5 hover:bg-orange-500/10 transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <RadioIcon
-                        className="w-7 h-7 lg:w-8 lg:h-8 text-orange-500"
-                        weight="duotone"
-                      />
-                      <span className="text-orange-600 dark:text-orange-400 font-medium text-lg lg:text-xl">
-                        {PATRON_CONFIG.earlyAccess.name}
-                      </span>
-                    </div>
-                    <CaretRightIcon
-                      size={24}
-                      weight="bold"
-                      className="text-orange-500 group-hover:translate-x-1 transition-transform"
-                    />
-                  </Link>
-                )}
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-0">
+                <button
+                  ref={topCtaRef}
+                  onClick={() => handleViewModeChange("patron")}
+                  className="w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 active:bg-neutral-200 dark:active:bg-neutral-800 transition-colors text-sm flex items-center gap-2 pt-6 pb-4 cursor-pointer mb-4"
+                >
+                  <CaretLeftIcon size={16} weight="bold" />
+                  Become my patron
+                </button>
 
                 <div className="mb-8">
                   <h1 className="font-bebas text-[48px] sm:text-[64px] md:text-[80px] text-neutral-900 dark:text-white leading-none">
@@ -807,366 +1176,22 @@ export function PatronContent({
                   </h1>
                 </div>
 
-                {years.map((year) => {
-                  const isActiveYear = year === activeYear;
-                  return (
-                    <section
-                      key={year}
-                      data-year={year}
-                      ref={(el) => {
-                        if (el) yearRefs.current.set(year, el);
-                        else yearRefs.current.delete(year);
-                      }}
-                      className="mb-16 last:mb-0"
-                    >
-                      <h2
-                        className={`font-bebas text-[80px] md:text-[120px] leading-none pointer-events-none select-none mb-2 sticky top-0 backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-2 transition-colors ${
-                          isActiveYear
-                            ? "text-neutral-400 dark:text-neutral-500"
-                            : "text-neutral-200 dark:text-neutral-800"
-                        }`}
-                      >
-                        {year}
-                      </h2>
-
-                      <div className="space-y-3 lg:space-y-4">
-                        {eventsByYear[year].map((event) => {
-                          const dateInfo = formatEventDate(event.date);
-                          const style = eventTypeStyles[event.type];
-                          const isFeature = event.type === "feature";
-                          const isContent = event.type === "content";
-                          const isSingle = event.type === "single";
-                          const isMusic = isSingle || isFeature;
-                          const isCheckpoint = event.type === "checkpoint";
-
-                          if (isCheckpoint) {
-                            return (
-                              <div key={event.id} className="relative">
-                                <button
-                                  onClick={() => setShowCalendarInfo(true)}
-                                  className="w-full flex items-center gap-3 sm:gap-4 lg:gap-5 p-4 sm:p-5 lg:p-6 rounded-xl bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group"
-                                >
-                                  <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
-                                    <div className="text-sm lg:text-base uppercase tracking-wide leading-none text-neutral-500">
-                                      {dateInfo.month}
-                                    </div>
-                                    <div className="font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none text-neutral-400 dark:text-neutral-500">
-                                      {dateInfo.day}
-                                    </div>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
-                                      {event.title}
-                                    </h3>
-                                  </div>
-                                  <div className="shrink-0 w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center font-serif text-sm lg:text-base italic text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors">
-                                    i
-                                  </div>
-                                </button>
-                              </div>
-                            );
-                          }
-
-                          const patienceTrack = TRACK_DATA.find((t) => t.id === "patience");
-                          const isPatience =
-                            isSingle && event.title === "Patience" && patienceTrack;
-                          const isPatiencePlaying =
-                            isPatience && isPlaying && currentTrack?.id === "patience";
-
-                          return (
-                            <div
-                              key={event.id}
-                              className={`flex items-center gap-3 sm:gap-4 lg:gap-5 p-3 sm:p-4 lg:p-5 border ${
-                                isPatience ? "rounded-l-xl" : "rounded-xl"
-                              } ${
-                                isMusic
-                                  ? "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-amber-200 dark:border-amber-700/50 shadow-sm shadow-amber-500/10"
-                                  : "bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800"
-                              }`}
-                            >
-                              <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
-                                <div
-                                  className={`text-sm lg:text-base uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
-                                >
-                                  {dateInfo.month}
-                                </div>
-                                <div
-                                  className={`font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}
-                                >
-                                  {dateInfo.day}
-                                </div>
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                {style && (
-                                  <div className="flex items-center gap-2 lg:gap-3">
-                                    <span
-                                      className={`px-2 lg:px-3 py-0.5 lg:py-1 rounded text-xs lg:text-sm font-medium ${style.bg} ${style.text}`}
-                                    >
-                                      {style.label}
-                                    </span>
-                                    {event.location && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate">
-                                        {event.location}
-                                      </span>
-                                    )}
-                                    {isContent && event.relatedSong && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate">
-                                        {event.relatedSong}
-                                      </span>
-                                    )}
-                                    {isFeature && event.artist && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate flex items-center gap-1">
-                                        <UserIcon className="w-3 h-3 lg:w-4 lg:h-4" />
-                                        {event.artist}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                <h3
-                                  className={`font-bebas leading-none ${style ? "mt-2.5 lg:mt-3" : ""} mb-0.5 ${isMusic ? "text-2xl sm:text-3xl lg:text-4xl text-amber-800 dark:text-amber-200" : "text-xl sm:text-2xl lg:text-3xl text-neutral-900 dark:text-white"}`}
-                                >
-                                  {event.title}
-                                </h3>
-                                {event.description && (
-                                  <p className="text-neutral-500 dark:text-neutral-400 text-sm lg:text-base">
-                                    {event.description}
-                                  </p>
-                                )}
-                                {event.url && event.urlLabel && (
-                                  <Link
-                                    href={event.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-block mt-2 text-sm lg:text-base text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
-                                  >
-                                    {event.urlLabel}
-                                  </Link>
-                                )}
-                              </div>
-
-                              {isPatience &&
-                                patienceTrack &&
-                                (() => {
-                                  const isPatienceLoading =
-                                    isAudioLoading && currentTrack?.id === "patience";
-                                  return (
-                                    <button
-                                      onClick={() => {
-                                        if (currentTrack?.id === "patience") {
-                                          toggle();
-                                        } else {
-                                          loadTrack(
-                                            {
-                                              id: patienceTrack.id,
-                                              title: patienceTrack.title,
-                                              artist: patienceTrack.artist,
-                                              src: patienceTrack.audioUrl,
-                                              thumbnail: patienceTrack.thumbnail,
-                                              duration: patienceTrack.duration,
-                                            },
-                                            true,
-                                          );
-                                        }
-                                      }}
-                                      className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 -my-3 sm:-my-4 lg:-my-5 -mr-3 sm:-mr-4 lg:-mr-5 overflow-hidden relative group"
-                                    >
-                                      <img
-                                        src={patienceTrack.thumbnail}
-                                        alt="Patience"
-                                        className="w-full h-full object-cover"
-                                        loading="eager"
-                                      />
-                                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                                        {isPatienceLoading ? (
-                                          <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        ) : isPatiencePlaying ? (
-                                          <PauseIcon
-                                            className="w-8 h-8 text-white"
-                                            weight="regular"
-                                          />
-                                        ) : (
-                                          <PlayIcon
-                                            className="w-8 h-8 text-white"
-                                            weight="regular"
-                                          />
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                })()}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-
-                {/* From The Archives - expandable section */}
-                <section ref={archiveSectionRef} className="mt-8 mb-16">
-                  <button
-                    onClick={() => {
-                      const willExpand = !archiveExpanded;
-                      setArchiveExpanded(willExpand);
-                      if (willExpand && archiveSectionRef.current) {
-                        setTimeout(() => {
-                          archiveSectionRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }, 50);
-                      }
-                    }}
-                    className={`w-full flex items-center gap-3 sm:gap-4 lg:gap-5 p-4 sm:p-5 lg:p-6 bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group ${archiveExpanded ? "rounded-t-xl" : "rounded-xl"}`}
-                  >
-                    <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex items-center justify-center">
-                      <ArchiveIcon className="w-8 h-8 lg:w-10 lg:h-10 text-neutral-400 dark:text-neutral-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
-                        From The Archives: Exhibit PSD
-                      </h3>
-                    </div>
-                    <CaretDownIcon
-                      className={`w-5 h-5 lg:w-6 lg:h-6 text-neutral-400 transition-transform duration-200 ${
-                        archiveExpanded ? "rotate-180" : ""
-                      }`}
-                      weight="bold"
-                    />
-                  </button>
-
-                  <div
-                    className={`grid transition-all duration-300 ease-out ${
-                      archiveExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="relative rounded-b-xl overflow-hidden">
-                        <div className="flex flex-col-reverse sm:flex-row">
-                          {/* Video - last on mobile, left on desktop */}
-                          <div className="aspect-[9/16] sm:w-1/2 relative bg-neutral-900 shrink-0">
-                            <video
-                              src="/videos/exhibit-psd-live.mp4"
-                              className="w-full h-full object-cover"
-                              controls
-                              playsInline
-                              poster="/images/covers/exhibit-psd-live-cover.jpg"
-                            />
-                            <div className="absolute top-0 left-0 p-3 pointer-events-none">
-                              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
-                                <p className="text-white text-sm font-medium">
-                                  Live with the band at High Dive
-                                </p>
-                                <p className="text-white/70 text-xs">Gainesville, FL · 2015</p>
-                              </div>
-                            </div>
-                          </div>
-                          {/* Right column - first on mobile, right on desktop */}
-                          <div className="sm:w-1/2 flex flex-col-reverse sm:flex-col">
-                            {/* Ludger - second on mobile, top on desktop */}
-                            <div className="aspect-[4/3] sm:aspect-auto sm:flex-[1] relative bg-neutral-900">
-                              <img
-                                src="/images/merch/lu-psd-merch.JPG"
-                                alt="With the homie Ludger"
-                                className="w-full h-full object-cover object-bottom"
-                              />
-                              <div className="absolute top-0 left-0 p-3">
-                                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
-                                  <p className="text-white text-sm font-medium">
-                                    With the homie Ludger
-                                  </p>
-                                  <p className="text-white/70 text-xs">Los Angeles, CA · 2018</p>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Right bottom: Shirt - 2/3 height */}
-                            <div className="aspect-square sm:aspect-auto sm:flex-[2] relative bg-neutral-900">
-                              <img
-                                src="/images/merch/exhibit-psd-merch.JPG"
-                                alt="Exhibit PSD T-Shirt"
-                                className="w-full h-full object-cover"
-                              />
-                              <button
-                                onClick={() => setArchiveInfoVisible(true)}
-                                className={`absolute bottom-0 left-0 p-3 transition-opacity ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                              >
-                                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5">
-                                  <p className="text-white/90 text-xs">
-                                    Shirts available at live shows
-                                  </p>
-                                  <span className="font-serif text-xs italic text-white/70">i</span>
-                                </div>
-                              </button>
-                              {/* Info button - shows when panel is hidden */}
-                              <button
-                                onClick={() => setArchiveInfoVisible(true)}
-                                className={`absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full transition-all z-10 flex items-center justify-center ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                                aria-label="Show info"
-                              >
-                                <span className="font-serif text-base italic text-white">i</span>
-                              </button>
-                              {/* Slide-in info panel - covers only this image, clickable anywhere to dismiss */}
-                              <div
-                                onClick={() => setArchiveInfoVisible(false)}
-                                className={`absolute inset-0 bg-black/85 backdrop-blur-sm transform transition-transform duration-300 ease-out z-20 cursor-pointer flex flex-col justify-center p-3 sm:p-5 lg:p-8 overflow-y-auto ${
-                                  archiveInfoVisible ? "translate-x-0" : "translate-x-full"
-                                }`}
-                              >
-                                <h3 className="font-medium text-white text-base sm:text-lg lg:text-2xl m-2 text-justify">
-                                  Exhibit PSD
-                                </h3>
-                                <p className="text-white/90 text-xs sm:text-sm lg:text-lg leading-relaxed text-justify m-2 lg:mb-6">
-                                  Back when I attended the University of Florida, I gave out mixtape
-                                  CDs and performed at various clubs and venues in downtown
-                                  Gainesville. During my three-mixtape run from 2013 to when I
-                                  graduated in 2015, I wrote raps to songs from The xx (Intro),
-                                  Tinashe (2 On), and Carlos Santana (Maria Maria), recording them
-                                  on Mixcraft in my apartment room closet. While making my third
-                                  mixtape, I designed shirts with my initials-my original rap
-                                  moniker-to share with the music. 100% cotton, still holding up.
-                                  Can you spot the writing tool in my album artwork?
-                                </p>
-                                <div className="flex justify-center">
-                                  <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm bg-white/10 px-2 sm:px-3 py-1 lg:px-4 lg:py-1.5 rounded-full">
-                                    Tap anywhere to see my vintage merch
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                {renderTimeline()}
+                {renderArchiveSection()}
               </div>
             </div>
           </main>
         </div>
       ) : (
-        /* Patron view - journey only, no sliding */
         <div className="h-full">
           <main className="w-full h-full flex flex-col relative">
             <div
               ref={journeyScrollRef}
               className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none scrollbar-hide"
             >
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-0">
                 <button
-                  onClick={() => {
-                    const storedEmail = localStorage.getItem("patronEmail");
-                    const email = storedEmail || (simulatePatron ? "test@example.com" : null);
-                    if (email) {
-                      window.location.href = `/api/stripe-portal?email=${encodeURIComponent(email)}`;
-                    } else {
-                      const inputEmail = prompt("Enter the email you used to subscribe:");
-                      if (inputEmail) {
-                        localStorage.setItem("patronEmail", inputEmail);
-                        window.location.href = `/api/stripe-portal?email=${encodeURIComponent(inputEmail)}`;
-                      }
-                    }
-                  }}
+                  onClick={handleManageSubscription}
                   className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm lg:text-base underline underline-offset-2 cursor-pointer mb-4"
                 >
                   Manage subscription
@@ -1283,333 +1308,8 @@ export function PatronContent({
                   </h1>
                 </div>
 
-                {years.map((year) => {
-                  const isActiveYear = year === activeYear;
-                  return (
-                    <section
-                      key={year}
-                      data-year={year}
-                      ref={(el) => {
-                        if (el) yearRefs.current.set(year, el);
-                        else yearRefs.current.delete(year);
-                      }}
-                      className="mb-16 last:mb-0"
-                    >
-                      <h2
-                        className={`font-bebas text-[80px] md:text-[120px] leading-none pointer-events-none select-none mb-2 sticky top-0 backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-2 transition-colors ${
-                          isActiveYear
-                            ? "text-neutral-400 dark:text-neutral-500"
-                            : "text-neutral-200 dark:text-neutral-800"
-                        }`}
-                      >
-                        {year}
-                      </h2>
-
-                      <div className="space-y-3 lg:space-y-4">
-                        {eventsByYear[year].map((event) => {
-                          const dateInfo = formatEventDate(event.date);
-                          const style = eventTypeStyles[event.type];
-                          const isFeature = event.type === "feature";
-                          const isContent = event.type === "content";
-                          const isSingle = event.type === "single";
-                          const isMusic = isSingle || isFeature;
-                          const isCheckpoint = event.type === "checkpoint";
-
-                          if (isCheckpoint) {
-                            return (
-                              <div key={event.id} className="relative">
-                                <button
-                                  onClick={() => setShowCalendarInfo(true)}
-                                  className="w-full flex items-center gap-3 sm:gap-4 lg:gap-5 p-4 sm:p-5 lg:p-6 rounded-xl bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group"
-                                >
-                                  <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
-                                    <div className="text-sm lg:text-base uppercase tracking-wide leading-none text-neutral-500">
-                                      {dateInfo.month}
-                                    </div>
-                                    <div className="font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none text-neutral-400 dark:text-neutral-500">
-                                      {dateInfo.day}
-                                    </div>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
-                                      {event.title}
-                                    </h3>
-                                  </div>
-                                  <div className="shrink-0 w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center font-serif text-sm lg:text-base italic text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors">
-                                    i
-                                  </div>
-                                </button>
-                              </div>
-                            );
-                          }
-
-                          const patienceTrack = TRACK_DATA.find((t) => t.id === "patience");
-                          const isPatience =
-                            isSingle && event.title === "Patience" && patienceTrack;
-                          const isPatiencePlaying =
-                            isPatience && isPlaying && currentTrack?.id === "patience";
-
-                          return (
-                            <div
-                              key={event.id}
-                              className={`flex items-center gap-3 sm:gap-4 lg:gap-5 p-3 sm:p-4 lg:p-5 border ${
-                                isPatience ? "rounded-l-xl" : "rounded-xl"
-                              } ${
-                                isMusic
-                                  ? "bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-amber-200 dark:border-amber-700/50 shadow-sm shadow-amber-500/10"
-                                  : "bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800"
-                              }`}
-                            >
-                              <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex flex-col items-center">
-                                <div
-                                  className={`text-sm lg:text-base uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
-                                >
-                                  {dateInfo.month}
-                                </div>
-                                <div
-                                  className={`font-bebas text-4xl sm:text-5xl lg:text-6xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}
-                                >
-                                  {dateInfo.day}
-                                </div>
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                {style && (
-                                  <div className="flex items-center gap-2 lg:gap-3">
-                                    <span
-                                      className={`px-2 lg:px-3 py-0.5 lg:py-1 rounded text-xs lg:text-sm font-medium ${style.bg} ${style.text}`}
-                                    >
-                                      {style.label}
-                                    </span>
-                                    {event.location && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate">
-                                        {event.location}
-                                      </span>
-                                    )}
-                                    {isContent && event.relatedSong && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate">
-                                        {event.relatedSong}
-                                      </span>
-                                    )}
-                                    {isFeature && event.artist && (
-                                      <span className="text-neutral-500 text-sm lg:text-base truncate flex items-center gap-1">
-                                        <UserIcon className="w-3 h-3 lg:w-4 lg:h-4" />
-                                        {event.artist}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                <h3
-                                  className={`font-bebas leading-none ${style ? "mt-2.5 lg:mt-3" : ""} mb-0.5 ${isMusic ? "text-2xl sm:text-3xl lg:text-4xl text-amber-800 dark:text-amber-200" : "text-xl sm:text-2xl lg:text-3xl text-neutral-900 dark:text-white"}`}
-                                >
-                                  {event.title}
-                                </h3>
-                                {event.description && (
-                                  <p className="text-neutral-500 dark:text-neutral-400 text-sm lg:text-base">
-                                    {event.description}
-                                  </p>
-                                )}
-                                {event.url && event.urlLabel && (
-                                  <Link
-                                    href={event.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-block mt-2 text-sm lg:text-base text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
-                                  >
-                                    {event.urlLabel}
-                                  </Link>
-                                )}
-                              </div>
-
-                              {isPatience &&
-                                patienceTrack &&
-                                (() => {
-                                  const isPatienceLoading =
-                                    isAudioLoading && currentTrack?.id === "patience";
-                                  return (
-                                    <button
-                                      onClick={() => {
-                                        if (currentTrack?.id === "patience") {
-                                          toggle();
-                                        } else {
-                                          loadTrack(
-                                            {
-                                              id: patienceTrack.id,
-                                              title: patienceTrack.title,
-                                              artist: patienceTrack.artist,
-                                              src: patienceTrack.audioUrl,
-                                              thumbnail: patienceTrack.thumbnail,
-                                              duration: patienceTrack.duration,
-                                            },
-                                            true,
-                                          );
-                                        }
-                                      }}
-                                      className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 -my-3 sm:-my-4 lg:-my-5 -mr-3 sm:-mr-4 lg:-mr-5 overflow-hidden relative group"
-                                    >
-                                      <img
-                                        src={patienceTrack.thumbnail}
-                                        alt="Patience"
-                                        className="w-full h-full object-cover"
-                                        loading="eager"
-                                      />
-                                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                                        {isPatienceLoading ? (
-                                          <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        ) : isPatiencePlaying ? (
-                                          <PauseIcon
-                                            className="w-8 h-8 text-white"
-                                            weight="regular"
-                                          />
-                                        ) : (
-                                          <PlayIcon
-                                            className="w-8 h-8 text-white"
-                                            weight="regular"
-                                          />
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                })()}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-
-                {/* From The Archives - expandable section */}
-                <section ref={archiveSectionRef} className="mt-8 mb-16">
-                  <button
-                    onClick={() => {
-                      const willExpand = !archiveExpanded;
-                      setArchiveExpanded(willExpand);
-                      if (willExpand && archiveSectionRef.current) {
-                        setTimeout(() => {
-                          archiveSectionRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }, 50);
-                      }
-                    }}
-                    className={`w-full flex items-center gap-3 sm:gap-4 lg:gap-5 p-4 sm:p-5 lg:p-6 bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group ${archiveExpanded ? "rounded-t-xl" : "rounded-xl"}`}
-                  >
-                    <div className="w-14 sm:w-16 lg:w-20 shrink-0 flex items-center justify-center">
-                      <ArchiveIcon className="w-8 h-8 lg:w-10 lg:h-10 text-neutral-400 dark:text-neutral-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bebas text-xl sm:text-2xl lg:text-3xl leading-none text-neutral-700 dark:text-neutral-300">
-                        From The Archives: Exhibit PSD
-                      </h3>
-                    </div>
-                    <CaretDownIcon
-                      className={`w-5 h-5 lg:w-6 lg:h-6 text-neutral-400 transition-transform duration-200 ${
-                        archiveExpanded ? "rotate-180" : ""
-                      }`}
-                      weight="bold"
-                    />
-                  </button>
-
-                  <div
-                    className={`grid transition-all duration-300 ease-out ${
-                      archiveExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="relative rounded-b-xl overflow-hidden">
-                        <div className="flex flex-col-reverse sm:flex-row">
-                          <div className="aspect-[9/16] sm:w-1/2 relative bg-neutral-900 shrink-0">
-                            <video
-                              src="/videos/exhibit-psd-live.mp4"
-                              className="w-full h-full object-cover"
-                              controls
-                              playsInline
-                              poster="/images/covers/exhibit-psd-live-cover.jpg"
-                            />
-                            <div className="absolute top-0 left-0 p-3 pointer-events-none">
-                              <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
-                                <p className="text-white text-sm font-medium">
-                                  Live with the band at High Dive
-                                </p>
-                                <p className="text-white/70 text-xs">Gainesville, FL · 2015</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="sm:w-1/2 flex flex-col-reverse sm:flex-col">
-                            <div className="aspect-[4/3] sm:aspect-auto sm:flex-[1] relative bg-neutral-900">
-                              <img
-                                src="/images/merch/lu-psd-merch.JPG"
-                                alt="With the homie Ludger"
-                                className="w-full h-full object-cover object-bottom"
-                              />
-                              <div className="absolute top-0 left-0 p-3">
-                                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
-                                  <p className="text-white text-sm font-medium">
-                                    With the homie Ludger
-                                  </p>
-                                  <p className="text-white/70 text-xs">Los Angeles, CA · 2018</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="aspect-square sm:aspect-auto sm:flex-[2] relative bg-neutral-900">
-                              <img
-                                src="/images/merch/exhibit-psd-merch.JPG"
-                                alt="Exhibit PSD T-Shirt"
-                                className="w-full h-full object-cover"
-                              />
-                              <button
-                                onClick={() => setArchiveInfoVisible(true)}
-                                className={`absolute bottom-0 left-0 p-3 transition-opacity ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                              >
-                                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5">
-                                  <p className="text-white/90 text-xs">
-                                    Shirts available at live shows
-                                  </p>
-                                  <span className="font-serif text-xs italic text-white/70">i</span>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => setArchiveInfoVisible(true)}
-                                className={`absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full transition-all z-10 flex items-center justify-center ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-                                aria-label="Show info"
-                              >
-                                <span className="font-serif text-base italic text-white">i</span>
-                              </button>
-                              <div
-                                onClick={() => setArchiveInfoVisible(false)}
-                                className={`absolute inset-0 bg-black/85 backdrop-blur-sm transform transition-transform duration-300 ease-out z-20 cursor-pointer flex flex-col justify-center p-3 sm:p-5 lg:p-8 overflow-y-auto ${
-                                  archiveInfoVisible ? "translate-x-0" : "translate-x-full"
-                                }`}
-                              >
-                                <h3 className="font-medium text-white text-base sm:text-lg lg:text-2xl m-2 text-justify">
-                                  Exhibit PSD
-                                </h3>
-                                <p className="text-white/90 text-xs sm:text-sm lg:text-lg leading-relaxed text-justify m-2 lg:mb-6">
-                                  Back when I attended the University of Florida, I gave out mixtape
-                                  CDs and performed at various clubs and venues in downtown
-                                  Gainesville. During my three-mixtape run from 2013 to when I
-                                  graduated in 2015, I wrote raps to songs from The xx (Intro),
-                                  Tinashe (2 On), and Carlos Santana (Maria Maria), recording them
-                                  on Mixcraft in my apartment room closet. While making my third
-                                  mixtape, I designed shirts with my initials—my original rap
-                                  moniker—to share with the music. 100% cotton, still holding up.
-                                  Can you spot the writing tool in my album artwork?
-                                </p>
-                                <div className="flex justify-center">
-                                  <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm bg-white/10 px-2 sm:px-3 py-1 lg:px-4 lg:py-1.5 rounded-full">
-                                    Tap anywhere to see my vintage merch
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                {renderTimeline()}
+                {renderArchiveSection()}
               </div>
             </div>
           </main>

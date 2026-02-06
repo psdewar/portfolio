@@ -10,6 +10,7 @@ import { DevToolsProvider } from "./contexts/DevToolsContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Footer } from "./components/Footer";
+import { useAudio } from "./contexts/AudioContext";
 
 const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
 const GlobalAudioPlayer = dynamic(
@@ -28,9 +29,11 @@ const DevToolsPanel = dynamic(
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { currentTrack } = useAudio();
+  const hasAudioPlayer = !!currentTrack;
   const isOgMode = searchParams?.get("og") === "true";
   const isPatronPage = pathname === "/patron";
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === "/" || pathname === "/2026";
   const isListenPage = pathname === "/listen";
   const isLivePage = pathname === "/live";
 
@@ -71,12 +74,12 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Live page: no footer
+  // Live page: no footer, edge-to-edge
   if (isLivePage) {
     return (
       <>
         <Navbar />
-        <main className="flex-auto min-w-0 flex flex-col pb-20">
+        <main className="flex-auto min-w-0 flex flex-col">
           <Suspense>{children}</Suspense>
         </main>
         <GlobalAudioPlayer />
@@ -88,12 +91,12 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Listen page: edge-to-edge grid, no footer, minimal padding for audio player
+  // Listen page: edge-to-edge grid, no footer, pad only for audio player
   if (isListenPage) {
     return (
       <>
         <Navbar />
-        <main className="flex-auto min-w-0 flex flex-col pb-20">
+        <main className={`flex-auto min-w-0 flex flex-col ${hasAudioPlayer ? "pb-[62px]" : ""}`}>
           <Suspense>{children}</Suspense>
         </main>
         <GlobalAudioPlayer />

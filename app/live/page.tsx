@@ -7,21 +7,18 @@ import Image from "next/image";
 import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
 import LiveChat from "../components/LiveChat";
-import { PatronModal } from "../components/PatronModal";
 import { useLiveStatus } from "../hooks/useLiveStatus";
 import { formatNextStream } from "../lib/dates";
 import {
   EyeIcon,
-  GiftIcon,
   BellIcon,
   SpeakerSlashIcon,
   PlayIcon,
-  MicrophoneStageIcon,
   MapPinIcon,
 } from "@phosphor-icons/react";
 import { TIMELINE, formatEventDate } from "../data/timeline";
 import { useAudio } from "../contexts/AudioContext";
-import { useDevTools } from "../contexts/DevToolsContext";
+import { usePatronStatus } from "../hooks/usePatronStatus";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
 
@@ -36,7 +33,7 @@ export default function LivePage() {
   const searchParams = useSearchParams();
   const posthog = usePostHog();
   const { currentTrack } = useAudio();
-  const { simulatePatron } = useDevTools();
+  const isPatron = usePatronStatus();
   const hasAudioPlayer = !!currentTrack;
   const isOgMode = searchParams.get("og") === "true";
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
@@ -59,10 +56,9 @@ export default function LivePage() {
   const isLoading = isOgMode ? false : liveStatus.isLoading;
   const [showThanks, setShowThanks] = useState(false);
   const [isLocalhost, setIsLocalhost] = useState(false);
-  const [showPatronModal, setShowPatronModal] = useState(false);
   const [showNotifyPanel, setShowNotifyPanel] = useState(false);
   const [commenterName, setCommenterName] = useState<string | null>(null);
-  const [isPatron, setIsPatron] = useState(false);
+
   const [mockNameInput, setMockNameInput] = useState("");
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
@@ -86,10 +82,7 @@ export default function LivePage() {
   useEffect(() => {
     const storedName = localStorage.getItem("liveCommenterName");
     setCommenterName(storedName);
-    const patronStatus = localStorage.getItem("patronStatus");
-    const patronEmail = localStorage.getItem("patronEmail");
-    setIsPatron((patronStatus === "active" && !!patronEmail) || simulatePatron);
-  }, [showNotifyPanel, simulatePatron]);
+  }, [showNotifyPanel]);
 
   useEffect(() => {
     const hostname = window.location.hostname;
@@ -113,7 +106,6 @@ export default function LivePage() {
   useEffect(() => {
     if (searchParams.get("thanks") === "1") {
       localStorage.setItem("patronStatus", "active");
-      setIsPatron(true);
       setShowThanks(true);
       posthog?.capture("patron_checkout_completed", { source: "live" });
       window.history.replaceState({}, "", "/live");
@@ -247,11 +239,6 @@ export default function LivePage() {
     setIsMuted(false);
   };
 
-  const closePanels = () => {
-    setShowPatronModal(false);
-    setShowNotifyPanel(false);
-  };
-
   const renderVideoOverlay = (isMobile: boolean) => (
     <>
       {/* Top bar */}
@@ -276,32 +263,15 @@ export default function LivePage() {
               </div>
             </div>
             {/* Action icons - mobile only */}
-            {isMobile && (
+            {isMobile && !isPatron && (
               <div className="flex flex-col gap-4">
-                {!isPatron && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setShowNotifyPanel(false);
-                        setShowPatronModal(true);
-                      }}
-                    >
-                      <GiftIcon size={32} weight="duotone" className="drop-shadow-lg text-white" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowPatronModal(false);
-                        setShowNotifyPanel(!showNotifyPanel);
-                      }}
-                    >
-                      <BellIcon
-                        size={32}
-                        weight="duotone"
-                        className={`drop-shadow-lg ${showNotifyPanel ? "text-blue-400" : "text-white"}`}
-                      />
-                    </button>
-                  </>
-                )}
+                <button onClick={() => setShowNotifyPanel(!showNotifyPanel)}>
+                  <BellIcon
+                    size={32}
+                    weight="duotone"
+                    className={`drop-shadow-lg ${showNotifyPanel ? "text-blue-400" : "text-white"}`}
+                  />
+                </button>
               </div>
             )}
           </div>
@@ -366,6 +336,57 @@ export default function LivePage() {
     );
   };
 
+  const renderOfflineState = (isMobile: boolean) => (
+    <>
+      <Image
+        src="/images/home/new-era-6.jpg"
+        alt="Peyt Spencer"
+        fill
+        className="object-cover"
+        priority
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
+      <div className={`absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden ${isMobile ? "z-[15]" : "z-10"}`}>
+        <div
+          className="flex items-center will-change-transform"
+          style={{ animation: "marquee 60s linear infinite" }}
+        >
+          {[...Array(2)].map((_, j) => (
+            <div key={j} className="flex shrink-0">
+              {[...Array(10)].map((_, i) => (
+                <span
+                  key={i}
+                  className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-9"
+                >
+                  I AM OFFLINE<span className="mx-4">·</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className={`absolute inset-x-0 flex flex-col items-center ${isMobile ? "top-14 z-[5] px-4" : "top-16 z-10"}`}>
+        {nextStreamDate && (
+          <>
+            <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
+            <h1 className={`font-[family-name:var(--font-bebas)] tracking-wide text-white text-center mt-1 leading-none ${isMobile ? "text-3xl" : "text-4xl"}`}>
+              {formatNextStream(nextStreamDate)}
+            </h1>
+          </>
+        )}
+        {!isPatron && (
+          <button
+            onClick={() => setShowNotifyPanel(true)}
+            className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
+          >
+            <BellIcon size={16} weight="regular" />
+            Notify me by email
+          </button>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div
       className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`}
@@ -394,20 +415,20 @@ export default function LivePage() {
         </div>
       )}
 
-      {/* Patron Modal */}
-      <PatronModal isOpen={showPatronModal} onClose={() => setShowPatronModal(false)} />
-
       {/* Desktop Layout */}
-      <div className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute inset-4 items-center justify-center z-[2]">
+      <div className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute inset-0 items-center justify-center z-[2]">
         {isLoading ? (
-          <div className="flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-neutral-900 dark:border-white border-t-transparent rounded-full animate-spin" />
+          <div className="flex h-full">
+            <div className="relative h-full aspect-[9/16] bg-neutral-900 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+            <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900" />
           </div>
         ) : (
           <div className="flex h-full">
             {/* Vertical Video Container */}
             <div
-              className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : "rounded-l-2xl"}`}
+              className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : ""}`}
               data-og-video
             >
               {status.online ? (
@@ -421,74 +442,13 @@ export default function LivePage() {
                   {renderVideoOverlay(false)}
                 </>
               ) : (
-                /* Offline: Show new-era-6 image with I AM OFFLINE + Get notified */
-                <>
-                  <Image
-                    src="/images/home/new-era-6.jpg"
-                    alt="Peyt Spencer"
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-                  <div className="absolute top-0 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden z-10">
-                    <div
-                      className="flex items-center will-change-transform"
-                      style={{ animation: "marquee 60s linear infinite" }}
-                    >
-                      {[...Array(2)].map((_, j) => (
-                        <div key={j} className="flex shrink-0">
-                          {[...Array(10)].map((_, i) => (
-                            <span
-                              key={i}
-                              className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-9"
-                            >
-                              I AM OFFLINE<span className="mx-4">·</span>
-                            </span>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="absolute top-16 inset-x-0 flex flex-col items-center z-10">
-                    {nextStreamDate && (
-                      <>
-                        <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                        <h1 className="font-[family-name:var(--font-bebas)] text-4xl tracking-wide text-white text-center mt-1 leading-none">
-                          {formatNextStream(nextStreamDate)}
-                        </h1>
-                      </>
-                    )}
-                    {!isPatron && (
-                      <button
-                        onClick={() => setShowNotifyPanel(true)}
-                        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
-                      >
-                        <BellIcon size={16} weight="regular" />
-                        Notify me by email
-                      </button>
-                    )}
-                  </div>
-                </>
+                renderOfflineState(false)
               )}
             </div>
 
             {/* Sidebar - hidden in OG mode */}
             {!isOgMode && (
-              <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 rounded-r-2xl flex flex-col overflow-hidden">
-                {/* Support Section - only show for non-patrons */}
-                {!isPatron && (
-                  <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-                    <button
-                      onClick={() => setShowPatronModal(true)}
-                      className="w-full py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <MicrophoneStageIcon size={28} weight="regular" />
-                      Become my patron
-                    </button>
-                  </div>
-                )}
-
+              <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 flex flex-col overflow-hidden">
                 {/* Shows list - show when offline */}
                 {!status.online && (
                   <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 overflow-y-auto max-h-64">
@@ -564,83 +524,7 @@ export default function LivePage() {
                   {renderVideoOverlay(true)}
                 </>
               ) : (
-                /* Offline: Show new-era-6 image with STAY TUNED overlay */
-                <>
-                  <Image
-                    src="/images/home/new-era-6.jpg"
-                    alt="Peyt Spencer"
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-                  {/* Offline top bar - below marquee */}
-                  <div className="absolute top-10 inset-x-0 z-10 p-3">
-                    {!isOgMode && (
-                      <div className="flex items-start justify-between">
-                        <div />
-                        <div className="flex flex-col items-end gap-4">
-                          <div />
-                          {/* Action icons - mobile only, hidden for patrons */}
-                          {!isPatron && (
-                            <div className="flex flex-col gap-4">
-                              <button
-                                onClick={() => {
-                                  setShowNotifyPanel(false);
-                                  setShowPatronModal(true);
-                                }}
-                              >
-                                <GiftIcon
-                                  size={32}
-                                  weight="duotone"
-                                  className="drop-shadow-lg text-white"
-                                />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden z-[15]">
-                    <div
-                      className="flex items-center will-change-transform"
-                      style={{ animation: "marquee 60s linear infinite" }}
-                    >
-                      {[...Array(2)].map((_, j) => (
-                        <div key={j} className="flex shrink-0">
-                          {[...Array(10)].map((_, i) => (
-                            <span
-                              key={i}
-                              className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-9"
-                            >
-                              I AM OFFLINE<span className="mx-4">·</span>
-                            </span>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="absolute top-14 inset-x-0 flex flex-col items-center z-[5] px-4">
-                    {nextStreamDate && (
-                      <>
-                        <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-                        <h1 className="font-[family-name:var(--font-bebas)] text-3xl tracking-wide text-white text-center mt-1 leading-none">
-                          {formatNextStream(nextStreamDate)}
-                        </h1>
-                      </>
-                    )}
-                    {!isPatron && (
-                      <button
-                        onClick={() => setShowNotifyPanel(true)}
-                        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all text-white text-sm font-medium"
-                      >
-                        <BellIcon size={16} weight="regular" />
-                        Notify me by email
-                      </button>
-                    )}
-                  </div>
-                </>
+                renderOfflineState(true)
               )}
               {/* Localhost mock name input - floating */}
               {isLocalhost && !commenterName && status.online && (

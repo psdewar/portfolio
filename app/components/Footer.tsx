@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "../ArrowIcon";
-import { useDevTools } from "../contexts/DevToolsContext";
+import { usePatronStatus } from "../hooks/usePatronStatus";
 
 export function Footer() {
-  const { simulatePatron } = useDevTools();
-  const [isPatron, setIsPatron] = useState(false);
-
-  useEffect(() => {
-    const patronStatus = localStorage.getItem("patronStatus");
-    if (patronStatus === "active" || simulatePatron) {
-      setIsPatron(true);
-    }
-  }, [simulatePatron]);
+  const isPatron = usePatronStatus();
 
   if (!isPatron) return null;
 

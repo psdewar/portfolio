@@ -8,9 +8,10 @@ import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
 import FreestyleOverlay from "app/components/FreestyleOverlay";
 import { useAudio } from "../contexts/AudioContext";
-import { useSimulatedLoading, useDevTools } from "../contexts/DevToolsContext";
+import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import { isPatronTrack } from "../data/patron-config";
+import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import ListenLoading from "./loading";
 
@@ -88,19 +89,9 @@ export default function Page() {
   const { loadTrack, loadPlaylist, currentTrack, loadingTrack, isPlaying, isLoading, toggle, playlist } =
     useAudio();
   const isSimulatingLoad = useSimulatedLoading();
-  const { simulatePatron } = useDevTools();
+  const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
-  const [isPatron, setIsPatron] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
-
-  // Check patron status
-  useEffect(() => {
-    const patronStatus = localStorage.getItem("patronStatus");
-    const patronEmail = localStorage.getItem("patronEmail");
-    if ((patronStatus === "active" && patronEmail) || simulatePatron) {
-      setIsPatron(true);
-    }
-  }, [simulatePatron]);
 
   // All tracks visible - playback gated by patron status
   const visibleTracks = ALL_VISIBLE_TRACKS;

@@ -16,19 +16,21 @@ const bebasNeue = Bebas_Neue({
 
 const siteConfig = {
   name: "Peyt Spencer",
-  title: "Peyt Spencer | Rapper & Developer",
+  title: "Peyt Spencer | Rapper & Software Engineer",
   description:
-    "Rapper and Microsoft engineer from Bellevue, WA. Stream singles, watch live performances, and support the journey.",
+    "Rapper and Software Engineer at Microsoft. Stream original singles, attend live shows, and support independent music from Bellevue, WA.",
   url: "https://peytspencer.com",
   keywords: [
     "Peyt Spencer",
-    "rapper",
-    "hip-hop",
-    "Bellevue",
-    "Seattle",
-    "independent artist",
-    "live music",
-    "Lyrist",
+    "rapper software engineer",
+    "hip-hop Bellevue WA",
+    "independent rapper Seattle",
+    "rapper Microsoft engineer",
+    "East Coast rap Pacific Northwest",
+    "Lyrist app",
+    "live hip-hop stream",
+    "hire developer Bellevue",
+    "rapper who codes",
   ],
   ogImage: "https://peytspencer.com/api/og",
   social: {
@@ -42,6 +44,7 @@ const siteConfig = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
+  alternates: { canonical: "/" },
   title: {
     default: siteConfig.title,
     template: `%s | ${siteConfig.name}`,
@@ -98,7 +101,7 @@ export default function RootLayout({
     name: siteConfig.name,
     alternateName: siteConfig.name,
     description:
-      "Hip-hop artist from Bellevue, WA known for East Coast cadence and confident delivery. Microsoft engineer who built Lyrist (songwriting app) and his own live streaming infrastructure. Influenced by Jay-Z, Ja Rule, LL Cool J, Ludacris, and T.I.",
+      "Rapper and Microsoft engineer from Bellevue, WA known for East Coast cadence and confident delivery. Built Lyrist (songwriting app) and his own live streaming infrastructure. Influenced by Jay-Z, Ja Rule, LL Cool J, Ludacris, and T.I.",
     url: siteConfig.url,
     sameAs: [
       ...Object.values(siteConfig.social),

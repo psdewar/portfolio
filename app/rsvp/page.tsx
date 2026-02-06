@@ -41,7 +41,7 @@ function Poster() {
             width: auto;
             height: 100%;
             aspect-ratio: 480 / 720;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0;
           }
         }
         .poster-bg {
@@ -146,12 +146,12 @@ function Poster() {
           letter-spacing: -0.01em;
           color: #f0ede6;
           text-transform: uppercase;
+          margin-left: -0.417cqw;
         }
         .title-accent {
-          width: 14.375cqw;
+          width: 13.333cqw;
           height: 0.625cqw;
           background: linear-gradient(to right, #d4a553, #e8c474);
-          border-radius: 0.417cqw;
           margin: 1.25cqw 0 1.458cqw;
         }
         .the-concert {
@@ -169,52 +169,37 @@ function Poster() {
         .bottom-row {
           display: flex;
           justify-content: space-between;
-          align-items: stretch;
+          align-items: flex-start;
         }
         .bottom-left {
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-        }
-        .detail-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.833cqw;
+          gap: 2.083cqw;
         }
         .detail-value {
-          font-size: 2.5cqw;
+          font-size: 2.917cqw;
           font-weight: 500;
           color: #c0b8a8;
           letter-spacing: 0.02em;
         }
         .detail-value.date {
-          font-size: 3.75cqw;
+          font-size: 4.167cqw;
           font-weight: 700;
           color: #f0ede6;
         }
         .tags {
-          display: flex;
-          gap: 2.083cqw;
-          margin-top: 2.5cqw;
-        }
-        .tag {
+          font-family: "Space Mono", monospace;
           font-size: 2.083cqw;
-          font-weight: 700;
-          letter-spacing: 0.12em;
+          font-weight: 500;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
-          padding: 1.667cqw 3.333cqw;
-          border-radius: 0.833cqw;
-          border: 1px solid transparent;
+          color: #e0b860;
+          line-height: 1;
         }
-        .tag-free {
-          color: #0a0a0a;
-          background: #d4a553;
-          border-color: #d4a553;
-        }
-        .tag-friends {
-          color: #e8c474;
-          background: rgba(232, 196, 116, 0.08);
-          border-color: rgba(232, 196, 116, 0.25);
+        .tags-separator {
+          color: #e0b860;
+          opacity: 0.4;
+          margin: 0 0.5em;
         }
       `}</style>
       <div className="poster">
@@ -235,21 +220,16 @@ function Poster() {
             </div>
             <div className="title-accent" />
             <div className="the-concert">a concert by rapper</div>
-            <div className="the-concert">and software engineer</div>
+            <div className="the-concert">and microsoft engineer</div>
             <div className="the-concert">peyt spencer</div>
           </div>
           <div className="details">
             <div className="bottom-row">
               <div className="bottom-left">
-                <div className="detail-group">
-                  <div className="detail-value date">Friday, February 20, 2026</div>
-                  <div className="detail-value">8432 Granville Ave, Richmond, BC</div>
-                  <div className="detail-value">Doors open at 5PM</div>
-                </div>
-                <div className="tags">
-                  <div className="tag tag-free">Free Admission</div>
-                  <div className="tag tag-friends">Bring Your Friends</div>
-                </div>
+                <div className="tags">Free Admission</div>
+                <div className="detail-value date">Friday, February 20, 2026</div>
+                <div className="detail-value">8432 Granville Ave, Richmond, BC</div>
+                <div className="detail-value">Doors open at 5PM</div>
               </div>
             </div>
           </div>
@@ -299,10 +279,6 @@ export default function RSVPPage() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -337,6 +313,7 @@ export default function RSVPPage() {
           name: formData.name,
           email: formData.email,
           guests: formData.guests,
+          eventId: "ftgu-20260220",
         }),
       });
 
@@ -594,7 +571,7 @@ export default function RSVPPage() {
                   </button>
                 </div>
                 <p className="text-neutral-500 dark:text-neutral-400 text-xs text-right tabular-nums">
-                  Total: ${(musicTotalCents / 100).toFixed(2)} (includes processing fee)
+                  + ${(musicTotalCents / 100).toFixed(2)} processing fee
                 </p>
               </div>
             )}

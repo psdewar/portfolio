@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PatronContent } from "./PatronContent";
+import { useHydrated } from "../hooks/useHydrated";
 
 interface PatronModalProps {
   isOpen: boolean;
@@ -10,13 +11,8 @@ interface PatronModalProps {
 }
 
 export function PatronModal({ isOpen, onClose }: PatronModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const hydrated = useHydrated();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -26,7 +22,7 @@ export function PatronModal({ isOpen, onClose }: PatronModalProps) {
     }
   }, [isOpen]);
 
-  if (!isOpen || !mounted) return null;
+  if (!isOpen || !hydrated) return null;
 
   return createPortal(
     <div

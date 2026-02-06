@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { X } from "@phosphor-icons/react";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useAudio } from "app/contexts/AudioContext";
 import { TRACK_DATA } from "app/data/tracks";
@@ -54,14 +55,7 @@ export default function FreestyleOverlay({
           onClick={onClose}
           className="absolute top-3 right-3 z-20 text-white hover:text-gray-300"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X className="w-6 h-6" weight="bold" />
         </button>
 
         {/* Square image with play button */}

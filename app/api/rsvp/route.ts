@@ -3,6 +3,8 @@ import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 
+const VALID_EVENTS = new Set(["ftgu-20260220"]);
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIP(request);
@@ -20,65 +22,63 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, email, guests } = body;
+    const { name, email, guests, eventId } = body;
 
-    console.log("[RSVP API] Received:", { name, email, guests });
-
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
+    console.log("[RSVP API] Received:", { name, email, guests, eventId });
 
     if (!email?.trim() || !email.includes("@")) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
     }
 
+    if (!eventId?.trim() || !VALID_EVENTS.has(eventId.trim())) {
+      return NextResponse.json({ error: "Invalid event" }, { status: 400 });
+    }
+
     const guestCount = Math.max(1, Math.min(10, parseInt(guests, 10) || 1));
+    const rsvpEntry = `${eventId}:${guestCount}`;
+    const emailLower = email.trim().toLowerCase();
 
-    // Store RSVP in Supabase
-    const { error: dbError } = await supabaseAdmin.from("rsvps").insert({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      guests: guestCount,
-      event: "from-the-ground-up-2026",
-      created_at: new Date().toISOString(),
-    });
+    // Check if contact already exists in stay-connected
+    const { data: contact } = await supabaseAdmin
+      .from("stay-connected")
+      .select("id, rsvp")
+      .eq("email", emailLower)
+      .single();
 
-    if (dbError) {
-      // Check if it's a duplicate email for this event
-      if (dbError.code === "23505") {
+    if (contact) {
+      const current: string[] = contact.rsvp || [];
+      if (current.some((r) => r.startsWith(eventId))) {
         return NextResponse.json(
           { error: "You've already RSVP'd! Check your email for details." },
           { status: 400 },
         );
       }
-      console.error("[RSVP] Database error:", dbError);
-      return NextResponse.json({ error: "Failed to save RSVP. Please try again." }, { status: 500 });
-    }
-
-    console.log("[RSVP API] Saved to Supabase");
-
-    // Append show slug to contact's rsvp array in stay-connected
-    const showSlug = "ftgu-20260220";
-    const emailLower = email.trim().toLowerCase();
-    try {
-      const { data: contact } = await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("stay-connected")
-        .select("id, rsvp")
-        .eq("email", emailLower)
-        .single();
-
-      if (contact) {
-        const current: string[] = contact.rsvp || [];
-        if (!current.includes(showSlug)) {
-          await supabaseAdmin
-            .from("stay-connected")
-            .update({ rsvp: [...current, showSlug] })
-            .eq("id", contact.id);
-          console.log("[RSVP API] Appended", showSlug, "to stay-connected for", emailLower);
-        }
+        .update({ rsvp: [...current, rsvpEntry] })
+        .eq("id", contact.id);
+      if (updateError) {
+        console.error("[RSVP] Update error:", updateError);
+        return NextResponse.json(
+          { error: "Failed to save RSVP. Please try again." },
+          { status: 500 },
+        );
       }
-    } catch (scErr) {
-      console.error("[RSVP API] stay-connected update failed:", scErr);
+      console.log("[RSVP API] Appended", rsvpEntry, "to stay-connected for", emailLower);
+    } else {
+      const { error: insertError } = await supabaseAdmin.from("stay-connected").insert({
+        email: emailLower,
+        ...(name?.trim() && { name: name.trim() }),
+        rsvp: [rsvpEntry],
+      });
+      if (insertError) {
+        console.error("[RSVP] Insert error:", insertError);
+        return NextResponse.json(
+          { error: "Failed to save RSVP. Please try again." },
+          { status: 500 },
+        );
+      }
+      console.log("[RSVP API] Created stay-connected entry for", emailLower);
     }
 
     // Send confirmation email with patron upsell

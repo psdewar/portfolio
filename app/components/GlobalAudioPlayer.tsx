@@ -1,5 +1,5 @@
 "use client";
-import React, { MouseEvent, useState } from "react";
+import React, { MouseEvent, TouchEvent, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
@@ -24,20 +24,41 @@ const CTA_MARKER = "[GET FULL LYRICS]";
 
 export const GlobalAudioPlayer: React.FC = () => {
   const pathname = usePathname() ?? "/";
+  const [showLyrics, setShowLyrics] = useState(true);
+  const { currentTrack, isPlaying, currentTime, duration, isLoading, toggle, seekTo, formatTime } =
+    useAudio();
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubX, setScrubX] = useState<number | null>(null);
+
+  const getPercentFromX = useCallback((clientX: number) => {
+    const rect = progressRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const handleMouseMove = useCallback((e: globalThis.MouseEvent) => {
+    const pct = getPercentFromX(e.clientX);
+    if (pct !== null) {
+      setScrubX(pct);
+      seekTo(pct * duration);
+    }
+  }, [getPercentFromX, seekTo, duration]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsScrubbing(false);
+    setScrubX(null);
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  }, [handleMouseMove]);
+
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
   const isQuickShop = pathname === "/shop/quick";
-  const [showLyrics, setShowLyrics] = useState(true);
-
-  const { currentTrack, isPlaying, currentTime, duration, isLoading, toggle, seekTo, formatTime } =
-    useAudio();
-
-  // Don't render if no track is loaded or if on hire/fund/quick-shop pages
   if (!currentTrack || isHirePage || isFundPage || isQuickShop) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
   const lyrics = LYRICS_DATA[currentTrack.id] || [];
-  // Offset to make lyrics appear earlier (compensate for reaction time when syncing)
   const LYRICS_OFFSET = 0.3;
   const adjustedTime = currentTime + LYRICS_OFFSET;
   const currentLyric = lyrics.find((l) => adjustedTime >= l.start && adjustedTime < l.end);
@@ -45,28 +66,82 @@ export const GlobalAudioPlayer: React.FC = () => {
   const isCtaLyric = currentLyric?.text.includes(CTA_MARKER) || currentLyric?.text === "...";
 
   const handleProgressClick = (e: MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    const newTime = percentage * duration;
-    seekTo(newTime);
+    const pct = getPercentFromX(e.clientX);
+    if (pct !== null) seekTo(pct * duration);
   };
+
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    setIsScrubbing(true);
+    const pct = getPercentFromX(e.clientX);
+    if (pct !== null) {
+      setScrubX(pct);
+      seekTo(pct * duration);
+    }
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setIsScrubbing(true);
+    const touch = e.touches[0];
+    const pct = getPercentFromX(touch.clientX);
+    if (pct !== null) {
+      setScrubX(pct);
+      seekTo(pct * duration);
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    const pct = getPercentFromX(touch.clientX);
+    if (pct !== null) {
+      setScrubX(pct);
+      seekTo(pct * duration);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsScrubbing(false);
+    setScrubX(null);
+  };
+
+  const thumbPosition = scrubX !== null ? scrubX * 100 : progressPercentage;
+  // Interpolate gradient color: orange-500 (#f97316) -> pink-500 (#ec4899)
+  const t = thumbPosition / 100;
+  const thumbColor = `rgb(${Math.round(249 + (236 - 249) * t)}, ${Math.round(115 + (72 - 115) * t)}, ${Math.round(22 + (153 - 22) * t)})`;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-inset-bottom">
       {/* Main player */}
       <div className="bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800">
-        {/* Progress bar - clickable full width at top */}
+        {/* Progress bar with expanded hit area extending upward */}
         <div
-          className="h-1.5 bg-neutral-200 dark:bg-neutral-700 cursor-pointer relative group"
+          ref={progressRef}
+          className="relative h-1.5 cursor-pointer group"
           onClick={handleProgressClick}
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setScrubX(progressPercentage / 100)}
+          onMouseLeave={() => { if (!isScrubbing) setScrubX(null); }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
+          {/* Invisible expanded touch target */}
+          <div className="absolute -top-3 left-0 right-0 bottom-0" />
+          {/* Visible bar */}
+          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700">
+            <div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-500 to-pink-500"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          {/* Circular thumb — vertically centered on the bar */}
           <div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-500 to-pink-500"
-            style={{ width: `${progressPercentage}%` }}
+            className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md shadow-black/20 pointer-events-none transition-opacity duration-150 ${
+              scrubX !== null ? "opacity-100 scale-100" : "opacity-0 scale-75"
+            }`}
+            style={{ left: `${thumbPosition}%`, marginLeft: "-8px", backgroundColor: thumbColor }}
           />
-          {/* Hover indicator */}
-          <div className="absolute inset-0 bg-black/10 dark:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         <div

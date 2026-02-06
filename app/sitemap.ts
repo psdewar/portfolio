@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/listen", priority: 0.9 },
     { path: "/live", priority: 0.8 },
     { path: "/patron", priority: 0.8 },
+    { path: "/rsvp", priority: 0.8 },
     { path: "/fund", priority: 0.7 },
     { path: "/hire", priority: 0.6 },
   ];
@@ -20,8 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [...staticPages, ...projectSlugs].map((p) => ({
     url: `${base}${p.path}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
+    changeFrequency: "weekly" as const,
     priority: p.priority,
   }));
 }

@@ -5,7 +5,17 @@ import {
   TwitterLogoIcon,
   FacebookLogoIcon,
   SpotifyLogoIcon,
+  type Icon,
 } from "@phosphor-icons/react";
+
+const LINKS: { href: string; label: string; icon: Icon }[] = [
+  { href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN", label: "Spotify", icon: SpotifyLogoIcon },
+  { href: "https://instagram.com/peytspencer", label: "Instagram", icon: InstagramLogoIcon },
+  { href: "https://tiktok.com/@peytspencer", label: "TikTok", icon: TiktokLogoIcon },
+  { href: "https://youtube.com/@peytspencer", label: "YouTube", icon: YoutubeLogoIcon },
+  { href: "https://twitter.com/peytspencer", label: "Twitter", icon: TwitterLogoIcon },
+  { href: "https://facebook.com/9psd2", label: "Facebook", icon: FacebookLogoIcon },
+];
 
 interface SocialProps {
   isMobilePanel?: boolean;
@@ -26,65 +36,18 @@ export function Social({ isMobilePanel = false, isHorizontal = false }: SocialPr
       className={`flex items-center pointer-events-auto ${isHorizontal ? "" : "flex-1 pl-3 pt-3"}`}
     >
       <div className={`flex items-center ${isHorizontal ? "gap-4" : "gap-6 w-full max-w-sm"}`}>
-        <a
-          href="https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="Spotify"
-        >
-          <SpotifyLogoIcon size={iconSize} weight="regular" />
-        </a>
-
-        <a
-          href="https://instagram.com/peytspencer"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="Instagram"
-        >
-          <InstagramLogoIcon size={iconSize} weight="regular" />
-        </a>
-
-        <a
-          href="https://tiktok.com/@peytspencer"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="TikTok"
-        >
-          <TiktokLogoIcon size={iconSize} weight="regular" />
-        </a>
-
-        <a
-          href="https://youtube.com/@peytspencer"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="YouTube"
-        >
-          <YoutubeLogoIcon size={iconSize} weight="regular" />
-        </a>
-
-        <a
-          href="https://twitter.com/peytspencer"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="Twitter"
-        >
-          <TwitterLogoIcon size={iconSize} weight="regular" />
-        </a>
-
-        <a
-          href="https://facebook.com/9psd2"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={iconClasses}
-          aria-label="Facebook"
-        >
-          <FacebookLogoIcon size={iconSize} weight="regular" />
-        </a>
+        {LINKS.map(({ href, label, icon: Icon }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={iconClasses}
+            aria-label={label}
+          >
+            <Icon size={iconSize} weight="regular" />
+          </a>
+        ))}
       </div>
     </div>
   );

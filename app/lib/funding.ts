@@ -18,6 +18,7 @@ interface CacheEntry {
 const cache: Record<string, CacheEntry> = {};
 
 type TierKey = "1000" | "2500" | "5000" | "10000" | "custom";
+const ZERO_TIERS: Record<TierKey, number> = { "1000": 0, "2500": 0, "5000": 0, "10000": 0, custom: 0 };
 type Offsets = {
   raisedCents?: number;
   backers?: number;
@@ -104,7 +105,7 @@ export async function getFundingStats(projectId: string): Promise<{
     }
 
     let raisedCents = 0;
-    let backerCount = 0;
+    let backers = 0;
 
     for (const s of relevant) {
       const amountPaid = s.amount_total ?? 0;
@@ -126,19 +127,11 @@ export async function getFundingStats(projectId: string): Promise<{
       raisedCents += netAmount;
 
       if (netAmount > 0) {
-        backerCount++;
+        backers++;
       }
     }
 
-    const backers = backerCount;
-
-    const tierCounts: Record<TierKey, number> = {
-      "1000": 0,
-      "2500": 0,
-      "5000": 0,
-      "10000": 0,
-      custom: 0,
-    };
+    const tierCounts: Record<TierKey, number> = { ...ZERO_TIERS };
     for (const s of relevant) {
       const amt = s.amount_total ?? 0;
       if (amt === 1000 || amt === 2500 || amt === 5000 || amt === 10000) {
@@ -151,18 +144,11 @@ export async function getFundingStats(projectId: string): Promise<{
     cache[projectId] = { raisedCents, backers, tierCounts, fetchedAt: now };
 
     return applyOffsets(projectId, { raisedCents, backers, tierCounts });
-  } catch (e) {
-    const zero = {
-      "1000": 0,
-      "2500": 0,
-      "5000": 0,
-      "10000": 0,
-      custom: 0,
-    } as Record<TierKey, number>;
+  } catch {
     return applyOffsets(projectId, {
       raisedCents: 0,
       backers: 0,
-      tierCounts: zero,
+      tierCounts: { ...ZERO_TIERS },
     });
   }
 }

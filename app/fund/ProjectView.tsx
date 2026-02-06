@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FundingCard } from "app/components/projects/FundingCard";
 import { SuccessModal } from "app/components/SuccessModal";
 import Link from "next/link";
 import { ArrowIcon } from "app/ArrowIcon";
+import { useHydrated } from "app/hooks/useHydrated";
 
 export interface ProjectData {
   slug: string;
@@ -34,12 +35,7 @@ export function ProjectView({
   sessionId?: string | null;
 }) {
   const [showSuccess, setShowSuccess] = useState(!!success);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Mark as hydrated after first render to prevent flash
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useHydrated();
 
   // Show skeleton during hydration to prevent blank flash
   if (!isHydrated) {
@@ -105,35 +101,19 @@ export function ProjectView({
             sessionId={sessionId || null}
           />
         )}
-        <div className="block lg:hidden mb-6">
-          <FundingCard
-            raisedCents={stats.raisedCents}
-            goalCents={project.goalCents}
-            backers={stats.backers}
-            tierCounts={stats.tierCounts}
-            title={project.title}
-            projectId={project.slug}
-            contributeTitle={project.contributeTitle || null}
-            details={project.details}
-            stretch={project.stretch || null}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
-          <div className="hidden lg:flex justify-center">
-            <div className="sticky top-6">
-              <FundingCard
-                raisedCents={stats.raisedCents}
-                goalCents={project.goalCents}
-                backers={stats.backers}
-                tierCounts={stats.tierCounts}
-                title={project.title}
-                projectId={project.slug}
-                contributeTitle={project.contributeTitle || null}
-                details={project.details}
-                stretch={project.stretch || null}
-              />
-            </div>
+        <div className="lg:flex lg:justify-center">
+          <div className="lg:sticky lg:top-6">
+            <FundingCard
+              raisedCents={stats.raisedCents}
+              goalCents={project.goalCents}
+              backers={stats.backers}
+              tierCounts={stats.tierCounts}
+              title={project.title}
+              projectId={project.slug}
+              contributeTitle={project.contributeTitle || null}
+              details={project.details}
+              stretch={project.stretch || null}
+            />
           </div>
         </div>
       </div>
