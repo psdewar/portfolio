@@ -92,6 +92,32 @@ export default function Page() {
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [rsvpToast, setRsvpToast] = useState<string | null>(null);
+  const [toastExiting, setToastExiting] = useState(false);
+
+  // RSVP success toast (read URL once on mount, cleared by replaceState)
+  useEffect(() => {
+    const success = new URLSearchParams(window.location.search).get("success");
+    if (success !== "rsvp" && success !== "rsvp_music") return;
+
+    setRsvpToast(
+      success === "rsvp_music"
+        ? "You're in + music on the way. Check your email."
+        : "You're in. Check your email for details."
+    );
+    window.history.replaceState({}, "", "/listen");
+
+    const exitTimer = setTimeout(() => setToastExiting(true), 4500);
+    const removeTimer = setTimeout(() => {
+      setRsvpToast(null);
+      setToastExiting(false);
+    }, 5000);
+
+    return () => {
+      clearTimeout(exitTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
 
   // All tracks visible - playback gated by patron status
   const visibleTracks = ALL_VISIBLE_TRACKS;
@@ -186,6 +212,17 @@ export default function Page() {
 
   return (
     <>
+      {rsvpToast && (
+        <div className="fixed top-20 left-0 right-0 z-[100] flex justify-center pointer-events-none">
+          <div
+            className={`pointer-events-auto flex items-center gap-3 bg-neutral-900 border border-[#d4a553]/30 px-5 py-3 rounded-lg shadow-2xl transition-all duration-500 ${toastExiting ? "opacity-0 -translate-y-2" : "opacity-100 translate-y-0"}`}
+          >
+            <div className="w-2 h-2 rounded-full bg-[#d4a553] flex-shrink-0" />
+            <span className="text-neutral-200 text-sm">{rsvpToast}</span>
+          </div>
+        </div>
+      )}
+
       {showStayConnected && !playParam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />

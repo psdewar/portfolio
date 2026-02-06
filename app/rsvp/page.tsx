@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { CheckIcon, UsersIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { UsersIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
 import { calculateStripeFee } from "../api/shared/products";
 import ContactFields from "../components/ContactFields";
 
@@ -241,6 +240,7 @@ function Poster() {
 
 export default function RSVPPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -252,19 +252,15 @@ export default function RSVPPage() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
-  // Check URL params for success states
+  // Redirect success states to /listen with toast
   useEffect(() => {
-    if (searchParams.get("rsvp_success") === "true") {
-      setIsSuccess(true);
-    }
     if (searchParams.get("session_id")) {
-      setIsSuccess(true);
-      setPurchaseSuccess(true);
+      router.replace("/listen?success=rsvp_music");
+    } else if (searchParams.get("rsvp_success") === "true") {
+      router.replace("/listen?success=rsvp");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Focus name input on mount (desktop only - mobile blocks this)
   useEffect(() => {
@@ -338,15 +334,15 @@ export default function RSVPPage() {
           body: JSON.stringify({
             productId: "singles-16s-pack-2025",
             amount: musicTotalCents,
-            successPath: "/rsvp",
-            cancelPath: "/rsvp?rsvp_success=true",
+            successPath: "/listen?success=rsvp_music",
+            cancelPath: "/listen?success=rsvp",
           }),
         });
 
         if (!checkoutRes.ok) {
-          // RSVP succeeded but checkout failed - show RSVP success anyway
-          console.log("[RSVP Client] Checkout failed, showing RSVP success");
-          setIsSuccess(true);
+          // RSVP succeeded but checkout failed - redirect with RSVP success
+          console.log("[RSVP Client] Checkout failed, redirecting with RSVP success");
+          router.push("/listen?success=rsvp");
           return;
         }
 
@@ -358,7 +354,7 @@ export default function RSVPPage() {
         }
       }
 
-      setIsSuccess(true);
+      router.push("/listen?success=rsvp");
     } catch {
       setErrors({ email: "Failed to submit. Please try again." });
     } finally {
@@ -403,58 +399,6 @@ export default function RSVPPage() {
     },
   });
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckIcon className="w-8 h-8 text-green-600 dark:text-green-400" weight="bold" />
-          </div>
-          <h1 className="font-bebas text-4xl md:text-5xl text-neutral-900 dark:text-white mb-3">
-            {purchaseSuccess ? "You're In + Music Purchased" : "You're In"}
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-300 mb-2">
-            {formData.name
-              ? formData.guests > 1
-                ? `${formData.guests} spots reserved for ${formData.name}`
-                : `1 spot reserved for ${formData.name}`
-              : "Your spot is reserved"}
-          </p>
-          <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-8">
-            {purchaseSuccess
-              ? "Check your email for RSVP confirmation and your download link."
-              : "Check your email for confirmation and details."}
-          </p>
-
-          {/* Patron callout - only show if no purchase was made */}
-          {!purchaseSuccess && (
-            <div className="bg-gradient-to-r from-orange-500/10 to-pink-500/10 border border-orange-500/20 rounded-xl p-6 mb-6">
-              <h2 className="font-bebas text-xl text-neutral-900 dark:text-white mb-2">
-                Support My Independence
-              </h2>
-              <p className="text-neutral-600 dark:text-neutral-300 text-sm mb-4">
-                Become a monthly patron to fund new music, tours, and creative projects.
-              </p>
-              <Link
-                href="/patron"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white font-medium rounded-lg transition-all hover:scale-105"
-                style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
-              >
-                Become a Patron
-              </Link>
-            </div>
-          )}
-
-          <Link
-            href="/"
-            className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white text-sm transition-colors"
-          >
-            Back to home
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
