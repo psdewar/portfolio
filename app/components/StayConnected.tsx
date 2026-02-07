@@ -13,7 +13,7 @@ interface SelectedTier {
 }
 
 interface StayConnectedProps {
-  onClose?: () => void;
+  onClose?: (email?: string) => void;
   isModal?: boolean;
   shouldShow?: boolean;
   selectedTier?: SelectedTier;
@@ -29,13 +29,6 @@ type Step = "form" | "code";
 
 const now = () => Date.now();
 
-const FIVE_MINUTES = 5 * 60 * 1000;
-
-const isWithinLastFiveMinutes = (saved: string | null): boolean => {
-  if (!saved) return false;
-  return now() - parseInt(saved, 10) < FIVE_MINUTES;
-};
-
 function formatCountdown(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -50,16 +43,16 @@ const MODE_SWITCH_BUTTON_CLASS =
 
 // This should only be called client-side (inside useEffect)
 export const shouldShowStayConnected = (): boolean => {
-  // Hide for OG screenshot captures
   const urlParams = new URLSearchParams(window.location.search);
+  // Hide for OG screenshot captures
   if (urlParams.get("og") === "true") return false;
-  // Never show to patrons - they've already committed
-  const patronStatus = localStorage.getItem("patronStatus");
-  if (patronStatus === "active") return false;
-  const completedTime = sessionStorage.getItem("stayConnectedCompleted");
-  if (isWithinLastFiveMinutes(completedTime)) return false;
-  const dismissedTime = sessionStorage.getItem("stayConnectedDismissed");
-  if (isWithinLastFiveMinutes(dismissedTime)) return false;
+  // Hide on any success redirect
+  if (urlParams.get("success")) return false;
+  // Never show to patrons
+  if (localStorage.getItem("patronStatus") === "active") return false;
+  // Already completed or dismissed this session (tab)
+  if (sessionStorage.getItem("stayConnectedCompleted")) return false;
+  if (sessionStorage.getItem("stayConnectedDismissed")) return false;
   return true;
 };
 
@@ -92,11 +85,11 @@ export default function StayConnected({
   // Visibility controlled by parent - if not provided, default to true (parent should control rendering)
   const componentShouldShow = externalShouldShow ?? true;
 
-  const handleClose = () => {
+  const handleClose = (email?: string) => {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("stayConnectedDismissed", now().toString());
     }
-    onClose?.();
+    onClose?.(email);
   };
 
   useEffect(() => {
@@ -225,8 +218,9 @@ export default function StayConnected({
         posthog?.capture("email_captured", { source: "live" });
       }
 
+      const verifiedEmail = mode === "signup" ? contactFormData.email : signInEmail;
       setIsSuccess(true);
-      setTimeout(() => handleClose(), 2000);
+      setTimeout(() => handleClose(verifiedEmail.trim().toLowerCase()), 2000);
     } catch {
       setErrors({ otp: "Verification failed. Please try again." });
     } finally {
@@ -300,7 +294,7 @@ export default function StayConnected({
     <div className={`${containerClass} shadow-2xl relative`}>
       {isModal && onClose && (
         <button
-          onClick={handleClose}
+          onClick={() => handleClose()}
           className="absolute top-4 right-4 sm:top-6 sm:right-6 md:top-8 md:right-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10"
           aria-label="Close"
         >

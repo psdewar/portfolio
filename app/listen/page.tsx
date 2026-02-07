@@ -13,6 +13,7 @@ import { TRACK_DATA } from "../data/tracks";
 import { isPatronTrack } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
+import { Toast } from "app/components/Toast";
 import ListenLoading from "./loading";
 
 interface TrackCard {
@@ -62,7 +63,7 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-// Patron-exclusive tracks (Welcome Pack)
+// Welcome Pack tracks
 const PATRON_TRACKS: TrackCard[] = [
   {
     id: "so-good",
@@ -78,6 +79,7 @@ const PATRON_TRACKS: TrackCard[] = [
 
 // Tracks awaiting artwork
 const ARTWORK_PENDING = new Set(["crg-freestyle", "so-good"]);
+const WELCOME_PACK_IDS = new Set(PATRON_TRACKS.map((t) => t.id));
 
 const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
 const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
@@ -94,17 +96,31 @@ export default function Page() {
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [rsvpToast, setRsvpToast] = useState<string | null>(null);
   const [toastExiting, setToastExiting] = useState(false);
+  const [patronWelcome, setPatronWelcome] = useState(false);
 
-  // RSVP success toast (read URL once on mount, cleared by replaceState)
+  // Success toast (read URL once on mount, cleared by replaceState)
   useEffect(() => {
-    const success = new URLSearchParams(window.location.search).get("success");
-    if (success !== "rsvp" && success !== "rsvp_music") return;
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("success");
 
-    setRsvpToast(
-      success === "rsvp_music"
-        ? "You're in + music on the way. Check your email."
-        : "You're in. Check your email for details."
-    );
+    if (params.get("patron_welcome") === "1") {
+      setPatronWelcome(true);
+      window.history.replaceState({}, "", "/listen");
+      setTimeout(() => setPatronWelcome(false), 4000);
+      return;
+    }
+
+    const SUCCESS_MESSAGES: Record<string, string> = {
+      rsvp: "You're in. Check your email for details.",
+      rsvp_music: "You're in + music on the way. Check your email.",
+      funded: "Contribution received. Thank you.",
+      patron_live: "Thank you for supporting.",
+    };
+
+    const message = success ? SUCCESS_MESSAGES[success] : null;
+    if (!message) return;
+
+    setRsvpToast(message);
     window.history.replaceState({}, "", "/listen");
 
     const exitTimer = setTimeout(() => setToastExiting(true), 4500);
@@ -212,16 +228,7 @@ export default function Page() {
 
   return (
     <>
-      {rsvpToast && (
-        <div className="fixed top-20 left-0 right-0 z-[100] flex justify-center pointer-events-none">
-          <div
-            className={`pointer-events-auto flex items-center gap-3 bg-neutral-900 border border-[#d4a553]/30 px-5 py-3 rounded-lg shadow-2xl transition-all duration-500 ${toastExiting ? "opacity-0 -translate-y-2" : "opacity-100 translate-y-0"}`}
-          >
-            <div className="w-2 h-2 rounded-full bg-[#d4a553] flex-shrink-0" />
-            <span className="text-neutral-200 text-sm">{rsvpToast}</span>
-          </div>
-        </div>
-      )}
+      {rsvpToast && <Toast message={rsvpToast} exiting={toastExiting} />}
 
       {showStayConnected && !playParam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -255,7 +262,9 @@ export default function Page() {
           return (
             <div
               key={t.id}
-              className="relative overflow-hidden aspect-square group cursor-pointer"
+              className={`relative overflow-hidden aspect-square group cursor-pointer${
+                patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
+              }`}
               onClick={() => canPlay && handlePlayTrack(t.id)}
             >
               {brokenImages.has(t.id) ? (
@@ -295,13 +304,10 @@ export default function Page() {
                 </div>
               )}
 
-              {/* Loading overlay for audio fetch */}
-              {isLoadingThis && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-4 border-yellow-500/30 rounded-full" />
-                    <div className="absolute inset-0 w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
-                  </div>
+              {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
+                <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
+                  <LockSimple size={64} weight="bold" className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]" />
+                  <span className="text-xs uppercase tracking-widest text-white/70 font-medium">Unlocking</span>
                 </div>
               )}
 

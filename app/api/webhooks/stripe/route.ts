@@ -142,7 +142,7 @@ async function handleDigitalFulfillment(
 
     // Send download email automatically
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://peytspencer.com";
-    const downloadUrl = `${baseUrl}/shop/success?session_id=${session.id}`;
+    const downloadUrl = `${baseUrl}/download?session_id=${session.id}`;
 
     if (testMode) {
       console.log("[Webhook] TEST MODE - Would send email:", {

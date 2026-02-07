@@ -17,6 +17,7 @@ import {
   validateOrigin,
   fetchAudioBlob,
   fetchAudioBuffer,
+  generateMockAudioBuffer,
   formatTrackFilename,
   createDownloadHeaders,
   logDevError,
@@ -59,6 +60,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!isValidAsset(trackId)) {
       return new NextResponse("Track not found", { status: 404 });
+    }
+
+    // Dev bypass for test sessions
+    if (process.env.NODE_ENV === "development" && sessionId.startsWith("test_")) {
+      const fileFormat = trackId.includes("bundle") || trackId.includes("singles") ? "zip" : "mp3";
+      let audioBuffer: ArrayBuffer;
+      try {
+        const audioBlob = await fetchAudioBlob(trackId, fileFormat);
+        audioBuffer = audioBlob ? await fetchAudioBuffer(audioBlob.url) : generateMockAudioBuffer();
+      } catch {
+        audioBuffer = generateMockAudioBuffer();
+      }
+      const filename = formatTrackFilename(trackId, fileFormat);
+      const headers = createDownloadHeaders(audioBuffer, filename, fileFormat);
+      return new NextResponse(audioBuffer, {
+        headers: {
+          ...headers,
+          ...createRateLimitHeaders(
+            rateCheck.remaining - 1,
+            rateCheck.resetIn,
+            RATE_LIMIT_CONFIGS.download.maxRequests
+          ),
+        },
+      });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);

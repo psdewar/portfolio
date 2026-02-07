@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Build download URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://peytspencer.com";
-    const downloadUrl = `${baseUrl}/shop/success?session_id=${sessionId}`;
+    const downloadUrl = `${baseUrl}/download?session_id=${sessionId}`;
 
     // Send email
     const sent = await sendDownloadEmail({

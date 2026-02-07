@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
       successPath: customSuccessPath,
       cancelPath: customCancelPath,
       skipShipping,
+      customerEmail,
     } = body;
 
     console.log("[Checkout] Product:", productId, "amount:", amount, "successPath:", customSuccessPath, "cancelPath:", customCancelPath);
@@ -154,6 +155,7 @@ export async function POST(request: NextRequest) {
       successUrl: `${baseUrl}${safeSuccessPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}${safeCancelPath}`,
       metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
+      ...(customerEmail && { customerEmail }),
     };
 
     // Use priceId if available (Phase 2), otherwise use lineItems

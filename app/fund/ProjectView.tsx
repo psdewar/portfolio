@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { FundingCard } from "app/components/projects/FundingCard";
-import { SuccessModal } from "app/components/SuccessModal";
 import Link from "next/link";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useHydrated } from "app/hooks/useHydrated";
@@ -27,15 +27,19 @@ export function ProjectView({
   project,
   stats,
   success,
-  sessionId,
 }: {
   project: ProjectData;
   stats: FundingStats;
   success?: boolean;
-  sessionId?: string | null;
 }) {
-  const [showSuccess, setShowSuccess] = useState(!!success);
+  const router = useRouter();
   const isHydrated = useHydrated();
+
+  useEffect(() => {
+    if (success) {
+      router.replace("/listen?success=funded");
+    }
+  }, [success, router]);
 
   // Show skeleton during hydration to prevent blank flash
   if (!isHydrated) {
@@ -86,21 +90,6 @@ export function ProjectView({
   return (
     <div className="lg:flex lg:justify-center mb-32 pt-8">
       <div className="max-w-2xl px-4 w-full">
-        {showSuccess && (
-          <SuccessModal
-            show={showSuccess}
-            onClose={() => {
-              setShowSuccess(false);
-              // remove query params without full reload
-              const url = new URL(window.location.href);
-              url.searchParams.delete("success");
-              url.searchParams.delete("session_id");
-              window.history.replaceState({}, "", url.toString());
-            }}
-            amountCents={undefined}
-            sessionId={sessionId || null}
-          />
-        )}
         <div className="lg:flex lg:justify-center">
           <div className="lg:sticky lg:top-6">
             <FundingCard

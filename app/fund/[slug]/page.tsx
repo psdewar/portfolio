@@ -47,7 +47,7 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; session_id?: string }>;
+  searchParams: Promise<{ success?: string }>;
 }) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -59,8 +59,7 @@ export default async function Page({
   // Use cached stats with 60s TTL for better performance
   const stats = await getFundingStats(project.slug);
   const success = resolvedSearchParams?.success === "1" || resolvedSearchParams?.success === "true";
-  const sessionId = resolvedSearchParams?.session_id || null;
-  return <ProjectView project={project} stats={stats} success={success} sessionId={sessionId} />;
+  return <ProjectView project={project} stats={stats} success={success} />;
 }
 
 // Pre-generate all project slugs (SSG) so future additions are simple.

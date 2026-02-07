@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     const ip = extractIpAddress(request);
     const body = await request.json();
-    const { amount, projectTitle, projectId, interval = "month" } = body;
+    const { amount, projectTitle, projectId, interval = "month", customerEmail } = body;
 
     const productId = PROJECT_PRODUCT_MAP[projectId];
 
@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         type: useSubscription ? "subscription" : "support",
         ...createBaseMetadata(ip),
       },
+      ...(customerEmail && { customerEmail }),
     };
 
     if (useSubscription) {

@@ -35,7 +35,7 @@ export function SuccessClient({
     if (emailStatus !== "sent") return;
 
     if (countdown <= 0) {
-      router.push("/shop");
+      router.push("/listen");
       return;
     }
 
@@ -123,10 +123,10 @@ export function SuccessClient({
                       ✓ {emailMessage}
                     </div>
                     <button
-                      onClick={() => router.push("/shop")}
+                      onClick={() => router.push("/listen")}
                       className="w-full bg-white text-black font-bold py-5 px-6 rounded-xl transition-all active:scale-[0.98] text-xl"
                     >
-                      Back to Shop ({countdown}s)
+                      Listen ({countdown}s)
                     </button>
                     <button
                       onClick={() => setEmailStatus("idle")}
@@ -162,8 +162,7 @@ export function SuccessClient({
                       onClick={() => handleDownload(asset)}
                       className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-medium py-3 px-6 rounded-xl transition-colors"
                     >
-                      Download{" "}
-                      {asset.includes("zip") || asset.includes("bundle") ? "All Files (.zip)" : asset}
+                      {assets.length === 1 ? "Download" : `Download ${asset}`}
                     </button>
                   ))}
                 </div>
@@ -180,10 +179,10 @@ export function SuccessClient({
         {/* Back to Shop */}
         <div className="text-center">
           <Link
-            href="/shop"
+            href="/listen"
             className="text-neutral-400 hover:text-white transition-colors underline underline-offset-4"
           >
-            ← Back to shop
+            ← Listen to more
           </Link>
         </div>
       </div>

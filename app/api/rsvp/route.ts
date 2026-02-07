@@ -81,16 +81,14 @@ export async function POST(request: Request) {
       console.log("[RSVP API] Created stay-connected entry for", emailLower);
     }
 
-    // Send confirmation email with patron upsell
     try {
       await sendRsvpConfirmation({
         to: email.trim(),
-        name: name.trim(),
+        name: name?.trim() || "",
         guests: guestCount,
         eventName: "From The Ground Up",
         eventDate: "Friday, February 20, 2026",
         eventTime: "Doors at 5pm",
-        eventLocation: "8432 Granville Ave, Richmond, BC",
       });
       console.log("[RSVP API] Confirmation email sent to", email.trim());
     } catch (emailError) {

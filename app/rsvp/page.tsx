@@ -334,6 +334,7 @@ export default function RSVPPage() {
           body: JSON.stringify({
             productId: "singles-16s-pack-2025",
             amount: musicTotalCents,
+            customerEmail: formData.email.trim(),
             successPath: "/listen?success=rsvp_music",
             cancelPath: "/listen?success=rsvp",
           }),

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { activatePatronStatus } from "../lib/patron";
 import Image from "next/image";
 import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
+import { Toast } from "../components/Toast";
 import LiveChat from "../components/LiveChat";
 import { useLiveStatus } from "../hooks/useLiveStatus";
 import { formatNextStream } from "../lib/dates";
@@ -31,6 +33,7 @@ interface StreamStatus {
 
 export default function LivePage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const posthog = usePostHog();
   const { currentTrack } = useAudio();
   const isPatron = usePatronStatus();
@@ -104,15 +107,20 @@ export default function LivePage() {
   };
 
   useEffect(() => {
-    if (searchParams.get("thanks") === "1") {
-      localStorage.setItem("patronStatus", "active");
-      setShowThanks(true);
-      posthog?.capture("patron_checkout_completed", { source: "live" });
-      window.history.replaceState({}, "", "/live");
-      const timer = setTimeout(() => setShowThanks(false), 5000);
-      return () => clearTimeout(timer);
+    if (searchParams.get("thanks") !== "1") return;
+    activatePatronStatus();
+    posthog?.capture("patron_checkout_completed", { source: "live" });
+
+    if (!status.online) {
+      router.replace("/listen?success=patron_live");
+      return;
     }
-  }, [searchParams, posthog]);
+
+    setShowThanks(true);
+    window.history.replaceState({}, "", "/live");
+    const exitTimer = setTimeout(() => setShowThanks(false), 5000);
+    return () => clearTimeout(exitTimer);
+  }, [searchParams, posthog, status.online, router]);
 
   // Status now comes from useLiveStatus hook via SSE (no polling!)
 
@@ -392,12 +400,7 @@ export default function LivePage() {
       className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`}
       data-og-container
     >
-      {/* Thank You Toast */}
-      {showThanks && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-          Thank you for supporting!
-        </div>
-      )}
+      {showThanks && <Toast message="Thank you for supporting." />}
 
       {/* Notify Panel Modal */}
       {showNotifyPanel && (

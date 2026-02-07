@@ -400,6 +400,60 @@ table {
   animation: gradient-shift 3s linear infinite;
 }
 
+@keyframes patron-unlock {
+  0% {
+    opacity: 1;
+    backdrop-filter: blur(12px) grayscale(1);
+    background: rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    opacity: 1;
+    backdrop-filter: blur(4px) grayscale(0.3);
+    background: rgba(212, 165, 83, 0.15);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0) grayscale(0);
+    background: transparent;
+  }
+}
+
+@keyframes patron-glow {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(212, 165, 83, 0),
+      inset 0 0 0 0 rgba(212, 165, 83, 0);
+    transform: scale(1);
+  }
+  25% {
+    box-shadow:
+      0 0 40px 15px rgba(212, 165, 83, 0.5),
+      inset 0 0 30px 8px rgba(212, 165, 83, 0.3);
+    transform: scale(1.04);
+  }
+  50% {
+    box-shadow:
+      0 0 60px 25px rgba(212, 165, 83, 0.3),
+      inset 0 0 50px 15px rgba(212, 165, 83, 0.15);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(212, 165, 83, 0),
+      inset 0 0 0 0 rgba(212, 165, 83, 0);
+    transform: scale(1);
+  }
+}
+
+.animate-patron-unlock {
+  animation: patron-unlock 1.5s ease-out 0.6s both;
+}
+
+.animate-patron-glow {
+  animation: patron-glow 2.5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
+  z-index: 20;
+}
+
 /* Text vertical alignment for display fonts (font-bebas)
  * Reference: https://lik.ai/guides/css-text-metrics-and-alignment/
  * Uses margin-block fallback for browsers without text-box-trim support

@@ -410,7 +410,7 @@ export function PatronContent({
     };
   }, [animateToIndex, viewMode]);
 
-  const proceedToCheckout = async (monthlyChargeCents: number, period: "monthly" | "annually") => {
+  const proceedToCheckout = async (monthlyChargeCents: number, period: "monthly" | "annually", email?: string) => {
     setIsLoading(true);
 
     const monthlyNet = Math.round(monthlyChargeCents * 0.971 - 30);
@@ -437,6 +437,7 @@ export function PatronContent({
           projectId: period === "annually" ? "annual-support" : "monthly-support",
           amount: finalAmount,
           interval,
+          ...(email && { customerEmail: email }),
         }),
       });
 
@@ -1350,7 +1351,7 @@ export function PatronContent({
                       }
                     : undefined
                 }
-                onClose={() => {
+                onClose={(email) => {
                   setShowAuthModal(false);
                   const name = localStorage.getItem("liveCommenterName");
                   if (name) {
@@ -1365,7 +1366,7 @@ export function PatronContent({
                       sessionStorage.removeItem("pendingPatronAmount");
                       sessionStorage.removeItem("pendingPatronPeriod");
                       setPendingAmount(null);
-                      proceedToCheckout(amount, savedPeriod || billingPeriod);
+                      proceedToCheckout(amount, savedPeriod || billingPeriod, email);
                       return;
                     }
                   }

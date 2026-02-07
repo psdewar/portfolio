@@ -4,6 +4,44 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 const FROM_EMAIL = "psd@lyrist.app";
 const FROM_NAME = "Peyt Spencer";
+const SITE_URL = "https://peytspencer.com";
+
+function emailWrapper(content: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
+    ${content}
+    <div style="text-align:center;padding:32px 0 0;">
+      <a href="${SITE_URL}" style="color:#c0c0bb;font-size:12px;text-decoration:none;">peytspencer.com</a>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function goldHeading(text: string, subtitle?: string): string {
+  return `<div style="border-left:3px solid #d4a553;padding-left:16px;margin-bottom:28px;">
+  <div style="font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:4px;">${text}</div>
+  ${subtitle ? `<div style="color:#7a7a75;font-size:14px;">${subtitle}</div>` : ""}
+</div>`;
+}
+
+function ctaButton(text: string, href: string): string {
+  return `<a href="${href}" style="display:block;text-align:center;background:#1a1a1a;color:#ffffff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:600;font-size:15px;">${text}</a>`;
+}
+
+function signOff(): string {
+  return `<div style="color:#9a9a95;font-size:13px;margin-top:28px;">
+  Reply to this email anytime.<br>Peyt
+</div>`;
+}
+
+// --- OTP ---
 
 export async function sendOtpEmail(params: { to: string; code: string }): Promise<boolean> {
   const { to, code } = params;
@@ -11,48 +49,25 @@ export async function sendOtpEmail(params: { to: string; code: string }): Promis
   const msg = {
     to,
     from: { email: FROM_EMAIL, name: FROM_NAME },
-    subject: `${code} is your Peyt Spencer Live code`,
-    text: `
-Your verification code is: ${code}
-
-This code expires in 2 minutes.
-
-If you didn't request this, you can ignore this email.
-    `.trim(),
-    html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .code { font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #000; margin: 24px 0; }
-    .footer { color: #666; font-size: 14px; margin-top: 24px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <p>Your verification code is:</p>
-    <p class="code">${code}</p>
-    <p class="footer">
-      This code expires in 2 minutes.<br>
-      If you didn't request this, you can ignore this email.
-    </p>
-  </div>
-</body>
-</html>
-    `.trim(),
+    subject: `${code} - your verification code`,
+    text: `Your code: ${code}\n\nExpires in 2 minutes. If you didn't request this, ignore this email.`,
+    html: emailWrapper(`
+      <div style="color:#7a7a75;font-size:13px;margin-bottom:16px;">Your verification code</div>
+      <div style="font-size:36px;font-weight:700;letter-spacing:12px;color:#d4a553;font-family:monospace;margin-bottom:24px;">${code}</div>
+      <div style="color:#9a9a95;font-size:13px;">Expires in 2 minutes.</div>
+    `),
   };
 
   try {
     await sgMail.send(msg);
-    console.log(`[SendGrid] OTP email sent to ${to}`);
     return true;
   } catch (error) {
-    console.error("[SendGrid] Error sending OTP email:", error);
+    console.error("[SendGrid] OTP error:", error);
     return false;
   }
 }
+
+// --- Go Live ---
 
 export async function sendGoLiveEmail(params: { to: string; firstName: string }): Promise<boolean> {
   const result = await sendGoLiveEmailBatch([params]);
@@ -60,47 +75,29 @@ export async function sendGoLiveEmail(params: { to: string; firstName: string })
 }
 
 export async function sendGoLiveEmailBatch(
-  recipients: Array<{ to: string; firstName: string }>
+  recipients: Array<{ to: string; firstName: string }>,
 ): Promise<{ sent: number; failed: number }> {
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
-  const liveUrl = "https://peytspencer.com/live";
-
-  let totalSent = 0;
-  let totalFailed = 0;
+  const liveUrl = `${SITE_URL}/live`;
 
   const messages = recipients.map(({ to, firstName }) => ({
     to,
     from: { email: FROM_EMAIL, name: FROM_NAME },
-    subject: "I'm LIVE right now!",
-    text: `Hey ${firstName},
-
-Come hang out with me at: ${liveUrl}
-
-Best,
-Peyt`,
-    html: `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .cta { display: inline-block; background: #3b82f6; color: white; padding: 12px; text-decoration: none; border-radius: 6px; font-weight: bold; }
-    .footer { color: #666; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <p>Hey ${firstName},</p>
-    <p>Come hang out with me at: <a href="${liveUrl}" class="cta">${liveUrl}</a></p>
-    <p class="footer">
-      Best,<br>
-      Peyt
-    </p>
-  </div>
-</body>
-</html>`,
+    subject: `${firstName}, I'm live right now`,
+    text: `${firstName}, I'm streaming right now. Come through: ${liveUrl}\n\nPeyt`,
+    html: emailWrapper(`
+      <div style="margin-bottom:20px;">
+        <span style="display:inline-block;background:#dc2626;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:4px 10px;border-radius:4px;">LIVE NOW</span>
+      </div>
+      <div style="font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">${firstName}, I'm streaming right now.</div>
+      <div style="color:#7a7a75;font-size:15px;margin-bottom:28px;">Come through.</div>
+      ${ctaButton("Watch live", liveUrl)}
+    `),
   }));
+
+  let totalSent = 0;
+  let totalFailed = 0;
 
   try {
     await sgMail.send(messages);
@@ -113,6 +110,8 @@ Peyt`,
   return { sent: totalSent, failed: totalFailed };
 }
 
+// --- RSVP Confirmation ---
+
 export async function sendRsvpConfirmation(params: {
   to: string;
   name: string;
@@ -120,94 +119,72 @@ export async function sendRsvpConfirmation(params: {
   eventName: string;
   eventDate: string;
   eventTime: string;
-  eventLocation: string;
+  eventLocation?: string;
+  purchasingMusic?: boolean;
 }): Promise<boolean> {
-  const { to, name, guests, eventName, eventDate, eventTime, eventLocation } = params;
-  const guestText = guests > 1 ? `${guests} spots` : "1 spot";
-  const patronUrl = "https://peytspencer.com/patron";
+  const { to, name, guests, eventName, eventDate, eventTime, eventLocation, purchasingMusic } =
+    params;
+  const greeting = name ? `${name}, you're` : "You're";
+  const guestLine = guests > 1 ? `${guests} spots reserved.` : "";
+  const listenUrl = `${SITE_URL}/listen`;
+  const locationLine = eventLocation ? `\n${eventLocation}` : "";
+
+  const musicNote = purchasingMusic
+    ? `<div style="background:#f5f5f2;border-radius:6px;padding:14px 16px;margin-bottom:28px;color:#4a4a4a;font-size:14px;">Your music download will arrive in a separate email after checkout.</div>`
+    : "";
 
   const msg = {
     to,
     from: { email: FROM_EMAIL, name: FROM_NAME },
-    subject: `You're in: ${eventName}`,
-    text: `
-Hey ${name},
+    subject: `${eventName} - You're confirmed`,
+    text: `${greeting} confirmed for ${eventName}.${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}${purchasingMusic ? "\n\nYour music download will arrive in a separate email after checkout." : ""}\n\nGet familiar with the music before the show: ${listenUrl}\n\nSee you there.\nPeyt`,
+    html: emailWrapper(`
+      ${goldHeading(`${greeting} confirmed.`, guestLine || undefined)}
 
-You're confirmed! ${guestText} reserved.
+      <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
+            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Event</div>
+            <div style="color:#1a1a1a;font-size:16px;font-weight:600;">${eventName}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
+            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">When</div>
+            <div style="color:#1a1a1a;font-size:15px;">${eventDate}</div>
+            <div style="color:#7a7a75;font-size:14px;">${eventTime}</div>
+          </td>
+        </tr>
+        ${
+          eventLocation
+            ? `<tr>
+          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
+            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Where</div>
+            <div style="color:#1a1a1a;font-size:15px;">${eventLocation}</div>
+          </td>
+        </tr>`
+            : ""
+        }
+      </table>
 
-${eventName}
-${eventDate}
-${eventTime}
-${eventLocation}
+      ${musicNote}
 
-See you there!
+      <div style="margin-bottom:8px;">${ctaButton("Listen before the show", listenUrl)}</div>
 
----
-
-P.S. Want to support my music? Become a monthly patron and help fund new releases, tours, and creative projects: ${patronUrl}
-    `.trim(),
-    html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-    .container { max-width: 480px; margin: 0 auto; padding: 32px 24px; }
-    .header { font-size: 28px; font-weight: bold; color: #000; margin-bottom: 8px; }
-    .confirmed { color: #16a34a; font-weight: 600; margin-bottom: 24px; }
-    .event-box { background: #f5f5f5; border-radius: 12px; padding: 20px; margin: 24px 0; }
-    .event-name { font-size: 20px; font-weight: bold; color: #000; margin-bottom: 8px; }
-    .event-detail { color: #666; margin: 4px 0; }
-    .divider { border-top: 1px solid #e5e5e5; margin: 32px 0; }
-    .patron-section { background: linear-gradient(135deg, #fff7ed 0%, #fdf2f8 100%); border-radius: 12px; padding: 20px; margin-top: 24px; }
-    .patron-title { font-weight: 600; color: #000; margin-bottom: 8px; }
-    .patron-text { color: #666; font-size: 14px; margin-bottom: 16px; }
-    .patron-cta { display: inline-block; background: linear-gradient(to right, #f97316, #ec4899); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; }
-    .footer { color: #999; font-size: 13px; margin-top: 32px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">You're In!</div>
-    <div class="confirmed">${guestText} reserved for ${name}</div>
-
-    <div class="event-box">
-      <div class="event-name">${eventName}</div>
-      <div class="event-detail">${eventDate}</div>
-      <div class="event-detail">${eventTime}</div>
-      <div class="event-detail">${eventLocation}</div>
-    </div>
-
-    <p>See you there!</p>
-
-    <div class="divider"></div>
-
-    <div class="patron-section">
-      <div class="patron-title">Support My Independence</div>
-      <div class="patron-text">Become a monthly patron to help fund new music, tours, and creative projects.</div>
-      <a href="${patronUrl}" class="patron-cta">Become a Patron</a>
-    </div>
-
-    <p class="footer">
-      Questions? Just reply to this email.<br>
-      — Peyt
-    </p>
-  </div>
-</body>
-</html>
-    `.trim(),
+      ${signOff()}
+    `),
   };
 
   try {
     await sgMail.send(msg);
-    console.log(`[SendGrid] RSVP confirmation sent to ${to}`);
     return true;
   } catch (error) {
-    console.error("[SendGrid] Error sending RSVP confirmation:", error);
+    console.error("[SendGrid] RSVP error:", error);
     return false;
   }
 }
+
+// --- Download ---
 
 export async function sendDownloadEmail(params: {
   to: string;
@@ -216,49 +193,32 @@ export async function sendDownloadEmail(params: {
   expiresIn?: string;
 }): Promise<boolean> {
   const { to, productName, downloadUrl, expiresIn = "30 days" } = params;
+  const listenUrl = `${SITE_URL}/listen`;
 
   const msg = {
     to,
     from: { email: FROM_EMAIL, name: FROM_NAME },
-    subject: `Your download: ${productName}`,
-    text: `
-Thanks for your purchase!
+    subject: `${productName} is yours`,
+    text: `${productName} is yours. Download it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.\n\nMore music: ${listenUrl}\n\nPeyt`,
+    html: emailWrapper(`
+      ${goldHeading(`${productName} is yours.`)}
 
-Download your file here:
-${downloadUrl}
+      <div style="margin-bottom:10px;">${ctaButton("Download", downloadUrl)}</div>
+      <div style="text-align:center;color:#9a9a95;font-size:12px;margin-bottom:28px;">Link expires in ${expiresIn}.</div>
 
-This link expires in ${expiresIn}.
-    `.trim(),
-    html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .footer { color: #666; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <p>Thanks for your purchase!</p>
-    <p>When you're ready, use <a href="${downloadUrl}" target="_blank">${downloadUrl}</a> to download <strong>${productName}</strong>.</p>
-    <p class="footer">
-      This link expires in ${expiresIn}.<br>
-      Questions? Reply to this email.
-    </p>
-  </div>
-</body>
-</html>
-    `.trim(),
+      <div style="border-top:1px solid #ebebeb;padding-top:20px;">
+        <a href="${listenUrl}" style="color:#d4a553;text-decoration:none;font-size:14px;font-weight:500;">Hear the rest of the catalog</a>
+      </div>
+
+      ${signOff()}
+    `),
   };
 
   try {
     await sgMail.send(msg);
-    console.log(`[SendGrid] Download email sent to ${to}`);
     return true;
   } catch (error) {
-    console.error("[SendGrid] Error sending email:", error);
+    console.error("[SendGrid] Download error:", error);
     return false;
   }
 }

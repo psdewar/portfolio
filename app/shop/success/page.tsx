@@ -23,6 +23,20 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
     redirect("/shop");
   }
 
+  // Dev bypass for previewing the page
+  if (process.env.NODE_ENV === "development" && sessionId.startsWith("test_")) {
+    return (
+      <SuccessClient
+        sessionId={sessionId}
+        productName="Singles & 16s (2025)"
+        customerEmail="test@example.com"
+        hasDigital={true}
+        assets={["singles-and-16s-2025"]}
+        emailAlreadySent={true}
+      />
+    );
+  }
+
   // Fetch session from Stripe
   let session;
   try {

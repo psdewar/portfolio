@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDevTools } from "../contexts/DevToolsContext";
 
 export function DevToolsPanel() {
@@ -18,7 +19,13 @@ export function DevToolsPanel() {
     setSimulatePatron,
   } = useDevTools();
 
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+
+  const navigateTo = (path: string) => {
+    router.push(path);
+    setIsOpen(false);
+  };
 
   // Only render in development
   if (!isDevMode) return null;
@@ -175,12 +182,28 @@ export function DevToolsPanel() {
               </p>
             </div>
 
-            {/* Refresh button */}
+            <button
+              onClick={() => {
+                if (!simulatePatron) setSimulatePatron(true);
+                navigateTo("/listen?patron_welcome=1");
+              }}
+              className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Patron Welcome
+            </button>
+
+            <button
+              onClick={() => navigateTo("/download?session_id=test_123")}
+              className="w-full py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Download Page
+            </button>
+
             <button
               onClick={() => window.location.reload()}
               className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              🔄 Refresh to apply changes
+              Refresh to apply changes
             </button>
 
             {/* Status indicator */}
