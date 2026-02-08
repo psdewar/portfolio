@@ -73,7 +73,7 @@ export default function Page() {
     <div className="flex justify-center mb-32 pt-8">
       <div className="max-w-5xl w-full px-4">
         <div className="flex flex-col md:flex-row gap-8 md:gap-12">
-          {/* Image panel — hidden on mobile, shown on desktop */}
+          {/* Image panel - hidden on mobile, shown on desktop */}
           <div className="hidden md:block md:w-[360px] flex-shrink-0">
             <div className="sticky top-24">
               <div className="relative aspect-[3/4] rounded-lg overflow-hidden">
@@ -104,7 +104,7 @@ export default function Page() {
                 I'm a software engineer at Microsoft and the founder of Lyrist, a
                 songwriting app used by independent artists. I build full-stack
                 applications with TypeScript, React, Next.js, Supabase, and
-                Stripe — from idea to production. I also built my own live
+                Stripe - from idea to production. I also built my own live
                 streaming infrastructure from scratch. If you have a product idea,
                 I can help you ship it.
               </p>

@@ -135,7 +135,7 @@ export const GlobalAudioPlayer: React.FC = () => {
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
-          {/* Circular thumb — vertically centered on the bar */}
+          {/* Circular thumb - vertically centered on the bar */}
           <div
             className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md shadow-black/20 pointer-events-none transition-opacity duration-150 ${
               scrubX !== null ? "opacity-100 scale-100" : "opacity-0 scale-75"

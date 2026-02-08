@@ -42,7 +42,7 @@ function formatDuration(seconds: number): string {
 
 const publicSingles = TRACK_DATA.filter((t) => t.releaseDate && t.isrc);
 
-// Tracks with full distribution data — generated from TRACK_DATA
+// Tracks with full distribution data - generated from TRACK_DATA
 const generatedTracks = publicSingles.map((t) => ({
   "@type": "MusicRecording" as const,
   name: t.title,

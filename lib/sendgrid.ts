@@ -184,6 +184,58 @@ export async function sendRsvpConfirmation(params: {
   }
 }
 
+// --- Sponsor Submission ---
+
+export async function sendSponsorSubmission(params: {
+  name: string;
+  email: string;
+  city: string;
+  items: string[];
+}): Promise<boolean> {
+  const { name, email, city, items } = params;
+
+  const itemsHtml = items
+    .map(
+      (item) =>
+        `<li style="color:#1a1a1a;font-size:15px;margin-bottom:8px;">${item}</li>`,
+    )
+    .join("");
+
+  const itemsText = items.map((item) => `  - ${item}`).join("\n");
+
+  const msg = {
+    to: FROM_EMAIL,
+    from: { email: FROM_EMAIL, name: FROM_NAME },
+    replyTo: email,
+    subject: `Concert Support - ${city}`,
+    text: `Concert support submission from ${name} (${email})\nCity: ${city}\n\nItems:\n${itemsText}`,
+    html: emailWrapper(`
+      ${goldHeading("Concert Support", city)}
+
+      <div style="margin-bottom:20px;">
+        <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">From</div>
+        <div style="color:#1a1a1a;font-size:15px;font-weight:600;">${name}</div>
+        <div style="color:#7a7a75;font-size:14px;">${email}</div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Support Offered</div>
+        <ul style="margin:0;padding-left:20px;">${itemsHtml}</ul>
+      </div>
+
+      ${signOff()}
+    `),
+  };
+
+  try {
+    await sgMail.send(msg);
+    return true;
+  } catch (error) {
+    console.error("[SendGrid] Sponsor submission error:", error);
+    return false;
+  }
+}
+
 // --- Download ---
 
 export async function sendDownloadEmail(params: {

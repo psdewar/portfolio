@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/hire" },
   title: "Hire",
   description:
-    "Hire Peyt Spencer — Microsoft engineer and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe. Based in Bellevue, WA.",
+    "Hire Peyt Spencer - Microsoft engineer and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe. Based in Bellevue, WA.",
   openGraph: {
     title: "Hire Peyt Spencer | Developer",
     description:

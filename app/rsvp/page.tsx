@@ -161,6 +161,20 @@ function Poster() {
           text-transform: uppercase;
           color: #e0b860;
         }
+        .theme-topright {
+          position: absolute;
+          top: 5%;
+          right: 6%;
+          text-align: right;
+          font-family: "Space Mono", monospace;
+          font-size: 1.875cqw;
+          font-weight: 400;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #c0b8a8;
+          line-height: 1.6;
+          text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+        }
         .details {
           margin-top: auto;
           width: 100%;
@@ -206,6 +220,11 @@ function Poster() {
         <div className="photo-overlay" />
         <div className="bottom-overlay" />
         <div className="poster-content">
+          <div className="theme-topright">
+            <div>a rap concert by</div>
+            <div>microsoft engineer</div>
+            <div>peyt spencer</div>
+          </div>
           <div className="lockup">
             <img src="/lyrist-trademark-white.png" alt="Lyrist" className="lockup-img" />
             <span className="lockup-records">Records</span>
@@ -218,17 +237,17 @@ function Poster() {
               Up
             </div>
             <div className="title-accent" />
-            <div className="the-concert">a concert by rapper</div>
-            <div className="the-concert">and microsoft engineer</div>
-            <div className="the-concert">peyt spencer</div>
+            <div className="the-concert">my path of growth</div>
+            <div className="the-concert">and the principles</div>
+            <div className="the-concert">that connect us</div>
           </div>
           <div className="details">
             <div className="bottom-row">
               <div className="bottom-left">
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">Friday, February 20, 2026</div>
-                <div className="detail-value">8432 Granville Ave, Richmond, BC</div>
-                <div className="detail-value">Doors open at 5PM</div>
+                <div className="detail-value">Richmond, BC</div>
+                <div className="detail-value">Doors open at 7PM</div>
               </div>
             </div>
           </div>
@@ -407,11 +426,17 @@ export default function RSVPPage() {
       <div className="md:hidden flex flex-col h-full overflow-y-auto">
         <div className="px-[6%] py-8">
           <div className="mb-6">
-            <h1 className="font-bebas text-4xl md:text-6xl text-neutral-900 dark:text-white mb-2">
+            <h1
+              className="text-4xl md:text-6xl text-neutral-900 dark:text-white mb-2 font-extrabold uppercase"
+              style={{ fontFamily: '"Parkinsans", sans-serif' }}
+            >
               RSVP
             </h1>
-            <p className="text-neutral-500 dark:text-neutral-400 text-sm md:text-base">
-              Friday, February 20th · Doors at 5PM
+            <p
+              className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm uppercase tracking-wider"
+              style={{ fontFamily: '"Space Mono", monospace' }}
+            >
+              Friday, February 20th · Doors at 7PM
             </p>
           </div>
 
@@ -553,9 +578,17 @@ export default function RSVPPage() {
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6">
           <div className="mb-2">
-            <h1 className="font-bebas text-8xl text-neutral-900 dark:text-white mb-1">RSVP</h1>
-            <p className="text-neutral-500 dark:text-neutral-400 text-xl">
-              Friday, February 20th · Doors at 5PM
+            <h1
+              className="text-8xl text-neutral-900 dark:text-white mb-2 font-extrabold uppercase"
+              style={{ fontFamily: '"Parkinsans", sans-serif' }}
+            >
+              RSVP
+            </h1>
+            <p
+              className="text-neutral-500 dark:text-neutral-400 text-sm uppercase tracking-wider"
+              style={{ fontFamily: '"Space Mono", monospace' }}
+            >
+              Friday, February 20th · Doors at 7PM
             </p>
           </div>
 

@@ -10,6 +10,7 @@ interface MusicEventInput {
   venueName: string;
   city: string;
   region: string;
+  country?: string;
   streetAddress?: string;
   description?: string;
   url?: string;
@@ -35,6 +36,7 @@ export function musicEventSchema(event: MusicEventInput) {
         ...(event.streetAddress ? { streetAddress: event.streetAddress } : {}),
         addressLocality: event.city,
         addressRegion: event.region,
+        ...(event.country ? { addressCountry: event.country } : {}),
       },
     },
     performer: PERFORMER,

@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/rsvp" },
   title: "RSVP",
   description:
-    "RSVP for From The Ground Up — a free concert by rapper and Microsoft engineer Peyt Spencer. Friday, February 20, 2026. Richmond, BC.",
+    "RSVP for From The Ground Up - a rap concert and a conversation on my path of growth and the principles that connect us. A free event by Microsoft engineer Peyt Spencer. February 20, 2026. Richmond, BC.",
   openGraph: {
     title: "RSVP | From The Ground Up",
     description:
-      "RSVP for From The Ground Up — a free concert by rapper and Microsoft engineer Peyt Spencer. Friday, February 20, 2026. Richmond, BC.",
+      "RSVP for From The Ground Up - a rap concert and a conversation on my path of growth and the principles that connect us. A free event by Microsoft engineer Peyt Spencer. February 20, 2026. Richmond, BC.",
     images: [
       {
         url: "https://peytspencer.com/api/og/rsvp",
@@ -22,20 +22,20 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "RSVP | From The Ground Up",
     description:
-      "RSVP for From The Ground Up — a free concert by rapper and Microsoft engineer Peyt Spencer. Friday, February 20, 2026. Richmond, BC.",
+      "RSVP for From The Ground Up - a rap concert and a conversation on my path of growth and the principles that connect us. A free event by Microsoft engineer Peyt Spencer. February 20, 2026. Richmond, BC.",
     images: ["https://peytspencer.com/api/og/rsvp"],
   },
 };
 
 const eventJsonLd = musicEventSchema({
-  name: "From The Ground Up — A Concert by Peyt Spencer",
-  date: "2026-02-20T17:00:00-08:00",
-  doorTime: "2026-02-20T17:00:00-08:00",
-  venueName: "8432 Granville Ave",
-  streetAddress: "8432 Granville Ave",
+  name: "From The Ground Up - A Concert by Peyt Spencer",
+  date: "2026-02-20T19:00:00-08:00",
+  doorTime: "2026-02-20T19:00:00-08:00",
+  venueName: "Richmond, BC",
   city: "Richmond",
   region: "BC",
-  description: "A free concert by rapper and Microsoft engineer Peyt Spencer.",
+  country: "CA",
+  description: "A rap concert and a conversation on my path of growth and the principles that connect us. A free event by Microsoft engineer Peyt Spencer.",
   url: "https://peytspencer.com/rsvp",
   isAccessibleForFree: true,
 });
