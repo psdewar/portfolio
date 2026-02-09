@@ -6,6 +6,7 @@ import { UsersIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
 import { calculateStripeFee } from "../../api/shared/products";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
+import { formatEventDateShort } from "../../lib/dates";
 
 interface RSVPFormProps {
   eventId: string;
@@ -13,6 +14,8 @@ interface RSVPFormProps {
   city: string;
   region: string;
   doorTime: string;
+  venue?: string | null;
+  address?: string | null;
 }
 
 interface FormData {
@@ -29,12 +32,7 @@ interface FormErrors {
   email?: string;
 }
 
-function formatShortDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
-
-export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVPFormProps) {
+export default function RSVPForm({ eventId, date, city, region, doorTime, venue, address }: RSVPFormProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +46,9 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) =>
+    setFormData((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
     if (searchParams.get("session_id")) {
@@ -127,6 +128,7 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
         }
       }
 
+      sessionStorage.setItem("stayConnectedCompleted", "true");
       router.push("/listen?success=rsvp");
     } catch {
       setErrors({ email: "Failed to submit. Please try again." });
@@ -135,12 +137,11 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
     }
   };
 
-  const adjustGuests = (delta: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      guests: Math.max(1, Math.min(10, prev.guests + delta)),
-    }));
-  };
+  const adjustGuests = (delta: number) =>
+    setFormData((prev) => ({ ...prev, guests: Math.max(1, Math.min(10, prev.guests + delta)) }));
+
+  const adjustMusicAmount = (delta: number) =>
+    setFormData((prev) => ({ ...prev, musicAmount: Math.max(1000, prev.musicAmount + delta) }));
 
   const repeatRef = useRef<ReturnType<typeof setTimeout>>();
   const stopRepeat = useCallback(() => clearTimeout(repeatRef.current), []);
@@ -172,13 +173,21 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
     },
   });
 
-  const dateLabel = `${formatShortDate(date)}th`;
+  const dateLabel = formatEventDateShort(date);
   const doorLabel = `Doors at ${doorTime}`;
+  const totalDisplay = `$${(musicTotalCents / 100).toFixed(2)}`;
+  const feeDisplay = `$${((musicTotalCents - formData.musicAmount) / 100).toFixed(2)}`;
+
+  function submitLabel(): string {
+    if (isLoading) return "Reserving...";
+    if (formData.addMusic) return `I'll Be There + Music (${totalDisplay})`;
+    return "I'll Be There (Free)";
+  }
 
   return (
     <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
       {/* Mobile layout */}
-      <div className="md:hidden flex flex-col h-full overflow-y-auto">
+      <div className="lg:hidden flex flex-col h-full overflow-y-auto">
         <div className="px-[6%] py-8">
           <div className="mb-6">
             <h1
@@ -201,9 +210,9 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               email={formData.email}
               name={formData.name}
               phone={formData.phone}
-              onEmailChange={(v) => setFormData((prev) => ({ ...prev, email: v }))}
-              onNameChange={(v) => setFormData((prev) => ({ ...prev, name: v }))}
-              onPhoneChange={(v) => setFormData((prev) => ({ ...prev, phone: v }))}
+              onEmailChange={(v) => updateField("email", v)}
+              onNameChange={(v) => updateField("name", v)}
+              onPhoneChange={(v) => updateField("phone", v)}
               errors={errors}
               variant="gold"
             />
@@ -238,13 +247,12 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               </div>
             </div>
 
-            {/* Music purchase option */}
             <div className="border-2 border-neutral-200 dark:border-neutral-700 rounded-lg">
               <label className="flex items-center gap-3 p-4 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.addMusic}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, addMusic: e.target.checked }))}
+                  onChange={(e) => updateField("addMusic", e.target.checked)}
                   className="w-5 h-5 rounded border-neutral-300 dark:border-neutral-600 text-[#d4a553] focus:ring-[#d4a553] accent-[#d4a553] flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
@@ -266,12 +274,7 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
                 <div className="flex items-center gap-4">
                   <button
                     type="button"
-                    {...repeatProps(() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        musicAmount: Math.max(1000, prev.musicAmount - 500),
-                      })),
-                    )}
+                    {...repeatProps(() => adjustMusicAmount(-500))}
                     disabled={formData.musicAmount <= 1000}
                     className="w-12 h-12 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors select-none"
                   >
@@ -284,19 +287,14 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
                   </div>
                   <button
                     type="button"
-                    {...repeatProps(() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        musicAmount: prev.musicAmount + 500,
-                      })),
-                    )}
+                    {...repeatProps(() => adjustMusicAmount(500))}
                     className="w-12 h-12 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors select-none"
                   >
                     <PlusIcon className="w-5 h-5" weight="bold" />
                   </button>
                 </div>
                 <p className="text-neutral-500 dark:text-neutral-400 text-xs text-right tabular-nums">
-                  + ${(musicTotalCents / 100).toFixed(2)} processing fee
+                  + {feeDisplay} processing fee
                 </p>
               </div>
             )}
@@ -307,11 +305,7 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               style={{ background: "linear-gradient(to right, #d4a553, #e8c474)" }}
             >
-              {isLoading
-                ? "Reserving..."
-                : formData.addMusic
-                  ? `I'll Be There + Music ($${(musicTotalCents / 100).toFixed(2)})`
-                  : "I'll Be There (Free)"}
+              {submitLabel()}
             </button>
           </form>
 
@@ -320,16 +314,16 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
           </p>
         </div>
         <div className="flex-shrink-0">
-          <Poster date={date} city={city} region={region} doorTime={doorTime} />
+          <Poster date={date} city={city} region={region} doorTime={doorTime} venue={venue} address={address} />
         </div>
       </div>
 
       {/* Desktop layout */}
-      <div className="hidden md:flex absolute inset-0 right-4 gap-8">
+      <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
         <div className="h-full flex-shrink-0">
-          <Poster date={date} city={city} region={region} doorTime={doorTime} />
+          <Poster date={date} city={city} region={region} doorTime={doorTime} venue={venue} address={address} />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6">
+        <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6 @container">
           <div className="mb-2">
             <h1
               className="text-8xl text-neutral-900 dark:text-white mb-2 font-extrabold uppercase"
@@ -351,9 +345,9 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               email={formData.email}
               name={formData.name}
               phone={formData.phone}
-              onEmailChange={(v) => setFormData((prev) => ({ ...prev, email: v }))}
-              onNameChange={(v) => setFormData((prev) => ({ ...prev, name: v }))}
-              onPhoneChange={(v) => setFormData((prev) => ({ ...prev, phone: v }))}
+              onEmailChange={(v) => updateField("email", v)}
+              onNameChange={(v) => updateField("name", v)}
+              onPhoneChange={(v) => updateField("phone", v)}
               errors={errors}
               variant="gold"
             />
@@ -388,67 +382,55 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               </div>
             </div>
 
-            <div className="flex items-stretch gap-4 h-[4.5rem]">
+            <div className="flex flex-col @[32rem]:flex-row @[32rem]:items-stretch gap-4">
               <div
-                className={`border-2 border-neutral-200 dark:border-neutral-700 rounded-xl transition-all duration-300 ease-in-out ${formData.addMusic ? "w-1/2" : "w-full"}`}
+                className={`border-2 border-neutral-200 dark:border-neutral-700 rounded-xl transition-all duration-300 ease-in-out ${formData.addMusic ? "@[32rem]:w-1/2" : "w-full"}`}
               >
-                <label className="flex items-center gap-4 px-5 cursor-pointer h-full">
+                <label className="flex items-center gap-4 px-5 py-4 @[32rem]:h-[4.5rem] @[32rem]:py-0 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.addMusic}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, addMusic: e.target.checked }))
-                    }
+                    onChange={(e) => updateField("addMusic", e.target.checked)}
                     className="w-6 h-6 rounded border-neutral-300 dark:border-neutral-600 text-[#d4a553] focus:ring-[#d4a553] accent-[#d4a553] flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="font-medium text-neutral-900 dark:text-white text-lg leading-tight line-clamp-1">
+                    <span className="font-medium text-neutral-900 dark:text-white text-lg leading-tight @[32rem]:line-clamp-1">
                       Download Singles & 16s from 2025
                     </span>
-                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-0.5 line-clamp-1">
-                      ~10 min of music + lyricbook, $10 min
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-0.5 @[32rem]:line-clamp-1">
+                      ~10 min of music + lyricbook, $10 minimum
                     </p>
                   </div>
                 </label>
               </div>
 
-              <div
-                className={`flex items-stretch overflow-hidden transition-all duration-300 ease-in-out ${formData.addMusic ? "w-1/2 opacity-100" : "w-0 opacity-0"}`}
-              >
-                <button
-                  type="button"
-                  {...repeatProps(() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      musicAmount: Math.max(1000, prev.musicAmount - 500),
-                    })),
-                  )}
-                  disabled={formData.musicAmount <= 1000}
-                  className="w-[4.5rem] rounded-l-xl border-2 border-r-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 select-none"
-                >
-                  <MinusIcon className="w-5 h-5" weight="bold" />
-                </button>
-                <div className="flex flex-col items-center justify-center flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
-                  <span className="font-bebas text-4xl text-neutral-900 dark:text-white tabular-nums whitespace-nowrap">
-                    ${formData.musicAmount / 100}
-                  </span>
-                  <p className="text-neutral-500 dark:text-neutral-400 text-xs tabular-nums whitespace-nowrap">
-                    + ${((musicTotalCents - formData.musicAmount) / 100).toFixed(2)} processing fees
-                  </p>
+              {formData.addMusic && (
+                <div className="flex items-stretch h-[4.5rem] @[32rem]:w-1/2 transition-all duration-300 ease-in-out">
+                  <button
+                    type="button"
+                    {...repeatProps(() => adjustMusicAmount(-500))}
+                    disabled={formData.musicAmount <= 1000}
+                    className="w-[4.5rem] rounded-l-xl border-2 border-r-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 select-none"
+                  >
+                    <MinusIcon className="w-6 h-6" weight="bold" />
+                  </button>
+                  <div className="flex flex-col items-center justify-center flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
+                    <span className="font-bebas text-4xl text-neutral-900 dark:text-white tabular-nums">
+                      ${formData.musicAmount / 100}
+                    </span>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-xs tabular-nums">
+                      + {feeDisplay} processing fees
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    {...repeatProps(() => adjustMusicAmount(500))}
+                    className="w-[4.5rem] rounded-r-xl border-2 border-l-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors flex-shrink-0 select-none"
+                  >
+                    <PlusIcon className="w-6 h-6" weight="bold" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  {...repeatProps(() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      musicAmount: prev.musicAmount + 500,
-                    })),
-                  )}
-                  className="w-[4.5rem] rounded-r-xl border-2 border-l-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors flex-shrink-0 select-none"
-                >
-                  <PlusIcon className="w-5 h-5" weight="bold" />
-                </button>
-              </div>
+              )}
             </div>
 
             <button
@@ -457,11 +439,7 @@ export default function RSVPForm({ eventId, date, city, region, doorTime }: RSVP
               className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               style={{ background: "linear-gradient(to right, #d4a553, #e8c474)" }}
             >
-              {isLoading
-                ? "Reserving..."
-                : formData.addMusic
-                  ? `I'll Be There + Music ($${(musicTotalCents / 100).toFixed(2)})`
-                  : "I'll Be There (Free)"}
+              {submitLabel()}
             </button>
 
             <p className="text-neutral-500 dark:text-neutral-400 text-base">

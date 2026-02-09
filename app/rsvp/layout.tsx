@@ -1,14 +1,24 @@
 import { Metadata } from "next";
 
+const title = "RSVP | From The Ground Up";
+const description =
+  "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.";
+const ogImage = "https://peytspencer.com/api/og/rsvp";
+
 export const metadata: Metadata = {
   alternates: { canonical: "/rsvp" },
-  title: "RSVP | From The Ground Up",
-  description:
-    "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.",
+  title,
+  description,
   openGraph: {
-    title: "RSVP | From The Ground Up",
-    description:
-      "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.",
+    title,
+    description,
+    images: [{ url: ogImage, width: 480, height: 720 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [ogImage],
   },
 };
 

@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       console.log("[RSVP API] Created stay-connected entry for", emailLower);
     }
 
-    const eventDate = new Date(show.date).toLocaleDateString("en-US", {
+    const eventDate = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         eventName: show.name,
         eventDate,
         eventTime: `Doors open at ${show.doorTime}`,
-        eventLocation: show.venue || `${show.city}, ${show.region}`,
+        eventLocation: show.venue || show.address || `${show.city}, ${show.region}`,
       });
       console.log("[RSVP API] Confirmation email sent to", email.trim());
     } catch (emailError) {

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getShowBySlug } from "../../lib/shows";
 import RSVPForm from "./RSVPForm";
 
@@ -10,7 +10,7 @@ export default async function ShowRSVPPage({ params }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
-  if (!show || show.status !== "upcoming") notFound();
+  if (!show || show.status !== "upcoming") redirect("/rsvp");
 
   return (
     <RSVPForm
@@ -19,6 +19,8 @@ export default async function ShowRSVPPage({ params }: Props) {
       city={show.city}
       region={show.region}
       doorTime={show.doorTime}
+      venue={show.venue}
+      address={show.address}
     />
   );
 }

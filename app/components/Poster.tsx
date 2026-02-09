@@ -1,23 +1,18 @@
 "use client";
 
+import { formatEventDate } from "../lib/dates";
+
 interface PosterProps {
   date: string;
   city: string;
   region: string;
   doorTime: string;
+  venue?: string | null;
+  address?: string | null;
+  slug?: string;
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-export default function Poster({ date, city, region, doorTime }: PosterProps) {
+export default function Poster({ date, city, region, doorTime, venue, address, slug }: PosterProps) {
   return (
     <>
       <style jsx>{`
@@ -211,6 +206,25 @@ export default function Poster({ date, city, region, doorTime }: PosterProps) {
           opacity: 0.4;
           margin: 0 0.5em;
         }
+        .rsvp-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          width: 18cqw;
+          height: 18cqw;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #d4a553, #e8c474);
+          color: #0a0a0a;
+          font-family: "Parkinsans", sans-serif;
+          font-size: 3.5cqw;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          line-height: 1.2;
+          text-decoration: none;
+          z-index: 10;
+        }
       `}</style>
       <div className="poster">
         <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" className="poster-bg" />
@@ -242,12 +256,17 @@ export default function Poster({ date, city, region, doorTime }: PosterProps) {
             <div className="bottom-row">
               <div className="bottom-left">
                 <div className="tags">Free Admission</div>
-                <div className="detail-value date">{formatDate(date)}</div>
+                <div className="detail-value date">{formatEventDate(date)}</div>
                 <div className="detail-value">
-                  {city}, {region}
+                  {venue || address ? `${venue || address}, ` : ""}{city}, {region}
                 </div>
                 <div className="detail-value">Doors open at {doorTime}</div>
               </div>
+              {slug && (
+                <a href={`/rsvp/${slug}`} className="rsvp-badge">
+                  RSVP<br />Here
+                </a>
+              )}
             </div>
           </div>
         </div>

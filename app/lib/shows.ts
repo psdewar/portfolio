@@ -8,13 +8,14 @@ export interface Show {
   region: string;
   country: string;
   venue: string | null;
+  address: string | null;
   status: "upcoming" | "past" | "cancelled";
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 export async function getShows(): Promise<Show[]> {
-  const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
+  const res = await fetch(`${SHOWS_API}/chorus/shows`, { next: { revalidate: 60 } });
   if (!res.ok) return [];
   return res.json();
 }
@@ -23,7 +24,7 @@ export async function getUpcomingShows(): Promise<Show[]> {
   const shows = await getShows();
   const now = new Date();
   return shows
-    .filter((s) => s.status === "upcoming" && new Date(s.date) > now)
+    .filter((s) => s.status === "upcoming" && new Date(s.date + "T23:59:59") > now)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 

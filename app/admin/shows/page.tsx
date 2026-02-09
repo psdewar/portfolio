@@ -13,11 +13,13 @@ interface Show {
   region: string;
   country: string;
   venue: string | null;
+  address: string | null;
   status: "upcoming" | "past" | "cancelled";
 }
 
 interface PlaceResult {
   venue: string;
+  address: string;
   city: string;
   region: string;
   country: string;
@@ -70,14 +72,21 @@ function createAutocomplete(container: HTMLElement, onSelect: (place: PlaceResul
 
     const result: PlaceResult = {
       venue: place.displayName || "",
+      address: "",
       city: "",
       region: "",
       country: "",
     };
 
     if (place.addressComponents) {
+      let streetNumber = "";
+      let route = "";
       for (const c of place.addressComponents) {
-        if (c.types.includes("locality") || c.types.includes("sublocality_level_1")) {
+        if (c.types.includes("street_number")) {
+          streetNumber = c.longText;
+        } else if (c.types.includes("route")) {
+          route = c.longText;
+        } else if (c.types.includes("locality") || c.types.includes("sublocality_level_1")) {
           result.city = c.longText;
         } else if (c.types.includes("administrative_area_level_1")) {
           result.region = c.shortText;
@@ -85,6 +94,7 @@ function createAutocomplete(container: HTMLElement, onSelect: (place: PlaceResul
           result.country = c.shortText;
         }
       }
+      result.address = [streetNumber, route].filter(Boolean).join(" ");
     }
 
     onSelect(result);
@@ -109,6 +119,7 @@ export default function ShowsAdminPage() {
   const [region, setRegion] = useState("");
   const [country, setCountry] = useState("CA");
   const [venue, setVenue] = useState("");
+  const [address, setAddress] = useState("");
 
   const venueContainerRef = useRef<HTMLDivElement>(null);
   const acElRef = useRef<any>(null);
@@ -122,10 +133,11 @@ export default function ShowsAdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!mapsReady || !venueContainerRef.current || acElRef.current) return;
+    if (!mapsReady || !venueContainerRef.current) return;
 
     acElRef.current = createAutocomplete(venueContainerRef.current, (place) => {
       setVenue(place.venue);
+      setAddress(place.address);
       if (place.city) setCity(place.city);
       if (place.region) setRegion(place.region);
       if (place.country) setCountry(place.country);
@@ -148,6 +160,7 @@ export default function ShowsAdminPage() {
           region,
           country,
           venue: venue.trim() || null,
+          address: address.trim() || null,
         }),
       });
 
@@ -166,6 +179,7 @@ export default function ShowsAdminPage() {
           region,
           country,
           venue: venue.trim() || null,
+          address: address.trim() || null,
           status: "upcoming",
         },
       ]);
@@ -175,10 +189,15 @@ export default function ShowsAdminPage() {
       setRegion("");
       setCountry("CA");
       setVenue("");
-      // Clear the autocomplete element's inner input
+      setAddress("");
       if (venueContainerRef.current) {
-        const input = venueContainerRef.current.querySelector("input");
-        if (input) input.value = "";
+        acElRef.current = createAutocomplete(venueContainerRef.current, (place) => {
+          setVenue(place.venue);
+          setAddress(place.address);
+          if (place.city) setCity(place.city);
+          if (place.region) setRegion(place.region);
+          if (place.country) setCountry(place.country);
+        });
       }
       setMessage({ type: "success", text: "Show added!" });
     } catch {
@@ -205,10 +224,29 @@ export default function ShowsAdminPage() {
     }
   };
 
+  const handleDelete = async (show: Show) => {
+    if (!confirm(`Delete ${show.venue || show.city}?`)) return;
+    try {
+      const res = await fetch("/api/shows", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: show.slug }),
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      setShows((prev) => prev.filter((s) => s.slug !== show.slug));
+      setMessage({ type: "success", text: "Show deleted!" });
+    } catch {
+      setMessage({ type: "error", text: "Failed to delete show" });
+    }
+  };
+
+  const now = new Date();
   const upcoming = shows
-    .filter((s) => s.status === "upcoming")
+    .filter((s) => s.status === "upcoming" && new Date(s.date + "T23:59:59") > now)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const past = shows.filter((s) => s.status !== "upcoming");
+  const past = shows
+    .filter((s) => s.status !== "upcoming" || new Date(s.date + "T23:59:59") <= now)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 py-8 px-4">
@@ -259,7 +297,8 @@ export default function ShowsAdminPage() {
             {venue && (
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 {venue}
-                {city && ` — ${city}, ${region}, ${country}`}
+                {address && `, ${address}`}
+                {city && `, ${city}, ${region}`}
               </p>
             )}
           </div>
@@ -308,11 +347,13 @@ export default function ShowsAdminPage() {
               <div className="mb-6">
                 <h2 className="font-semibold text-neutral-900 dark:text-white mb-3">Upcoming</h2>
                 <div className="space-y-2">
-                  {upcoming.map((show) => (
+                  {upcoming.map((show, i) => (
                     <ShowRow
                       key={show.slug}
                       show={show}
+                      isNext={i === 0}
                       onUpdate={handleUpdate}
+                      onDelete={handleDelete}
                       mapsReady={mapsReady}
                     />
                   ))}
@@ -331,6 +372,7 @@ export default function ShowsAdminPage() {
                       key={show.slug}
                       show={show}
                       onUpdate={handleUpdate}
+                      onDelete={handleDelete}
                       mapsReady={mapsReady}
                     />
                   ))}
@@ -352,71 +394,121 @@ export default function ShowsAdminPage() {
 
 function ShowRow({
   show,
+  isNext,
   onUpdate,
+  onDelete,
   mapsReady,
 }: {
   show: Show;
+  isNext?: boolean;
   onUpdate: (show: Show, fields: Partial<Show>) => void;
+  onDelete: (show: Show) => void;
   mapsReady: boolean;
 }) {
-  const [editingVenue, setEditingVenue] = useState(false);
-  const [venueValue, setVenueValue] = useState(show.venue || "");
+  const [editing, setEditing] = useState(false);
+  const [editDate, setEditDate] = useState(show.date);
+  const [editDoorTime, setEditDoorTime] = useState(show.doorTime);
+  const [editVenueResult, setEditVenueResult] = useState<PlaceResult | null>(null);
   const venueEditContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!editingVenue || !mapsReady || !venueEditContainerRef.current) return;
+    if (!editing || !mapsReady || !venueEditContainerRef.current) return;
 
     createAutocomplete(venueEditContainerRef.current, (place) => {
-      setVenueValue(place.venue);
+      setEditVenueResult(place);
     });
-  }, [editingVenue, mapsReady]);
+  }, [editing, mapsReady]);
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-US", {
+    new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
     });
 
+  const handleSave = () => {
+    const fields: Partial<Show> = {};
+    if (editDate !== show.date) fields.date = editDate;
+    if (editDoorTime !== show.doorTime) fields.doorTime = editDoorTime;
+    if (editVenueResult) {
+      fields.venue = editVenueResult.venue || null;
+      fields.address = editVenueResult.address || null;
+      if (editVenueResult.city) fields.city = editVenueResult.city;
+      if (editVenueResult.region) fields.region = editVenueResult.region;
+      if (editVenueResult.country) fields.country = editVenueResult.country;
+    }
+    if (Object.keys(fields).length > 0) onUpdate(show, fields);
+    setEditing(false);
+    setEditVenueResult(null);
+  };
+
+  if (editing) {
+    return (
+      <div className={`bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm space-y-3 ${isNext ? "ring-2 ring-blue-500" : ""}`}>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Venue</label>
+          <div ref={venueEditContainerRef} />
+          {(editVenueResult || show.venue) && (
+            <p className="text-xs text-neutral-500 mt-1">
+              {editVenueResult ? `${editVenueResult.venue}, ${editVenueResult.city}, ${editVenueResult.region}` : `${show.venue}, ${show.city}, ${show.region}`}
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Date</label>
+            <input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Door Time</label>
+            <input
+              type="text"
+              value={editDoorTime}
+              onChange={(e) => setEditDoorTime(e.target.value)}
+              className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleSave} className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            Save
+          </button>
+          <button onClick={() => { setEditing(false); setEditVenueResult(null); }} className="text-sm text-neutral-500 hover:text-neutral-700">
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm flex items-center gap-4">
+    <div className={`bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm flex items-center gap-4 ${isNext ? "ring-2 ring-blue-500" : ""}`}>
+      {isNext && (
+        <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-0.5 rounded flex-shrink-0">
+          Next
+        </span>
+      )}
       <div className="flex-1 min-w-0">
         <div className="font-medium text-neutral-900 dark:text-white">
-          {show.city}, {show.region}
+          {show.venue ? `${show.venue}, ${show.city}` : `${show.city}, ${show.region}`}
         </div>
         <div className="text-sm text-neutral-500 dark:text-neutral-400">
           {formatDate(show.date)} · {show.doorTime}
         </div>
-        {editingVenue ? (
-          <div className="mt-1 flex gap-2 items-center">
-            <div ref={venueEditContainerRef} className="flex-1" />
-            <button
-              onClick={() => {
-                onUpdate(show, { venue: venueValue.trim() || null });
-                setEditingVenue(false);
-              }}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setEditingVenue(false)}
-              className="text-sm text-neutral-500 hover:text-neutral-700"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setEditingVenue(true)}
-            className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 mt-1"
-          >
-            {show.venue || "Add venue"}
-          </button>
-        )}
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => setEditing(true)}
+          className="text-sm text-blue-600 hover:text-blue-700"
+        >
+          Edit
+        </button>
         <select
           value={show.status}
           onChange={(e) => onUpdate(show, { status: e.target.value as Show["status"] })}
@@ -426,6 +518,12 @@ function ShowRow({
           <option value="past">Past</option>
           <option value="cancelled">Cancelled</option>
         </select>
+        <button
+          onClick={() => onDelete(show)}
+          className="text-sm text-red-500 hover:text-red-700"
+        >
+          Delete
+        </button>
       </div>
     </div>
   );

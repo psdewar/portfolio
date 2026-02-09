@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const show = await getShowBySlug(slug);
   if (!show) return {};
 
-  const title = `RSVP — ${show.city}, ${show.region} | From The Ground Up`;
+  const title = `RSVP - ${show.city}, ${show.region} | From The Ground Up`;
   const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.`;
 
   return {
@@ -26,8 +26,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [
         {
           url: `https://peytspencer.com/api/og/rsvp/${slug}`,
-          width: 430,
-          height: 932,
+          width: 480,
+          height: 720,
         },
       ],
     },
@@ -48,7 +48,7 @@ export default async function ShowRSVPLayout({ params, children }: Props) {
   const eventJsonLd = musicEventSchema({
     name: `${show.name} - A Concert by Peyt Spencer`,
     date: show.date,
-    doorTime: show.date,
+    doorTime: show.doorTime,
     venueName: show.venue || `${show.city}, ${show.region}`,
     city: show.city,
     region: show.region,

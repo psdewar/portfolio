@@ -5,6 +5,17 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 const FROM_EMAIL = "psd@lyrist.app";
 const FROM_NAME = "Peyt Spencer";
 const SITE_URL = "https://peytspencer.com";
+const FROM = { email: FROM_EMAIL, name: FROM_NAME };
+
+async function trySend(msg: Parameters<typeof sgMail.send>[0], label: string): Promise<boolean> {
+  try {
+    await sgMail.send(msg);
+    return true;
+  } catch (error) {
+    console.error(`[SendGrid] ${label} error:`, error);
+    return false;
+  }
+}
 
 function emailWrapper(content: string): string {
   return `<!DOCTYPE html>
@@ -41,14 +52,12 @@ function signOff(): string {
 </div>`;
 }
 
-// --- OTP ---
-
 export async function sendOtpEmail(params: { to: string; code: string }): Promise<boolean> {
   const { to, code } = params;
 
-  const msg = {
+  return trySend({
     to,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
+    from: FROM,
     subject: `${code} - your verification code`,
     text: `Your code: ${code}\n\nExpires in 2 minutes. If you didn't request this, ignore this email.`,
     html: emailWrapper(`
@@ -56,18 +65,8 @@ export async function sendOtpEmail(params: { to: string; code: string }): Promis
       <div style="font-size:36px;font-weight:700;letter-spacing:12px;color:#d4a553;font-family:monospace;margin-bottom:24px;">${code}</div>
       <div style="color:#9a9a95;font-size:13px;">Expires in 2 minutes.</div>
     `),
-  };
-
-  try {
-    await sgMail.send(msg);
-    return true;
-  } catch (error) {
-    console.error("[SendGrid] OTP error:", error);
-    return false;
-  }
+  }, "OTP");
 }
-
-// --- Go Live ---
 
 export async function sendGoLiveEmail(params: { to: string; firstName: string }): Promise<boolean> {
   const result = await sendGoLiveEmailBatch([params]);
@@ -83,7 +82,7 @@ export async function sendGoLiveEmailBatch(
 
   const messages = recipients.map(({ to, firstName }) => ({
     to,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
+    from: FROM,
     subject: `${firstName}, I'm live right now`,
     text: `${firstName}, I'm streaming right now. Come through: ${liveUrl}\n\nPeyt`,
     html: emailWrapper(`
@@ -110,8 +109,6 @@ export async function sendGoLiveEmailBatch(
   return { sent: totalSent, failed: totalFailed };
 }
 
-// --- RSVP Confirmation ---
-
 export async function sendRsvpConfirmation(params: {
   to: string;
   name: string;
@@ -124,7 +121,7 @@ export async function sendRsvpConfirmation(params: {
 }): Promise<boolean> {
   const { to, name, guests, eventName, eventDate, eventTime, eventLocation, purchasingMusic } =
     params;
-  const greeting = name ? `${name}, you're` : "You're";
+  const greeting = name ? `${name}, see` : "See";
   const guestLine = guests > 1 ? `${guests} spots reserved.` : "";
   const listenUrl = `${SITE_URL}/listen`;
   const locationLine = eventLocation ? `\n${eventLocation}` : "";
@@ -133,13 +130,13 @@ export async function sendRsvpConfirmation(params: {
     ? `<div style="background:#f5f5f2;border-radius:6px;padding:14px 16px;margin-bottom:28px;color:#4a4a4a;font-size:14px;">Your music download will arrive in a separate email after checkout.</div>`
     : "";
 
-  const msg = {
+  return trySend({
     to,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
+    from: FROM,
     subject: `${eventName} - You're confirmed`,
-    text: `${greeting} confirmed for ${eventName}.${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}${purchasingMusic ? "\n\nYour music download will arrive in a separate email after checkout." : ""}\n\nGet familiar with the music before the show: ${listenUrl}\n\nSee you there.\nPeyt`,
+    text: `${greeting} you soon!${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}${purchasingMusic ? "\n\nYour music download will arrive in a separate email after checkout." : ""}\n\nGet familiar with the music before the show: ${listenUrl}\n\nPeyt`,
     html: emailWrapper(`
-      ${goldHeading(`${greeting} confirmed.`, guestLine || undefined)}
+      ${goldHeading(`${greeting} you soon!`, guestLine || undefined)}
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
         <tr>
@@ -173,18 +170,8 @@ export async function sendRsvpConfirmation(params: {
 
       ${signOff()}
     `),
-  };
-
-  try {
-    await sgMail.send(msg);
-    return true;
-  } catch (error) {
-    console.error("[SendGrid] RSVP error:", error);
-    return false;
-  }
+  }, "RSVP");
 }
-
-// --- Sponsor Submission ---
 
 export async function sendSponsorSubmission(params: {
   name: string;
@@ -203,9 +190,9 @@ export async function sendSponsorSubmission(params: {
 
   const itemsText = items.map((item) => `  - ${item}`).join("\n");
 
-  const msg = {
+  return trySend({
     to: FROM_EMAIL,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
+    from: FROM,
     replyTo: email,
     subject: `Concert Support - ${city}`,
     text: `Concert support submission from ${name} (${email})\nCity: ${city}\n\nItems:\n${itemsText}`,
@@ -225,18 +212,8 @@ export async function sendSponsorSubmission(params: {
 
       ${signOff()}
     `),
-  };
-
-  try {
-    await sgMail.send(msg);
-    return true;
-  } catch (error) {
-    console.error("[SendGrid] Sponsor submission error:", error);
-    return false;
-  }
+  }, "Sponsor submission");
 }
-
-// --- Download ---
 
 export async function sendDownloadEmail(params: {
   to: string;
@@ -247,9 +224,9 @@ export async function sendDownloadEmail(params: {
   const { to, productName, downloadUrl, expiresIn = "30 days" } = params;
   const listenUrl = `${SITE_URL}/listen`;
 
-  const msg = {
+  return trySend({
     to,
-    from: { email: FROM_EMAIL, name: FROM_NAME },
+    from: FROM,
     subject: `${productName} is yours`,
     text: `${productName} is yours. Download it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.\n\nMore music: ${listenUrl}\n\nPeyt`,
     html: emailWrapper(`
@@ -264,13 +241,5 @@ export async function sendDownloadEmail(params: {
 
       ${signOff()}
     `),
-  };
-
-  try {
-    await sgMail.send(msg);
-    return true;
-  } catch (error) {
-    console.error("[SendGrid] Download error:", error);
-    return false;
-  }
+  }, "Download");
 }

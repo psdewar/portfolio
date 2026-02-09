@@ -1,7 +1,31 @@
-/**
- * Format an ISO date string for "Next Live" display
- * Example output: "SAT JAN 25 · 3PM PT"
- */
+export function parseLocalDate(iso: string): Date {
+  return new Date(iso + "T00:00:00");
+}
+
+export function formatEventDate(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function formatEventDateShort(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export function formatMonthDay(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function formatNextStream(iso: string): string {
   const date = new Date(iso);
   const options: Intl.DateTimeFormatOptions = { timeZone: "America/Los_Angeles" };
