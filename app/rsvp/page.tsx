@@ -246,7 +246,7 @@ function Poster() {
               <div className="bottom-left">
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">Friday, February 20, 2026</div>
-                <div className="detail-value">Richmond, BC</div>
+                <div className="detail-value">8080 St Albans Rd, Richmond, BC</div>
                 <div className="detail-value">Doors open at 7PM</div>
               </div>
             </div>
@@ -418,7 +418,6 @@ export default function RSVPPage() {
       }
     },
   });
-
 
   return (
     <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
