@@ -1,3 +1,4 @@
+import { getUpcomingShows } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
 
 export const dynamic = "force-dynamic";
@@ -5,8 +6,11 @@ export const maxDuration = 30;
 
 export async function GET() {
   try {
+    const shows = await getUpcomingShows();
+    const path = shows.length > 0 ? `/rsvp/${shows[0].slug}` : "/rsvp";
+
     const screenshot = await takeScreenshot({
-      path: "/rsvp",
+      path,
       selector: ".poster",
       viewport: { width: 480, height: 720 },
       deviceScaleFactor: 3,

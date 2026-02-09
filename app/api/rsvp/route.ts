@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
-
-const VALID_EVENTS = new Set(["ftgu-20260220"]);
+import { getShows } from "../../lib/shows";
 
 export async function POST(request: Request) {
   try {
@@ -30,7 +29,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
     }
 
-    if (!eventId?.trim() || !VALID_EVENTS.has(eventId.trim())) {
+    if (!eventId?.trim()) {
+      return NextResponse.json({ error: "Invalid event" }, { status: 400 });
+    }
+
+    const shows = await getShows();
+    const show = shows.find((s) => s.id === eventId.trim());
+    if (!show || show.status !== "upcoming") {
       return NextResponse.json({ error: "Invalid event" }, { status: 400 });
     }
 
@@ -81,14 +86,22 @@ export async function POST(request: Request) {
       console.log("[RSVP API] Created stay-connected entry for", emailLower);
     }
 
+    const eventDate = new Date(show.date).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
     try {
       await sendRsvpConfirmation({
         to: email.trim(),
         name: name?.trim() || "",
         guests: guestCount,
-        eventName: "From The Ground Up",
-        eventDate: "Friday, February 20, 2026",
-        eventTime: "Doors at 5pm",
+        eventName: show.name,
+        eventDate,
+        eventTime: `Doors open at ${show.doorTime}`,
+        eventLocation: show.venue || `${show.city}, ${show.region}`,
       });
       console.log("[RSVP API] Confirmation email sent to", email.trim());
     } catch (emailError) {
