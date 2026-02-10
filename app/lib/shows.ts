@@ -15,7 +15,7 @@ export interface Show {
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 export async function getShows(): Promise<Show[]> {
-  const res = await fetch(`${SHOWS_API}/chorus/shows`, { next: { revalidate: 60 } });
+  const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
   if (!res.ok) return [];
   return res.json();
 }

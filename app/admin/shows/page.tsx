@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import SponsorForm from "../../components/SponsorForm";
 
 interface Show {
   id: string;
@@ -406,6 +407,7 @@ function ShowRow({
   mapsReady: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  const [sponsoring, setSponsoring] = useState(false);
   const [editDate, setEditDate] = useState(show.date);
   const [editDoorTime, setEditDoorTime] = useState(show.doorTime);
   const [editVenueResult, setEditVenueResult] = useState<PlaceResult | null>(null);
@@ -487,44 +489,69 @@ function ShowRow({
   }
 
   return (
-    <div className={`bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm flex items-center gap-4 ${isNext ? "ring-2 ring-blue-500" : ""}`}>
-      {isNext && (
-        <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-0.5 rounded flex-shrink-0">
-          Next
-        </span>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="font-medium text-neutral-900 dark:text-white">
-          {show.venue ? `${show.venue}, ${show.city}` : `${show.city}, ${show.region}`}
+    <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-sm ${isNext ? "ring-2 ring-blue-500" : ""}`}>
+      <div className="p-4 flex items-center gap-4">
+        {isNext && (
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-0.5 rounded flex-shrink-0">
+            Next
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-neutral-900 dark:text-white">
+            {show.venue ? `${show.venue}, ${show.city}` : `${show.city}, ${show.region}`}
+          </div>
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">
+            {formatDate(show.date)} · {show.doorTime}
+          </div>
         </div>
-        <div className="text-sm text-neutral-500 dark:text-neutral-400">
-          {formatDate(show.date)} · {show.doorTime}
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={`/api/poster/${show.slug}`}
+            download={`ftgu-${show.slug}.jpg`}
+            className="text-sm text-green-600 hover:text-green-700"
+          >
+            Poster
+          </a>
+          <button
+            onClick={() => { setSponsoring(!sponsoring); setEditing(false); }}
+            className={`text-sm ${sponsoring ? "text-purple-700 font-medium" : "text-purple-600 hover:text-purple-700"}`}
+          >
+            Sponsor
+          </button>
+          <button
+            onClick={() => { setEditing(true); setSponsoring(false); }}
+            className="text-sm text-blue-600 hover:text-blue-700"
+          >
+            Edit
+          </button>
+          <select
+            value={show.status}
+            onChange={(e) => onUpdate(show, { status: e.target.value as Show["status"] })}
+            className="text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 text-neutral-900 dark:text-white"
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button
+            onClick={() => onDelete(show)}
+            className="text-sm text-red-500 hover:text-red-700"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          onClick={() => setEditing(true)}
-          className="text-sm text-blue-600 hover:text-blue-700"
-        >
-          Edit
-        </button>
-        <select
-          value={show.status}
-          onChange={(e) => onUpdate(show, { status: e.target.value as Show["status"] })}
-          className="text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 text-neutral-900 dark:text-white"
-        >
-          <option value="upcoming">Upcoming</option>
-          <option value="past">Past</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <button
-          onClick={() => onDelete(show)}
-          className="text-sm text-red-500 hover:text-red-700"
-        >
-          Delete
-        </button>
-      </div>
+      {sponsoring && (
+        <div className="border-t border-neutral-200 dark:border-neutral-700 p-4">
+          <SponsorForm
+            city={`${show.city}, ${show.region}`}
+            date={show.date}
+            compact
+          />
+        </div>
+      )}
     </div>
   );
 }

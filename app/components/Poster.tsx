@@ -9,10 +9,9 @@ interface PosterProps {
   doorTime: string;
   venue?: string | null;
   address?: string | null;
-  slug?: string;
 }
 
-export default function Poster({ date, city, region, doorTime, venue, address, slug }: PosterProps) {
+export default function Poster({ date, city, region, doorTime, venue, address }: PosterProps) {
   return (
     <>
       <style jsx>{`
@@ -174,7 +173,7 @@ export default function Poster({ date, city, region, doorTime, venue, address, s
         .bottom-row {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: flex-end;
         }
         .bottom-left {
           display: flex;
@@ -206,24 +205,27 @@ export default function Poster({ date, city, region, doorTime, venue, address, s
           opacity: 0.4;
           margin: 0 0.5em;
         }
-        .rsvp-badge {
+        .qr-section {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          width: 18cqw;
-          height: 18cqw;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #d4a553, #e8c474);
-          color: #0a0a0a;
-          font-family: "Parkinsans", sans-serif;
-          font-size: 3.5cqw;
-          font-weight: 800;
+          flex-direction: column;
+          align-items: flex-end;
+          justify-content: flex-end;
+          gap: 1.667cqw;
+          flex-shrink: 0;
+        }
+        .qr-code {
+          width: 19.167cqw;
+          height: 19.167cqw;
+        }
+        .qr-label {
+          font-family: "Space Mono", monospace;
+          font-size: 2.083cqw;
+          font-weight: 500;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
-          line-height: 1.2;
-          text-decoration: none;
-          z-index: 10;
+          color: #c0b8a8;
+          text-align: center;
+          line-height: 1;
         }
       `}</style>
       <div className="poster">
@@ -258,15 +260,14 @@ export default function Poster({ date, city, region, doorTime, venue, address, s
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">{formatEventDate(date)}</div>
                 <div className="detail-value">
-                  {venue || address ? `${venue || address}, ` : ""}{city}, {region}
+                  {venue || address ? `${venue || address}, ` : ""}<span className="whitespace-nowrap">{city}, {region}</span>
                 </div>
                 <div className="detail-value">Doors open at {doorTime}</div>
               </div>
-              {slug && (
-                <a href={`/rsvp/${slug}`} className="rsvp-badge">
-                  RSVP<br />Here
-                </a>
-              )}
+              <div className="qr-section">
+                <div className="qr-label">peytspencer.com/rsvp</div>
+                <img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" className="qr-code" />
+              </div>
             </div>
           </div>
         </div>

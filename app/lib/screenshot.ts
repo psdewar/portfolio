@@ -4,15 +4,16 @@ const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 const IS_LOCAL = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 
 interface ScreenshotOptions {
-  path: string; // Path like "/live" or "/shop"
-  selector?: string; // Optional: screenshot specific element
+  path: string;
+  selector?: string;
   viewport?: { width: number; height: number };
   deviceScaleFactor?: number;
   waitForSelector?: string;
   waitForTimeout?: number;
+  htmlContent?: string;
 }
 
-async function launchBrowser(): Promise<Browser> {
+export async function launchBrowser(): Promise<Browser> {
   if (IS_LOCAL) {
     // Local development: use system playwright
     const { chromium: localPlaywright } = await import("playwright");
@@ -35,6 +36,7 @@ export async function takeScreenshot({
   deviceScaleFactor,
   waitForSelector,
   waitForTimeout = 2000,
+  htmlContent,
 }: ScreenshotOptions) {
   const browser = await launchBrowser();
 
@@ -44,41 +46,36 @@ export async function takeScreenshot({
       ...(deviceScaleFactor ? { deviceScaleFactor } : {}),
     });
 
-    // Build URL with og=true to hide modals
-    const url = new URL(path, BASE_URL);
-    url.searchParams.set("og", "true");
+    if (htmlContent) {
+      await page.setContent(htmlContent, { waitUntil: "networkidle" });
+    } else {
+      const url = new URL(path, BASE_URL);
+      url.searchParams.set("og", "true");
 
-    await page.goto(url.toString(), { waitUntil: "networkidle" });
+      await page.goto(url.toString(), { waitUntil: "networkidle" });
 
-    // Wait for dynamic navbar to load (it's ssr: false), then remove it
-    await page.waitForSelector('header', { timeout: 3000 }).catch(() => {});
+      await page.waitForSelector('header', { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(500);
 
-    // Small delay to ensure React has finished rendering
-    await page.waitForTimeout(500);
-
-    // Remove UI chrome elements for clean OG screenshots
-    await page.evaluate(() => {
-      // Remove navbar
-      document.querySelectorAll('header').forEach(el => el.remove());
-      // Remove audio player (fixed height containers at bottom)
-      document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach(el => {
-        if (el.closest('main') === null) el.remove();
+      await page.evaluate(() => {
+        document.querySelectorAll('header').forEach(el => el.remove());
+        document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach(el => {
+          if (el.closest('main') === null) el.remove();
+        });
+        const main = document.querySelector('main');
+        if (main) main.style.paddingBottom = '0';
       });
-      // Remove padding from main
-      const main = document.querySelector('main');
-      if (main) main.style.paddingBottom = '0';
-    });
 
-    // Also add CSS as backup
-    await page.addStyleTag({
-      content: `
-        header { display: none !important; }
-        nav { display: none !important; }
-        nextjs-portal { display: none !important; }
-        [data-nextjs-dialog-overlay] { display: none !important; }
-        [data-nextjs-toast] { display: none !important; }
-      `,
-    });
+      await page.addStyleTag({
+        content: `
+          header { display: none !important; }
+          nav { display: none !important; }
+          nextjs-portal { display: none !important; }
+          [data-nextjs-dialog-overlay] { display: none !important; }
+          [data-nextjs-toast] { display: none !important; }
+        `,
+      });
+    }
 
     if (waitForSelector) {
       await page.waitForSelector(waitForSelector, { timeout: 10000 }).catch(() => {});
