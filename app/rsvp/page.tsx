@@ -16,9 +16,7 @@ export default async function RSVPPage() {
           >
             No Upcoming Shows
           </h1>
-          <p className="text-neutral-500 dark:text-neutral-400">
-            Check back soon for tour dates.
-          </p>
+          <p className="text-neutral-500 dark:text-neutral-400">Check back soon for tour dates.</p>
         </div>
       </div>
     );
@@ -41,14 +39,22 @@ export default async function RSVPPage() {
             key={show.slug}
             href={`/rsvp/${show.slug}`}
             className="flex items-center justify-between w-full px-6 py-5 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg, rgba(212,165,83,0.15), rgba(232,196,116,0.08))", border: "1px solid rgba(212,165,83,0.3)" }}
+            style={{
+              background: "linear-gradient(135deg, rgba(212,165,83,0.15), rgba(232,196,116,0.08))",
+              border: "1px solid rgba(212,165,83,0.3)",
+            }}
           >
             <div>
               <div className="text-[#f0ede6] font-semibold text-lg">
-                {show.venue || show.city}, {show.region}
+                {show.venueLabel || (
+                  <>
+                    {show.venue || show.address ? `${show.venue || show.address}, ` : ""}
+                    {show.city}, {show.region}
+                  </>
+                )}
               </div>
               <div className="text-[#c0b8a8] text-sm">
-                {formatMonthDay(show.date)} · Doors at {show.doorTime}
+                {formatMonthDay(show.date)} · Doors open at {show.doorTime}
               </div>
             </div>
             <div

@@ -8,6 +8,7 @@ const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 function posterHtml(show: {
   date: string;
   venue: string | null;
+  venueLabel?: string | null;
   address: string | null;
   city: string;
   region: string;
@@ -15,9 +16,9 @@ function posterHtml(show: {
 }): string {
   const dateStr = formatEventDate(show.date);
   const cityRegion = `<span style="white-space:nowrap">${show.city}, ${show.region}</span>`;
-  const location = show.venue || show.address
-    ? `${show.venue || show.address}, ${cityRegion}`
-    : cityRegion;
+  const location = show.venueLabel
+    ? show.venueLabel
+    : `${show.venue || show.address ? `${show.venue || show.address}, ` : ""}${cityRegion}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -104,7 +105,10 @@ function posterHtml(show: {
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> },
+) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
@@ -127,7 +131,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Content-Disposition": `attachment; filename="ftgu-${slug}.jpg"`,
+        "Content-Disposition": `attachment; filename="poster-${slug}.jpg"`,
         "Cache-Control": "no-store",
       },
     });

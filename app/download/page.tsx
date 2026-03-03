@@ -36,6 +36,41 @@ export default async function DownloadPage({ searchParams }: Props) {
     );
   }
 
+  // In-person (Terminal) payments use PaymentIntent IDs
+  if (sessionId.startsWith("pi_")) {
+    let pi;
+    try {
+      pi = await stripe.paymentIntents.retrieve(sessionId);
+    } catch (error) {
+      console.error("Failed to retrieve payment intent:", error);
+      redirect("/listen");
+    }
+
+    if (pi.status !== "succeeded") {
+      redirect("/listen");
+    }
+
+    const productId = pi.metadata?.productId;
+    const product = productId ? getProduct(productId) : null;
+    const assets = product ? getDownloadableAssets(product) : [];
+    const imageUrl = product?.images?.[0] || "";
+
+    if (assets.length === 0) {
+      redirect("/listen");
+    }
+
+    return (
+      <DownloadClient
+        sessionId={sessionId}
+        productName={product?.name || "Your purchase"}
+        customerEmail={pi.metadata?.email || ""}
+        assets={assets}
+        imageUrl={imageUrl}
+      />
+    );
+  }
+
+  // Online payments use Checkout Session IDs
   let session;
   try {
     session = await stripe.checkout.sessions.retrieve(sessionId, {

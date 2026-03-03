@@ -8,18 +8,14 @@ const instrumentSans = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Concert Host Application",
+  title: "Concert Sponsor Application",
   description:
-    "Host a free, family-friendly hip-hop concert in your community with Peyt Spencer.",
+    "Sponsor a free, family-friendly hip-hop concert in your community with Peyt Spencer.",
   alternates: { canonical: "/sponsor/edit" },
   robots: { index: false, follow: false },
 };
 
-export default function SponsorEditLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function SponsorEditLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${instrumentSans.variable} font-[family-name:var(--font-instrument)]`}>
       {children}

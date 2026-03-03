@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { LockSimpleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
+import { useGoogleMaps, createAutocomplete, type PlaceResult } from "../../lib/maps";
 
 interface Show {
-  id: string;
   slug: string;
   name: string;
   date: string;
@@ -14,102 +15,24 @@ interface Show {
   region: string;
   country: string;
   venue: string | null;
+  venueLabel: string | null;
   address: string | null;
   status: "upcoming" | "past" | "cancelled";
 }
 
-interface PlaceResult {
-  venue: string;
-  address: string;
-  city: string;
-  region: string;
-  country: string;
-}
-
-function useGoogleMaps() {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const w = window as any;
-    if (w.google?.maps?.places?.PlaceAutocompleteElement) {
-      setReady(true);
-      return;
-    }
-
-    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
-    if (!key) return;
-
-    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-      const check = setInterval(() => {
-        if ((window as any).google?.maps?.places?.PlaceAutocompleteElement) {
-          setReady(true);
-          clearInterval(check);
-        }
-      }, 100);
-      return () => clearInterval(check);
-    }
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-    script.async = true;
-    script.onload = () => setReady(true);
-    document.head.appendChild(script);
-  }, []);
-
-  return ready;
-}
-
-function createAutocomplete(container: HTMLElement, onSelect: (place: PlaceResult) => void) {
-  const google = (window as any).google;
-  const el = new google.maps.places.PlaceAutocompleteElement();
-
-  el.style.width = "100%";
-
-  el.addEventListener("gmp-select", async ({ placePrediction }: any) => {
-    const place = placePrediction.toPlace();
-    await place.fetchFields({
-      fields: ["displayName", "addressComponents"],
-    });
-
-    const result: PlaceResult = {
-      venue: place.displayName || "",
-      address: "",
-      city: "",
-      region: "",
-      country: "",
-    };
-
-    if (place.addressComponents) {
-      let streetNumber = "";
-      let route = "";
-      for (const c of place.addressComponents) {
-        if (c.types.includes("street_number")) {
-          streetNumber = c.longText;
-        } else if (c.types.includes("route")) {
-          route = c.longText;
-        } else if (c.types.includes("locality") || c.types.includes("sublocality_level_1")) {
-          result.city = c.longText;
-        } else if (c.types.includes("administrative_area_level_1")) {
-          result.region = c.shortText;
-        } else if (c.types.includes("country")) {
-          result.country = c.shortText;
-        }
-      }
-      result.address = [streetNumber, route].filter(Boolean).join(" ");
-    }
-
-    onSelect(result);
-  });
-
-  while (container.firstChild) container.removeChild(container.firstChild);
-  container.appendChild(el);
-
-  return el;
+interface Sponsor {
+  showSlug: string;
+  name: string;
+  email: string;
+  phone: string;
+  items: string[];
+  submittedAt: string;
 }
 
 export default function ShowsAdminPage() {
   const mapsReady = useGoogleMaps();
   const [shows, setShows] = useState<Show[]>([]);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -125,17 +48,8 @@ export default function ShowsAdminPage() {
   const venueContainerRef = useRef<HTMLDivElement>(null);
   const acElRef = useRef<any>(null);
 
-  useEffect(() => {
-    fetch("/api/shows")
-      .then((res) => res.json())
-      .then((data) => setShows(Array.isArray(data) ? data : []))
-      .catch(() => setMessage({ type: "error", text: "Failed to load shows" }))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!mapsReady || !venueContainerRef.current) return;
-
+  const initAutocomplete = useCallback(() => {
+    if (!venueContainerRef.current) return;
     acElRef.current = createAutocomplete(venueContainerRef.current, (place) => {
       setVenue(place.venue);
       setAddress(place.address);
@@ -143,7 +57,29 @@ export default function ShowsAdminPage() {
       if (place.region) setRegion(place.region);
       if (place.country) setCountry(place.country);
     });
-  }, [mapsReady]);
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/shows")
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch("/api/sponsors")
+        .then((r) => r.json())
+        .catch(() => []),
+    ])
+      .then(([showsData, sponsorsData]) => {
+        setShows(Array.isArray(showsData) ? showsData : []);
+        setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
+      })
+      .catch(() => setMessage({ type: "error", text: "Failed to load data" }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!mapsReady) return;
+    initAutocomplete();
+  }, [mapsReady, initAutocomplete]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +107,6 @@ export default function ShowsAdminPage() {
       setShows((prev) => [
         ...prev,
         {
-          id: result.id,
           slug: result.slug,
           name: "From The Ground Up",
           date,
@@ -180,6 +115,7 @@ export default function ShowsAdminPage() {
           region,
           country,
           venue: venue.trim() || null,
+          venueLabel: null,
           address: address.trim() || null,
           status: "upcoming",
         },
@@ -191,15 +127,7 @@ export default function ShowsAdminPage() {
       setCountry("CA");
       setVenue("");
       setAddress("");
-      if (venueContainerRef.current) {
-        acElRef.current = createAutocomplete(venueContainerRef.current, (place) => {
-          setVenue(place.venue);
-          setAddress(place.address);
-          if (place.city) setCity(place.city);
-          if (place.region) setRegion(place.region);
-          if (place.country) setCountry(place.country);
-        });
-      }
+      initAutocomplete();
       setMessage({ type: "success", text: "Show added!" });
     } catch {
       setMessage({ type: "error", text: "Failed to add show" });
@@ -235,10 +163,21 @@ export default function ShowsAdminPage() {
       });
       if (!res.ok) throw new Error("Failed to delete");
       setShows((prev) => prev.filter((s) => s.slug !== show.slug));
+      setSponsors((prev) => prev.filter((s) => s.showSlug !== show.slug));
       setMessage({ type: "success", text: "Show deleted!" });
     } catch {
       setMessage({ type: "error", text: "Failed to delete show" });
     }
+  };
+
+  const handleSponsorChange = (showSlug: string, sponsor: Sponsor | null) => {
+    setSponsors((prev) =>
+      sponsor
+        ? prev.some((s) => s.showSlug === showSlug)
+          ? prev.map((s) => (s.showSlug === showSlug ? sponsor : s))
+          : [...prev, sponsor]
+        : prev.filter((s) => s.showSlug !== showSlug),
+    );
   };
 
   const now = new Date();
@@ -353,8 +292,10 @@ export default function ShowsAdminPage() {
                       key={show.slug}
                       show={show}
                       isNext={i === 0}
+                      sponsor={sponsors.find((s) => s.showSlug === show.slug)}
                       onUpdate={handleUpdate}
                       onDelete={handleDelete}
+                      onSponsorChange={handleSponsorChange}
                       mapsReady={mapsReady}
                     />
                   ))}
@@ -372,8 +313,10 @@ export default function ShowsAdminPage() {
                     <ShowRow
                       key={show.slug}
                       show={show}
+                      sponsor={sponsors.find((s) => s.showSlug === show.slug)}
                       onUpdate={handleUpdate}
                       onDelete={handleDelete}
+                      onSponsorChange={handleSponsorChange}
                       mapsReady={mapsReady}
                     />
                   ))}
@@ -393,40 +336,31 @@ export default function ShowsAdminPage() {
   );
 }
 
-function ShowRow({
+function ShowEditForm({
   show,
   isNext,
-  onUpdate,
-  onDelete,
+  onSave,
+  onCancel,
   mapsReady,
 }: {
   show: Show;
   isNext?: boolean;
-  onUpdate: (show: Show, fields: Partial<Show>) => void;
-  onDelete: (show: Show) => void;
+  onSave: (fields: Partial<Show>) => void;
+  onCancel: () => void;
   mapsReady: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [sponsoring, setSponsoring] = useState(false);
   const [editDate, setEditDate] = useState(show.date);
   const [editDoorTime, setEditDoorTime] = useState(show.doorTime);
+  const [editVenueLabel, setEditVenueLabel] = useState(show.venueLabel ?? "");
   const [editVenueResult, setEditVenueResult] = useState<PlaceResult | null>(null);
   const venueEditContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!editing || !mapsReady || !venueEditContainerRef.current) return;
-
+    if (!mapsReady || !venueEditContainerRef.current) return;
     createAutocomplete(venueEditContainerRef.current, (place) => {
       setEditVenueResult(place);
     });
-  }, [editing, mapsReady]);
-
-  const formatDate = (iso: string) =>
-    new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
+  }, [mapsReady]);
 
   const handleSave = () => {
     const fields: Partial<Show> = {};
@@ -439,57 +373,288 @@ function ShowRow({
       if (editVenueResult.region) fields.region = editVenueResult.region;
       if (editVenueResult.country) fields.country = editVenueResult.country;
     }
-    if (Object.keys(fields).length > 0) onUpdate(show, fields);
-    setEditing(false);
-    setEditVenueResult(null);
+    const newLabel = editVenueLabel.trim() || null;
+    if (newLabel !== (show.venueLabel ?? null)) fields.venueLabel = newLabel;
+    onSave(fields);
   };
+
+  return (
+    <div
+      className={`bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm space-y-3 ${isNext ? "ring-2 ring-blue-500" : ""}`}
+    >
+      <div>
+        <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">
+          Venue
+        </label>
+        <div ref={venueEditContainerRef} />
+        {(editVenueResult || show.venue) && (
+          <p className="text-xs text-neutral-500 mt-1">
+            {editVenueResult
+              ? `${editVenueResult.venue}, ${editVenueResult.city}, ${editVenueResult.region}`
+              : `${show.venue}, ${show.city}, ${show.region}`}
+          </p>
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs text-neutral-400 dark:text-neutral-500 shrink-0">
+            Poster label
+          </span>
+          <input
+            type="text"
+            value={editVenueLabel}
+            onChange={(e) => setEditVenueLabel(e.target.value)}
+            placeholder={editVenueResult?.venue ?? show.venue ?? "same as venue"}
+            className="flex-1 px-2 py-1 text-xs bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">
+            Date
+          </label>
+          <input
+            type="date"
+            value={editDate}
+            onChange={(e) => setEditDate(e.target.value)}
+            className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">
+            Door Time
+          </label>
+          <input
+            type="text"
+            value={editDoorTime}
+            onChange={(e) => setEditDoorTime(e.target.value)}
+            className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          Save
+        </button>
+        <button onClick={onCancel} className="text-sm text-neutral-500 hover:text-neutral-700">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function buildSponsorUrl(show: Show, extras: Record<string, string> = {}) {
+  const url = new URL(
+    "/sponsor/edit",
+    typeof window !== "undefined" ? window.location.origin : "https://peytspencer.com",
+  );
+  url.searchParams.set("city", show.city);
+  url.searchParams.set("region", show.region);
+  url.searchParams.set("country", show.country);
+  url.searchParams.set("date", show.date);
+  url.searchParams.set("doorTime", show.doorTime);
+  for (const [k, v] of Object.entries(extras)) {
+    if (v) url.searchParams.set(k, v);
+  }
+  return url.toString();
+}
+
+function SponsorPanel({
+  show,
+  sponsor,
+  onSponsorChange,
+}: {
+  show: Show;
+  sponsor?: Sponsor;
+  onSponsorChange: (showSlug: string, sponsor: Sponsor | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = buildSponsorUrl(show, { showSlug: show.slug });
+  const templatePdfUrl = buildSponsorUrl(show, { og: "true" });
+  const recordPdfUrl = sponsor
+    ? buildSponsorUrl(show, {
+        og: "true",
+        showSlug: show.slug,
+        venue: show.venue || "",
+        name: sponsor.name,
+        phone: sponsor.phone,
+        email: sponsor.email,
+        items: sponsor.items.join("|"),
+      })
+    : null;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDelete = async () => {
+    if (!sponsor || !confirm("Remove sponsor?")) return;
+    const res = await fetch("/api/sponsors", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showSlug: show.slug }),
+    });
+    if (res.ok) onSponsorChange(show.slug, null);
+  };
+
+  return (
+    <div className="border-t border-neutral-200 dark:border-neutral-700 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono truncate flex-1 min-w-0">
+          {shareUrl}
+        </p>
+        <button
+          onClick={handleCopy}
+          className="text-xs text-blue-600 hover:text-blue-700 flex-shrink-0"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+        <a
+          href={templatePdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 flex-shrink-0"
+        >
+          Template PDF
+        </a>
+      </div>
+
+      {sponsor ? (
+        editing ? (
+          <>
+            <div className="flex items-start gap-2 px-1 py-2 mb-2 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700 text-xs text-neutral-400 dark:text-neutral-500">
+              <LockSimpleIcon size={13} className="flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-neutral-500 dark:text-neutral-400">
+                  From show ·{" "}
+                </span>
+                {show.venue ? `${show.venue}, ` : ""}
+                {show.city}, {show.region} ·{" "}
+                {new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </div>
+            </div>
+            <SponsorForm
+              showSlug={show.slug}
+              city={show.city}
+              region={show.region}
+              country={show.country}
+              date={show.date}
+              doorTime={show.doorTime}
+              initialName={sponsor.name}
+              initialPhone={sponsor.phone}
+              initialEmail={sponsor.email}
+              initialItems={sponsor.items}
+              compact
+              editMode
+              onSuccess={(data) => {
+                setEditing(false);
+                onSponsorChange(show.slug, { ...sponsor, ...data });
+              }}
+            />
+          </>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-sm text-neutral-900 dark:text-white">
+              {sponsor.name && <span className="font-medium">{sponsor.name}</span>}
+              {sponsor.email && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.email}</span>
+              )}
+              {sponsor.phone && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.phone}</span>
+              )}
+            </div>
+            {sponsor.items.length > 0 && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {sponsor.items.join(", ")}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              {recordPdfUrl && (
+                <a
+                  href={recordPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-green-600 hover:text-green-700"
+                >
+                  Record PDF
+                </a>
+              )}
+              <button
+                onClick={() => setEditing(true)}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                Edit
+              </button>
+              <button onClick={handleDelete} className="text-xs text-red-500 hover:text-red-700">
+                Delete
+              </button>
+            </div>
+          </div>
+        )
+      ) : (
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">No submission yet.</p>
+      )}
+    </div>
+  );
+}
+
+function ShowRow({
+  show,
+  isNext,
+  sponsor,
+  onUpdate,
+  onDelete,
+  onSponsorChange,
+  mapsReady,
+}: {
+  show: Show;
+  isNext?: boolean;
+  sponsor?: Sponsor;
+  onUpdate: (show: Show, fields: Partial<Show>) => void;
+  onDelete: (show: Show) => void;
+  onSponsorChange: (showSlug: string, sponsor: Sponsor | null) => void;
+  mapsReady: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [sponsoring, setSponsoring] = useState(false);
+
+  const formatDate = (iso: string) =>
+    new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
 
   if (editing) {
     return (
-      <div className={`bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm space-y-3 ${isNext ? "ring-2 ring-blue-500" : ""}`}>
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Venue</label>
-          <div ref={venueEditContainerRef} />
-          {(editVenueResult || show.venue) && (
-            <p className="text-xs text-neutral-500 mt-1">
-              {editVenueResult ? `${editVenueResult.venue}, ${editVenueResult.city}, ${editVenueResult.region}` : `${show.venue}, ${show.city}, ${show.region}`}
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Date</label>
-            <input
-              type="date"
-              value={editDate}
-              onChange={(e) => setEditDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">Door Time</label>
-            <input
-              type="text"
-              value={editDoorTime}
-              onChange={(e) => setEditDoorTime(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white"
-            />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleSave} className="text-sm font-medium text-blue-600 hover:text-blue-700">
-            Save
-          </button>
-          <button onClick={() => { setEditing(false); setEditVenueResult(null); }} className="text-sm text-neutral-500 hover:text-neutral-700">
-            Cancel
-          </button>
-        </div>
-      </div>
+      <ShowEditForm
+        show={show}
+        isNext={isNext}
+        onSave={(fields) => {
+          if (Object.keys(fields).length > 0) onUpdate(show, fields);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+        mapsReady={mapsReady}
+      />
     );
   }
 
   return (
-    <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-sm ${isNext ? "ring-2 ring-blue-500" : ""}`}>
+    <div
+      className={`bg-white dark:bg-neutral-800 rounded-xl shadow-sm ${isNext ? "ring-2 ring-blue-500" : ""}`}
+    >
       <div className="p-4 flex items-center gap-4">
         {isNext && (
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-0.5 rounded flex-shrink-0">
@@ -498,7 +663,10 @@ function ShowRow({
         )}
         <div className="flex-1 min-w-0">
           <div className="font-medium text-neutral-900 dark:text-white">
-            {show.venue ? `${show.venue}, ${show.city}` : `${show.city}, ${show.region}`}
+            {show.venueLabel ||
+              (show.venue
+                ? `${show.venue}, ${show.city}, ${show.region}`
+                : `${show.city}, ${show.region}`)}
           </div>
           <div className="text-sm text-neutral-500 dark:text-neutral-400">
             {formatDate(show.date)} · {show.doorTime}
@@ -508,19 +676,25 @@ function ShowRow({
         <div className="flex items-center gap-2 flex-shrink-0">
           <a
             href={`/api/poster/${show.slug}`}
-            download={`ftgu-${show.slug}.jpg`}
+            download={`poster-${show.slug}.jpg`}
             className="text-sm text-green-600 hover:text-green-700"
           >
             Poster
           </a>
           <button
-            onClick={() => { setSponsoring(!sponsoring); setEditing(false); }}
+            onClick={() => {
+              setSponsoring(!sponsoring);
+              setEditing(false);
+            }}
             className={`text-sm ${sponsoring ? "text-purple-700 font-medium" : "text-purple-600 hover:text-purple-700"}`}
           >
-            Sponsor
+            {sponsor ? "Sponsor ✓" : "Sponsor"}
           </button>
           <button
-            onClick={() => { setEditing(true); setSponsoring(false); }}
+            onClick={() => {
+              setEditing(true);
+              setSponsoring(false);
+            }}
             className="text-sm text-blue-600 hover:text-blue-700"
           >
             Edit
@@ -544,13 +718,7 @@ function ShowRow({
       </div>
 
       {sponsoring && (
-        <div className="border-t border-neutral-200 dark:border-neutral-700 p-4">
-          <SponsorForm
-            city={`${show.city}, ${show.region}`}
-            date={show.date}
-            compact
-          />
-        </div>
+        <SponsorPanel show={show} sponsor={sponsor} onSponsorChange={onSponsorChange} />
       )}
     </div>
   );

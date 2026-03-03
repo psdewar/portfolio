@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       await handleSubscriptionCancelled(event.data.object as Stripe.Subscription);
       break;
     case "payment_intent.succeeded":
+      await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
       break;
     case "charge.refunded":
       await handleRefund(event.data.object as Stripe.Charge);
@@ -58,6 +59,62 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+  const metadata = paymentIntent.metadata;
+  if (!metadata) return;
+
+  // Only process in-person payments — online payments are handled by checkout.session.completed
+  if (metadata.channel !== "in-person") return;
+
+  // Support comma-separated productIds (new) or single productId (legacy)
+  const productIdsRaw = metadata.productIds || metadata.productId;
+  if (!productIdsRaw) return;
+
+  const productIds = productIdsRaw.split(",").filter(Boolean);
+  const allAssets: string[] = [];
+  const productNames: string[] = [];
+
+  for (const pid of productIds) {
+    const product = getProduct(pid);
+    if (product && hasDigitalAssets(pid)) {
+      allAssets.push(...getDownloadableAssets(product));
+      productNames.push(product.name);
+    }
+  }
+
+  if (allAssets.length === 0) return;
+
+  const combinedName = productNames.join(" + ");
+  const combinedProductId = productIds.join(",");
+  const email = metadata.email;
+
+  await savePurchase({
+    sessionId: paymentIntent.id,
+    email: email || "",
+    productId: combinedProductId,
+    productName: combinedName,
+    downloadableAssets: allAssets,
+    amountCents: paymentIntent.amount,
+    paymentStatus: "paid",
+  });
+
+  if (email) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://peytspencer.com";
+    const downloadUrl = `${baseUrl}/download?session_id=${paymentIntent.id}`;
+
+    const emailSent = await sendDownloadEmail({
+      to: email,
+      productName: combinedName,
+      downloadUrl,
+    });
+
+    if (emailSent) {
+      await markEmailSent(paymentIntent.id);
+      console.log(`[Webhook] Download email sent to ${email} for ${combinedName} (in-person)`);
+    }
+  }
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {

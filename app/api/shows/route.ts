@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
     const responseText = await res.text();
 
     if (!res.ok) {
-      return NextResponse.json({ error: responseText || "Failed to add show" }, { status: res.status });
+      return NextResponse.json(
+        { error: responseText || "Failed to add show" },
+        { status: res.status },
+      );
     }
 
     try {
@@ -88,10 +91,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-function toSlug(city: string, region: string): string {
-  return `${city}-${region}`.toLowerCase().replace(/\s+/g, "-");
-}
-
 export async function PATCH(request: NextRequest) {
   if (!SHOWS_TOKEN) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
@@ -99,14 +98,6 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-
-    if (body.city || body.region) {
-      const shows = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" }).then((r) => r.json()).catch(() => []);
-      const current = shows.find((s: { slug: string }) => s.slug === body.slug);
-      if (current) {
-        body.slug = toSlug(body.city || current.city, body.region || current.region);
-      }
-    }
 
     const res = await fetch(`${SHOWS_API}/chorus/shows`, {
       method: "PATCH",
@@ -120,7 +111,10 @@ export async function PATCH(request: NextRequest) {
     const responseText = await res.text();
 
     if (!res.ok) {
-      return NextResponse.json({ error: responseText || "Failed to update show" }, { status: res.status });
+      return NextResponse.json(
+        { error: responseText || "Failed to update show" },
+        { status: res.status },
+      );
     }
 
     try {

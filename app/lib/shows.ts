@@ -1,5 +1,4 @@
 export interface Show {
-  id: string;
   slug: string;
   name: string;
   date: string;
@@ -8,6 +7,7 @@ export interface Show {
   region: string;
   country: string;
   venue: string | null;
+  venueLabel: string | null;
   address: string | null;
   status: "upcoming" | "past" | "cancelled";
 }

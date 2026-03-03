@@ -6,6 +6,7 @@ import {
   getDownloadableAssets,
   getFileFormat,
 } from "../../shared/products";
+import { getPurchaseBySessionId } from "../../../../lib/supabase-admin";
 import {
   checkRateLimit,
   getClientIP,
@@ -24,7 +25,6 @@ import {
 } from "../../shared/audio-utils";
 
 const MAX_DOWNLOADS_PER_TRACK = 5;
-const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ trackId: string }> }) {
   try {
@@ -86,29 +86,44 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Retrieve payment record — PaymentIntent for in-person, Checkout Session for online
+    let paymentMetadata: Record<string, string>;
 
-    if (session.payment_status !== "paid") {
-      return new NextResponse("Payment not completed", { status: 402 });
+    if (sessionId.startsWith("pi_")) {
+      const pi = await stripe.paymentIntents.retrieve(sessionId);
+      if (pi.status !== "succeeded") {
+        return new NextResponse("Payment not completed", { status: 402 });
+      }
+      paymentMetadata = pi.metadata || {};
+    } else {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session.payment_status !== "paid") {
+        return new NextResponse("Payment not completed", { status: 402 });
+      }
+      paymentMetadata = session.metadata || {};
     }
 
-    const paymentTime = session.created * 1000;
-    if (Date.now() > paymentTime + SESSION_EXPIRY_MS) {
-      return new NextResponse("Download link expired", { status: 410 });
+    // Check expiry from Supabase purchase record (30-day window)
+    const purchase = await getPurchaseBySessionId(sessionId);
+    if (purchase) {
+      const expiresAt = new Date(purchase.expires_at);
+      if (Date.now() > expiresAt.getTime()) {
+        return new NextResponse("Download link expired", { status: 410 });
+      }
     }
 
-    const hasAccess = await verifyTrackAccess(session, trackId);
+    const hasAccess = await verifyTrackAccess({ metadata: paymentMetadata }, trackId);
     if (!hasAccess) {
       return new NextResponse("Track not included in purchase", { status: 403 });
     }
 
-    // Get file format from product config
-    const productId = session.metadata?.productId;
-    const product = productId ? getProduct(productId) : null;
+    const productIdsRaw = paymentMetadata.productIds || paymentMetadata.productId;
+    const firstProductId = productIdsRaw?.split(",")[0];
+    const product = firstProductId ? getProduct(firstProductId) : null;
     const fileFormat = product ? getFileFormat(product) : "mp3";
 
     const downloadKey = `downloads_${trackId}`;
-    const currentDownloads = parseInt(session.metadata?.[downloadKey] || "0", 10);
+    const currentDownloads = parseInt(paymentMetadata[downloadKey] || "0", 10);
 
     if (currentDownloads >= MAX_DOWNLOADS_PER_TRACK) {
       return new NextResponse("Download limit reached for this track. Contact support if needed.", {
@@ -123,12 +138,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const audioBuffer = await fetchAudioBuffer(audioBlob.url);
 
-    await stripe.checkout.sessions.update(sessionId, {
-      metadata: {
-        ...session.metadata,
-        [downloadKey]: (currentDownloads + 1).toString(),
-      },
-    });
+    // Track download count on the Stripe object
+    const updatedMetadata = { ...paymentMetadata, [downloadKey]: (currentDownloads + 1).toString() };
+    if (sessionId.startsWith("pi_")) {
+      await stripe.paymentIntents.update(sessionId, { metadata: updatedMetadata });
+    } else {
+      await stripe.checkout.sessions.update(sessionId, { metadata: updatedMetadata });
+    }
 
     const filename = formatTrackFilename(trackId, fileFormat);
     const headers = createDownloadHeaders(audioBuffer, filename, fileFormat);
@@ -156,12 +172,16 @@ async function verifyTrackAccess(
   const metadata = session.metadata;
   if (!metadata) return false;
 
-  const productId = metadata.productId;
-  if (productId) {
-    const product = getProduct(productId);
-    if (product) {
-      const assets = getDownloadableAssets(product);
-      return assets.includes(trackId);
+  // Support comma-separated productIds (in-person) or single productId (online)
+  const productIdsRaw = metadata.productIds || metadata.productId;
+  if (productIdsRaw) {
+    const productIds = productIdsRaw.split(",").filter(Boolean);
+    for (const pid of productIds) {
+      const product = getProduct(pid);
+      if (product) {
+        const assets = getDownloadableAssets(product);
+        if (assets.includes(trackId)) return true;
+      }
     }
   }
 

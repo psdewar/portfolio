@@ -79,6 +79,10 @@ export async function incrementDownloadCount(sessionId: string): Promise<void> {
   await supabaseAdmin.rpc("increment_download_count", { sid: sessionId });
 }
 
+export async function updatePurchaseEmail(sessionId: string, email: string): Promise<void> {
+  await supabaseAdmin.from("purchases").update({ email }).eq("session_id", sessionId);
+}
+
 export async function markEmailSent(sessionId: string): Promise<void> {
   await supabaseAdmin.from("purchases").update({ email_sent: true }).eq("session_id", sessionId);
 }

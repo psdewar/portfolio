@@ -15,6 +15,7 @@ interface RSVPFormProps {
   region: string;
   doorTime: string;
   venue?: string | null;
+  venueLabel?: string | null;
   address?: string | null;
 }
 
@@ -32,7 +33,16 @@ interface FormErrors {
   email?: string;
 }
 
-export default function RSVPForm({ eventId, date, city, region, doorTime, venue, address }: RSVPFormProps) {
+export default function RSVPForm({
+  eventId,
+  date,
+  city,
+  region,
+  doorTime,
+  venue,
+  venueLabel,
+  address,
+}: RSVPFormProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -174,7 +184,7 @@ export default function RSVPForm({ eventId, date, city, region, doorTime, venue,
   });
 
   const dateLabel = formatEventDateShort(date);
-  const doorLabel = `Doors at ${doorTime}`;
+  const doorLabel = `Doors open at ${doorTime}`;
   const totalDisplay = `$${(musicTotalCents / 100).toFixed(2)}`;
   const feeDisplay = `$${((musicTotalCents - formData.musicAmount) / 100).toFixed(2)}`;
 
@@ -314,14 +324,30 @@ export default function RSVPForm({ eventId, date, city, region, doorTime, venue,
           </p>
         </div>
         <div className="flex-shrink-0">
-          <Poster date={date} city={city} region={region} doorTime={doorTime} venue={venue} address={address} />
+          <Poster
+            date={date}
+            city={city}
+            region={region}
+            doorTime={doorTime}
+            venue={venue}
+            venueLabel={venueLabel}
+            address={address}
+          />
         </div>
       </div>
 
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
         <div className="h-full flex-shrink-0">
-          <Poster date={date} city={city} region={region} doorTime={doorTime} venue={venue} address={address} />
+          <Poster
+            date={date}
+            city={city}
+            region={region}
+            doorTime={doorTime}
+            venue={venue}
+            venueLabel={venueLabel}
+            address={address}
+          />
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6 @container">
           <div className="mb-2">

@@ -14,12 +14,13 @@ export default async function ShowRSVPPage({ params }: Props) {
 
   return (
     <RSVPForm
-      eventId={show.id}
+      eventId={show.slug}
       date={show.date}
       city={show.city}
       region={show.region}
       doorTime={show.doorTime}
       venue={show.venue}
+      venueLabel={show.venueLabel}
       address={show.address}
     />
   );

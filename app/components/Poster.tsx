@@ -8,10 +8,19 @@ interface PosterProps {
   region: string;
   doorTime: string;
   venue?: string | null;
+  venueLabel?: string | null;
   address?: string | null;
 }
 
-export default function Poster({ date, city, region, doorTime, venue, address }: PosterProps) {
+export default function Poster({
+  date,
+  city,
+  region,
+  doorTime,
+  venue,
+  venueLabel,
+  address,
+}: PosterProps) {
   return (
     <>
       <style jsx>{`
@@ -260,13 +269,24 @@ export default function Poster({ date, city, region, doorTime, venue, address }:
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">{formatEventDate(date)}</div>
                 <div className="detail-value">
-                  {venue || address ? `${venue || address}, ` : ""}<span className="whitespace-nowrap">{city}, {region}</span>
+                  {venueLabel || (
+                    <>
+                      {(venue || address) && `${venue || address}, `}
+                      <span className="whitespace-nowrap">
+                        {city}, {region}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="detail-value">Doors open at {doorTime}</div>
               </div>
               <div className="qr-section">
                 <div className="qr-label">peytspencer.com/rsvp</div>
-                <img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" className="qr-code" />
+                <img
+                  src="https://assets.peytspencer.com/images/rsvp-qr-s10.png"
+                  alt="QR Code"
+                  className="qr-code"
+                />
               </div>
             </div>
           </div>

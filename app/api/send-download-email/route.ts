@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPurchaseBySessionId, markEmailSent, isKeepalive } from "../../../lib/supabase-admin";
+import { getPurchaseBySessionId, updatePurchaseEmail, markEmailSent, isKeepalive } from "../../../lib/supabase-admin";
 import { sendDownloadEmail } from "../../../lib/sendgrid";
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId } = await request.json();
+    const { sessionId, email } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
@@ -13,6 +13,11 @@ export async function POST(request: NextRequest) {
     // Ignore keepalive pings
     if (isKeepalive(sessionId)) {
       return NextResponse.json({ error: "Invalid session" }, { status: 400 });
+    }
+
+    // If email provided, update the purchase record first (POS flow: webhook saved with email="")
+    if (email) {
+      await updatePurchaseEmail(sessionId, email);
     }
 
     // Get purchase from Supabase
@@ -31,6 +36,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
     }
 
+    // Use the email from the request if provided, otherwise from the purchase record
+    const recipientEmail = email || purchase.email;
+    if (!recipientEmail) {
+      return NextResponse.json({ error: "No email address" }, { status: 400 });
+    }
+
     // Check if already sent
     if (purchase.email_sent) {
       return NextResponse.json({
@@ -45,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const sent = await sendDownloadEmail({
-      to: purchase.email,
+      to: recipientEmail,
       productName: purchase.product_name || "Your music",
       downloadUrl,
     });
@@ -59,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Download link sent to ${purchase.email}`,
+      message: `Download link sent to ${recipientEmail}`,
     });
   } catch (error) {
     console.error("Send download email error:", error);

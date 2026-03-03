@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const shows = await getShows();
-    const show = shows.find((s) => s.id === eventId.trim());
+    const show = shows.find((s) => s.slug === eventId.trim());
     if (!show || show.status !== "upcoming") {
       return NextResponse.json({ error: "Invalid event" }, { status: 400 });
     }

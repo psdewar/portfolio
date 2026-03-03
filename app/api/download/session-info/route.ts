@@ -25,15 +25,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Session ID required" }, { status: 400 });
     }
 
-    // Retrieve session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Retrieve payment record — PaymentIntent for in-person, Checkout Session for online
+    if (sessionId.startsWith("pi_")) {
+      const pi = await stripe.paymentIntents.retrieve(sessionId);
+      if (pi.status !== "succeeded") {
+        return NextResponse.json({ error: "Payment not completed" }, { status: 402 });
+      }
+      return NextResponse.json({
+        trackId: pi.metadata?.trackId,
+        trackTitle: pi.metadata?.trackTitle,
+        mode: pi.metadata?.mode,
+        channel: pi.metadata?.channel,
+        paymentStatus: "paid",
+      });
+    }
 
-    // Verify payment status
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== "paid") {
       return NextResponse.json({ error: "Payment not completed" }, { status: 402 });
     }
-
-    // Return relevant session data
     return NextResponse.json({
       trackId: session.metadata?.trackId,
       trackTitle: session.metadata?.trackTitle,

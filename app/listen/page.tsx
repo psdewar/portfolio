@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MicrophoneStageIcon, Waveform, LockSimple } from "@phosphor-icons/react";
+import { MicrophoneStageIcon, Waveform, LockSimpleIcon } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
@@ -29,7 +29,6 @@ const formatTrackTitle = (id: string) =>
     .replace(/-/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
     .trim();
-
 
 const BASE_TRACKS: TrackCard[] = singles.filter(Boolean).map((s) => {
   const thumbs: Record<string, string> = {
@@ -88,8 +87,16 @@ const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 const PLAYABLE_TRACK_IDS = new Set(TRACK_DATA.map((t) => t.id));
 
 export default function Page() {
-  const { loadTrack, loadPlaylist, currentTrack, loadingTrack, isPlaying, isLoading, toggle, playlist } =
-    useAudio();
+  const {
+    loadTrack,
+    loadPlaylist,
+    currentTrack,
+    loadingTrack,
+    isPlaying,
+    isLoading,
+    toggle,
+    playlist,
+  } = useAudio();
   const isSimulatingLoad = useSimulatedLoading();
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
@@ -203,10 +210,10 @@ export default function Page() {
           thumbnail: trackData.thumbnail,
           duration: trackData.duration,
         },
-        true
+        true,
       );
     },
-    [currentTrack?.id, isPlaying, toggle, loadTrack]
+    [currentTrack?.id, isPlaying, toggle, loadTrack],
   );
 
   // AUTO-PLAY LOGIC
@@ -237,143 +244,148 @@ export default function Page() {
       )}
 
       <div className="animate-fade-in">
-      {playMula && (
-        <FreestyleOverlay
-          trackId="mula-freestyle"
-          coverSrc={
-            ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/covers/mula.jpg"
-          }
-          href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
-          onClose={() => {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setPlayParam(null);
-            setShowStayConnected(false);
-          }}
-        />
-      )}
+        {playMula && (
+          <FreestyleOverlay
+            trackId="mula-freestyle"
+            coverSrc={
+              ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/covers/mula.jpg"
+            }
+            href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
+            onClose={() => {
+              window.history.replaceState({}, document.title, window.location.pathname);
+              setPlayParam(null);
+              setShowStayConnected(false);
+            }}
+          />
+        )}
 
-      <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {visibleTracks.map((t) => {
-          const isCurrent = currentTrack?.id === t.id;
-          const isLoadingThis = loadingTrack?.id === t.id;
-          const isPatronOnly = isPatronTrack(t.id);
-          const canPlay = PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
+        <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {visibleTracks.map((t) => {
+            const isCurrent = currentTrack?.id === t.id;
+            const isLoadingThis = loadingTrack?.id === t.id;
+            const isPatronOnly = isPatronTrack(t.id);
+            const canPlay = PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
 
-          return (
-            <div
-              key={t.id}
-              className={`relative overflow-hidden aspect-square group cursor-pointer${
-                patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
-              }`}
-              onClick={() => canPlay && handlePlayTrack(t.id)}
-            >
-              {brokenImages.has(t.id) ? (
-                <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
-                  <Waveform size={48} weight="light" className="text-neutral-600" />
-                </div>
-              ) : (
-                <Image
-                  alt={t.title}
-                  src={t.src}
-                  fill
-                  className="object-cover absolute inset-0"
-                  loading="lazy"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
-                />
-              )}
+            return (
+              <div
+                key={t.id}
+                className={`relative overflow-hidden aspect-square group cursor-pointer${
+                  patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
+                }`}
+                onClick={() => canPlay && handlePlayTrack(t.id)}
+              >
+                {brokenImages.has(t.id) ? (
+                  <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
+                    <Waveform size={48} weight="light" className="text-neutral-600" />
+                  </div>
+                ) : (
+                  <Image
+                    alt={t.title}
+                    src={t.src}
+                    fill
+                    className="object-cover absolute inset-0"
+                    loading="lazy"
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
+                  />
+                )}
 
-              {brokenImages.has(t.id) && (
-                <div className="absolute bottom-2 right-2 z-10">
-                  <span className="text-sm font-medium text-white/80">{t.title}</span>
-                </div>
-              )}
+                {brokenImages.has(t.id) && (
+                  <div className="absolute bottom-2 right-2 z-10">
+                    <span className="text-sm font-medium text-white/80">{t.title}</span>
+                  </div>
+                )}
 
-              
-              {ARTWORK_PENDING.has(t.id) && (
-                <div className="absolute bottom-2 left-2 z-10">
-                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
-                    Early Listen
-                  </span>
-                </div>
-              )}
+                {ARTWORK_PENDING.has(t.id) && (
+                  <div className="absolute bottom-2 left-2 z-10">
+                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
+                      Early Listen
+                    </span>
+                  </div>
+                )}
 
-              {canPlay && isCurrent && !isLoadingThis && (
-                <div className="absolute top-2 right-2 z-10">
-                  <BlockVisualizer />
-                </div>
-              )}
+                {canPlay && isCurrent && !isLoadingThis && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <BlockVisualizer />
+                  </div>
+                )}
 
-              {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
-                <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
-                  <LockSimple size={64} weight="bold" className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]" />
-                  <span className="text-xs uppercase tracking-widest text-white/70 font-medium">Unlocking</span>
-                </div>
-              )}
+                {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
+                  <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
+                    <LockSimpleIcon
+                      size={64}
+                      weight="bold"
+                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                    />
+                    <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
+                      Unlocking
+                    </span>
+                  </div>
+                )}
 
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center p-4">
-                <div className="w-full flex flex-col gap-2">
-                  {canPlay && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayTrack(t.id);
-                      }}
-                      disabled={isLoadingThis}
-                      className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                    >
-                      {isLoadingThis ? (
-                        <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Loading
-                        </>
-                      ) : isCurrent && isPlaying ? (
-                        "Pause"
-                      ) : (
-                        "Play"
-                      )}
-                    </button>
-                  )}
-                  {isPatronOnly && !isPatron && (
-                    <Link
-                      href="/patron"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                    >
-                      <MicrophoneStageIcon size={18} weight="regular" />
-                      Play
-                    </Link>
-                  )}
-                  {t.href && (
-                    <Link
-                      href={t.href}
-                      target="_blank"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full py-2 bg-white/90 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                    >
-                      Stream <ArrowIcon />
-                    </Link>
-                  )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center p-4">
+                  <div className="w-full flex flex-col gap-2">
+                    {canPlay && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayTrack(t.id);
+                        }}
+                        disabled={isLoadingThis}
+                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
+                      >
+                        {isLoadingThis ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                            Loading
+                          </>
+                        ) : isCurrent && isPlaying ? (
+                          "Pause"
+                        ) : (
+                          "Play"
+                        )}
+                      </button>
+                    )}
+                    {isPatronOnly && !isPatron && (
+                      <Link
+                        href="/patron"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <MicrophoneStageIcon size={18} weight="regular" />
+                        Play
+                      </Link>
+                    )}
+                    {t.href && (
+                      <Link
+                        href={t.href}
+                        target="_blank"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full py-2 bg-white/90 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
+                      >
+                        Stream <ArrowIcon />
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );
