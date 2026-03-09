@@ -447,15 +447,8 @@ function ShowEditForm({
 }
 
 function buildSponsorUrl(show: Show, extras: Record<string, string> = {}) {
-  const url = new URL(
-    "/sponsor/edit",
-    typeof window !== "undefined" ? window.location.origin : "https://peytspencer.com",
-  );
-  url.searchParams.set("city", show.city);
-  url.searchParams.set("region", show.region);
-  url.searchParams.set("country", show.country);
-  url.searchParams.set("date", show.date);
-  url.searchParams.set("doorTime", show.doorTime);
+  const url = new URL("/sponsor/edit", "https://peytspencer.com");
+  url.searchParams.set("show", show.slug);
   for (const [k, v] of Object.entries(extras)) {
     if (v) url.searchParams.set(k, v);
   }
@@ -474,13 +467,11 @@ function SponsorPanel({
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = buildSponsorUrl(show, { showSlug: show.slug });
+  const shareUrl = buildSponsorUrl(show);
   const templatePdfUrl = buildSponsorUrl(show, { og: "true" });
   const recordPdfUrl = sponsor
     ? buildSponsorUrl(show, {
         og: "true",
-        showSlug: show.slug,
-        venue: show.venue || "",
         name: sponsor.name,
         phone: sponsor.phone,
         email: sponsor.email,

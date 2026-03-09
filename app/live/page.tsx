@@ -11,13 +11,7 @@ import { Toast } from "../components/Toast";
 import LiveChat from "../components/LiveChat";
 import { useLiveStatus } from "../hooks/useLiveStatus";
 import { formatNextStream } from "../lib/dates";
-import {
-  EyeIcon,
-  BellIcon,
-  SpeakerSlashIcon,
-  PlayIcon,
-  MapPinIcon,
-} from "@phosphor-icons/react";
+import { EyeIcon, BellIcon, SpeakerSlashIcon, PlayIcon, MapPinIcon } from "@phosphor-icons/react";
 import { TIMELINE, formatEventDate } from "../data/timeline";
 import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
@@ -354,7 +348,9 @@ export default function LivePage() {
         priority
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/40" />
-      <div className={`absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden ${isMobile ? "z-[15]" : "z-10"}`}>
+      <div
+        className={`absolute top-2 inset-x-0 h-9 grid place-items-center bg-yellow-400 overflow-hidden ${isMobile ? "z-[15]" : "z-10"}`}
+      >
         <div
           className="flex items-center will-change-transform"
           style={{ animation: "marquee 60s linear infinite" }}
@@ -373,11 +369,15 @@ export default function LivePage() {
           ))}
         </div>
       </div>
-      <div className={`absolute inset-x-0 flex flex-col items-center ${isMobile ? "top-14 z-[5] px-4" : "top-16 z-10"}`}>
+      <div
+        className={`absolute inset-x-0 flex flex-col items-center ${isMobile ? "top-14 z-[5] px-4" : "top-16 z-10"}`}
+      >
         {nextStreamDate && (
           <>
             <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
-            <h1 className={`font-[family-name:var(--font-bebas)] tracking-wide text-white text-center mt-1 leading-none ${isMobile ? "text-3xl" : "text-4xl"}`}>
+            <h1
+              className={`font-[family-name:var(--font-bebas)] tracking-wide text-white text-center mt-1 leading-none ${isMobile ? "text-3xl" : "text-4xl"}`}
+            >
               {formatNextStream(nextStreamDate)}
             </h1>
           </>

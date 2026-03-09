@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { CheckSquare, Square, CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  CheckSquareIcon,
+  SquareIcon,
+  CheckCircleIcon,
+  WarningCircleIcon,
+  LockSimpleIcon,
+} from "@phosphor-icons/react";
 import { SUPPORT_MENU } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 
@@ -64,6 +70,7 @@ export default function SponsorForm({
 }: SponsorFormProps) {
   const mapsReady = useGoogleMaps();
   const cityContainerRef = useRef<HTMLDivElement>(null);
+  const cityInputRef = useRef<HTMLInputElement>(null);
   const doorTimeRef = useRef<HTMLDivElement>(null);
   const [doorTimeOpen, setDoorTimeOpen] = useState(false);
 
@@ -81,20 +88,24 @@ export default function SponsorForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const cityReadOnly = (compact && !!city) || isPdfMode;
+  const cityReadOnly = isPdfMode || (!!city && (compact || !!showSlug));
   const dateReadOnly = (compact && !!date) || isPdfMode;
   const hasLocation = !!(eventCity && eventRegion);
 
-  useEffect(() => {
+  const initAutocomplete = useCallback(() => {
     if (!mapsReady || cityReadOnly || !cityContainerRef.current) return;
     createAutocomplete(cityContainerRef.current, (result) => {
-      setEventVenue(result.venue);
+      setEventVenue(result.venue === result.city ? "" : result.venue);
       setEventAddress(result.address);
       setEventCity(result.city);
       setEventRegion(result.region);
       setEventCountry(result.country);
     });
   }, [mapsReady, cityReadOnly]);
+
+  useEffect(() => {
+    initAutocomplete();
+  }, [initAutocomplete]);
 
   useEffect(() => {
     if (!doorTimeOpen) return;
@@ -187,24 +198,89 @@ export default function SponsorForm({
     }
   };
 
-  const fieldClass = `w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white ${compact ? "pb-1 text-sm" : "pb-1.5 text-base sm:text-lg"}`;
+  const fieldClass = `w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white ${compact ? "pb-1 text-sm" : "pb-1.5 lg:pb-2 text-base sm:text-lg"}`;
   const iconSize = compact ? 16 : 20;
   const cityDisplay = eventCity && eventRegion ? `${eventCity}, ${eventRegion}` : eventCity;
-  const locationDisplay = venue ? `${venue}, ${cityDisplay || city}` : cityDisplay || city;
+  const resolvedVenue = eventVenue || venue;
+  const locationDisplay = resolvedVenue
+    ? `${resolvedVenue}, ${cityDisplay || city}`
+    : cityDisplay || city;
 
   return (
     <div>
       <div
-        className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-8 p-4 sm:p-5 sm:space-y-4"}`}
+        className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6 sm:space-y-4 lg:space-y-4"}`}
       >
         <div>
-          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-            Location
-          </label>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <label className="block text-xs text-neutral-400 uppercase tracking-wider">
+              Location
+            </label>
+            {!cityReadOnly && !hasLocation && (
+              <span className="text-xs text-neutral-400">
+                {mapsReady ? "Search by venue, address, or city" : "Enter city and state"}
+              </span>
+            )}
+          </div>
           {cityReadOnly ? (
-            <p className={fieldClass}>{locationDisplay}</p>
+            <div
+              className={`flex items-center justify-between gap-3 ${compact ? "py-1" : "py-1.5 lg:py-2"}`}
+            >
+              <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
+                {locationDisplay}
+              </span>
+              <LockSimpleIcon
+                size={compact ? 13 : 15}
+                className="flex-shrink-0 text-neutral-300 dark:text-neutral-600"
+              />
+            </div>
           ) : (
-            <div ref={cityContainerRef} />
+            <>
+              <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined} />
+              {!mapsReady && !hasLocation && (
+                <div className="flex gap-3">
+                  <input
+                    ref={cityInputRef}
+                    type="text"
+                    value={eventCity}
+                    onChange={(e) => setEventCity(e.target.value)}
+                    placeholder="City"
+                    className={`${fieldClass} flex-1`}
+                  />
+                  <input
+                    type="text"
+                    value={eventRegion}
+                    onChange={(e) => setEventRegion(e.target.value)}
+                    placeholder="State"
+                    className={`${fieldClass} w-16`}
+                  />
+                </div>
+              )}
+              {hasLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEventVenue("");
+                    setEventAddress("");
+                    setEventCity("");
+                    setEventRegion("");
+                    setEventCountry("");
+                    if (mapsReady) {
+                      initAutocomplete();
+                      (cityContainerRef.current?.firstElementChild as HTMLElement)?.focus();
+                    } else {
+                      cityInputRef.current?.focus();
+                    }
+                  }}
+                  className={`${fieldClass} text-left flex items-center justify-between group`}
+                >
+                  <span>{locationDisplay}</span>
+                  <span className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 text-xs ml-2">
+                    change
+                  </span>
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -328,19 +404,15 @@ export default function SponsorForm({
 
       <section>
         <h2
-          className={`font-medium mb-1 ${compact ? "text-lg" : "text-xl sm:text-[28px] sm:mb-2"} ${isPdfMode ? "mt-4" : ""}`}
+          className={`font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"} ${isPdfMode ? "mt-4" : ""}`}
         >
           What your community will provide
         </h2>
-        {!isPdfMode && (
-          <p
-            className={`text-neutral-400 dark:text-neutral-500 mb-3 ${compact ? "text-xs" : "text-sm sm:text-base sm:mb-4"}`}
-          >
-            Check items, then submit. I will follow up within 48 hours.
-          </p>
-        )}
 
-        <div className={compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 gap-12"}>
+        {/* Mobile / tablet: CSS columns */}
+        <div
+          className={compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"}
+        >
           {SUPPORT_MENU.map((section) => (
             <div
               key={section.category}
@@ -354,7 +426,7 @@ export default function SponsorForm({
               <div className={compact ? "space-y-1" : "space-y-1.5 sm:space-y-2"}>
                 {section.items.map((item) => {
                   const isChecked = checked.has(item);
-                  const Icon = isChecked ? CheckSquare : Square;
+                  const Icon = isChecked ? CheckSquareIcon : SquareIcon;
                   return (
                     <button
                       key={item}
@@ -378,10 +450,59 @@ export default function SponsorForm({
             </div>
           ))}
         </div>
+
+        {/* Desktop: explicit 2-column grid — Venue+Travel | Lodging+Promotion+Financial */}
+        {!compact && (
+          <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
+            {(
+              [
+                [0, 2],
+                [1, 3, 4],
+              ] as number[][]
+            ).map((indices, col) => (
+              <div key={col} className="space-y-5">
+                {indices.map((i) => {
+                  const section = SUPPORT_MENU[i];
+                  return (
+                    <div key={section.category}>
+                      <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
+                        {section.category}
+                      </p>
+                      <div className="space-y-2.5">
+                        {section.items.map((item) => {
+                          const isChecked = checked.has(item);
+                          const Icon = isChecked ? CheckSquareIcon : SquareIcon;
+                          return (
+                            <button
+                              key={item}
+                              onClick={() => toggleItem(item)}
+                              className="flex items-start gap-2 w-full text-left group"
+                            >
+                              <Icon
+                                size={20}
+                                weight={isChecked ? "fill" : "regular"}
+                                className={`mt-0.5 flex-shrink-0 ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors"}`}
+                              />
+                              <span
+                                className={`leading-snug text-base sm:text-lg ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
+                              >
+                                {item}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {!isPdfMode && (
-        <section className={compact ? "mt-3" : "mt-4 sm:mt-8"}>
+        <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {!hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
               Select a city above to enable submission.
@@ -390,7 +511,7 @@ export default function SponsorForm({
           <button
             onClick={handleSubmit}
             disabled={submitting || submitResult?.ok || !hasLocation}
-            className={`w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity ${compact ? "py-2 text-xs" : "py-3 text-sm"}`}
+            className={`w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity ${compact ? "py-2 text-xs" : "py-3 lg:py-4 text-sm lg:text-base"}`}
           >
             {submitting
               ? "Submitting..."
@@ -403,9 +524,9 @@ export default function SponsorForm({
               className={`flex items-center gap-1.5 text-sm mt-2 ${submitResult.ok ? "text-green-600 dark:text-green-500" : "text-red-500 dark:text-red-400"}`}
             >
               {submitResult.ok ? (
-                <CheckCircle size={16} weight="fill" />
+                <CheckCircleIcon size={16} weight="fill" />
               ) : (
-                <WarningCircle size={16} weight="fill" />
+                <WarningCircleIcon size={16} weight="fill" />
               )}
               {submitResult.msg}
             </p>

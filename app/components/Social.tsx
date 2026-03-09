@@ -9,7 +9,11 @@ import {
 } from "@phosphor-icons/react";
 
 const LINKS: { href: string; label: string; icon: Icon }[] = [
-  { href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN", label: "Spotify", icon: SpotifyLogoIcon },
+  {
+    href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN",
+    label: "Spotify",
+    icon: SpotifyLogoIcon,
+  },
   { href: "https://instagram.com/peytspencer", label: "Instagram", icon: InstagramLogoIcon },
   { href: "https://tiktok.com/@peytspencer", label: "TikTok", icon: TiktokLogoIcon },
   { href: "https://youtube.com/@peytspencer", label: "YouTube", icon: YoutubeLogoIcon },

@@ -4,12 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
 import { usePathname } from "next/navigation";
-import {
-  PlayIcon,
-  PauseIcon,
-  ChatTextIcon,
-  ArrowRightIcon,
-} from "@phosphor-icons/react";
+import { PlayIcon, PauseIcon, ChatTextIcon, ArrowRightIcon } from "@phosphor-icons/react";
 
 // Parsed lyrics data - imported at build time from SRT files
 // Format: { start: seconds, end: seconds, text: string, isCTA?: boolean }
@@ -37,13 +32,16 @@ export const GlobalAudioPlayer: React.FC = () => {
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }, []);
 
-  const handleMouseMove = useCallback((e: globalThis.MouseEvent) => {
-    const pct = getPercentFromX(e.clientX);
-    if (pct !== null) {
-      setScrubX(pct);
-      seekTo(pct * duration);
-    }
-  }, [getPercentFromX, seekTo, duration]);
+  const handleMouseMove = useCallback(
+    (e: globalThis.MouseEvent) => {
+      const pct = getPercentFromX(e.clientX);
+      if (pct !== null) {
+        setScrubX(pct);
+        seekTo(pct * duration);
+      }
+    },
+    [getPercentFromX, seekTo, duration],
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsScrubbing(false);
@@ -121,7 +119,9 @@ export const GlobalAudioPlayer: React.FC = () => {
           onClick={handleProgressClick}
           onMouseDown={handleMouseDown}
           onMouseEnter={() => setScrubX(progressPercentage / 100)}
-          onMouseLeave={() => { if (!isScrubbing) setScrubX(null); }}
+          onMouseLeave={() => {
+            if (!isScrubbing) setScrubX(null);
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -194,10 +194,10 @@ export const GlobalAudioPlayer: React.FC = () => {
                       (currentLyric?.text?.length || 0) > 80
                         ? "text-[10px] sm:text-xs"
                         : (currentLyric?.text?.length || 0) > 60
-                        ? "text-[11px] sm:text-sm"
-                        : (currentLyric?.text?.length || 0) > 40
-                        ? "text-xs sm:text-base"
-                        : "text-sm sm:text-base md:text-lg"
+                          ? "text-[11px] sm:text-sm"
+                          : (currentLyric?.text?.length || 0) > 40
+                            ? "text-xs sm:text-base"
+                            : "text-sm sm:text-base md:text-lg"
                     }`}
                   >
                     {currentLyric?.text || "♪"}

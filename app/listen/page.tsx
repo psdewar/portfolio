@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MicrophoneStageIcon, Waveform, LockSimpleIcon } from "@phosphor-icons/react";
+import { MicrophoneStageIcon, WaveformIcon, LockSimpleIcon } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
@@ -276,7 +276,7 @@ export default function Page() {
               >
                 {brokenImages.has(t.id) ? (
                   <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
-                    <Waveform size={48} weight="light" className="text-neutral-600" />
+                    <WaveformIcon size={48} weight="light" className="text-neutral-600" />
                   </div>
                 ) : (
                   <Image

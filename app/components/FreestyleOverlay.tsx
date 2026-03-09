@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useAudio } from "app/contexts/AudioContext";
 import { TRACK_DATA } from "app/data/tracks";
@@ -13,12 +13,7 @@ interface Props {
   onClose: () => void;
 }
 
-export default function FreestyleOverlay({
-  trackId,
-  coverSrc,
-  href,
-  onClose,
-}: Props) {
+export default function FreestyleOverlay({ trackId, coverSrc, href, onClose }: Props) {
   const { loadTrack, currentTrack, isPlaying, toggle } = useAudio();
 
   const isCurrent = currentTrack?.id === trackId;
@@ -42,7 +37,7 @@ export default function FreestyleOverlay({
         thumbnail: trackData.thumbnail,
         duration: trackData.duration,
       },
-      true
+      true,
     );
   };
 
@@ -55,7 +50,7 @@ export default function FreestyleOverlay({
           onClick={onClose}
           className="absolute top-3 right-3 z-20 text-white hover:text-gray-300"
         >
-          <X className="w-6 h-6" weight="bold" />
+          <XIcon className="w-6 h-6" weight="bold" />
         </button>
 
         {/* Square image with play button */}

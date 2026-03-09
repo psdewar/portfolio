@@ -410,7 +410,11 @@ export function PatronContent({
     };
   }, [animateToIndex, viewMode]);
 
-  const proceedToCheckout = async (monthlyChargeCents: number, period: "monthly" | "annually", email?: string) => {
+  const proceedToCheckout = async (
+    monthlyChargeCents: number,
+    period: "monthly" | "annually",
+    email?: string,
+  ) => {
     setIsLoading(true);
 
     const monthlyNet = Math.round(monthlyChargeCents * 0.971 - 30);
@@ -618,10 +622,8 @@ export function PatronContent({
                 );
               }
 
-              const isPatience =
-                isSingle && event.title === "Patience" && patienceTrack;
-              const isPatiencePlaying =
-                isPatience && isPlaying && currentTrack?.id === "patience";
+              const isPatience = isSingle && event.title === "Patience" && patienceTrack;
+              const isPatiencePlaying = isPatience && isPlaying && currentTrack?.id === "patience";
 
               return (
                 <div
@@ -696,8 +698,7 @@ export function PatronContent({
                   {isPatience &&
                     patienceTrack &&
                     (() => {
-                      const isPatienceLoading =
-                        isAudioLoading && currentTrack?.id === "patience";
+                      const isPatienceLoading = isAudioLoading && currentTrack?.id === "patience";
                       return (
                         <button
                           onClick={() => {
@@ -729,15 +730,9 @@ export function PatronContent({
                             {isPatienceLoading ? (
                               <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : isPatiencePlaying ? (
-                              <PauseIcon
-                                className="w-8 h-8 text-white"
-                                weight="regular"
-                              />
+                              <PauseIcon className="w-8 h-8 text-white" weight="regular" />
                             ) : (
-                              <PlayIcon
-                                className="w-8 h-8 text-white"
-                                weight="regular"
-                              />
+                              <PlayIcon className="w-8 h-8 text-white" weight="regular" />
                             )}
                           </div>
                         </button>
@@ -820,9 +815,7 @@ export function PatronContent({
                     />
                     <div className="absolute top-0 left-0 p-3">
                       <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1">
-                        <p className="text-white text-sm font-medium">
-                          With the homie Ludger
-                        </p>
+                        <p className="text-white text-sm font-medium">With the homie Ludger</p>
                         <p className="text-white/70 text-xs">Los Angeles, CA · 2018</p>
                       </div>
                     </div>
@@ -838,9 +831,7 @@ export function PatronContent({
                       className={`absolute bottom-0 left-0 p-3 transition-opacity ${archiveInfoVisible ? "opacity-0 pointer-events-none" : "opacity-100"}`}
                     >
                       <div className="bg-black/30 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5">
-                        <p className="text-white/90 text-xs">
-                          Shirts available at live shows
-                        </p>
+                        <p className="text-white/90 text-xs">Shirts available at live shows</p>
                         <span className="font-serif text-xs italic text-white/70">i</span>
                       </div>
                     </button>
@@ -861,15 +852,14 @@ export function PatronContent({
                         Exhibit PSD
                       </h3>
                       <p className="text-white/90 text-xs sm:text-base lg:text-lg leading-relaxed mb-3 lg:mb-6">
-                        Back when I attended the University of Florida, I gave out mixtape
-                        CDs and performed at various clubs and venues in downtown
-                        Gainesville. During my three-mixtape run from 2013 to when I
-                        graduated in 2015, I wrote raps to songs from The xx (Intro),
-                        Tinashe (2 On), and Carlos Santana (Maria Maria), recording them
-                        on Mixcraft in my apartment room closet. While making my third
-                        mixtape, I designed shirts with my initials--my original rap
-                        moniker--to share with the music. 100% cotton, still holding up.
-                        Can you spot the writing tool in my album artwork?
+                        Back when I attended the University of Florida, I gave out mixtape CDs and
+                        performed at various clubs and venues in downtown Gainesville. During my
+                        three-mixtape run from 2013 to when I graduated in 2015, I wrote raps to
+                        songs from The xx (Intro), Tinashe (2 On), and Carlos Santana (Maria Maria),
+                        recording them on Mixcraft in my apartment room closet. While making my
+                        third mixtape, I designed shirts with my initials--my original rap
+                        moniker--to share with the music. 100% cotton, still holding up. Can you
+                        spot the writing tool in my album artwork?
                       </p>
                       <div className="flex justify-center">
                         <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm bg-white/10 px-2 sm:px-3 py-1 lg:px-4 lg:py-1.5 rounded-full">
@@ -930,7 +920,9 @@ export function PatronContent({
         >
           {/* Left: Patron View */}
           <main className="w-full h-full shrink-0 flex flex-col items-center justify-start overflow-y-auto py-4 [@media(min-height:700px)]:py-8 md:justify-center md:py-0">
-            <section className={`text-center mb-3 [@media(min-height:700px)]:mb-6 px-8 ${isModal ? "pt-16" : ""}`}>
+            <section
+              className={`text-center mb-3 [@media(min-height:700px)]:mb-6 px-8 ${isModal ? "pt-16" : ""}`}
+            >
               <h1 className="font-bebas text-[40px] md:text-[64px] leading-none">
                 <span className="text-neutral-900 dark:text-white">BECOME MY</span>{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
@@ -992,30 +984,46 @@ export function PatronContent({
                     }`}
                   >
                     <div className="w-14 shrink-0 flex flex-col items-center">
-                      <div className="text-[9px] font-medium uppercase tracking-wider text-neutral-400 mb-1">Latest</div>
-                      <div className={`text-sm uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}>
+                      <div className="text-[9px] font-medium uppercase tracking-wider text-neutral-400 mb-1">
+                        Latest
+                      </div>
+                      <div
+                        className={`text-sm uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
+                      >
                         {dateInfo.month}
                       </div>
-                      <div className={`font-bebas text-4xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}>
+                      <div
+                        className={`font-bebas text-4xl leading-none ${isMusic ? "text-amber-700 dark:text-amber-300" : "text-neutral-900 dark:text-white"}`}
+                      >
                         {dateInfo.day}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       {style && (
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text}`}
+                          >
                             {style.label}
                           </span>
                           {latest.location && (
-                            <span className="text-neutral-500 text-sm truncate">{latest.location}</span>
+                            <span className="text-neutral-500 text-sm truncate">
+                              {latest.location}
+                            </span>
                           )}
                         </div>
                       )}
-                      <h3 className={`font-bebas leading-none ${style ? "mt-2" : ""} ${isMusic ? "text-2xl text-amber-800 dark:text-amber-200" : "text-xl text-neutral-900 dark:text-white"}`}>
+                      <h3
+                        className={`font-bebas leading-none ${style ? "mt-2" : ""} ${isMusic ? "text-2xl text-amber-800 dark:text-amber-200" : "text-xl text-neutral-900 dark:text-white"}`}
+                      >
                         {latest.title}
                       </h3>
                     </div>
-                    <CaretRightIcon size={20} weight="bold" className="shrink-0 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors" />
+                    <CaretRightIcon
+                      size={20}
+                      weight="bold"
+                      className="shrink-0 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors"
+                    />
                   </div>
                   <div className="text-center py-2">
                     <span className="text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors text-sm leading-none">
@@ -1046,16 +1054,32 @@ export function PatronContent({
                             "transform 150ms ease-out, opacity 150ms ease-out, border-color 200ms, background-color 200ms",
                           willChange: "transform, opacity",
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = ""}
-                        onPointerDown={(e) => e.currentTarget.style.borderColor = TIER_COLORS[index]}
-                        onPointerUp={(e) => e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`)
+                        }
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "")}
+                        onPointerDown={(e) =>
+                          (e.currentTarget.style.borderColor = TIER_COLORS[index])
+                        }
+                        onPointerUp={(e) =>
+                          (e.currentTarget.style.borderColor = `${TIER_COLORS[index]}80`)
+                        }
                       >
-                        <div className="mb-3 sm:mb-3 flex items-center gap-2 sm:gap-3" style={{ color: TIER_COLORS[index] }}>
-                          <TierIcon className="shrink-0 w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 sm:w-10 sm:h-10 md:w-12 md:h-12" weight="regular" />
+                        <div
+                          className="mb-3 sm:mb-3 flex items-center gap-2 sm:gap-3"
+                          style={{ color: TIER_COLORS[index] }}
+                        >
+                          <TierIcon
+                            className="shrink-0 w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 sm:w-10 sm:h-10 md:w-12 md:h-12"
+                            weight="regular"
+                          />
                           <div>
-                            <div className="text-[14px] min-[420px]:text-[15px] sm:text-[16px] md:text-[20px] font-medium uppercase tracking-wide">{tier.name}</div>
-                            <div className="text-[11px] min-[420px]:text-[12px] sm:text-[13px] md:text-[15px] font-normal tracking-wide">{TIER_ELEMENTS[tier.name]}</div>
+                            <div className="text-[14px] min-[420px]:text-[15px] sm:text-[16px] md:text-[20px] font-medium uppercase tracking-wide">
+                              {tier.name}
+                            </div>
+                            <div className="text-[11px] min-[420px]:text-[12px] sm:text-[13px] md:text-[15px] font-normal tracking-wide">
+                              {TIER_ELEMENTS[tier.name]}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-baseline gap-1 mb-3 sm:mb-6">

@@ -2,7 +2,7 @@
 import { IdeaFormData } from "../IdeaFormData";
 import { processFormData } from "../actions";
 import { ChangeEvent, useState } from "react";
-import { WarningCircle, CheckCircle } from "@phosphor-icons/react";
+import { WarningCircleIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import Image from "next/image";
 
 export default function Page() {
@@ -88,8 +88,8 @@ export default function Page() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <p className="text-white/80 text-sm leading-relaxed">
-                    Software engineer at Microsoft. Founder of Lyrist. I build
-                    full-stack applications from idea to production.
+                    Software engineer at Microsoft. Founder of Lyrist. I build full-stack
+                    applications from idea to production.
                   </p>
                 </div>
               </div>
@@ -99,14 +99,15 @@ export default function Page() {
           {/* Form panel */}
           <div className="flex-1 min-w-0">
             <div className="mb-12">
-              <h1 className="font-semibold text-3xl mb-4 text-gray-900 dark:text-white">Hire Peyt Spencer</h1>
+              <h1 className="font-semibold text-3xl mb-4 text-gray-900 dark:text-white">
+                Hire Peyt Spencer
+              </h1>
               <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                I'm a software engineer at Microsoft and the founder of Lyrist, a
-                songwriting app used by independent artists. I build full-stack
-                applications with TypeScript, React, Next.js, Supabase, and
-                Stripe - from idea to production. I also built my own live
-                streaming infrastructure from scratch. If you have a product idea,
-                I can help you ship it.
+                I'm a software engineer at Microsoft and the founder of Lyrist, a songwriting app
+                used by independent artists. I build full-stack applications with TypeScript, React,
+                Next.js, Supabase, and Stripe - from idea to production. I also built my own live
+                streaming infrastructure from scratch. If you have a product idea, I can help you
+                ship it.
               </p>
             </div>
 
@@ -119,7 +120,10 @@ export default function Page() {
               </p>
               <form action={handleSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  <label
+                    htmlFor="name"
+                    className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                  >
                     Your Name
                   </label>
                   <input
@@ -133,7 +137,10 @@ export default function Page() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                  >
                     Email
                   </label>
                   <input
@@ -147,7 +154,10 @@ export default function Page() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="pitch" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  <label
+                    htmlFor="pitch"
+                    className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                  >
                     Pitch your idea in 50 characters or less
                   </label>
                   <input
@@ -162,7 +172,10 @@ export default function Page() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="appName" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  <label
+                    htmlFor="appName"
+                    className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                  >
                     App Name (optional)
                   </label>
                   <input
@@ -178,12 +191,15 @@ export default function Page() {
                   What are the absolute minimum requirements for your product to be viable?
                 </h2>
                 <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                  Format each requirement as "[intended audience] [intended action] [intended outcome]".
-                  Requirement 1 should be your highest priority.
+                  Format each requirement as "[intended audience] [intended action] [intended
+                  outcome]". Requirement 1 should be your highest priority.
                 </p>
                 {requirements.map((req, index) => (
                   <div key={index}>
-                    <label htmlFor={`requirement-${index}`} className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                    <label
+                      htmlFor={`requirement-${index}`}
+                      className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                    >
                       Requirement {index + 1}
                     </label>
                     <input
@@ -197,7 +213,9 @@ export default function Page() {
                     />
                   </div>
                 ))}
-                <h2 className="mt-8 font-medium text-xl pt-3 text-gray-900 dark:text-white">App Type</h2>
+                <h2 className="mt-8 font-medium text-xl pt-3 text-gray-900 dark:text-white">
+                  App Type
+                </h2>
                 <div className="flex flex-col gap-2">
                   <label className="inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
                     <input
@@ -224,12 +242,14 @@ export default function Page() {
                   Describe at least one way you plan to reach customers.
                 </h2>
                 <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                  Knowing who you want your customers to be
-                  provides insights into prioritizing features and
-                  helps define what success looks like for you.
+                  Knowing who you want your customers to be provides insights into prioritizing
+                  features and helps define what success looks like for you.
                 </p>
                 <div>
-                  <label htmlFor="plan" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  <label
+                    htmlFor="plan"
+                    className="block text-sm font-medium text-neutral-600 dark:text-neutral-300"
+                  >
                     At least 50 characters
                   </label>
                   <textarea
@@ -252,13 +272,13 @@ export default function Page() {
                 </button>
                 {error && (
                   <p className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                    <WarningCircle size={20} weight="fill" />
+                    <WarningCircleIcon size={20} weight="fill" />
                     {error.message}
                   </p>
                 )}
                 {success && (
                   <p className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                    <CheckCircle size={20} weight="fill" />
+                    <CheckCircleIcon size={20} weight="fill" />
                     {success}
                   </p>
                 )}

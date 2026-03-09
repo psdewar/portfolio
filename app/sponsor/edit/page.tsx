@@ -1,18 +1,37 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
+import { redirect } from "next/navigation";
 import Image from "next/image";
 import SponsorForm from "../../components/SponsorForm";
 
-export default function SponsorPage() {
-  const searchParams = useSearchParams();
-  const isPdfMode = searchParams.get("og") === "true";
+const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+
+async function getShow(slug: string) {
+  try {
+    const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const shows = await res.json();
+    return (shows as any[]).find((s) => s.slug === slug) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function SponsorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) {
+  const params = await searchParams;
+  const isPdfMode = params.og === "true";
+  const showSlug = params.show;
+
+  const show = showSlug ? await getShow(showSlug) : null;
+  if (showSlug && !show) redirect("/sponsor/edit");
 
   return (
     <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
-      <div className="max-w-[820px] mx-auto px-5 py-6 sm:px-12 sm:py-12">
-        <div className="flex items-center gap-4 sm:gap-6 mb-5 sm:mb-8">
-          <div className="w-[80px] h-[80px] sm:w-[112px] sm:h-[112px] rounded-lg overflow-hidden flex-shrink-0 relative">
+      <div className="max-w-[900px] mx-auto px-5 py-6 sm:px-10 sm:py-8 lg:py-7">
+        <div className="flex items-center gap-4 sm:gap-6 mb-5 sm:mb-6 lg:mb-6">
+          <div className="w-[80px] h-[80px] sm:w-[112px] sm:h-[112px] lg:w-[132px] lg:h-[132px] rounded-lg overflow-hidden flex-shrink-0 relative">
             <Image
               src="/images/home/bio.jpeg"
               alt="Peyt Spencer"
@@ -24,7 +43,7 @@ export default function SponsorPage() {
             />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-[40px] font-medium leading-tight tracking-tight">
+            <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
               Concert Sponsor Application
             </h1>
             <p className="text-sm sm:text-lg text-neutral-500 dark:text-neutral-400 mt-1 sm:mt-2">
@@ -34,20 +53,18 @@ export default function SponsorPage() {
         </div>
 
         <SponsorForm
-          showSlug={searchParams.get("showSlug") || undefined}
-          venue={searchParams.get("venue") || undefined}
-          city={searchParams.get("city") || undefined}
-          region={searchParams.get("region") || undefined}
-          country={searchParams.get("country") || undefined}
-          date={searchParams.get("date") || undefined}
-          doorTime={searchParams.get("doorTime") || undefined}
+          showSlug={showSlug}
+          venue={show?.venue ?? undefined}
+          city={show?.city}
+          region={show?.region}
+          country={show?.country}
+          date={show?.date}
+          doorTime={show?.doorTime}
           isPdfMode={isPdfMode}
-          initialItems={
-            searchParams.get("items") ? searchParams.get("items")!.split("|") : undefined
-          }
-          initialName={searchParams.get("name") || undefined}
-          initialPhone={searchParams.get("phone") || undefined}
-          initialEmail={searchParams.get("email") || undefined}
+          initialName={params.name}
+          initialPhone={params.phone}
+          initialEmail={params.email}
+          initialItems={params.items ? params.items.split("|") : undefined}
         />
       </div>
     </div>
