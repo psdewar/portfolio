@@ -94,14 +94,19 @@ export default function SponsorForm({
 
   const initAutocomplete = useCallback(() => {
     if (!mapsReady || cityReadOnly || !cityContainerRef.current) return;
-    createAutocomplete(cityContainerRef.current, (result) => {
-      setEventVenue(result.venue === result.city ? "" : result.venue);
-      setEventAddress(result.address);
-      setEventCity(result.city);
-      setEventRegion(result.region);
-      setEventCountry(result.country);
-    });
-  }, [mapsReady, cityReadOnly]);
+    const cls = `w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white ${compact ? "pb-1 text-sm" : "pb-1.5 lg:pb-2 text-base sm:text-lg"}`;
+    createAutocomplete(
+      cityContainerRef.current,
+      (result) => {
+        setEventVenue(result.venue === result.city ? "" : result.venue);
+        setEventAddress(result.address);
+        setEventCity(result.city);
+        setEventRegion(result.region);
+        setEventCountry(result.country);
+      },
+      cls,
+    );
+  }, [mapsReady, cityReadOnly, compact]);
 
   useEffect(() => {
     initAutocomplete();
@@ -246,7 +251,7 @@ export default function SponsorForm({
             </label>
             {!cityReadOnly && !hasLocation && (
               <span className="text-xs text-neutral-400">
-                {mapsReady ? "Search by venue, address, or city" : "Enter city and state"}
+                {mapsReady && "Search by venue, address, or city"}
               </span>
             )}
           </div>
@@ -266,23 +271,24 @@ export default function SponsorForm({
             <>
               <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined} />
               {!mapsReady && !hasLocation && (
-                <div className="flex gap-3">
-                  <input
-                    ref={cityInputRef}
-                    type="text"
-                    value={eventCity}
-                    onChange={(e) => setEventCity(e.target.value)}
-                    placeholder="City"
-                    className={`${fieldClass} flex-1`}
-                  />
-                  <input
-                    type="text"
-                    value={eventRegion}
-                    onChange={(e) => setEventRegion(e.target.value)}
-                    placeholder="State"
-                    className={`${fieldClass} w-16`}
-                  />
-                </div>
+                <input
+                  ref={cityInputRef}
+                  type="text"
+                  placeholder="Loading..."
+                  className={fieldClass}
+                  onChange={(e) => {
+                    const parts = e.target.value.split(",").map((s) => s.trim());
+                    if (parts.length >= 3) {
+                      setEventVenue(parts.slice(0, -2).join(", "));
+                      setEventCity(parts[parts.length - 2]);
+                      setEventRegion(parts[parts.length - 1]);
+                    } else if (parts.length === 2) {
+                      setEventVenue("");
+                      setEventCity(parts[0]);
+                      setEventRegion(parts[1]);
+                    }
+                  }}
+                />
               )}
               {hasLocation && (
                 <button
