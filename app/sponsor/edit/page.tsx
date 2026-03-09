@@ -1,19 +1,5 @@
-import { redirect } from "next/navigation";
 import Image from "next/image";
 import SponsorForm from "../../components/SponsorForm";
-
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-
-async function getShow(slug: string) {
-  try {
-    const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const shows = await res.json();
-    return (shows as any[]).find((s) => s.slug === slug) ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function SponsorPage({
   searchParams,
@@ -22,10 +8,6 @@ export default async function SponsorPage({
 }) {
   const params = await searchParams;
   const isPdfMode = params.og === "true";
-  const showSlug = params.show;
-
-  const show = showSlug ? await getShow(showSlug) : null;
-  if (showSlug && !show) redirect("/sponsor/edit");
 
   return (
     <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
@@ -53,14 +35,12 @@ export default async function SponsorPage({
         </div>
 
         <SponsorForm
-          showSlug={showSlug}
-          venue={show?.venue ?? undefined}
-          city={show?.city}
-          region={show?.region}
-          country={show?.country}
-          date={show?.date}
-          doorTime={show?.doorTime}
           isPdfMode={isPdfMode}
+          city={params.city}
+          region={params.region}
+          country={params.country}
+          date={params.date}
+          doorTime={params.doorTime}
           initialName={params.name}
           initialPhone={params.phone}
           initialEmail={params.email}

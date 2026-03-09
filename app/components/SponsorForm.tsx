@@ -88,7 +88,7 @@ export default function SponsorForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const cityReadOnly = isPdfMode || (!!city && (compact || !!showSlug));
+  const cityReadOnly = isPdfMode || (compact && !!city);
   const dateReadOnly = (compact && !!date) || isPdfMode;
   const hasLocation = !!(eventCity && eventRegion);
 
@@ -152,6 +152,10 @@ export default function SponsorForm({
       setSubmitResult({ ok: false, msg: "Please select a city." });
       return;
     }
+    if (!showSlug && !editMode && !eventDate) {
+      setSubmitResult({ ok: false, msg: "Please select a date." });
+      return;
+    }
 
     setSubmitting(true);
     setSubmitResult(null);
@@ -169,11 +173,35 @@ export default function SponsorForm({
     };
 
     try {
+      let finalShowSlug = showSlug;
+
+      if (!showSlug && !editMode) {
+        const showRes = await fetch("/api/shows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: eventDate,
+            doorTime: eventDoorTime,
+            city: eventCity,
+            region: eventRegion,
+            country: eventCountry,
+            venue: eventVenue || null,
+            address: eventAddress || null,
+          }),
+        });
+        if (!showRes.ok) {
+          setSubmitResult({ ok: false, msg: "Failed to book the date. Try again." });
+          return;
+        }
+        const showData = await showRes.json();
+        finalShowSlug = showData.slug;
+      }
+
       const res = await fetch("/api/sponsors", {
         method: editMode ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          showSlug,
+          showSlug: finalShowSlug,
           ...fields,
           ...(eventVenue && { venue: eventVenue }),
           ...(eventAddress && { address: eventAddress }),
@@ -506,6 +534,11 @@ export default function SponsorForm({
           {!hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
               Select a city above to enable submission.
+            </p>
+          )}
+          {!editMode && hasLocation && (
+            <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
+              Submitting books the date.
             </p>
           )}
           <button
