@@ -19,6 +19,7 @@ export default async function ShowRSVPPage({ params }: Props) {
       city={show.city}
       region={show.region}
       doorTime={show.doorTime}
+      doorLabel={show.doorLabel}
       venue={show.venue}
       venueLabel={show.venueLabel}
       address={show.address}

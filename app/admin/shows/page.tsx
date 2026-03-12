@@ -3,20 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import SponsorForm from "../../components/SponsorForm";
-
-interface Show {
-  slug: string;
-  name: string;
-  date: string;
-  doorTime: string;
-  city: string;
-  region: string;
-  country: string;
-  venue: string | null;
-  venueLabel: string | null;
-  address: string | null;
-  status: "upcoming" | "past" | "cancelled";
-}
+import { type Show } from "../../lib/shows";
 
 interface Sponsor {
   showSlug: string | null;
@@ -180,6 +167,8 @@ function SponsorCard({
   const [editing, setEditing] = useState(false);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
+  const [editingDoorLabel, setEditingDoorLabel] = useState(false);
+  const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
 
   const pdfUrl = (() => {
     const url = new URL("/sponsor/edit", "https://peytspencer.com");
@@ -220,16 +209,21 @@ function SponsorCard({
     onRemove();
   };
 
-  const handleSaveLabel = async () => {
+  const handleSaveField = async (
+    field: "venueLabel" | "doorLabel",
+    value: string,
+    onDone: () => void,
+  ) => {
     if (!show) return;
+    const trimmed = value.trim() || null;
     const res = await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: show.slug, venueLabel: labelValue.trim() || null }),
+      body: JSON.stringify({ slug: show.slug, [field]: trimmed }),
     });
     if (res.ok) {
-      onShowUpdate(show.slug, { venueLabel: labelValue.trim() || null });
-      setEditingLabel(false);
+      onShowUpdate(show.slug, { [field]: trimmed });
+      onDone();
     }
   };
 
@@ -263,96 +257,146 @@ function SponsorCard({
           </button>
         </>
       ) : (
-        <>
-          <div className="text-sm text-neutral-900 dark:text-white">
-            {sponsor.name && <span className="font-medium">{sponsor.name}</span>}
-            {sponsor.email && (
-              <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.email}</span>
-            )}
-            {sponsor.phone && (
-              <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.phone}</span>
-            )}
-          </div>
-          {(sponsor.date || sponsor.city) && (
-            <div className="text-sm text-neutral-500 dark:text-neutral-400">
-              {sponsor.date && formatDate(sponsor.date)}
-              {sponsor.city && ` · ${sponsor.city}, ${sponsor.region}`}
-              {sponsor.doorTime && ` · ${sponsor.doorTime}`}
-            </div>
-          )}
-          {sponsor.items.length > 0 && (
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              {sponsor.items.join(", ")}
-            </p>
-          )}
-          {show && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-neutral-400 shrink-0">RSVP label</span>
-              {editingLabel ? (
-                <>
-                  <input
-                    type="text"
-                    value={labelValue}
-                    onChange={(e) => setLabelValue(e.target.value)}
-                    placeholder={show.venue ?? show.city}
-                    autoFocus
-                    className="flex-1 min-w-0 px-2 py-0.5 bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
-                  />
-                  <button
-                    onClick={handleSaveLabel}
-                    className="text-blue-600 hover:text-blue-700 shrink-0"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingLabel(false)}
-                    className="text-neutral-500 shrink-0"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => {
-                    setLabelValue(show.venueLabel ?? "");
-                    setEditingLabel(true);
-                  }}
-                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 italic"
-                >
-                  {show.venueLabel ?? "none"}
-                </button>
+        <div className="flex gap-3">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="text-sm text-neutral-900 dark:text-white">
+              {sponsor.name && <span className="font-medium">{sponsor.name}</span>}
+              {sponsor.email && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.email}</span>
+              )}
+              {sponsor.phone && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.phone}</span>
               )}
             </div>
-          )}
-          <div className="flex items-center gap-3">
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-green-600 hover:text-green-700"
-            >
-              PDF
-            </a>
+            {(sponsor.date || sponsor.city) && (
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                {sponsor.date && formatDate(sponsor.date)}
+                {sponsor.city && ` · ${sponsor.city}, ${sponsor.region}`}
+                {sponsor.doorTime && ` · ${sponsor.doorTime}`}
+              </div>
+            )}
+            {sponsor.items.length > 0 && (
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                {sponsor.items.join(", ")}
+              </p>
+            )}
+            {show && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-neutral-400 shrink-0">RSVP label</span>
+                {editingLabel ? (
+                  <>
+                    <input
+                      type="text"
+                      value={labelValue}
+                      onChange={(e) => setLabelValue(e.target.value)}
+                      placeholder={show.venue ?? show.city}
+                      autoFocus
+                      className="flex-1 min-w-0 px-2 py-0.5 bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      onClick={() =>
+                        handleSaveField("venueLabel", labelValue, () => setEditingLabel(false))
+                      }
+                      className="text-blue-600 hover:text-blue-700 shrink-0"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingLabel(false)}
+                      className="text-neutral-500 shrink-0"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setLabelValue(show.venueLabel ?? "");
+                      setEditingLabel(true);
+                    }}
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 italic"
+                  >
+                    {show.venueLabel ?? "none"}
+                  </button>
+                )}
+              </div>
+            )}
+            {show && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-neutral-400 shrink-0">Door text</span>
+                {editingDoorLabel ? (
+                  <>
+                    <input
+                      type="text"
+                      value={doorLabelValue}
+                      onChange={(e) => setDoorLabelValue(e.target.value)}
+                      placeholder={`Doors open at ${show.doorTime}`}
+                      autoFocus
+                      className="flex-1 min-w-0 px-2 py-0.5 bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      onClick={() =>
+                        handleSaveField("doorLabel", doorLabelValue, () =>
+                          setEditingDoorLabel(false),
+                        )
+                      }
+                      className="text-blue-600 hover:text-blue-700 shrink-0"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingDoorLabel(false)}
+                      className="text-neutral-500 shrink-0"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setDoorLabelValue(show.doorLabel ?? "");
+                      setEditingDoorLabel(true);
+                    }}
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 italic"
+                  >
+                    {show.doorLabel ?? `Doors open at ${show.doorTime}`}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 self-stretch flex flex-col rounded-md overflow-hidden">
             {show?.slug && (
               <a
                 href={`/api/poster/${show.slug}`}
                 download={`poster-${show.slug}.jpg`}
-                className="text-xs text-green-600 hover:text-green-700"
+                className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
               >
                 Poster
               </a>
             )}
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+            >
+              PDF
+            </a>
             <button
               onClick={() => setEditing(true)}
-              className="text-xs text-blue-600 hover:text-blue-700"
+              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
             >
               Amend
             </button>
-            <button onClick={handleDelete} className="text-xs text-red-500 hover:text-red-700">
+            <button
+              onClick={handleDelete}
+              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+            >
               Delete
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

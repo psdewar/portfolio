@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsersIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import { UsersIcon, MinusIcon, PlusIcon, ArrowLeft } from "@phosphor-icons/react";
 import { calculateStripeFee } from "../../api/shared/products";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
@@ -14,9 +14,11 @@ interface RSVPFormProps {
   city: string;
   region: string;
   doorTime: string;
+  doorLabel?: string | null;
   venue?: string | null;
   venueLabel?: string | null;
   address?: string | null;
+  onBack?: () => void;
 }
 
 interface FormData {
@@ -39,9 +41,11 @@ export default function RSVPForm({
   city,
   region,
   doorTime,
+  doorLabel,
   venue,
   venueLabel,
   address,
+  onBack,
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -184,7 +188,30 @@ export default function RSVPForm({
   });
 
   const dateLabel = formatEventDateShort(date);
-  const doorLabel = `Doors open at ${doorTime}`;
+  const navLabel = venueLabel || venue || address || null;
+  const doorDisplayLabel = doorLabel || `Doors open at ${doorTime}`;
+  const poster = (
+    <Poster
+      date={date}
+      city={city}
+      region={region}
+      doorTime={doorTime}
+      doorLabel={doorLabel}
+      venue={venue}
+      venueLabel={venueLabel}
+      address={address}
+    />
+  );
+
+  const backButton = onBack ? (
+    <button
+      onClick={onBack}
+      className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-4"
+    >
+      <ArrowLeft size={16} weight="bold" />
+      All shows
+    </button>
+  ) : null;
   const totalDisplay = `$${(musicTotalCents / 100).toFixed(2)}`;
   const feeDisplay = `$${((musicTotalCents - formData.musicAmount) / 100).toFixed(2)}`;
 
@@ -200,17 +227,22 @@ export default function RSVPForm({
       <div className="lg:hidden flex flex-col h-full overflow-y-auto">
         <div className="px-[6%] py-8">
           <div className="mb-6">
+            {backButton}
             <h1
-              className="text-4xl md:text-6xl text-neutral-900 dark:text-white mb-2 font-extrabold uppercase"
+              className="mb-2 font-extrabold uppercase leading-none"
               style={{ fontFamily: '"Parkinsans", sans-serif' }}
             >
-              RSVP
+              <span className="block text-base md:text-lg text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
+                See you in
+              </span>
+              <span className="block text-4xl text-neutral-900 dark:text-white">{city}</span>
             </h1>
             <p
               className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm uppercase tracking-wider"
               style={{ fontFamily: '"Space Mono", monospace' }}
             >
-              {dateLabel} · {doorLabel}
+              {dateLabel}
+              {navLabel ? ` · ${navLabel}` : ""} · {doorDisplayLabel}
             </p>
           </div>
 
@@ -323,45 +355,30 @@ export default function RSVPForm({
             You'll receive a confirmation email.
           </p>
         </div>
-        <div className="flex-shrink-0">
-          <Poster
-            date={date}
-            city={city}
-            region={region}
-            doorTime={doorTime}
-            venue={venue}
-            venueLabel={venueLabel}
-            address={address}
-          />
-        </div>
+        <div className="flex-shrink-0">{poster}</div>
       </div>
 
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
-        <div className="h-full flex-shrink-0">
-          <Poster
-            date={date}
-            city={city}
-            region={region}
-            doorTime={doorTime}
-            venue={venue}
-            venueLabel={venueLabel}
-            address={address}
-          />
-        </div>
+        <div className="h-full flex-shrink-0">{poster}</div>
         <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6 @container">
           <div className="mb-2">
+            {backButton}
             <h1
-              className="text-8xl text-neutral-900 dark:text-white mb-2 font-extrabold uppercase"
+              className="mb-2 font-extrabold uppercase leading-none"
               style={{ fontFamily: '"Parkinsans", sans-serif' }}
             >
-              RSVP
+              <span className="block text-xl text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
+                See you in
+              </span>
+              <span className="block text-6xl text-neutral-900 dark:text-white">{city}</span>
             </h1>
             <p
               className="text-neutral-500 dark:text-neutral-400 text-sm uppercase tracking-wider"
               style={{ fontFamily: '"Space Mono", monospace' }}
             >
-              {dateLabel} · {doorLabel}
+              {dateLabel}
+              {navLabel ? ` · ${navLabel}` : ""} · {doorDisplayLabel}
             </p>
           </div>
 

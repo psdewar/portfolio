@@ -8,6 +8,7 @@ export interface Show {
   country: string;
   venue: string | null;
   venueLabel: string | null;
+  doorLabel: string | null;
   address: string | null;
   status: "upcoming" | "past" | "cancelled";
 }

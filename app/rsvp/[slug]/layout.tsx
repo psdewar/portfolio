@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getShowBySlug } from "../../lib/shows";
 import { musicEventSchema } from "../../lib/schema";
 
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShowRSVPLayout({ params, children }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show) notFound();
+  if (!show || show.status !== "upcoming") redirect("/rsvp");
 
   const eventJsonLd = musicEventSchema({
     name: `${show.name} - A Concert by Peyt Spencer`,

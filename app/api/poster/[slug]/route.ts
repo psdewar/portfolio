@@ -9,6 +9,7 @@ function posterHtml(show: {
   date: string;
   venue: string | null;
   venueLabel?: string | null;
+  doorLabel?: string | null;
   address: string | null;
   city: string;
   region: string;
@@ -88,7 +89,7 @@ function posterHtml(show: {
             <div class="tags">Free Admission</div>
             <div class="detail-value date">${dateStr}</div>
             <div class="detail-value">${location}</div>
-            <div class="detail-value">Doors open at ${show.doorTime}</div>
+            <div class="detail-value">${show.doorLabel || `Doors open at ${show.doorTime}`}</div>
           </div>
           <div class="qr-section">
             <div class="qr-label">peytspencer.com/rsvp</div>

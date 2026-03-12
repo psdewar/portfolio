@@ -3,10 +3,11 @@
 import { formatEventDate } from "../lib/dates";
 
 interface PosterProps {
-  date: string;
-  city: string;
-  region: string;
-  doorTime: string;
+  date?: string;
+  city?: string;
+  region?: string;
+  doorTime?: string;
+  doorLabel?: string | null;
   venue?: string | null;
   venueLabel?: string | null;
   address?: string | null;
@@ -17,6 +18,7 @@ export default function Poster({
   city,
   region,
   doorTime,
+  doorLabel,
   venue,
   venueLabel,
   address,
@@ -179,11 +181,6 @@ export default function Poster({
           margin-top: auto;
           width: 100%;
         }
-        .bottom-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-        }
         .bottom-left {
           display: flex;
           flex-direction: column;
@@ -214,28 +211,6 @@ export default function Poster({
           opacity: 0.4;
           margin: 0 0.5em;
         }
-        .qr-section {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          justify-content: flex-end;
-          gap: 1.667cqw;
-          flex-shrink: 0;
-        }
-        .qr-code {
-          width: 19.167cqw;
-          height: 19.167cqw;
-        }
-        .qr-label {
-          font-family: "Space Mono", monospace;
-          font-size: 2.083cqw;
-          font-weight: 500;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #c0b8a8;
-          text-align: center;
-          line-height: 1;
-        }
       `}</style>
       <div className="poster">
         <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" className="poster-bg" />
@@ -263,8 +238,8 @@ export default function Poster({
             <div className="the-concert">and the principles</div>
             <div className="the-concert">that connect us</div>
           </div>
-          <div className="details">
-            <div className="bottom-row">
+          {date && (
+            <div className="details">
               <div className="bottom-left">
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">{formatEventDate(date)}</div>
@@ -278,18 +253,10 @@ export default function Poster({
                     </>
                   )}
                 </div>
-                <div className="detail-value">Doors open at {doorTime}</div>
-              </div>
-              <div className="qr-section">
-                <div className="qr-label">peytspencer.com/rsvp</div>
-                <img
-                  src="https://assets.peytspencer.com/images/rsvp-qr-s10.png"
-                  alt="QR Code"
-                  className="qr-code"
-                />
+                <div className="detail-value">{doorLabel || `Doors open at ${doorTime}`}</div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </>
