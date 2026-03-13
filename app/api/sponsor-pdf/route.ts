@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       colorScheme: "light",
     });
 
-    const url = new URL("/sponsor/edit", BASE_URL);
+    const url = new URL("/sponsor/host", BASE_URL);
     url.searchParams.set("og", "true");
     for (const key of ["city", "date", "host", "phone", "email", "items"]) {
       const val = incomingUrl.searchParams.get(key);

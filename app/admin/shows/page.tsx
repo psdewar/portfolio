@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import SponsorForm from "../../components/SponsorForm";
 import { type Show } from "../../lib/shows";
+import { formatLongDate, isDatePast } from "../../lib/dates";
 
 interface Sponsor {
   showSlug: string | null;
@@ -17,6 +18,14 @@ interface Sponsor {
   doorTime?: string;
   items: string[];
   submittedAt: string;
+  role?: "host" | "supporter";
+}
+
+interface ShowGroup {
+  showSlug: string;
+  show: Show | null;
+  host: Sponsor;
+  supporters: Sponsor[];
 }
 
 export default function ShowsAdminPage() {
@@ -42,13 +51,35 @@ export default function ShowsAdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const now = new Date();
-  const upcoming = sponsors
-    .filter((s) => s.date && new Date(s.date + "T23:59:59") > now)
-    .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
-  const past = sponsors
-    .filter((s) => !s.date || new Date(s.date + "T23:59:59") <= now)
-    .sort((a, b) => new Date(b.date ?? "0").getTime() - new Date(a.date ?? "0").getTime());
+  // Group sponsors by showSlug; host = role==="host" or first entry
+  const groups: ShowGroup[] = [];
+  const seen = new Map<string, ShowGroup>();
+  for (const sp of sponsors) {
+    const key = sp.showSlug ?? sp.submittedAt;
+    if (!seen.has(key)) {
+      const show = sp.showSlug ? (shows.find((s) => s.slug === sp.showSlug) ?? null) : null;
+      const group: ShowGroup = { showSlug: sp.showSlug ?? "", show, host: sp, supporters: [] };
+      seen.set(key, group);
+      groups.push(group);
+    } else {
+      const group = seen.get(key)!;
+      if (sp.role === "host" && group.host.role !== "host") {
+        group.supporters.push(group.host);
+        group.host = sp;
+      } else {
+        group.supporters.push(sp);
+      }
+    }
+  }
+
+  const upcoming = groups
+    .filter((g) => g.host.date && !isDatePast(g.host.date))
+    .sort((a, b) => new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime());
+  const past = groups
+    .filter((g) => !g.host.date || isDatePast(g.host.date))
+    .sort(
+      (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
+    );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 py-8 px-4">
@@ -85,27 +116,25 @@ export default function ShowsAdminPage() {
               <div className="mb-6">
                 <h2 className="font-semibold text-neutral-900 dark:text-white mb-3">Upcoming</h2>
                 <div className="space-y-2">
-                  {upcoming.map((sponsor) => {
-                    const show = sponsor.showSlug
-                      ? (shows.find((s) => s.slug === sponsor.showSlug) ?? null)
-                      : null;
-                    return (
-                      <SponsorCard
-                        key={sponsor.showSlug ?? sponsor.email}
-                        sponsor={sponsor}
-                        show={show}
-                        onUpdate={(updated) =>
-                          setSponsors((prev) => prev.map((s) => (s === sponsor ? updated : s)))
-                        }
-                        onRemove={() => setSponsors((prev) => prev.filter((s) => s !== sponsor))}
-                        onShowUpdate={(slug, fields) =>
-                          setShows((prev) =>
-                            prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                          )
-                        }
-                      />
-                    );
-                  })}
+                  {upcoming.map((group) => (
+                    <ShowGroupCard
+                      key={group.showSlug}
+                      group={group}
+                      onUpdateSponsor={(updated) =>
+                        setSponsors((prev) =>
+                          prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
+                        )
+                      }
+                      onRemoveSponsor={(submittedAt) =>
+                        setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt))
+                      }
+                      onShowUpdate={(slug, fields) =>
+                        setShows((prev) =>
+                          prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
+                        )
+                      }
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -114,32 +143,30 @@ export default function ShowsAdminPage() {
               <div>
                 <h2 className="font-semibold text-neutral-500 dark:text-neutral-400 mb-3">Past</h2>
                 <div className="space-y-2">
-                  {past.map((sponsor) => {
-                    const show = sponsor.showSlug
-                      ? (shows.find((s) => s.slug === sponsor.showSlug) ?? null)
-                      : null;
-                    return (
-                      <SponsorCard
-                        key={sponsor.showSlug ?? sponsor.email}
-                        sponsor={sponsor}
-                        show={show}
-                        onUpdate={(updated) =>
-                          setSponsors((prev) => prev.map((s) => (s === sponsor ? updated : s)))
-                        }
-                        onRemove={() => setSponsors((prev) => prev.filter((s) => s !== sponsor))}
-                        onShowUpdate={(slug, fields) =>
-                          setShows((prev) =>
-                            prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                          )
-                        }
-                      />
-                    );
-                  })}
+                  {past.map((group) => (
+                    <ShowGroupCard
+                      key={group.showSlug}
+                      group={group}
+                      onUpdateSponsor={(updated) =>
+                        setSponsors((prev) =>
+                          prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
+                        )
+                      }
+                      onRemoveSponsor={(submittedAt) =>
+                        setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt))
+                      }
+                      onShowUpdate={(slug, fields) =>
+                        setShows((prev) =>
+                          prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
+                        )
+                      }
+                    />
+                  ))}
                 </div>
               </div>
             )}
 
-            {sponsors.length === 0 && (
+            {groups.length === 0 && (
               <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
                 No shows yet. Share the sponsor form to book a date.
               </p>
@@ -151,62 +178,70 @@ export default function ShowsAdminPage() {
   );
 }
 
-function SponsorCard({
-  sponsor,
-  show,
-  onUpdate,
-  onRemove,
+function ShowGroupCard({
+  group,
+  onUpdateSponsor,
+  onRemoveSponsor,
   onShowUpdate,
 }: {
-  sponsor: Sponsor;
-  show: Show | null;
-  onUpdate: (updated: Sponsor) => void;
-  onRemove: () => void;
+  group: ShowGroup;
+  onUpdateSponsor: (updated: Sponsor) => void;
+  onRemoveSponsor: (submittedAt: string) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const { show, host, supporters } = group;
+  const [editingHost, setEditingHost] = useState(false);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [editingDoorLabel, setEditingDoorLabel] = useState(false);
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
 
   const pdfUrl = (() => {
-    const url = new URL("/sponsor/edit", "https://peytspencer.com");
+    const url = new URL("/sponsor/host", "https://peytspencer.com");
     url.searchParams.set("og", "true");
-    if (sponsor.name) url.searchParams.set("name", sponsor.name);
-    if (sponsor.phone) url.searchParams.set("phone", sponsor.phone);
-    if (sponsor.email) url.searchParams.set("email", sponsor.email);
-    if (sponsor.items.length) url.searchParams.set("items", sponsor.items.join("|"));
-    if (sponsor.city) url.searchParams.set("city", sponsor.city);
-    if (sponsor.region) url.searchParams.set("region", sponsor.region);
-    if (sponsor.country) url.searchParams.set("country", sponsor.country);
-    if (sponsor.date) url.searchParams.set("date", sponsor.date);
-    if (sponsor.doorTime) url.searchParams.set("doorTime", sponsor.doorTime);
+    if (host.name) url.searchParams.set("name", host.name);
+    if (host.phone) url.searchParams.set("phone", host.phone);
+    if (host.email) url.searchParams.set("email", host.email);
+    if (host.items.length) url.searchParams.set("items", host.items.join("|"));
+    if (host.city) url.searchParams.set("city", host.city);
+    if (host.region) url.searchParams.set("region", host.region);
+    if (host.country) url.searchParams.set("country", host.country);
+    if (host.date) url.searchParams.set("date", host.date);
+    if (host.doorTime) url.searchParams.set("doorTime", host.doorTime);
     return url.toString();
   })();
 
-  const formatDate = (iso: string) =>
-    new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-
-  const handleDelete = async () => {
-    if (!confirm("Remove this show?")) return;
-    if (sponsor.showSlug) {
-      await fetch("/api/sponsors", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ showSlug: sponsor.showSlug }),
-      });
+  const handleDeleteShow = async () => {
+    if (!confirm("Remove this show and all its sponsors?")) return;
+    if (group.showSlug) {
+      const deleteSponsor = (submittedAt: string) =>
+        fetch("/api/sponsors", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showSlug: group.showSlug, submittedAt }),
+        });
+      await Promise.all([
+        deleteSponsor(host.submittedAt),
+        ...supporters.map((s) => deleteSponsor(s.submittedAt)),
+      ]);
       await fetch("/api/shows", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: sponsor.showSlug }),
+        body: JSON.stringify({ slug: group.showSlug }),
       });
     }
-    onRemove();
+    onRemoveSponsor(host.submittedAt);
+    for (const s of supporters) onRemoveSponsor(s.submittedAt);
+  };
+
+  const handleDeleteSupporter = async (sponsor: Sponsor) => {
+    if (!confirm("Remove this supporter?")) return;
+    await fetch("/api/sponsors", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showSlug: group.showSlug, submittedAt: sponsor.submittedAt }),
+    });
+    onRemoveSponsor(sponsor.submittedAt);
   };
 
   const handleSaveField = async (
@@ -229,28 +264,29 @@ function SponsorCard({
 
   return (
     <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm space-y-2">
-      {editing ? (
+      {editingHost ? (
         <>
           <SponsorForm
-            showSlug={sponsor.showSlug ?? undefined}
-            city={sponsor.city}
-            region={sponsor.region}
-            country={sponsor.country}
-            date={sponsor.date}
-            doorTime={sponsor.doorTime}
-            initialName={sponsor.name}
-            initialPhone={sponsor.phone}
-            initialEmail={sponsor.email}
-            initialItems={sponsor.items}
+            showSlug={host.showSlug ?? undefined}
+            submittedAt={host.submittedAt}
+            city={host.city}
+            region={host.region}
+            country={host.country}
+            date={host.date}
+            doorTime={host.doorTime}
+            initialName={host.name}
+            initialPhone={host.phone}
+            initialEmail={host.email}
+            initialItems={host.items}
             compact
             editMode
             onSuccess={(data) => {
-              setEditing(false);
-              onUpdate({ ...sponsor, ...data });
+              setEditingHost(false);
+              onUpdateSponsor({ ...host, ...data });
             }}
           />
           <button
-            onClick={() => setEditing(false)}
+            onClick={() => setEditingHost(false)}
             className="text-xs text-neutral-500 hover:text-neutral-700"
           >
             Cancel
@@ -259,27 +295,45 @@ function SponsorCard({
       ) : (
         <div className="flex gap-3">
           <div className="flex-1 min-w-0 space-y-2">
+            {/* Host info */}
             <div className="text-sm text-neutral-900 dark:text-white">
-              {sponsor.name && <span className="font-medium">{sponsor.name}</span>}
-              {sponsor.email && (
-                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.email}</span>
+              {host.name && <span className="font-medium">{host.name}</span>}
+              {host.email && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {host.email}</span>
               )}
-              {sponsor.phone && (
-                <span className="text-neutral-500 dark:text-neutral-400"> · {sponsor.phone}</span>
+              {host.phone && (
+                <span className="text-neutral-500 dark:text-neutral-400"> · {host.phone}</span>
               )}
             </div>
-            {(sponsor.date || sponsor.city) && (
+            {(host.date || host.city) && (
               <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                {sponsor.date && formatDate(sponsor.date)}
-                {sponsor.city && ` · ${sponsor.city}, ${sponsor.region}`}
-                {sponsor.doorTime && ` · ${sponsor.doorTime}`}
+                {host.date && formatLongDate(host.date)}
+                {host.city && ` · ${host.city}, ${host.region}`}
+                {host.doorTime && ` · ${host.doorTime}`}
               </div>
             )}
-            {sponsor.items.length > 0 && (
+            {host.items.length > 0 && (
               <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                {sponsor.items.join(", ")}
+                {host.items.join(", ")}
               </p>
             )}
+
+            {/* Supporters */}
+            {supporters.length > 0 && (
+              <div className="border-t border-neutral-100 dark:border-neutral-700 pt-2 space-y-1.5">
+                {supporters.map((s) => (
+                  <SupporterRow
+                    key={s.submittedAt}
+                    sponsor={s}
+                    showSlug={group.showSlug}
+                    onUpdate={onUpdateSponsor}
+                    onDelete={() => handleDeleteSupporter(s)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Editable labels */}
             {show && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-neutral-400 shrink-0">RSVP label</span>
@@ -365,6 +419,8 @@ function SponsorCard({
               </div>
             )}
           </div>
+
+          {/* Action buttons */}
           <div className="shrink-0 self-stretch flex flex-col rounded-md overflow-hidden">
             {show?.slug && (
               <a
@@ -384,13 +440,13 @@ function SponsorCard({
               PDF
             </a>
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => setEditingHost(true)}
               className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
             >
               Amend
             </button>
             <button
-              onClick={handleDelete}
+              onClick={handleDeleteShow}
               className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
             >
               Delete
@@ -398,6 +454,80 @@ function SponsorCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SupporterRow({
+  sponsor,
+  showSlug,
+  onUpdate,
+  onDelete,
+}: {
+  sponsor: Sponsor;
+  showSlug: string;
+  onUpdate: (updated: Sponsor) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <div className="pl-2 border-l-2 border-neutral-200 dark:border-neutral-700">
+        <SponsorForm
+          showSlug={showSlug}
+          submittedAt={sponsor.submittedAt}
+          initialName={sponsor.name}
+          initialPhone={sponsor.phone}
+          initialEmail={sponsor.email}
+          initialItems={sponsor.items}
+          compact
+          editMode
+          mode="supporter"
+          onSuccess={(data) => {
+            setEditing(false);
+            onUpdate({ ...sponsor, ...data });
+          }}
+        />
+        <button
+          onClick={() => setEditing(false)}
+          className="text-xs text-neutral-500 hover:text-neutral-700 mt-1"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-2 text-xs pl-2 border-l-2 border-neutral-200 dark:border-neutral-700">
+      <div className="flex-1 min-w-0">
+        <span className="text-neutral-600 dark:text-neutral-300">
+          {sponsor.name || sponsor.email}
+        </span>
+        {sponsor.name && sponsor.email && (
+          <span className="text-neutral-400"> · {sponsor.email}</span>
+        )}
+        {sponsor.items.length > 0 && (
+          <p className="text-neutral-400 dark:text-neutral-500 mt-0.5">
+            {sponsor.items.join(", ")}
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button
+          onClick={() => setEditing(true)}
+          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+        >
+          Amend
+        </button>
+        <button
+          onClick={onDelete}
+          className="text-neutral-400 hover:text-red-500 dark:hover:text-red-400"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }

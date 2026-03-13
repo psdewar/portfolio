@@ -11,6 +11,7 @@ export interface Show {
   doorLabel: string | null;
   address: string | null;
   status: "upcoming" | "past" | "cancelled";
+  planStatus?: "intent" | "booked" | "complete";
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

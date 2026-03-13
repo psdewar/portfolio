@@ -1,32 +1,18 @@
-export const VENUE_CHOICES = ["Home", "Community center", "Baha'i center"];
+export const SUPPORTER_ITEMS = ["Spread the word via concert poster", "Artist honorarium"];
 
-export const SUPPORT_MENU: { category: string; items: string[]; exclusive?: string[] }[] = [
+export const SUPPORT_MENU: { category: string; items: string[] }[] = [
   {
-    category: "Venue",
-    items: [...VENUE_CHOICES, "Seating", "Setup help"],
-    exclusive: VENUE_CHOICES,
-  },
-  {
-    category: "Travel",
+    category: "General",
     items: [
-      "Round-trip airfare",
-      "Car rental or local rides",
+      "Spread the word via concert poster",
+      "Arrange the venue space",
+      "Table for merch and donations",
       "Airport pickup and drop-off",
-    ],
-  },
-  {
-    category: "Lodging",
-    items: ["Host home stay", "Hotel or Airbnb"],
-  },
-  {
-    category: "Promotion",
-    items: [
-      "Community outreach and invitations",
-      "Flyers or digital promotion",
+      "Stay with a local host",
     ],
   },
   {
     category: "Financial",
-    items: ["Artist honorarium", "Space for merch and donations"],
+    items: ["Round-trip airfare", "Car rental", "Hotel or Airbnb", "Artist honorarium"],
   },
 ];
