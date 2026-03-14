@@ -90,7 +90,11 @@ export default function SponsorForm({
   const doorTimeRef = useRef<HTMLDivElement>(null);
   const [doorTimeOpen, setDoorTimeOpen] = useState(false);
 
-  const [checked, setChecked] = useState<Set<string>>(new Set(initialItems || []));
+  const defaultSupporterItems =
+    mode === "supporter" && !editMode && !compact && !initialItems ? [SUPPORTER_ITEMS[0]] : [];
+  const [checked, setChecked] = useState<Set<string>>(
+    new Set(initialItems || defaultSupporterItems),
+  );
   const [eventVenue, setEventVenue] = useState(venue || "");
   const [eventAddress, setEventAddress] = useState(address || "");
   const [eventCity, setEventCity] = useState(city || "");
@@ -114,27 +118,51 @@ export default function SponsorForm({
   const [pickerLoading, setPickerLoading] = useState(false);
   const hasFetchedShows = useRef(false);
   const [selectedShowSlug, setSelectedShowSlug] = useState<string | null>(showSlug || null);
+  const [hostNames, setHostNames] = useState<Record<string, string>>({});
 
   const cityReadOnly = isPdfMode || (compact && !!city);
   const dateReadOnly = (compact && !!date) || isPdfMode;
   const hasLocation = !!(eventCity && eventRegion);
 
-  // Fetch shows once when entering supporter mode
+  // Fetch shows + sponsors once when entering supporter mode
   useEffect(() => {
     if (wizardMode !== "supporter" || hasFetchedShows.current) return;
     hasFetchedShows.current = true;
     setPickerLoading(true);
-    fetch("/api/shows")
-      .then((r) => r.json())
-      .then((data: Show[]) => {
-        setPickerShows(
-          Array.isArray(data)
-            ? data
-                .filter((s) => s.status === "upcoming" && !isDatePast(s.date))
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            : [],
-        );
-      })
+    Promise.all([
+      fetch("/api/shows")
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch("/api/sponsors")
+        .then((r) => r.json())
+        .catch(() => []),
+    ])
+      .then(
+        ([showsData, sponsorsData]: [
+          Show[],
+          { showSlug?: string; name?: string; role?: string }[],
+        ]) => {
+          setPickerShows(
+            Array.isArray(showsData)
+              ? showsData
+                  .filter((s) => s.status === "upcoming" && !isDatePast(s.date))
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+              : [],
+          );
+          const names: Record<string, string> = {};
+          if (Array.isArray(sponsorsData)) {
+            for (const sp of sponsorsData) {
+              if (!sp.showSlug || !sp.name) continue;
+              if (sp.role === "host") {
+                names[sp.showSlug] = sp.name;
+              } else if (!names[sp.showSlug]) {
+                names[sp.showSlug] = sp.name;
+              }
+            }
+          }
+          setHostNames(names);
+        },
+      )
       .catch(() => setPickerShows([]))
       .finally(() => setPickerLoading(false));
   }, [wizardMode]);
@@ -292,6 +320,111 @@ export default function SponsorForm({
     ? `${resolvedVenue}, ${cityDisplay || city}`
     : cityDisplay || city;
 
+  const selectedShow =
+    wizardMode === "supporter" && selectedShowSlug
+      ? (pickerShows.find((s) => s.slug === selectedShowSlug) ?? null)
+      : null;
+  const supporterLocked = !!(wizardMode === "supporter" && selectedShowSlug);
+  const isSupporter = mode === "supporter" || (isWizard && wizardMode === "supporter");
+  const headingClass = `font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"} ${isPdfMode ? "mt-4" : ""}`;
+  const desktopCols: number[][] = [[0], [1]];
+
+  const showLocationDisplay = (show: Show) =>
+    getVenueLabel(show)
+      ? `${getVenueLabel(show)}, ${show.city}, ${show.region}`
+      : `${show.city}, ${show.region}`;
+
+  const contactFields = (!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
+    <div
+      className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}
+      style={
+        isPdfMode
+          ? {
+              gridTemplateColumns: `repeat(${[sponsorName, sponsorPhone, sponsorEmail].filter(Boolean).length}, 1fr)`,
+            }
+          : undefined
+      }
+    >
+      {(!isPdfMode || sponsorName) && (
+        <div>
+          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+            Name
+          </label>
+          <input
+            type="text"
+            value={sponsorName}
+            onChange={(e) => setSponsorName(e.target.value)}
+            placeholder="Jane Doe or Local Assembly"
+            required={isWizard && wizardMode === "supporter"}
+            disabled={readOnly}
+            className={fieldClass}
+          />
+        </div>
+      )}
+      {(!isPdfMode || sponsorPhone) && (
+        <div>
+          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+            Phone
+          </label>
+          <input
+            type="text"
+            value={sponsorPhone}
+            onChange={(e) => setSponsorPhone(e.target.value)}
+            placeholder="(206) 555-0100"
+            disabled={readOnly}
+            className={fieldClass}
+          />
+        </div>
+      )}
+      {(!isPdfMode || sponsorEmail) && (
+        <div>
+          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+            Email
+          </label>
+          <input
+            type="email"
+            value={sponsorEmail}
+            onChange={(e) => setSponsorEmail(e.target.value)}
+            placeholder="abc@email.com"
+            disabled={readOnly}
+            className={fieldClass}
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCheckItem = (item: string, size: number) => {
+    const isChecked = checked.has(item);
+    const Icon = isChecked ? CheckSquareIcon : SquareIcon;
+    return (
+      <button
+        key={item}
+        onClick={() => toggleItem(item)}
+        disabled={readOnly}
+        className={`flex items-start gap-2 w-full text-left group ${readOnly ? "opacity-75 cursor-default" : ""}`}
+      >
+        <Icon
+          size={size}
+          weight={isChecked ? "fill" : "regular"}
+          className={`mt-0.5 flex-shrink-0 ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors"}`}
+        />
+        <span
+          className={`leading-snug ${compact ? "text-sm" : "text-base sm:text-lg"} ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
+        >
+          {item}
+          {item === "Artist honorarium" && (
+            <span
+              className={`block text-neutral-400 dark:text-neutral-500 ${compact ? "text-xs" : "text-xs sm:text-sm"}`}
+            >
+              Recognizes the performance itself. Any amount goes a long way.
+            </span>
+          )}
+        </span>
+      </button>
+    );
+  };
+
   // ── Wizard step 1 (supporter): show picker ─────────────────────────────────
   if (isWizard && wizardStep === 1 && wizardMode === "supporter") {
     return (
@@ -330,11 +463,7 @@ export default function SponsorForm({
                 className="w-full text-left flex items-center justify-between gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 px-4 py-3 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors group"
               >
                 <div>
-                  <p className="font-medium text-sm">
-                    {getVenueLabel(show)
-                      ? `${getVenueLabel(show)}, ${show.city}, ${show.region}`
-                      : `${show.city}, ${show.region}`}
-                  </p>
+                  <p className="font-medium text-sm">{showLocationDisplay(show)}</p>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                     {formatMonthDay(show.date)}
                     {show.doorTime && ` · ${getDoorLabel(show)}`}
@@ -391,280 +520,204 @@ export default function SponsorForm({
           </button>
         ))}
 
-      {/* Location + date (hidden for compact supporter edits) */}
-      {!(mode === "supporter" && compact) &&
-        (() => {
-          const selectedShow =
-            wizardMode === "supporter" && selectedShowSlug
-              ? (pickerShows.find((s) => s.slug === selectedShowSlug) ?? null)
-              : null;
-          const supporterLocked = !!(wizardMode === "supporter" && selectedShowSlug);
-
-          return (
-            <div
-              className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6 sm:space-y-4 lg:space-y-4"}`}
-            >
-              <div>
-                <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Location
-                </label>
-                {supporterLocked || cityReadOnly ? (
-                  <div
-                    className={`flex items-center justify-between gap-3 ${compact ? "py-1" : "py-1.5 lg:py-2"}`}
-                  >
-                    <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
-                      {supporterLocked
-                        ? selectedShow
-                          ? getVenueLabel(selectedShow)
-                            ? `${getVenueLabel(selectedShow)}, ${selectedShow.city}, ${selectedShow.region}`
-                            : `${selectedShow.city}, ${selectedShow.region}`
-                          : "Loading..."
-                        : locationDisplay}
-                    </span>
-                    <LockSimpleIcon
-                      size={compact ? 13 : 15}
-                      className="flex-shrink-0 text-neutral-300 dark:text-neutral-600"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined}>
-                      {!mapsReady && (
-                        <input
-                          ref={cityInputRef}
-                          type="text"
-                          placeholder="Search by venue, address, or city"
-                          className={fieldClass}
-                          onChange={(e) => {
-                            const parts = e.target.value.split(",").map((s) => s.trim());
-                            if (parts.length >= 3) {
-                              setEventVenue(parts.slice(0, -2).join(", "));
-                              setEventCity(parts[parts.length - 2]);
-                              setEventRegion(parts[parts.length - 1]);
-                            } else if (parts.length === 2) {
-                              setEventVenue("");
-                              setEventCity(parts[0]);
-                              setEventRegion(parts[1]);
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-                    {hasLocation && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEventVenue("");
-                          setEventAddress("");
-                          setEventCity("");
-                          setEventRegion("");
-                          setEventCountry("");
-                          if (mapsReady) {
-                            initAutocomplete();
-                            (cityContainerRef.current?.firstElementChild as HTMLElement)?.focus();
-                          } else {
-                            cityInputRef.current?.focus();
-                          }
-                        }}
-                        className={`${fieldClass} text-left flex items-center justify-between group`}
-                      >
-                        <span>{locationDisplay}</span>
-                        <span className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 text-xs ml-2">
-                          change
-                        </span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}>
-                <div>
-                  <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                    Date
-                  </label>
-                  {supporterLocked ? (
-                    <p className={fieldClass}>
-                      {selectedShow ? formatLongDate(selectedShow.date) : "Loading..."}
-                    </p>
-                  ) : dateReadOnly ? (
-                    eventDate && <p className={fieldClass}>{formatLongDate(eventDate)}</p>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        disabled={readOnly}
-                        className={`${fieldClass} absolute inset-0 top-auto opacity-0 cursor-pointer`}
-                      />
-                      <p
-                        className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
-                      >
-                        {eventDate ? formatLongDate(eventDate) : "Select date"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                    Door Time
-                  </label>
-                  {supporterLocked ? (
-                    <p className={fieldClass}>
-                      {selectedShow ? getDoorLabel(selectedShow) : "Loading..."}
-                    </p>
-                  ) : isPdfMode ? (
-                    <p className={fieldClass}>{eventDoorTime}</p>
-                  ) : (
-                    <div className="relative" ref={doorTimeRef}>
-                      <button
-                        type="button"
-                        onClick={() => !readOnly && setDoorTimeOpen((o) => !o)}
-                        disabled={readOnly}
-                        className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
-                      >
-                        {eventDoorTime || "Select time"}
-                      </button>
-                      {doorTimeOpen && (
-                        <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
-                          {DOOR_TIMES.map((t) => (
-                            <li key={t}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEventDoorTime(t);
-                                  setDoorTimeOpen(false);
-                                }}
-                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTime ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
-                              >
-                                {t}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact fields */}
-              {(!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
+      {isSupporter ? (
+        <>
+          {/* Supporter: show summary */}
+          {!(mode === "supporter" && compact) && (
+            <div className={compact ? "mb-3" : "mb-5 sm:mb-6 lg:mb-5"}>
+              {!compact && !isPdfMode && (
+                <h2 className="font-medium text-xl lg:text-2xl">
+                  {supporterLocked && hostNames[selectedShowSlug!]
+                    ? `Hosted by ${hostNames[selectedShowSlug!]}`
+                    : "Show details"}
+                </h2>
+              )}
+              {selectedShow ? (
                 <div
-                  className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}
-                  style={
-                    isPdfMode
-                      ? {
-                          gridTemplateColumns: `repeat(${[sponsorName, sponsorPhone, sponsorEmail].filter(Boolean).length}, 1fr)`,
-                        }
-                      : undefined
-                  }
+                  className={`text-neutral-500 dark:text-neutral-400 ${compact ? "text-sm" : "text-base sm:text-lg"} ${!compact && !isPdfMode ? "mt-2" : ""}`}
                 >
-                  {(!isPdfMode || sponsorName) && (
-                    <div>
-                      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={sponsorName}
-                        onChange={(e) => setSponsorName(e.target.value)}
-                        placeholder="Jane Doe or Local Assembly"
-                        required={isWizard && wizardMode === "supporter"}
-                        disabled={readOnly}
-                        className={fieldClass}
-                      />
-                    </div>
-                  )}
-                  {(!isPdfMode || sponsorPhone) && (
-                    <div>
-                      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                        Phone
-                      </label>
-                      <input
-                        type="text"
-                        value={sponsorPhone}
-                        onChange={(e) => setSponsorPhone(e.target.value)}
-                        placeholder="(206) 555-0100"
-                        disabled={readOnly}
-                        className={fieldClass}
-                      />
-                    </div>
-                  )}
-                  {(!isPdfMode || sponsorEmail) && (
-                    <div>
-                      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={sponsorEmail}
-                        onChange={(e) => setSponsorEmail(e.target.value)}
-                        placeholder="abc@email.com"
-                        disabled={readOnly}
-                        className={fieldClass}
-                      />
-                    </div>
-                  )}
+                  <p>{showLocationDisplay(selectedShow)}</p>
+                  <p>{formatLongDate(selectedShow.date)}</p>
+                  <p>{getDoorLabel(selectedShow)}</p>
                 </div>
+              ) : (
+                <p className={`text-neutral-400 ${compact ? "text-sm" : "text-base sm:text-lg"}`}>
+                  Loading...
+                </p>
               )}
             </div>
-          );
-        })()}
+          )}
 
-      {(() => {
-        const isSupporter = mode === "supporter" || (isWizard && wizardMode === "supporter");
-        const menu = SUPPORT_MENU;
-        const desktopCols: number[][] = [[0], [1]];
-
-        const renderCheckItem = (item: string, size: number) => {
-          const isChecked = checked.has(item);
-          const Icon = isChecked ? CheckSquareIcon : SquareIcon;
-          return (
-            <button
-              key={item}
-              onClick={() => toggleItem(item)}
-              disabled={readOnly}
-              className={`flex items-start gap-2 w-full text-left group ${readOnly ? "opacity-75 cursor-default" : ""}`}
-            >
-              <Icon
-                size={size}
-                weight={isChecked ? "fill" : "regular"}
-                className={`mt-0.5 flex-shrink-0 ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors"}`}
-              />
-              <span
-                className={`leading-snug ${compact ? "text-sm" : "text-base sm:text-lg"} ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
+          {/* Supporter: Contact info box */}
+          {!(mode === "supporter" && compact) &&
+            (!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
+              <div
+                className={`rounded-lg border border-neutral-200 dark:border-neutral-800 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6"}`}
               >
-                {item}
-                {item === "Artist honorarium" && (
-                  <span
-                    className={`block text-neutral-400 dark:text-neutral-500 ${compact ? "text-xs" : "text-xs sm:text-sm"}`}
-                  >
-                    Recognizes the performance itself. Any amount is meaningful.
-                  </span>
+                {!compact && !isPdfMode && (
+                  <h2 className="font-medium text-xl lg:text-2xl mb-3 sm:mb-4">Support details</h2>
                 )}
-              </span>
-            </button>
-          );
-        };
-
-        const headingClass = `font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"} ${isPdfMode ? "mt-4" : ""}`;
-
-        if (isSupporter) {
-          return (
-            <section>
-              <h2 className={headingClass}>How your community will contribute</h2>
-              <div className={compact ? "space-y-1" : "space-y-4"}>
-                {SUPPORTER_ITEMS.map((item) => renderCheckItem(item, iconSize))}
+                {contactFields}
               </div>
-            </section>
-          );
-        }
+            )}
 
-        return (
+          {/* Supporter: checkboxes (last, so honorarium is right before submit) */}
           <section>
-            <h2 className={headingClass}>How your community will contribute</h2>
+            <h2 className={headingClass}>How your community will support this upcoming concert</h2>
+            <div className={compact ? "space-y-1" : "space-y-4"}>
+              {SUPPORTER_ITEMS.map((item) => renderCheckItem(item, iconSize))}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          {/* Host: one merged box with show details + contact fields */}
+          <div
+            className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6 sm:space-y-4 lg:space-y-4"}`}
+          >
+            {!compact && !isPdfMode && (
+              <h2 className="font-medium text-xl lg:text-2xl">Host details</h2>
+            )}
+            <div>
+              <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+                Location
+              </label>
+              {cityReadOnly ? (
+                <div
+                  className={`flex items-center justify-between gap-3 ${compact ? "py-1" : "py-1.5 lg:py-2"}`}
+                >
+                  <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
+                    {locationDisplay}
+                  </span>
+                  <LockSimpleIcon
+                    size={compact ? 13 : 15}
+                    className="flex-shrink-0 text-neutral-300 dark:text-neutral-600"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined}>
+                    {!mapsReady && (
+                      <input
+                        ref={cityInputRef}
+                        type="text"
+                        placeholder="Search by venue, address, or city"
+                        className={fieldClass}
+                        onChange={(e) => {
+                          const parts = e.target.value.split(",").map((s) => s.trim());
+                          if (parts.length >= 3) {
+                            setEventVenue(parts.slice(0, -2).join(", "));
+                            setEventCity(parts[parts.length - 2]);
+                            setEventRegion(parts[parts.length - 1]);
+                          } else if (parts.length === 2) {
+                            setEventVenue("");
+                            setEventCity(parts[0]);
+                            setEventRegion(parts[1]);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                  {hasLocation && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEventVenue("");
+                        setEventAddress("");
+                        setEventCity("");
+                        setEventRegion("");
+                        setEventCountry("");
+                        if (mapsReady) {
+                          initAutocomplete();
+                          (cityContainerRef.current?.firstElementChild as HTMLElement)?.focus();
+                        } else {
+                          cityInputRef.current?.focus();
+                        }
+                      }}
+                      className={`${fieldClass} text-left flex items-center justify-between group`}
+                    >
+                      <span>{locationDisplay}</span>
+                      <span className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 text-xs ml-2">
+                        change
+                      </span>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}>
+              <div>
+                <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+                  Date
+                </label>
+                {dateReadOnly ? (
+                  eventDate && <p className={fieldClass}>{formatLongDate(eventDate)}</p>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      disabled={readOnly}
+                      className={`${fieldClass} absolute inset-0 top-auto opacity-0 cursor-pointer`}
+                    />
+                    <p
+                      className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                    >
+                      {eventDate ? formatLongDate(eventDate) : "Select date"}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+                  Door Time
+                </label>
+                {isPdfMode ? (
+                  <p className={fieldClass}>{eventDoorTime}</p>
+                ) : (
+                  <div className="relative" ref={doorTimeRef}>
+                    <button
+                      type="button"
+                      onClick={() => !readOnly && setDoorTimeOpen((o) => !o)}
+                      disabled={readOnly}
+                      className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
+                    >
+                      {eventDoorTime || "Select time"}
+                    </button>
+                    {doorTimeOpen && (
+                      <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
+                        {DOOR_TIMES.map((t) => (
+                          <li key={t}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEventDoorTime(t);
+                                setDoorTimeOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTime ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
+                            >
+                              {t}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {contactFields}
+          </div>
+
+          {/* Host: checkboxes */}
+          <section>
+            <h2 className={headingClass}>
+              How your community will
+              {wizardMode === "host" ? " contribute" : " support this upcoming concert"}
+            </h2>
 
             {/* Mobile / tablet: CSS columns */}
             <div
@@ -672,7 +725,7 @@ export default function SponsorForm({
                 compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
               }
             >
-              {menu.map((section, idx) => (
+              {SUPPORT_MENU.map((section, idx) => (
                 <div
                   key={idx}
                   className={compact ? "min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"}
@@ -697,7 +750,7 @@ export default function SponsorForm({
                 {desktopCols.map((indices, col) => (
                   <div key={col} className="space-y-5">
                     {indices.map((i) => {
-                      const section = menu[i];
+                      const section = SUPPORT_MENU[i];
                       if (!section) return null;
                       return (
                         <div key={i}>
@@ -717,8 +770,8 @@ export default function SponsorForm({
               </div>
             )}
           </section>
-        );
-      })()}
+        </>
+      )}
 
       {!isPdfMode && !readOnly && (
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
