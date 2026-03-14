@@ -34,3 +34,11 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   const shows = await getShows();
   return shows.find((s) => s.slug === slug) || null;
 }
+
+export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue">): string | null {
+  return show.venueLabel || show.venue || null;
+}
+
+export function getDoorLabel(show: Pick<Show, "doorLabel" | "doorTime">): string {
+  return show.doorLabel || `Doors open at ${show.doorTime || "7PM"}`;
+}

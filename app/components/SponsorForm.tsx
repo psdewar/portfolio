@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { SUPPORT_MENU, SUPPORTER_ITEMS } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
-import { type Show } from "../lib/shows";
+import { type Show, getVenueLabel, getDoorLabel } from "../lib/shows";
 import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
 
 // 11:30AM → 9:30PM, 30-min increments
@@ -33,6 +33,8 @@ export interface SponsorFields {
   city: string;
   region: string;
   country: string;
+  venue?: string;
+  address?: string;
   date: string;
   doorTime: string;
   items: string[];
@@ -43,6 +45,7 @@ interface SponsorFormProps {
   showSlug?: string;
   submittedAt?: string;
   venue?: string;
+  address?: string;
   city?: string;
   region?: string;
   country?: string;
@@ -51,6 +54,7 @@ interface SponsorFormProps {
   compact?: boolean;
   isPdfMode?: boolean;
   editMode?: boolean;
+  readOnly?: boolean;
   mode?: "host" | "supporter";
   initialItems?: string[];
   initialName?: string;
@@ -63,6 +67,7 @@ export default function SponsorForm({
   showSlug,
   submittedAt,
   venue,
+  address,
   city,
   region,
   country,
@@ -71,6 +76,7 @@ export default function SponsorForm({
   compact,
   isPdfMode,
   editMode,
+  readOnly,
   mode,
   initialItems,
   initialName,
@@ -85,8 +91,8 @@ export default function SponsorForm({
   const [doorTimeOpen, setDoorTimeOpen] = useState(false);
 
   const [checked, setChecked] = useState<Set<string>>(new Set(initialItems || []));
-  const [eventVenue, setEventVenue] = useState("");
-  const [eventAddress, setEventAddress] = useState("");
+  const [eventVenue, setEventVenue] = useState(venue || "");
+  const [eventAddress, setEventAddress] = useState(address || "");
   const [eventCity, setEventCity] = useState(city || "");
   const [eventRegion, setEventRegion] = useState(region || "");
   const [eventCountry, setEventCountry] = useState(country || "");
@@ -211,6 +217,8 @@ export default function SponsorForm({
       city: isSupporter ? "" : eventCity,
       region: isSupporter ? "" : eventRegion,
       country: isSupporter ? "" : eventCountry,
+      venue: isSupporter ? "" : eventVenue || "",
+      address: isSupporter ? "" : eventAddress || "",
       date: isSupporter ? "" : eventDate,
       doorTime: isSupporter ? "" : eventDoorTime,
       items: Array.from(checked),
@@ -323,13 +331,13 @@ export default function SponsorForm({
               >
                 <div>
                   <p className="font-medium text-sm">
-                    {show.venueLabel || show.venue
-                      ? `${show.venueLabel || show.venue}, ${show.city}, ${show.region}`
+                    {getVenueLabel(show)
+                      ? `${getVenueLabel(show)}, ${show.city}, ${show.region}`
                       : `${show.city}, ${show.region}`}
                   </p>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                     {formatMonthDay(show.date)}
-                    {show.doorTime && ` · ${show.doorLabel || `Doors at ${show.doorTime}`}`}
+                    {show.doorTime && ` · ${getDoorLabel(show)}`}
                   </p>
                 </div>
                 <ArrowRightIcon
@@ -407,8 +415,8 @@ export default function SponsorForm({
                     <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
                       {supporterLocked
                         ? selectedShow
-                          ? selectedShow.venueLabel || selectedShow.venue
-                            ? `${selectedShow.venueLabel || selectedShow.venue}, ${selectedShow.city}, ${selectedShow.region}`
+                          ? getVenueLabel(selectedShow)
+                            ? `${getVenueLabel(selectedShow)}, ${selectedShow.city}, ${selectedShow.region}`
                             : `${selectedShow.city}, ${selectedShow.region}`
                           : "Loading..."
                         : locationDisplay}
@@ -487,6 +495,7 @@ export default function SponsorForm({
                         type="date"
                         value={eventDate}
                         onChange={(e) => setEventDate(e.target.value)}
+                        disabled={readOnly}
                         className={`${fieldClass} absolute inset-0 top-auto opacity-0 cursor-pointer`}
                       />
                       <p
@@ -503,9 +512,7 @@ export default function SponsorForm({
                   </label>
                   {supporterLocked ? (
                     <p className={fieldClass}>
-                      {selectedShow
-                        ? selectedShow.doorLabel || selectedShow.doorTime || "TBD"
-                        : "Loading..."}
+                      {selectedShow ? getDoorLabel(selectedShow) : "Loading..."}
                     </p>
                   ) : isPdfMode ? (
                     <p className={fieldClass}>{eventDoorTime}</p>
@@ -513,8 +520,9 @@ export default function SponsorForm({
                     <div className="relative" ref={doorTimeRef}>
                       <button
                         type="button"
-                        onClick={() => setDoorTimeOpen((o) => !o)}
-                        className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                        onClick={() => !readOnly && setDoorTimeOpen((o) => !o)}
+                        disabled={readOnly}
+                        className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
                       >
                         {eventDoorTime || "Select time"}
                       </button>
@@ -564,6 +572,7 @@ export default function SponsorForm({
                         onChange={(e) => setSponsorName(e.target.value)}
                         placeholder="Jane Doe or Local Assembly"
                         required={isWizard && wizardMode === "supporter"}
+                        disabled={readOnly}
                         className={fieldClass}
                       />
                     </div>
@@ -578,6 +587,7 @@ export default function SponsorForm({
                         value={sponsorPhone}
                         onChange={(e) => setSponsorPhone(e.target.value)}
                         placeholder="(206) 555-0100"
+                        disabled={readOnly}
                         className={fieldClass}
                       />
                     </div>
@@ -592,6 +602,7 @@ export default function SponsorForm({
                         value={sponsorEmail}
                         onChange={(e) => setSponsorEmail(e.target.value)}
                         placeholder="abc@email.com"
+                        disabled={readOnly}
                         className={fieldClass}
                       />
                     </div>
@@ -614,7 +625,8 @@ export default function SponsorForm({
             <button
               key={item}
               onClick={() => toggleItem(item)}
-              className="flex items-start gap-2 w-full text-left group"
+              disabled={readOnly}
+              className={`flex items-start gap-2 w-full text-left group ${readOnly ? "opacity-75 cursor-default" : ""}`}
             >
               <Icon
                 size={size}
@@ -708,7 +720,7 @@ export default function SponsorForm({
         );
       })()}
 
-      {!isPdfMode && (
+      {!isPdfMode && !readOnly && (
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>

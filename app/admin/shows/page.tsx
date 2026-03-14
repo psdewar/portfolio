@@ -14,6 +14,8 @@ interface Sponsor {
   city?: string;
   region?: string;
   country?: string;
+  venue?: string;
+  address?: string;
   date?: string;
   doorTime?: string;
   items: string[];
@@ -33,7 +35,6 @@ export default function ShowsAdminPage() {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
   useEffect(() => {
     Promise.all([
       fetch("/api/shows")
@@ -82,26 +83,35 @@ export default function ShowsAdminPage() {
     );
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <Link
-          href="/admin"
-          className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-4 inline-block"
-        >
-          ← Back to Admin
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
+      {/* Header */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="h-16 flex items-center gap-8 px-8">
+          <Link
+            href="/admin"
+            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors tracking-wide shrink-0"
+          >
+            ← BACK
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-xl lg:text-2xl font-light tracking-tight text-neutral-900 dark:text-white">
+              SHOWS
+            </h1>
+            <p className="text-xs lg:text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">
+              {groups.length} total · {upcoming.length} upcoming · {past.length} past
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">Shows</h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-          Every show is confirmed by a sponsor.
-        </p>
-
+      {/* Main content */}
+      <div className="px-8 py-12">
         {message && (
           <div
-            className={`p-3 rounded-lg text-sm mb-4 ${
+            className={`p-4 rounded-lg text-sm mb-8 ${
               message.type === "success"
-                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+                : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800"
             }`}
           >
             {message.text}
@@ -109,13 +119,25 @@ export default function ShowsAdminPage() {
         )}
 
         {loading ? (
-          <div className="animate-pulse h-20 bg-neutral-200 dark:bg-neutral-700 rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse h-80 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
+              />
+            ))}
+          </div>
         ) : (
           <>
             {upcoming.length > 0 && (
-              <div className="mb-6">
-                <h2 className="font-semibold text-neutral-900 dark:text-white mb-3">Upcoming</h2>
-                <div className="space-y-2">
+              <div className="mb-16">
+                <div className="mb-8">
+                  <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
+                    Upcoming
+                  </h2>
+                  <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                   {upcoming.map((group) => (
                     <ShowGroupCard
                       key={group.showSlug}
@@ -141,8 +163,13 @@ export default function ShowsAdminPage() {
 
             {past.length > 0 && (
               <div>
-                <h2 className="font-semibold text-neutral-500 dark:text-neutral-400 mb-3">Past</h2>
-                <div className="space-y-2">
+                <div className="mb-8">
+                  <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
+                    Past
+                  </h2>
+                  <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                   {past.map((group) => (
                     <ShowGroupCard
                       key={group.showSlug}
@@ -167,9 +194,12 @@ export default function ShowsAdminPage() {
             )}
 
             {groups.length === 0 && (
-              <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
-                No shows yet. Share the sponsor form to book a date.
-              </p>
+              <div className="text-center py-24">
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">No shows yet.</p>
+                <p className="text-xs text-neutral-400 dark:text-neutral-600 mt-2">
+                  Share the sponsor form to book a date.
+                </p>
+              </div>
             )}
           </>
         )}
@@ -191,28 +221,12 @@ function ShowGroupCard({
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
-  const [editingLabel, setEditingLabel] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
-  const [editingDoorLabel, setEditingDoorLabel] = useState(false);
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
 
-  const pdfUrl = (() => {
-    const url = new URL("/sponsor/host", "https://peytspencer.com");
-    url.searchParams.set("og", "true");
-    if (host.name) url.searchParams.set("name", host.name);
-    if (host.phone) url.searchParams.set("phone", host.phone);
-    if (host.email) url.searchParams.set("email", host.email);
-    if (host.items.length) url.searchParams.set("items", host.items.join("|"));
-    if (host.city) url.searchParams.set("city", host.city);
-    if (host.region) url.searchParams.set("region", host.region);
-    if (host.country) url.searchParams.set("country", host.country);
-    if (host.date) url.searchParams.set("date", host.date);
-    if (host.doorTime) url.searchParams.set("doorTime", host.doorTime);
-    return url.toString();
-  })();
-
   const handleDeleteShow = async () => {
-    if (!confirm("Remove this show and all its sponsors?")) return;
     if (group.showSlug) {
       const deleteSponsor = (submittedAt: string) =>
         fetch("/api/sponsors", {
@@ -234,300 +248,177 @@ function ShowGroupCard({
     for (const s of supporters) onRemoveSponsor(s.submittedAt);
   };
 
-  const handleDeleteSupporter = async (sponsor: Sponsor) => {
-    if (!confirm("Remove this supporter?")) return;
-    await fetch("/api/sponsors", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ showSlug: group.showSlug, submittedAt: sponsor.submittedAt }),
-    });
-    onRemoveSponsor(sponsor.submittedAt);
-  };
-
-  const handleSaveField = async (
-    field: "venueLabel" | "doorLabel",
-    value: string,
-    onDone: () => void,
-  ) => {
+  const handleSaveLabels = async () => {
     if (!show) return;
-    const trimmed = value.trim() || null;
+    const venueLabel = labelValue.trim() || null;
+    const doorLabel = doorLabelValue.trim() || null;
     const res = await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: show.slug, [field]: trimmed }),
+      body: JSON.stringify({ slug: show.slug, venueLabel, doorLabel }),
     });
-    if (res.ok) {
-      onShowUpdate(show.slug, { [field]: trimmed });
-      onDone();
-    }
+    if (res.ok) onShowUpdate(show.slug, { venueLabel, doorLabel });
   };
 
+  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-xl p-4 shadow-sm space-y-2">
-      {editingHost ? (
-        <>
-          <SponsorForm
-            showSlug={host.showSlug ?? undefined}
-            submittedAt={host.submittedAt}
-            city={host.city}
-            region={host.region}
-            country={host.country}
-            date={host.date}
-            doorTime={host.doorTime}
-            initialName={host.name}
-            initialPhone={host.phone}
-            initialEmail={host.email}
-            initialItems={host.items}
-            compact
-            editMode
-            onSuccess={(data) => {
-              setEditingHost(false);
-              onUpdateSponsor({ ...host, ...data });
-            }}
-          />
-          <button
-            onClick={() => setEditingHost(false)}
-            className="text-xs text-neutral-500 hover:text-neutral-700"
-          >
-            Cancel
-          </button>
-        </>
-      ) : (
-        <div className="flex gap-3">
-          <div className="flex-1 min-w-0 space-y-2">
-            {/* Host info */}
-            <div className="text-sm text-neutral-900 dark:text-white">
-              {host.name && <span className="font-medium">{host.name}</span>}
-              {host.email && (
-                <span className="text-neutral-500 dark:text-neutral-400"> · {host.email}</span>
-              )}
-              {host.phone && (
-                <span className="text-neutral-500 dark:text-neutral-400"> · {host.phone}</span>
+    <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex">
+      {/* Left: info */}
+      <div className="flex-1 min-w-0 p-4 space-y-3">
+        {editingHost ? (
+          <div className="space-y-4">
+            <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+              AMEND SPONSOR
+            </h4>
+            <SponsorForm
+              showSlug={host.showSlug ?? undefined}
+              submittedAt={host.submittedAt}
+              venue={host.venue}
+              address={host.address}
+              city={host.city}
+              region={host.region}
+              country={host.country}
+              date={host.date}
+              doorTime={host.doorTime}
+              initialName={host.name}
+              initialPhone={host.phone}
+              initialEmail={host.email}
+              initialItems={host.items}
+              compact
+              editMode
+              onSuccess={(data) => {
+                setEditingHost(false);
+                onUpdateSponsor({ ...host, ...data });
+              }}
+            />
+            <button
+              onClick={() => setEditingHost(false)}
+              className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <p className="text-lg text-neutral-900 dark:text-white font-light">
+                {host.date ? formatLongDate(host.date) : "No date"}
+                {location && ` · ${location}`}
+              </p>
+              {supporters.length > 0 && (
+                <div className="mt-1.5 space-y-0.5">
+                  {supporters.map((s) => (
+                    <p
+                      key={s.submittedAt}
+                      className="text-sm text-neutral-400 dark:text-neutral-600"
+                    >
+                      {s.name || s.email}
+                      {s.name && s.email ? ` · ${s.email}` : ""}
+                    </p>
+                  ))}
+                </div>
               )}
             </div>
-            {(host.date || host.city) && (
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                {host.date && formatLongDate(host.date)}
-                {host.city && ` · ${host.city}, ${host.region}`}
-                {host.doorTime && ` · ${host.doorTime}`}
-              </div>
-            )}
-            {host.items.length > 0 && (
-              <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                {host.items.join(", ")}
-              </p>
-            )}
 
-            {/* Supporters */}
-            {supporters.length > 0 && (
-              <div className="border-t border-neutral-100 dark:border-neutral-700 pt-2 space-y-1.5">
-                {supporters.map((s) => (
-                  <SupporterRow
-                    key={s.submittedAt}
-                    sponsor={s}
-                    showSlug={group.showSlug}
-                    onUpdate={onUpdateSponsor}
-                    onDelete={() => handleDeleteSupporter(s)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Editable labels */}
             {show && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-neutral-400 shrink-0">RSVP label</span>
-                {editingLabel ? (
-                  <>
-                    <input
-                      type="text"
-                      value={labelValue}
-                      onChange={(e) => setLabelValue(e.target.value)}
-                      placeholder={show.venue ?? show.city}
-                      autoFocus
-                      className="flex-1 min-w-0 px-2 py-0.5 bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
-                    />
-                    <button
-                      onClick={() =>
-                        handleSaveField("venueLabel", labelValue, () => setEditingLabel(false))
-                      }
-                      className="text-blue-600 hover:text-blue-700 shrink-0"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingLabel(false)}
-                      className="text-neutral-500 shrink-0"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setLabelValue(show.venueLabel ?? "");
-                      setEditingLabel(true);
-                    }}
-                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 italic"
-                  >
-                    {show.venueLabel ?? "none"}
-                  </button>
-                )}
+              <div className="space-y-2 pt-3">
+                <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
+                  Poster Labels
+                </h4>
+                <input
+                  type="text"
+                  value={labelValue}
+                  onChange={(e) => setLabelValue(e.target.value)}
+                  placeholder={`${host.venue || "Venue"}, ${host.city}, ${host.region}`}
+                  className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                />
+                <input
+                  type="text"
+                  value={doorLabelValue}
+                  onChange={(e) => setDoorLabelValue(e.target.value)}
+                  placeholder={`Doors open at ${host.doorTime || "7PM"}`}
+                  className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                />
+                <button
+                  onClick={handleSaveLabels}
+                  className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                >
+                  Save Labels
+                </button>
               </div>
             )}
-            {show && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-neutral-400 shrink-0">Door text</span>
-                {editingDoorLabel ? (
-                  <>
-                    <input
-                      type="text"
-                      value={doorLabelValue}
-                      onChange={(e) => setDoorLabelValue(e.target.value)}
-                      placeholder={`Doors open at ${show.doorTime}`}
-                      autoFocus
-                      className="flex-1 min-w-0 px-2 py-0.5 bg-neutral-50 dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-500"
-                    />
-                    <button
-                      onClick={() =>
-                        handleSaveField("doorLabel", doorLabelValue, () =>
-                          setEditingDoorLabel(false),
-                        )
-                      }
-                      className="text-blue-600 hover:text-blue-700 shrink-0"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingDoorLabel(false)}
-                      className="text-neutral-500 shrink-0"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setDoorLabelValue(show.doorLabel ?? "");
-                      setEditingDoorLabel(true);
-                    }}
-                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 italic"
-                  >
-                    {show.doorLabel ?? `Doors open at ${show.doorTime}`}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* Action buttons */}
-          <div className="shrink-0 self-stretch flex flex-col rounded-md overflow-hidden">
-            {show?.slug && (
-              <a
-                href={`/api/poster/${show.slug}`}
-                download={`poster-${show.slug}.jpg`}
-                className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
-              >
-                Poster
-              </a>
+            {confirmDelete && (
+              <div className="flex gap-2 items-center pt-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  placeholder='type "delete"'
+                  className="flex-1 px-3 py-1.5 text-sm rounded border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-400"
+                />
+                <button
+                  onClick={handleDeleteShow}
+                  disabled={deleteInput !== "delete"}
+                  className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmDelete(false);
+                    setDeleteInput("");
+                  }}
+                  className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             )}
+          </>
+        )}
+      </div>
+
+      {/* Right: actions — flush to top, right, bottom edges */}
+      {!editingHost && (
+        <div className="shrink-0 flex flex-col border-l border-neutral-200/50 dark:border-neutral-700/50 w-28">
+          <button
+            disabled
+            title="PDF renovating"
+            className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-400 dark:text-neutral-600 cursor-not-allowed font-light bg-neutral-50 dark:bg-neutral-800"
+          >
+            PDF
+          </button>
+          <button
+            onClick={() => setEditingHost(true)}
+            className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+          >
+            Amend
+          </button>
+          <button
+            onClick={() => {
+              setConfirmDelete(true);
+              setDeleteInput("");
+            }}
+            className="flex-1 flex items-center justify-center text-sm px-3 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light border-b border-neutral-200/50 dark:border-neutral-700/50"
+          >
+            Delete
+          </button>
+          {show?.slug ? (
             <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+              href={`/api/poster/${show.slug}`}
+              download={`poster-${show.slug}.jpg`}
+              className="flex-1 flex items-center justify-center text-sm px-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
             >
-              PDF
+              Poster
             </a>
-            <button
-              onClick={() => setEditingHost(true)}
-              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
-            >
-              Amend
-            </button>
-            <button
-              onClick={handleDeleteShow}
-              className="flex-1 flex items-center justify-center text-xs px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
-            >
-              Delete
-            </button>
-          </div>
+          ) : (
+            <div className="flex-1" />
+          )}
         </div>
       )}
-    </div>
-  );
-}
-
-function SupporterRow({
-  sponsor,
-  showSlug,
-  onUpdate,
-  onDelete,
-}: {
-  sponsor: Sponsor;
-  showSlug: string;
-  onUpdate: (updated: Sponsor) => void;
-  onDelete: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-
-  if (editing) {
-    return (
-      <div className="pl-2 border-l-2 border-neutral-200 dark:border-neutral-700">
-        <SponsorForm
-          showSlug={showSlug}
-          submittedAt={sponsor.submittedAt}
-          initialName={sponsor.name}
-          initialPhone={sponsor.phone}
-          initialEmail={sponsor.email}
-          initialItems={sponsor.items}
-          compact
-          editMode
-          mode="supporter"
-          onSuccess={(data) => {
-            setEditing(false);
-            onUpdate({ ...sponsor, ...data });
-          }}
-        />
-        <button
-          onClick={() => setEditing(false)}
-          className="text-xs text-neutral-500 hover:text-neutral-700 mt-1"
-        >
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-start justify-between gap-2 text-xs pl-2 border-l-2 border-neutral-200 dark:border-neutral-700">
-      <div className="flex-1 min-w-0">
-        <span className="text-neutral-600 dark:text-neutral-300">
-          {sponsor.name || sponsor.email}
-        </span>
-        {sponsor.name && sponsor.email && (
-          <span className="text-neutral-400"> · {sponsor.email}</span>
-        )}
-        {sponsor.items.length > 0 && (
-          <p className="text-neutral-400 dark:text-neutral-500 mt-0.5">
-            {sponsor.items.join(", ")}
-          </p>
-        )}
-      </div>
-      <div className="flex gap-2 shrink-0">
-        <button
-          onClick={() => setEditing(true)}
-          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-        >
-          Amend
-        </button>
-        <button
-          onClick={onDelete}
-          className="text-neutral-400 hover:text-red-500 dark:hover:text-red-400"
-        >
-          Delete
-        </button>
-      </div>
     </div>
   );
 }
