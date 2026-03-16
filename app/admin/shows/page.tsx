@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import { type Show } from "../../lib/shows";
-import { formatLongDate, isDatePast } from "../../lib/dates";
+import { formatEventDate, isDatePast } from "../../lib/dates";
 
 interface Sponsor {
   showSlug: string | null;
@@ -225,6 +226,35 @@ function ShowGroupCard({
   const [deleteInput, setDeleteInput] = useState("");
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
+  const [labelSaveState, setLabelSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const debounceSaveLabels = useCallback(
+    (venue: string, door: string) => {
+      if (!show) return;
+      clearTimeout(debounceRef.current);
+      setLabelSaveState("saving");
+      debounceRef.current = setTimeout(async () => {
+        const venueLabel = venue.trim() || null;
+        const doorLabel = door.trim() || null;
+        const res = await fetch("/api/shows", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: show.slug, venueLabel, doorLabel }),
+        });
+        if (res.ok) {
+          onShowUpdate(show.slug, { venueLabel, doorLabel });
+          setLabelSaveState("saved");
+          setTimeout(() => setLabelSaveState("idle"), 2000);
+        } else {
+          setLabelSaveState("idle");
+        }
+      }, 800);
+    },
+    [show, onShowUpdate],
+  );
+
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   const handleDeleteShow = async () => {
     if (group.showSlug) {
@@ -246,18 +276,6 @@ function ShowGroupCard({
     }
     onRemoveSponsor(host.submittedAt);
     for (const s of supporters) onRemoveSponsor(s.submittedAt);
-  };
-
-  const handleSaveLabels = async () => {
-    if (!show) return;
-    const venueLabel = labelValue.trim() || null;
-    const doorLabel = doorLabelValue.trim() || null;
-    const res = await fetch("/api/shows", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: show.slug, venueLabel, doorLabel }),
-    });
-    if (res.ok) onShowUpdate(show.slug, { venueLabel, doorLabel });
   };
 
   const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
@@ -303,7 +321,7 @@ function ShowGroupCard({
           <>
             <div>
               <p className="text-lg text-neutral-900 dark:text-white font-light">
-                {host.date ? formatLongDate(host.date) : "No date"}
+                {host.date ? formatEventDate(host.date) : "No date"}
                 {location && ` · ${location}`}
               </p>
               {supporters.length > 0 && (
@@ -323,29 +341,37 @@ function ShowGroupCard({
 
             {show && (
               <div className="space-y-2 pt-3">
-                <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
-                  Poster Labels
-                </h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
+                    Poster Labels
+                  </h4>
+                  {labelSaveState === "saving" && (
+                    <CircleNotchIcon size={14} className="text-neutral-400 animate-spin" />
+                  )}
+                  {labelSaveState === "saved" && (
+                    <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
+                  )}
+                </div>
                 <input
                   type="text"
                   value={labelValue}
-                  onChange={(e) => setLabelValue(e.target.value)}
+                  onChange={(e) => {
+                    setLabelValue(e.target.value);
+                    debounceSaveLabels(e.target.value, doorLabelValue);
+                  }}
                   placeholder={`${host.venue || "Venue"}, ${host.city}, ${host.region}`}
                   className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
                 />
                 <input
                   type="text"
                   value={doorLabelValue}
-                  onChange={(e) => setDoorLabelValue(e.target.value)}
+                  onChange={(e) => {
+                    setDoorLabelValue(e.target.value);
+                    debounceSaveLabels(labelValue, e.target.value);
+                  }}
                   placeholder={`Doors open at ${host.doorTime || "7PM"}`}
                   className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
                 />
-                <button
-                  onClick={handleSaveLabels}
-                  className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
-                >
-                  Save Labels
-                </button>
               </div>
             )}
 
