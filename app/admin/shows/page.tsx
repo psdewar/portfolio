@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import { type Show } from "../../lib/shows";
+import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, isDatePast } from "../../lib/dates";
 
 interface Sponsor {
@@ -34,6 +35,7 @@ interface ShowGroup {
 export default function ShowsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [pamphlets, setPamphlets] = useState<Pamphlet[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   useEffect(() => {
@@ -44,10 +46,14 @@ export default function ShowsAdminPage() {
       fetch("/api/sponsors")
         .then((r) => r.json())
         .catch(() => []),
+      fetch("/api/pamphlets")
+        .then((r) => r.json())
+        .catch(() => []),
     ])
-      .then(([showsData, sponsorsData]) => {
+      .then(([showsData, sponsorsData, pamphletData]) => {
         setShows(Array.isArray(showsData) ? showsData : []);
         setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
+        setPamphlets(Array.isArray(pamphletData) ? pamphletData : []);
       })
       .catch(() => setMessage({ type: "error", text: "Failed to load data" }))
       .finally(() => setLoading(false));
@@ -107,6 +113,25 @@ export default function ShowsAdminPage() {
       (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
     );
 
+  const cardProps = {
+    onUpdateSponsor: (updated: Sponsor) =>
+      setSponsors((prev) => prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s))),
+    onRemoveSponsor: (submittedAt: string) =>
+      setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
+    onShowUpdate: (slug: string, fields: Partial<Show>) =>
+      setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s))),
+  };
+
+  const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
+  const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
+
+  const handlePamphletSaved = (p: Pamphlet) => {
+    setPamphlets((prev) => {
+      const idx = prev.findIndex((x) => x.id === p.id);
+      return idx >= 0 ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p];
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       {/* Main content */}
@@ -146,105 +171,91 @@ export default function ShowsAdminPage() {
           </div>
         ) : (
           <>
-            {upcoming.length > 0 &&
-              (() => {
-                const cardProps = {
-                  onUpdateSponsor: (updated: Sponsor) =>
-                    setSponsors((prev) =>
-                      prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
-                    ),
-                  onRemoveSponsor: (submittedAt: string) =>
-                    setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
-                  onShowUpdate: (slug: string, fields: Partial<Show>) =>
-                    setShows((prev) =>
-                      prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                    ),
-                };
-                const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
-                const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
-                return (
-                  <div className="mb-16">
-                    <div className="flex items-baseline justify-between mb-8">
-                      <div>
-                        <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
-                          Upcoming
-                        </h2>
-                        <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
-                      </div>
+            {upcoming.length > 0 && (
+              <div className="mb-16">
+                <div className="flex items-baseline justify-between mb-8">
+                  <div>
+                    <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
+                      Upcoming
+                    </h2>
+                    <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {(
+                      [
+                        { fmt: "", label: "Blank" },
+                        { fmt: "&format=ig", label: "Blank IG" },
+                        { fmt: "&format=yt", label: "Blank YT" },
+                      ] as const
+                    ).map(({ fmt, label }) => (
                       <a
-                        href="/api/pamphlet?blank=true"
-                        download="pamphlet-blank.jpg"
+                        key={label}
+                        href={`/api/pamphlet?blank=true${fmt}`}
+                        download={`pamphlet-${label.toLowerCase().replace(" ", "-")}.jpg`}
                         className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
                       >
-                        Blank pamphlet
+                        {label}
                       </a>
-                    </div>
-                    <div className="space-y-10">
-                      {pamphletGroups.map((cluster, i) => (
-                        <div key={i}>
-                          <div className="flex items-center gap-4 mb-4">
-                            <PamphletGroupButton
-                              group={cluster}
-                              onShowUpdate={cardProps.onShowUpdate}
-                            />
-                          </div>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                            {cluster.map((g) => (
-                              <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      {ungrouped.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-4 mb-4">
-                            <span className="text-xs tracking-[0.15em] text-neutral-400 dark:text-neutral-500 uppercase shrink-0">
-                              Unscheduled
-                            </span>
-                            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
-                          </div>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                            {ungrouped.map((g) => (
-                              <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                );
-              })()}
+                </div>
+                <div className="space-y-10">
+                  {pamphletGroups.map((cluster, i) => {
+                    const clusterSlugs = cluster.map((g) => g.show!.slug);
+                    const matched = pamphlets.find((p) =>
+                      p.shows.some((ps) => clusterSlugs.includes(ps.slug)),
+                    );
+                    return (
+                      <div key={i}>
+                        <div className="flex items-center gap-4 mb-4">
+                          <PamphletGroupButton
+                            group={cluster}
+                            matchedPamphlet={matched ?? null}
+                            onPamphletSaved={handlePamphletSaved}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                          {cluster.map((g) => (
+                            <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {ungrouped.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-xs tracking-[0.15em] text-neutral-400 dark:text-neutral-500 uppercase shrink-0">
+                          Unscheduled
+                        </span>
+                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                        {ungrouped.map((g) => (
+                          <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-            {past.length > 0 &&
-              (() => {
-                const cardProps = {
-                  onUpdateSponsor: (updated: Sponsor) =>
-                    setSponsors((prev) =>
-                      prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
-                    ),
-                  onRemoveSponsor: (submittedAt: string) =>
-                    setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
-                  onShowUpdate: (slug: string, fields: Partial<Show>) =>
-                    setShows((prev) =>
-                      prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                    ),
-                };
-                return (
-                  <div>
-                    <div className="mb-8">
-                      <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
-                        Past
-                      </h2>
-                      <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                      {past.map((group) => (
-                        <ShowGroupCard key={group.showSlug} group={group} {...cardProps} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+            {past.length > 0 && (
+              <div>
+                <div className="mb-8">
+                  <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
+                    Past
+                  </h2>
+                  <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                  {past.map((group) => (
+                    <ShowGroupCard key={group.showSlug} group={group} {...cardProps} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {groups.length === 0 && (
               <div className="text-center py-24">
@@ -263,18 +274,35 @@ export default function ShowsAdminPage() {
 
 function PamphletGroupButton({
   group,
-  onShowUpdate,
+  matchedPamphlet,
+  onPamphletSaved,
 }: {
   group: ShowGroup[];
-  onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  matchedPamphlet: Pamphlet | null;
+  onPamphletSaved: (p: Pamphlet) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.venueLabel ?? ""])),
-  );
-  const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
-  );
+  const [legName, setLegName] = useState(matchedPamphlet?.id ?? "");
+  const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
+    if (matchedPamphlet) {
+      return Object.fromEntries(
+        group.map((g) => {
+          const ps = matchedPamphlet.shows.find((s) => s.slug === g.show!.slug);
+          return [g.show!.slug, ps?.venueLabel ?? g.show!.venueLabel ?? ""];
+        }),
+      );
+    }
+    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.venueLabel ?? ""]));
+  });
+  const [included, setIncluded] = useState<Record<string, boolean>>(() => {
+    if (matchedPamphlet) {
+      const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
+      return Object.fromEntries(group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]));
+    }
+    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.access !== "private"]));
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const first = group[0].show!;
   const last = group[group.length - 1].show!;
@@ -283,26 +311,67 @@ function PamphletGroupButton({
       ? formatMonthDay(first.date)
       : `${formatMonthDay(first.date)} – ${formatMonthDay(last.date)}`;
 
-  const activeGroup = group.filter((g) => g.show?.access !== "private");
+  const activeGroup = group.filter((g) => included[g.show!.slug]);
 
-  const buildHref = () => {
+  const buildPamphletShows = (): PamphletShow[] =>
+    activeGroup.map((g) => {
+      const slug = g.show!.slug;
+      const vl = venueLabels[slug]?.trim();
+      return vl ? { slug, venueLabel: vl } : { slug };
+    });
+
+  const buildHref = (format: "standard" | "ig" | "yt" = "standard") => {
+    if (legName.trim()) {
+      const params = new URLSearchParams({ id: legName.trim() });
+      if (format !== "standard") params.set("format", format);
+      return `/api/pamphlet?${params.toString()}`;
+    }
     const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
     const params = new URLSearchParams({ slugs: slugsParam });
     for (const g of activeGroup) {
       const slug = g.show!.slug;
       if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
-      if (doorLabels[slug]) params.set(`dl_${slug}`, doorLabels[slug]);
     }
+    if (format !== "standard") params.set("format", format);
     return `/api/pamphlet?${params.toString()}`;
   };
 
-  const toggleAccess = async (slug: string, access: "public" | "private") => {
-    onShowUpdate(slug, { access });
-    await fetch("/api/shows", {
-      method: "PATCH",
+  const savePamphlet = async (): Promise<boolean> => {
+    const id = legName.trim();
+    if (!id) return true;
+    setSaving(true);
+    setSaveError("");
+    const payload = { id, shows: buildPamphletShows() };
+    const isUpdate = matchedPamphlet?.id === id;
+    const res = await fetch("/api/pamphlets", {
+      method: isUpdate ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, access }),
+      body: JSON.stringify(payload),
     });
+    setSaving(false);
+    if (!res.ok) {
+      if (res.status === 409) {
+        setSaveError("Name already taken by another pamphlet");
+      } else {
+        setSaveError("Failed to save");
+      }
+      return false;
+    }
+    onPamphletSaved({ id, shows: payload.shows });
+    return true;
+  };
+
+  const handleDownload = async (fmt: "standard" | "ig" | "yt") => {
+    const ok = await savePamphlet();
+    if (!ok) return;
+    const suffix = fmt !== "standard" ? `-${fmt}` : "";
+    const filename = legName.trim()
+      ? `pamphlet-${legName.trim()}${suffix}.jpg`
+      : `pamphlet-${first.date}${suffix}.jpg`;
+    const link = document.createElement("a");
+    link.href = buildHref(fmt);
+    link.download = filename;
+    link.click();
   };
 
   return (
@@ -327,18 +396,25 @@ function PamphletGroupButton({
                 ✕
               </button>
             </div>
+            <input
+              type="text"
+              value={legName}
+              onChange={(e) => setLegName(e.target.value)}
+              placeholder="Leg name (e.g. south-florida)"
+              className="w-full px-2 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-4"
+            />
             <div className="space-y-3 mb-4">
               {group.map((g) => {
                 const slug = g.show!.slug;
-                const included = g.show?.access !== "private";
+                const isIncluded = included[slug];
                 return (
-                  <div key={slug} className={included ? "" : "opacity-40"}>
+                  <div key={slug} className={isIncluded ? "" : "opacity-40"}>
                     <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
                       <input
                         type="checkbox"
-                        checked={included}
+                        checked={isIncluded}
                         onChange={(e) =>
-                          toggleAccess(slug, e.target.checked ? "public" : "private")
+                          setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
                         }
                         className="rounded"
                       />
@@ -352,32 +428,32 @@ function PamphletGroupButton({
                       onChange={(e) =>
                         setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
                       }
-                      disabled={!included}
+                      disabled={!isIncluded}
                       placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
                       className="w-full px-2 py-1 text-xs rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
-                    />
-                    <input
-                      type="text"
-                      value={doorLabels[slug] ?? ""}
-                      onChange={(e) =>
-                        setDoorLabels((prev) => ({ ...prev, [slug]: e.target.value }))
-                      }
-                      disabled={!included}
-                      placeholder={g.show!.doorTime || "7:00 PM"}
-                      className="w-full px-2 py-1 text-xs rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30 mt-1"
                     />
                   </div>
                 );
               })}
             </div>
+            {saveError && <div className="text-xs text-red-500 mb-2">{saveError}</div>}
             {activeGroup.length > 0 ? (
-              <a
-                href={buildHref()}
-                download={`pamphlet-${first.date}.jpg`}
-                className="block text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
-              >
-                Download ({activeGroup.length})
-              </a>
+              <div className="flex gap-2">
+                {(["standard", "ig", "yt"] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => handleDownload(fmt)}
+                    disabled={saving}
+                    className="flex-1 text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
+                  >
+                    {saving
+                      ? "Saving..."
+                      : fmt === "standard"
+                        ? `Download (${activeGroup.length})`
+                        : `${fmt.toUpperCase()} (${activeGroup.length})`}
+                  </button>
+                ))}
+              </div>
             ) : (
               <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-400">
                 Select at least one show
@@ -392,7 +468,8 @@ function PamphletGroupButton({
       >
         <span className="text-xs tracking-widest text-neutral-400 uppercase">Pamphlet</span>
         <span>
-          {label} &middot; {group.length} show{group.length !== 1 ? "s" : ""}
+          {matchedPamphlet ? matchedPamphlet.id : label} &middot; {group.length} show
+          {group.length !== 1 ? "s" : ""}
         </span>
       </button>
     </>
@@ -599,79 +676,77 @@ function ShowGroupCard({
       <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex">
         {/* Left: info */}
         <div className="flex-1 min-w-0 p-4 space-y-3">
-          <>
-            <div>
-              <p className="text-lg text-neutral-900 dark:text-white font-light">
-                {host.date ? formatEventDate(host.date) : "No date"}
-                {location && ` · ${location}`}
-              </p>
+          <div>
+            <p className="text-lg text-neutral-900 dark:text-white font-light">
+              {host.date ? formatEventDate(host.date) : "No date"}
+              {location && ` · ${location}`}
+            </p>
+          </div>
+
+          {show && (
+            <div className="space-y-2 pt-3">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
+                  Poster Labels
+                </h4>
+                {labelSaveState === "saving" && (
+                  <CircleNotchIcon size={14} className="text-neutral-400 animate-spin" />
+                )}
+                {labelSaveState === "saved" && (
+                  <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
+                )}
+              </div>
+              <input
+                type="text"
+                value={labelValue}
+                onChange={(e) => {
+                  setLabelValue(e.target.value);
+                  debounceSaveLabels(e.target.value, doorLabelValue);
+                }}
+                placeholder={`${host.venue || "Venue"}, ${host.city}, ${host.region}`}
+                className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+              />
+              <input
+                type="text"
+                value={doorLabelValue}
+                onChange={(e) => {
+                  setDoorLabelValue(e.target.value);
+                  debounceSaveLabels(labelValue, e.target.value);
+                }}
+                placeholder={`Doors open at ${host.doorTime || "7PM"}`}
+                className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+              />
             </div>
+          )}
 
-            {show && (
-              <div className="space-y-2 pt-3">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
-                    Poster Labels
-                  </h4>
-                  {labelSaveState === "saving" && (
-                    <CircleNotchIcon size={14} className="text-neutral-400 animate-spin" />
-                  )}
-                  {labelSaveState === "saved" && (
-                    <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={labelValue}
-                  onChange={(e) => {
-                    setLabelValue(e.target.value);
-                    debounceSaveLabels(e.target.value, doorLabelValue);
-                  }}
-                  placeholder={`${host.venue || "Venue"}, ${host.city}, ${host.region}`}
-                  className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                />
-                <input
-                  type="text"
-                  value={doorLabelValue}
-                  onChange={(e) => {
-                    setDoorLabelValue(e.target.value);
-                    debounceSaveLabels(labelValue, e.target.value);
-                  }}
-                  placeholder={`Doors open at ${host.doorTime || "7PM"}`}
-                  className="w-full px-3 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                />
-              </div>
-            )}
-
-            {confirmDelete && (
-              <div className="flex gap-2 items-center pt-2">
-                <input
-                  autoFocus
-                  type="text"
-                  value={deleteInput}
-                  onChange={(e) => setDeleteInput(e.target.value)}
-                  placeholder='type "delete"'
-                  className="flex-1 px-3 py-1.5 text-sm rounded border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-400"
-                />
-                <button
-                  onClick={handleDeleteShow}
-                  disabled={deleteInput !== "delete"}
-                  className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => {
-                    setConfirmDelete(false);
-                    setDeleteInput("");
-                  }}
-                  className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </>
+          {confirmDelete && (
+            <div className="flex gap-2 items-center pt-2">
+              <input
+                autoFocus
+                type="text"
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                placeholder='type "delete"'
+                className="flex-1 px-3 py-1.5 text-sm rounded border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-400"
+              />
+              <button
+                onClick={handleDeleteShow}
+                disabled={deleteInput !== "delete"}
+                className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeleteInput("");
+                }}
+                className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right: actions — flush to top, right, bottom edges */}

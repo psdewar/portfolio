@@ -1,15 +1,18 @@
 import { NextRequest } from "next/server";
-import { getShows } from "../../lib/shows";
+import { type Show, getShows } from "../../lib/shows";
+import { getPamphlets } from "../../lib/pamphlets";
+import { formatEventDateShort } from "../../lib/dates";
 import { takeScreenshot } from "../../lib/screenshot";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
-function formatPamphletDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  const day = d.toLocaleDateString("en-US", { weekday: "long" });
-  const month = d.toLocaleDateString("en-US", { month: "long" });
-  return `${day}, ${month} ${d.getDate()}`;
-}
+type PamphletFormat = "standard" | "ig" | "yt";
+
+const DIMS: Record<PamphletFormat, { W: number; H: number }> = {
+  standard: { W: 480, H: 720 },
+  ig: { W: 540, H: 675 },
+  yt: { W: 540, H: 540 },
+};
 
 function pamphletHtml(
   shows: Array<{
@@ -19,10 +22,12 @@ function pamphletHtml(
     venue: string | null;
     venueLabel: string | null;
   }>,
+  format: PamphletFormat = "standard",
 ): string {
+  const { W, H } = DIMS[format];
   const showsHtml = shows
     .map((show, i) => {
-      const dateStr = formatPamphletDate(show.date);
+      const dateStr = formatEventDateShort(show.date);
       const locationLabel = show.venueLabel
         ? show.venueLabel
         : `${show.venue ? `${show.venue}, ` : ""}${show.city}, ${show.region}`;
@@ -45,7 +50,7 @@ function pamphletHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 0; }
-    .poster { width: 480px; height: 720px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
+    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
     .poster-bg { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .poster::before { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E"); z-index: 11; pointer-events: none; opacity: 0.4; }
     .photo-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to right, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 15%, rgba(10,10,10,0.22) 45%, transparent 70%); z-index: 3; }
@@ -70,6 +75,7 @@ function pamphletHtml(
     .show-divider { height: 1px; background: rgba(255,255,255,0.1); }
     .bottom-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
     .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #c0b8a8; }
+    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .lockup-img { height: 24.75px; } .lockup-records { font-size: 16.875px; margin-bottom: 1.125px; }" : ""}
   </style>
 </head>
 <body>
@@ -117,56 +123,82 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const blank = searchParams.get("blank") === "true";
 
-  let selected: Array<{
-    date: string;
-    city: string;
-    region: string;
-    venue: string | null;
-    venueLabel: string | null;
-  }> = [];
+  type PamphletShow = Pick<Show, "date" | "city" | "region" | "venue" | "venueLabel">;
 
-  if (!blank) {
-    const slugs = searchParams
-      .get("slugs")
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (!slugs?.length) {
-      return new Response("Missing slugs", { status: 400 });
-    }
-
-    const allShows = await getShows();
-    selected = slugs
+  function resolveShows(
+    allShows: Show[],
+    slugs: string[],
+    getVenueLabel: (slug: string, show: Show) => string | null,
+  ): PamphletShow[] {
+    return slugs
       .map((slug) => {
         const show = allShows.find((s) => s.slug === slug);
         if (!show) return null;
-        return {
-          ...show,
-          venueLabel: searchParams.get(`vl_${slug}`) ?? show.venueLabel,
-        };
+        return { ...show, venueLabel: getVenueLabel(slug, show) };
       })
       .filter((s): s is NonNullable<typeof s> => s != null)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  let selected: PamphletShow[] = [];
+  const pamphletId = searchParams.get("id");
+
+  if (!blank) {
+    if (pamphletId) {
+      const [allShows, pamphlets] = await Promise.all([getShows(), getPamphlets()]);
+      const pamphlet = pamphlets.find((p) => p.id === pamphletId);
+      if (!pamphlet) {
+        return new Response("Pamphlet not found", { status: 404 });
+      }
+      const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
+      selected = resolveShows(
+        allShows,
+        pamphlet.shows.map((ps) => ps.slug),
+        (slug, show) => overrides.get(slug) ?? show.venueLabel,
+      );
+    } else {
+      const slugs = searchParams
+        .get("slugs")
+        ?.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (!slugs?.length) {
+        return new Response("Missing slugs or id", { status: 400 });
+      }
+
+      const allShows = await getShows();
+      selected = resolveShows(
+        allShows,
+        slugs,
+        (slug, show) => searchParams.get(`vl_${slug}`) ?? show.venueLabel,
+      );
+    }
 
     if (!selected.length) {
       return new Response("No shows found", { status: 404 });
     }
   }
 
-  const html = pamphletHtml(selected);
+  const rawFormat = searchParams.get("format") ?? "standard";
+  const format: PamphletFormat = rawFormat === "ig" || rawFormat === "yt" ? rawFormat : "standard";
+  const { W, H } = DIMS[format];
+  const html = pamphletHtml(selected, format);
 
   try {
     const screenshot = await takeScreenshot({
       path: "about:blank",
       selector: ".poster",
-      viewport: { width: 480, height: 720 },
+      viewport: { width: W, height: H },
       deviceScaleFactor: 2,
       waitForTimeout: 1500,
       htmlContent: html,
     });
 
-    const filename = blank ? "pamphlet-blank.jpg" : `pamphlet-${selected[0].date}.jpg`;
+    const suffix = format !== "standard" ? `-${format}` : "";
+    const filename = blank
+      ? `pamphlet-blank${suffix}.jpg`
+      : `pamphlet-${pamphletId || selected[0].date}${suffix}.jpg`;
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
