@@ -28,14 +28,12 @@ export default function Poster({
   return (
     <>
       <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Parkinsans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap");
-
         .poster {
           width: 100%;
           aspect-ratio: 480 / 720;
           position: relative;
           overflow: hidden;
-          font-family: "Parkinsans", sans-serif;
+          font-family: var(--font-parkinsans), sans-serif;
           background: #0a0a0a;
           container-type: inline-size;
         }
@@ -115,14 +113,14 @@ export default function Poster({
           width: auto;
         }
         .lockup-records {
-          font-family: "Fira Sans", sans-serif;
+          font-family: var(--font-fira-sans), sans-serif;
           font-size: 3.125cqw;
           font-weight: 500;
           color: #ffffff;
           margin-bottom: 0.208cqw;
         }
         .presents {
-          font-family: "Space Mono", monospace;
+          font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
           font-weight: 500;
           letter-spacing: 0.06em;
@@ -158,7 +156,7 @@ export default function Poster({
           margin: 1.25cqw 0 1.458cqw;
         }
         .the-concert {
-          font-family: "Space Mono", monospace;
+          font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
           font-weight: 500;
           letter-spacing: 0.06em;
@@ -170,7 +168,7 @@ export default function Poster({
           top: 5%;
           right: 6%;
           text-align: right;
-          font-family: "Space Mono", monospace;
+          font-family: var(--font-space-mono), monospace;
           font-size: 1.875cqw;
           font-weight: 400;
           letter-spacing: 0.06em;
@@ -200,7 +198,7 @@ export default function Poster({
           color: #f0ede6;
         }
         .tags {
-          font-family: "Space Mono", monospace;
+          font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
           font-weight: 500;
           letter-spacing: 0.06em;

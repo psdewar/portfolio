@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
-import { Bebas_Neue } from "next/font/google";
+import { Bebas_Neue, Parkinsans, Space_Mono, Fira_Sans } from "next/font/google";
 import { ClientLayout } from "./ClientLayout";
 
 const myFont = localFont({
@@ -12,6 +12,24 @@ const bebasNeue = Bebas_Neue({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-bebas",
+});
+
+const parkinsans = Parkinsans({
+  weight: ["400", "500", "600", "700", "800"],
+  subsets: ["latin"],
+  variable: "--font-parkinsans",
+});
+
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-space-mono",
+});
+
+const firaSans = Fira_Sans({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-fira-sans",
 });
 
 const siteConfig = {
@@ -132,7 +150,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${myFont.className} ${bebasNeue.variable} bg-white dark:bg-gray-900`}
+      className={`${myFont.className} ${bebasNeue.variable} ${parkinsans.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
     >
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />

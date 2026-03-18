@@ -21,7 +21,8 @@ export default async function RSVPPage() {
     );
   }
 
-  if (shows.length === 1) redirect(`/rsvp/${shows[0].slug}`);
+  const rsvpable = shows.filter((s) => s.access !== "private");
+  if (rsvpable.length === 1) redirect(`/rsvp/${rsvpable[0].slug}`);
 
   return <RSVPShell shows={shows} />;
 }

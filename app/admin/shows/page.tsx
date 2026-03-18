@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import { type Show } from "../../lib/shows";
-import { formatEventDate, isDatePast } from "../../lib/dates";
+import { formatEventDate, formatMonthDay, isDatePast } from "../../lib/dates";
 
 interface Sponsor {
   showSlug: string | null;
@@ -77,6 +77,30 @@ export default function ShowsAdminPage() {
   const upcoming = groups
     .filter((g) => g.host.date && !isDatePast(g.host.date))
     .sort((a, b) => new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime());
+
+  // Group upcoming shows with slugs: same state ≤21 days, cross-state ≤7 days
+  const pamphletGroups: ShowGroup[][] = [];
+  const withSlug = upcoming.filter((g) => g.show?.slug && g.show?.date);
+  if (withSlug.length) {
+    let current = [withSlug[0]];
+    for (let i = 1; i < withSlug.length; i++) {
+      const prev = withSlug[i - 1];
+      const next = withSlug[i];
+      const diffDays =
+        (new Date(next.show!.date).getTime() - new Date(prev.show!.date).getTime()) /
+        (1000 * 60 * 60 * 24);
+      const sameRegion = prev.show!.region === next.show!.region;
+      const maxGap = sameRegion ? 21 : 7;
+      if (diffDays <= maxGap) {
+        current.push(next);
+      } else {
+        pamphletGroups.push(current);
+        current = [next];
+      }
+    }
+    pamphletGroups.push(current);
+  }
+
   const past = groups
     .filter((g) => !g.host.date || isDatePast(g.host.date))
     .sort(
@@ -85,28 +109,20 @@ export default function ShowsAdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
-      {/* Header */}
-      <div className="border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="h-16 flex items-center gap-8 px-8">
-          <Link
-            href="/admin"
-            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors tracking-wide shrink-0"
-          >
-            ← BACK
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-xl lg:text-2xl font-light tracking-tight text-neutral-900 dark:text-white">
-              SHOWS
-            </h1>
-            <p className="text-xs lg:text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">
-              {groups.length} total · {upcoming.length} upcoming · {past.length} past
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Main content */}
       <div className="px-8 py-12">
+        <div className="flex items-center gap-4 mb-10">
+          <Link
+            href="/admin"
+            className="text-xs font-medium tracking-widest uppercase text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors shrink-0"
+          >
+            ← Admin
+          </Link>
+          <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 shrink-0" />
+          <h1 className="text-sm font-semibold tracking-[0.2em] uppercase text-neutral-900 dark:text-white">
+            Shows
+          </h1>
+        </div>
         {message && (
           <div
             className={`p-4 rounded-lg text-sm mb-8 ${
@@ -130,69 +146,105 @@ export default function ShowsAdminPage() {
           </div>
         ) : (
           <>
-            {upcoming.length > 0 && (
-              <div className="mb-16">
-                <div className="mb-8">
-                  <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
-                    Upcoming
-                  </h2>
-                  <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                  {upcoming.map((group) => (
-                    <ShowGroupCard
-                      key={group.showSlug}
-                      group={group}
-                      onUpdateSponsor={(updated) =>
-                        setSponsors((prev) =>
-                          prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
-                        )
-                      }
-                      onRemoveSponsor={(submittedAt) =>
-                        setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt))
-                      }
-                      onShowUpdate={(slug, fields) =>
-                        setShows((prev) =>
-                          prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {upcoming.length > 0 &&
+              (() => {
+                const cardProps = {
+                  onUpdateSponsor: (updated: Sponsor) =>
+                    setSponsors((prev) =>
+                      prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
+                    ),
+                  onRemoveSponsor: (submittedAt: string) =>
+                    setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
+                  onShowUpdate: (slug: string, fields: Partial<Show>) =>
+                    setShows((prev) =>
+                      prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
+                    ),
+                };
+                const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
+                const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
+                return (
+                  <div className="mb-16">
+                    <div className="flex items-baseline justify-between mb-8">
+                      <div>
+                        <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
+                          Upcoming
+                        </h2>
+                        <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                      </div>
+                      <a
+                        href="/api/pamphlet?blank=true"
+                        download="pamphlet-blank.jpg"
+                        className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                      >
+                        Blank pamphlet
+                      </a>
+                    </div>
+                    <div className="space-y-10">
+                      {pamphletGroups.map((cluster, i) => (
+                        <div key={i}>
+                          <div className="flex items-center gap-4 mb-4">
+                            <PamphletGroupButton
+                              group={cluster}
+                              onShowUpdate={cardProps.onShowUpdate}
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                            {cluster.map((g) => (
+                              <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {ungrouped.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-4 mb-4">
+                            <span className="text-xs tracking-[0.15em] text-neutral-400 dark:text-neutral-500 uppercase shrink-0">
+                              Unscheduled
+                            </span>
+                            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                          </div>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                            {ungrouped.map((g) => (
+                              <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
-            {past.length > 0 && (
-              <div>
-                <div className="mb-8">
-                  <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
-                    Past
-                  </h2>
-                  <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                  {past.map((group) => (
-                    <ShowGroupCard
-                      key={group.showSlug}
-                      group={group}
-                      onUpdateSponsor={(updated) =>
-                        setSponsors((prev) =>
-                          prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
-                        )
-                      }
-                      onRemoveSponsor={(submittedAt) =>
-                        setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt))
-                      }
-                      onShowUpdate={(slug, fields) =>
-                        setShows((prev) =>
-                          prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {past.length > 0 &&
+              (() => {
+                const cardProps = {
+                  onUpdateSponsor: (updated: Sponsor) =>
+                    setSponsors((prev) =>
+                      prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s)),
+                    ),
+                  onRemoveSponsor: (submittedAt: string) =>
+                    setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
+                  onShowUpdate: (slug: string, fields: Partial<Show>) =>
+                    setShows((prev) =>
+                      prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
+                    ),
+                };
+                return (
+                  <div>
+                    <div className="mb-8">
+                      <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
+                        Past
+                      </h2>
+                      <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                      {past.map((group) => (
+                        <ShowGroupCard key={group.showSlug} group={group} {...cardProps} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
             {groups.length === 0 && (
               <div className="text-center py-24">
@@ -209,6 +261,144 @@ export default function ShowsAdminPage() {
   );
 }
 
+function PamphletGroupButton({
+  group,
+  onShowUpdate,
+}: {
+  group: ShowGroup[];
+  onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.venueLabel ?? ""])),
+  );
+  const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
+  );
+
+  const first = group[0].show!;
+  const last = group[group.length - 1].show!;
+  const label =
+    group.length === 1
+      ? formatMonthDay(first.date)
+      : `${formatMonthDay(first.date)} – ${formatMonthDay(last.date)}`;
+
+  const activeGroup = group.filter((g) => g.show?.access !== "private");
+
+  const buildHref = () => {
+    const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
+    const params = new URLSearchParams({ slugs: slugsParam });
+    for (const g of activeGroup) {
+      const slug = g.show!.slug;
+      if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
+      if (doorLabels[slug]) params.set(`dl_${slug}`, doorLabels[slug]);
+    }
+    return `/api/pamphlet?${params.toString()}`;
+  };
+
+  const toggleAccess = async (slug: string, access: "public" | "private") => {
+    onShowUpdate(slug, { access });
+    await fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, access }),
+    });
+  };
+
+  return (
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                PAMPHLET &middot; {label}
+              </h4>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3 mb-4">
+              {group.map((g) => {
+                const slug = g.show!.slug;
+                const included = g.show?.access !== "private";
+                return (
+                  <div key={slug} className={included ? "" : "opacity-40"}>
+                    <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                      <input
+                        type="checkbox"
+                        checked={included}
+                        onChange={(e) =>
+                          toggleAccess(slug, e.target.checked ? "public" : "private")
+                        }
+                        className="rounded"
+                      />
+                      <span>
+                        {formatMonthDay(g.show!.date)} &middot; {g.show!.city}, {g.show!.region}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={venueLabels[slug] ?? ""}
+                      onChange={(e) =>
+                        setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
+                      }
+                      disabled={!included}
+                      placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
+                      className="w-full px-2 py-1 text-xs rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
+                    />
+                    <input
+                      type="text"
+                      value={doorLabels[slug] ?? ""}
+                      onChange={(e) =>
+                        setDoorLabels((prev) => ({ ...prev, [slug]: e.target.value }))
+                      }
+                      disabled={!included}
+                      placeholder={g.show!.doorTime || "7:00 PM"}
+                      className="w-full px-2 py-1 text-xs rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30 mt-1"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {activeGroup.length > 0 ? (
+              <a
+                href={buildHref()}
+                download={`pamphlet-${first.date}.jpg`}
+                className="block text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
+              >
+                Download ({activeGroup.length})
+              </a>
+            ) : (
+              <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-400">
+                Select at least one show
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-light border border-neutral-200 dark:border-neutral-700 rounded text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+      >
+        <span className="text-xs tracking-widest text-neutral-400 uppercase">Pamphlet</span>
+        <span>
+          {label} &middot; {group.length} show{group.length !== 1 ? "s" : ""}
+        </span>
+      </button>
+    </>
+  );
+}
+
 function ShowGroupCard({
   group,
   onUpdateSponsor,
@@ -222,6 +412,8 @@ function ShowGroupCard({
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
+  const [viewingSupporters, setViewingSupporters] = useState(false);
+  const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
@@ -281,14 +473,27 @@ function ShowGroupCard({
   const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
 
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex">
-      {/* Left: info */}
-      <div className="flex-1 min-w-0 p-4 space-y-3">
-        {editingHost ? (
-          <div className="space-y-4">
-            <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-              AMEND SPONSOR
-            </h4>
+    <>
+      {editingHost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setEditingHost(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                AMEND SPONSOR
+              </h4>
+              <button
+                onClick={() => setEditingHost(false)}
+                className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
             <SponsorForm
               showSlug={host.showSlug ?? undefined}
               submittedAt={host.submittedAt}
@@ -310,33 +515,96 @@ function ShowGroupCard({
                 onUpdateSponsor({ ...host, ...data });
               }}
             />
-            <button
-              onClick={() => setEditingHost(false)}
-              className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors"
-            >
-              Cancel
-            </button>
           </div>
-        ) : (
+        </div>
+      )}
+      {viewingSupporters && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => {
+            setViewingSupporters(false);
+            setEditingSupporter(null);
+          }}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                {editingSupporter ? "AMEND SUPPORTER" : `SUPPORTERS (${supporters.length})`}
+              </h4>
+              <button
+                onClick={() => {
+                  if (editingSupporter) setEditingSupporter(null);
+                  else {
+                    setViewingSupporters(false);
+                  }
+                }}
+                className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              >
+                {editingSupporter ? "← Back" : "✕"}
+              </button>
+            </div>
+            {editingSupporter ? (
+              <SponsorForm
+                showSlug={editingSupporter.showSlug ?? undefined}
+                submittedAt={editingSupporter.submittedAt}
+                venue={editingSupporter.venue}
+                address={editingSupporter.address}
+                city={editingSupporter.city}
+                region={editingSupporter.region}
+                country={editingSupporter.country}
+                date={editingSupporter.date}
+                doorTime={editingSupporter.doorTime}
+                initialName={editingSupporter.name}
+                initialPhone={editingSupporter.phone}
+                initialEmail={editingSupporter.email}
+                initialItems={editingSupporter.items}
+                compact
+                editMode
+                onSuccess={(data) => {
+                  onUpdateSponsor({ ...editingSupporter, ...data });
+                  setEditingSupporter(null);
+                }}
+              />
+            ) : (
+              <div className="space-y-1">
+                {supporters.map((s) => (
+                  <button
+                    key={s.submittedAt}
+                    onClick={() => setEditingSupporter(s)}
+                    className="w-full text-left px-3 py-2 rounded text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                  >
+                    <div className="text-neutral-700 dark:text-neutral-300">
+                      <span className="font-medium">{s.name || s.email}</span>
+                      {s.name && s.email && (
+                        <span className="text-neutral-400 dark:text-neutral-500 ml-2">
+                          {s.email}
+                        </span>
+                      )}
+                    </div>
+                    {s.items.length > 0 && (
+                      <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                        {s.items.join(" · ")}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex">
+        {/* Left: info */}
+        <div className="flex-1 min-w-0 p-4 space-y-3">
           <>
             <div>
               <p className="text-lg text-neutral-900 dark:text-white font-light">
                 {host.date ? formatEventDate(host.date) : "No date"}
                 {location && ` · ${location}`}
               </p>
-              {supporters.length > 0 && (
-                <div className="mt-1.5 space-y-0.5">
-                  {supporters.map((s) => (
-                    <p
-                      key={s.submittedAt}
-                      className="text-sm text-neutral-400 dark:text-neutral-600"
-                    >
-                      {s.name || s.email}
-                      {s.name && s.email ? ` · ${s.email}` : ""}
-                    </p>
-                  ))}
-                </div>
-              )}
             </div>
 
             {show && (
@@ -404,11 +672,9 @@ function ShowGroupCard({
               </div>
             )}
           </>
-        )}
-      </div>
+        </div>
 
-      {/* Right: actions — flush to top, right, bottom edges */}
-      {!editingHost && (
+        {/* Right: actions — flush to top, right, bottom edges */}
         <div className="shrink-0 flex flex-col border-l border-neutral-200/50 dark:border-neutral-700/50 w-28">
           <button
             disabled
@@ -417,6 +683,34 @@ function ShowGroupCard({
           >
             PDF
           </button>
+          {show?.slug && (
+            <button
+              onClick={async () => {
+                const next = show.access === "private" ? "public" : "private";
+                onShowUpdate(show.slug, { access: next });
+                await fetch("/api/shows", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ slug: show.slug, access: next }),
+                });
+              }}
+              className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 transition-colors font-light ${
+                show.access === "private"
+                  ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              }`}
+            >
+              {show.access === "private" ? "Private" : "Public"}
+            </button>
+          )}
+          {supporters.length > 0 && (
+            <button
+              onClick={() => setViewingSupporters(true)}
+              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+            >
+              +{supporters.length}
+            </button>
+          )}
           <button
             onClick={() => setEditingHost(true)}
             className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
@@ -444,7 +738,7 @@ function ShowGroupCard({
             <div className="flex-1" />
           )}
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

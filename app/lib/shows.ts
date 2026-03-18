@@ -12,6 +12,7 @@ export interface Show {
   address: string | null;
   status: "upcoming" | "past" | "cancelled";
   planStatus?: "intent" | "booked" | "complete";
+  access?: "public" | "private";
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

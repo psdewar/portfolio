@@ -13,7 +13,7 @@ interface RSVPFormProps {
   date: string;
   city: string;
   region: string;
-  doorTime: string;
+  doorTime?: string | null;
   doorLabel?: string | null;
   venue?: string | null;
   venueLabel?: string | null;
@@ -189,13 +189,13 @@ export default function RSVPForm({
 
   const dateLabel = formatEventDateShort(date);
   const navLabel = venueLabel || venue || address || null;
-  const doorDisplayLabel = doorLabel || `Doors open at ${doorTime}`;
+  const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);
   const poster = (
     <Poster
       date={date}
       city={city}
       region={region}
-      doorTime={doorTime}
+      doorTime={doorTime ?? undefined}
       doorLabel={doorLabel}
       venue={venue}
       venueLabel={venueLabel}
@@ -242,7 +242,8 @@ export default function RSVPForm({
               style={{ fontFamily: '"Space Mono", monospace' }}
             >
               {dateLabel}
-              {navLabel ? ` · ${navLabel}` : ""} · {doorDisplayLabel}
+              {navLabel ? ` · ${navLabel}` : ""}
+              {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
             </p>
           </div>
 
@@ -378,7 +379,8 @@ export default function RSVPForm({
               style={{ fontFamily: '"Space Mono", monospace' }}
             >
               {dateLabel}
-              {navLabel ? ` · ${navLabel}` : ""} · {doorDisplayLabel}
+              {navLabel ? ` · ${navLabel}` : ""}
+              {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
             </p>
           </div>
 

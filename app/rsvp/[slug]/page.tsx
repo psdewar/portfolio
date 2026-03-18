@@ -10,7 +10,7 @@ export default async function ShowRSVPPage({ params }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
-  if (!show || show.status !== "upcoming") redirect("/rsvp");
+  if (!show || show.status !== "upcoming" || show.access === "private") redirect("/rsvp");
 
   return (
     <RSVPForm

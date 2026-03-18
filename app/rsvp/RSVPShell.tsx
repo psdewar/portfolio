@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight } from "@phosphor-icons/react";
+import { ArrowRightIcon, LockSimpleIcon } from "@phosphor-icons/react";
 import { Show } from "../lib/shows";
-import { formatMonthDay } from "../lib/dates";
+import { formatEventDateShort } from "../lib/dates";
 import Poster from "../components/Poster";
 import RSVPForm from "./[slug]/RSVPForm";
 
@@ -73,50 +73,88 @@ function ShowList({ shows, onSelect }: { shows: Show[]; onSelect: (show: Show) =
           RSVP
         </h1>
         <p
-          className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wider"
+          className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm uppercase tracking-wider"
           style={{ fontFamily: '"Space Mono", monospace' }}
         >
           Choose your concert
         </p>
       </div>
       <div className="space-y-3">
-        {shows.map((show) => (
-          <button
-            key={show.slug}
-            onClick={() => onSelect(show)}
-            className="w-full flex items-center gap-4 px-6 py-5 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99] group"
-            style={{
-              background: "rgba(212,165,83,0.06)",
-              border: "1px solid rgba(212,165,83,0.2)",
-            }}
-          >
-            <div className="flex-1 min-w-0">
-              <div
-                className="text-neutral-900 dark:text-[#f0ede6] font-bold text-xl"
-                style={{ fontFamily: '"Parkinsans", sans-serif' }}
-              >
-                {show.venueLabel || (
-                  <>
-                    {show.venue || show.address ? `${show.venue || show.address}, ` : ""}
-                    {show.city}, {show.region}
-                  </>
-                )}
+        {shows.map((show) =>
+          show.access === "private" ? (
+            <div
+              key={show.slug}
+              className="w-full flex items-center gap-4 px-6 py-5 rounded-xl"
+              style={{
+                background: "rgba(212,165,83,0.06)",
+                border: "1px solid rgba(212,165,83,0.2)",
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <div
+                  className="text-neutral-900 dark:text-[#f0ede6] font-bold text-xl"
+                  style={{ fontFamily: '"Parkinsans", sans-serif' }}
+                >
+                  {show.venueLabel || (
+                    <>
+                      {show.venue || show.address ? `${show.venue || show.address}, ` : ""}
+                      {show.city}, {show.region}
+                    </>
+                  )}
+                </div>
+                <div
+                  className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm mt-1 uppercase tracking-wider"
+                  style={{ fontFamily: '"Space Mono", monospace' }}
+                >
+                  {formatEventDateShort(show.date)}
+                </div>
               </div>
-              <div
-                className="text-neutral-500 dark:text-[#c0b8a8] text-xs mt-1 tracking-wide"
-                style={{ fontFamily: '"Space Mono", monospace' }}
-              >
-                {formatMonthDay(show.date)} · {show.doorLabel || `Doors open at ${show.doorTime}`}
-              </div>
+              <LockSimpleIcon
+                className="shrink-0"
+                size={20}
+                weight="duotone"
+                style={{ color: "#d4a553" }}
+              />
             </div>
-            <ArrowRight
-              className="shrink-0 transition-transform group-hover:translate-x-1"
-              size={20}
-              weight="bold"
-              style={{ color: "#d4a553" }}
-            />
-          </button>
-        ))}
+          ) : (
+            <button
+              key={show.slug}
+              onClick={() => onSelect(show)}
+              className="w-full flex items-center gap-4 px-6 py-5 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99] group"
+              style={{
+                background: "rgba(212,165,83,0.06)",
+                border: "1px solid rgba(212,165,83,0.2)",
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <div
+                  className="text-neutral-900 dark:text-[#f0ede6] font-bold text-xl"
+                  style={{ fontFamily: '"Parkinsans", sans-serif' }}
+                >
+                  {show.venueLabel || (
+                    <>
+                      {show.venue || show.address ? `${show.venue || show.address}, ` : ""}
+                      {show.city}, {show.region}
+                    </>
+                  )}
+                </div>
+                <div
+                  className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm mt-1 uppercase tracking-wider"
+                  style={{ fontFamily: '"Space Mono", monospace' }}
+                >
+                  {formatEventDateShort(show.date)} ·{" "}
+                  {show.doorLabel || `Doors open at ${show.doorTime}`}
+                </div>
+              </div>
+              <ArrowRightIcon
+                className="shrink-0 transition-transform group-hover:translate-x-1"
+                size={20}
+                weight="bold"
+                style={{ color: "#d4a553" }}
+              />
+            </button>
+          ),
+        )}
       </div>
     </div>
   );
