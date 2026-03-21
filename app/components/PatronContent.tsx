@@ -337,18 +337,21 @@ export function PatronContent({
   // Wheel handler
   useEffect(() => {
     if (viewMode !== "patron") return;
+    const container = scrollRef.current;
+    if (!container) return;
 
     let lastTriggerTime = 0;
 
     const handleWheel = (e: WheelEvent) => {
-      const container = scrollRef.current;
-      if (!container) return;
+      const delta = e.deltaY + e.deltaX;
+      const atFirst = currentIndexRef.current === 0;
+      const atLast = currentIndexRef.current === TOTAL_CARDS - 1;
+
+      if ((atFirst && delta < 0) || (atLast && delta > 0)) return;
 
       e.preventDefault();
 
       const now = performance.now();
-      const delta = e.deltaY + e.deltaX;
-
       if (now - lastTriggerTime < 300) return;
 
       if (Math.abs(delta) >= 20) {
@@ -357,8 +360,8 @@ export function PatronContent({
       }
     };
 
-    window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => window.removeEventListener("wheel", handleWheel);
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
   }, [animateToIndex, viewMode]);
 
   // Touch/swipe support for mobile
@@ -526,7 +529,7 @@ export function PatronContent({
       window.history.replaceState(
         {},
         "",
-        newMode === "journey" ? "/patron?view=journey" : "/patron",
+        newMode === "journey" ? "/support?view=journey" : "/support",
       );
     }
   };
@@ -924,12 +927,13 @@ export function PatronContent({
               className={`text-center mb-3 [@media(min-height:700px)]:mb-6 px-8 ${isModal ? "pt-16" : ""}`}
             >
               <h1 className="font-bebas text-[40px] md:text-[64px] leading-none">
-                <span className="text-neutral-900 dark:text-white">BECOME MY</span>{" "}
+                <span className="text-neutral-900 dark:text-white">BECOME A MONTHLY</span>
+                <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
-                  PATRON
+                  SUPPORTER
                 </span>
               </h1>
-              <div className="flex items-center justify-center gap-4 mt-3 md:mt-4 text-base md:text-lg">
+              <div className="flex items-center justify-center gap-4 mt-3 md:mt-4 text-lg md:text-xl">
                 <button
                   onClick={() =>
                     setBillingPeriod(billingPeriod === "monthly" ? "annually" : "monthly")
@@ -954,7 +958,7 @@ export function PatronContent({
                     </span>
                   </span>
                   <span className="leading-none">Pay annually</span>
-                  <span className="text-green-600 dark:text-green-500 text-sm md:text-base">
+                  <span className="text-green-600 dark:text-green-500 text-base md:text-lg">
                     (2 months free)
                   </span>
                 </button>
@@ -988,7 +992,7 @@ export function PatronContent({
                         Latest
                       </div>
                       <div
-                        className={`text-sm uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
+                        className={`text-base uppercase tracking-wide leading-none ${isMusic ? "text-amber-600 dark:text-amber-400" : "text-neutral-500"}`}
                       >
                         {dateInfo.month}
                       </div>
@@ -1002,12 +1006,12 @@ export function PatronContent({
                       {style && (
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text}`}
+                            className={`px-2 py-0.5 rounded text-sm font-medium ${style.bg} ${style.text}`}
                           >
                             {style.label}
                           </span>
                           {latest.location && (
-                            <span className="text-neutral-500 text-sm truncate">
+                            <span className="text-neutral-500 text-base truncate">
                               {latest.location}
                             </span>
                           )}
@@ -1026,7 +1030,7 @@ export function PatronContent({
                     />
                   </div>
                   <div className="text-center py-2">
-                    <span className="text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors text-sm leading-none">
+                    <span className="text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors text-base leading-none">
                       {showCount} shows, {releaseCount} releases since Naw-Ruz 2025
                     </span>
                   </div>
@@ -1140,9 +1144,9 @@ export function PatronContent({
               {!showVerifyForm ? (
                 <button
                   onClick={() => setShowVerifyForm(true)}
-                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-sm underline underline-offset-2"
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2"
                 >
-                  Already a patron?
+                  Already a monthly supporter? Log in
                 </button>
               ) : (
                 <div className="max-w-sm mx-auto space-y-3">
@@ -1152,9 +1156,9 @@ export function PatronContent({
                     value={verifyEmail}
                     onChange={(e) => setVerifyEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
-                    className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
-                  {verifyError && <p className="text-red-500 text-sm">{verifyError}</p>}
+                  {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -1162,14 +1166,14 @@ export function PatronContent({
                         setVerifyEmail("");
                         setVerifyError("");
                       }}
-                      className="flex-1 py-2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-sm"
+                      className="flex-1 py-2 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleVerifyPatron}
                       disabled={verifyLoading || !verifyEmail.trim()}
-                      className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium"
+                      className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
                     >
                       {verifyLoading ? "Checking..." : "Verify"}
                     </button>
@@ -1192,7 +1196,7 @@ export function PatronContent({
                   className="w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 active:bg-neutral-200 dark:active:bg-neutral-800 transition-colors text-sm flex items-center gap-2 pt-6 pb-4 cursor-pointer mb-4"
                 >
                   <CaretLeftIcon size={16} weight="bold" />
-                  Become my patron
+                  Become a supporter
                 </button>
 
                 <div className="mb-8">
@@ -1349,7 +1353,7 @@ export function PatronContent({
           style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
         >
           <MicrophoneStageIcon className="w-6 h-6 md:w-7 md:h-7" weight="regular" />
-          Become my patron
+          Become a supporter
         </button>
       )}
 

@@ -39,7 +39,7 @@ export function FundingCard({
   ];
 
   const higherTiers = [
-    { amount: 25000, label: "Become my patron" },
+    { amount: 25000, label: "Become a supporter" },
     { amount: 50000, label: "Inner circle access" },
     { amount: 100000, label: "Founding supporter" },
   ];

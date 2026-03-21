@@ -27,7 +27,36 @@ const isPast = (dateStr: string): boolean => {
 };
 
 export const TIMELINE: TimelineEvent[] = [
+  {
+    id: 2026041100,
+    date: "2026-04-11",
+    title: "From The Ground Up Live Concert",
+    location: "Vancouver, BC",
+    type: "show",
+  },
+  {
+    id: 2026032200,
+    date: "2026-03-22",
+    title: "From The Ground Up Live Concert",
+    description: "Magdalene Carney Institute",
+    location: "West Palm Beach, FL",
+    type: "show",
+  },
   { id: 2026032100, date: "2026-03-21", title: "Naw-Ruz 183", type: "checkpoint" },
+  {
+    id: 2026032101,
+    date: "2026-03-21",
+    title: "From The Ground Up Live Concert",
+    location: "Fort Lauderdale, FL",
+    type: "show",
+  },
+  {
+    id: 2026032000,
+    date: "2026-03-20",
+    title: "From The Ground Up Live Concert",
+    location: "Coral Springs, FL",
+    type: "show",
+  },
   {
     id: 2026012300,
     date: "2026-01-23",

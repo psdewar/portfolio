@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
         successPath = "/live?thanks=1";
         cancelPath = "/live";
       } else {
-        successPath = "/patron?thanks=1&session_id={CHECKOUT_SESSION_ID}";
-        cancelPath = "/patron?canceled=1";
+        successPath = "/support?thanks=1&session_id={CHECKOUT_SESSION_ID}";
+        cancelPath = "/support?canceled=1";
       }
     } else {
       successPath = `/fund/${projectId}?success=1&session_id={CHECKOUT_SESSION_ID}`;

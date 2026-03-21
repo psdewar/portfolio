@@ -5,7 +5,12 @@ export const maxDuration = 30;
 
 export async function GET() {
   try {
-    const screenshot = await takeScreenshot({ path: "/patron" });
+    const screenshot = await takeScreenshot({
+      path: "/support",
+      viewport: { width: 480, height: 780 },
+      deviceScaleFactor: 3,
+      waitForTimeout: 1500,
+    });
 
     return new Response(screenshot, {
       headers: {

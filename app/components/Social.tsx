@@ -8,17 +8,49 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 
-const LINKS: { href: string; label: string; icon: Icon }[] = [
+export const SOCIAL_LINKS: { href: string; label: string; username: string; icon: Icon; color: string }[] = [
   {
     href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN",
     label: "Spotify",
+    username: "Peyt Spencer",
     icon: SpotifyLogoIcon,
+    color: "#1DB954",
   },
-  { href: "https://instagram.com/peytspencer", label: "Instagram", icon: InstagramLogoIcon },
-  { href: "https://tiktok.com/@peytspencer", label: "TikTok", icon: TiktokLogoIcon },
-  { href: "https://youtube.com/@peytspencer", label: "YouTube", icon: YoutubeLogoIcon },
-  { href: "https://twitter.com/peytspencer", label: "Twitter", icon: TwitterLogoIcon },
-  { href: "https://facebook.com/9psd2", label: "Facebook", icon: FacebookLogoIcon },
+  {
+    href: "https://instagram.com/peytspencer",
+    label: "Instagram",
+    username: "@peytspencer",
+    icon: InstagramLogoIcon,
+    color: "#E4405F",
+  },
+  {
+    href: "https://youtube.com/@peytspencer",
+    label: "YouTube",
+    username: "@peytspencer",
+    icon: YoutubeLogoIcon,
+    color: "#FF0000",
+  },
+  {
+    href: "https://tiktok.com/@peytspencer",
+    label: "TikTok",
+    username: "@peytspencer",
+    icon: TiktokLogoIcon,
+    color: "#69C9D0",
+  },
+  {
+    href: "https://twitter.com/peytspencer",
+    label: "X (Twitter)",
+    username: "@peytspencer",
+    icon: TwitterLogoIcon,
+    color: "#1DA1F2",
+  },
+  {
+    href: "https://facebook.com/9psd2",
+    label: "Facebook",
+    username: "9psd2",
+    icon: FacebookLogoIcon,
+    color: "#1877F2",
+  },
 ];
 
 interface SocialProps {
@@ -40,7 +72,7 @@ export function Social({ isMobilePanel = false, isHorizontal = false }: SocialPr
       className={`flex items-center pointer-events-auto ${isHorizontal ? "" : "flex-1 pl-3 pt-3"}`}
     >
       <div className={`flex items-center ${isHorizontal ? "gap-4" : "gap-6 w-full max-w-sm"}`}>
-        {LINKS.map(({ href, label, icon: Icon }) => (
+        {SOCIAL_LINKS.map(({ href, label, icon: Icon }) => (
           <a
             key={label}
             href={href}

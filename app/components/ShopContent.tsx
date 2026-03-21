@@ -68,10 +68,10 @@ export function ShopContent() {
                 <span className="text-sm text-neutral-500">for patrons</span>
               </div>
               <Link
-                href="/patron"
+                href="/support"
                 className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-xl font-medium text-center transition-colors flex items-center justify-center gap-2"
               >
-                Become my patron
+                Become a monthly supporter
                 <ArrowIcon />
               </Link>
             </div>

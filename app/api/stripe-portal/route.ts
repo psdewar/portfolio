@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const email = request.nextUrl.searchParams.get("email");
 
     if (!email) {
-      return NextResponse.redirect(new URL("/patron?error=no-email", request.url));
+      return NextResponse.redirect(new URL("/support?error=no-email", request.url));
     }
 
     // Look up customer by email
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (customers.data.length === 0) {
-      return NextResponse.redirect(new URL("/patron?error=no-subscription", request.url));
+      return NextResponse.redirect(new URL("/support?error=no-subscription", request.url));
     }
 
     const customer = customers.data[0];
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
     // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customer.id,
-      return_url: `${request.nextUrl.origin}/patron`,
+      return_url: `${request.nextUrl.origin}/support`,
     });
 
     return NextResponse.redirect(portalSession.url);
   } catch (error) {
     console.error("Error creating portal session:", error);
-    return NextResponse.redirect(new URL("/patron?error=portal-failed", request.url));
+    return NextResponse.redirect(new URL("/support?error=portal-failed", request.url));
   }
 }

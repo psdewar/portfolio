@@ -13,17 +13,17 @@ export function Navbar() {
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
 
-  if (pathname === "/") return null;
-
   const navItems = [
-    { href: "/patron", label: isPatron ? "Updates" : "Patron" },
+    ...(isPatron ? [{ href: "/support#timeline", label: "Updates" }] : []),
+    { href: "/support", label: "Support" },
     { href: "/listen", label: "Listen" },
     { href: "/live", label: "Live" },
   ];
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(href + "/");
+    const path = href.split("#")[0];
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(path + "/");
   };
 
   return (

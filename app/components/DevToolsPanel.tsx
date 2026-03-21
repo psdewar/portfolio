@@ -178,7 +178,7 @@ export function DevToolsPanel() {
                 </button>
               </label>
               <p className="text-xs text-gray-400 pl-4">
-                View patron experience on /patron page
+                View patron experience on /support page
               </p>
             </div>
 

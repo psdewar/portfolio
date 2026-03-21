@@ -1,44 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { PlayIcon, PauseIcon, MicrophoneStageIcon } from "@phosphor-icons/react";
-import { TRACK_DATA } from "./data/tracks";
-import { useAudio } from "./contexts/AudioContext";
 import LiveBanner from "./components/LiveBanner";
-
-const latestSingle = TRACK_DATA.filter((t) => t.streamUrl).sort((a, b) =>
-  (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""),
-)[0];
 
 export default function Page() {
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { loadTrack, toggle, isPlaying, currentTrack, loadingTrack, isLoading } = useAudio();
-
-  const isTrackActive = currentTrack?.id === latestSingle.id;
-  const isTrackPlaying = isTrackActive && isPlaying;
-  const isTrackLoading = (loadingTrack?.id === latestSingle.id || isTrackActive) && isLoading;
-
-  const handlePlaySingle = useCallback(() => {
-    if (isTrackActive) {
-      toggle();
-    } else {
-      loadTrack(
-        {
-          id: latestSingle.id,
-          title: latestSingle.title,
-          artist: latestSingle.artist,
-          src: latestSingle.audioUrl,
-          thumbnail: latestSingle.thumbnail,
-          duration: latestSingle.duration,
-        },
-        true,
-      );
-    }
-  }, [isTrackActive, toggle, loadTrack]);
 
   const imgClass = (i: number, alwaysColor = false) => {
     const base = "object-cover transform transition-all duration-100 ease-out";
@@ -201,41 +171,12 @@ export default function Page() {
                 </span>
               </h1>
 
-              <div className="flex items-stretch gap-3 w-full">
-                <button
-                  onClick={handlePlaySingle}
-                  className="flex items-stretch bg-white/10 backdrop-blur-sm text-white/60 text-sm hover:bg-white/20 hover:text-white/80 transition-colors overflow-hidden"
-                >
-                  <div className="relative w-10 flex-shrink-0">
-                    <Image
-                      src={latestSingle.thumbnail}
-                      alt={latestSingle.title}
-                      fill
-                      className="object-cover"
-                      sizes="40px"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      {isTrackLoading ? (
-                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      ) : isTrackPlaying ? (
-                        <PauseIcon size={16} weight="fill" className="text-white" />
-                      ) : (
-                        <PlayIcon size={16} weight="fill" className="text-white" />
-                      )}
-                    </div>
-                  </div>
-                  <span className="px-3 flex items-center whitespace-nowrap font-medium text-sm md:text-lg">{latestSingle.title}</span>
-                </button>
-
-                <Link
-                  href="/patron"
-                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors text-white font-medium text-sm md:text-lg whitespace-nowrap"
-                >
-                  <MicrophoneStageIcon size={22} weight="regular" className="flex-shrink-0" />
-                  <span className="hidden sm:inline">Become my patron</span>
-                  <span className="sm:hidden">Patron</span>
-                </Link>
-              </div>
+              <Link
+                href="/support"
+                className="py-2.5 px-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors text-white font-medium text-sm md:text-lg whitespace-nowrap text-center"
+              >
+                Become a supporter
+              </Link>
             </div>
           </div>
         </section>

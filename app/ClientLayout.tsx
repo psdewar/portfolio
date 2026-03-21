@@ -32,7 +32,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const { currentTrack } = useAudio();
   const hasAudioPlayer = !!currentTrack;
   const isOgMode = searchParams?.get("og") === "true";
-  const isPatronPage = pathname === "/patron";
+  const isSupportPage = pathname === "/support";
   const isHomePage = pathname === "/" || pathname === "/2026";
   const isListenPage = pathname === "/listen";
   const isLivePage = pathname === "/live";
@@ -46,21 +46,24 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Homepage: fullscreen immersive hero, no navbar, no audio player
+  // Homepage: fullscreen hero with navbar
   if (isHomePage) {
     return (
-      <div className="h-dvh overflow-hidden">
-        <Suspense>{children}</Suspense>
+      <>
+        <Navbar />
+        <div className="h-[calc(100dvh-4rem)] overflow-hidden">
+          <Suspense>{children}</Suspense>
+        </div>
         <Analytics />
         <SpeedInsights />
         <MissingResourceIndicator />
         <DevToolsPanel />
-      </div>
+      </>
     );
   }
 
-  // Patron page: fullscreen with internal scroll, with audio player
-  if (isPatronPage) {
+  // Support page: fullscreen with internal scroll, with audio player
+  if (isSupportPage) {
     return (
       <>
         <Navbar />
