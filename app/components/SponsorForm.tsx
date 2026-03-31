@@ -103,7 +103,7 @@ export default function SponsorForm({
   const [eventRegion, setEventRegion] = useState(region || "");
   const [eventCountry, setEventCountry] = useState(country || "");
   const [eventDate, setEventDate] = useState(date || "");
-  const [eventDoorTime, setEventDoorTime] = useState(doorTime || "7:00PM");
+  const [eventDoorTime, setEventDoorTime] = useState(doorTime || "");
   const [sponsorName, setSponsorName] = useState(initialName || "");
   const [sponsorPhone, setSponsorPhone] = useState(initialPhone || "");
   const [sponsorEmail, setSponsorEmail] = useState(initialEmail || "");
@@ -226,10 +226,6 @@ export default function SponsorForm({
         setSubmitResult({ ok: false, msg: "Please select a city." });
         return;
       }
-      if (!showSlug && !editMode && !eventDate) {
-        setSubmitResult({ ok: false, msg: "Please select a date." });
-        return;
-      }
     }
 
     if (isSupporter && !selectedShowSlug) {
@@ -249,8 +245,8 @@ export default function SponsorForm({
       country: isSupporter ? "" : eventCountry,
       venue: isSupporter ? "" : eventVenue || "",
       address: isSupporter ? "" : eventAddress || "",
-      date: isSupporter ? "" : eventDate,
-      doorTime: isSupporter ? "" : eventDoorTime,
+      date: isSupporter ? "" : eventDate || new Date().toISOString().slice(0, 10),
+      doorTime: isSupporter ? "" : eventDoorTime || "7:00PM",
       items: Array.from(checked),
       role: isSupporter ? "supporter" : "host",
     };
@@ -263,8 +259,8 @@ export default function SponsorForm({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: eventDate,
-            doorTime: eventDoorTime,
+            date: eventDate || new Date().toISOString().slice(0, 10),
+            doorTime: eventDoorTime || "7:00PM",
             city: eventCity,
             region: eventRegion,
             country: eventCountry,
@@ -659,15 +655,28 @@ export default function SponsorForm({
                 {dateReadOnly ? (
                   eventDate && <p className={fieldClass}>{formatLongDate(eventDate)}</p>
                 ) : (
-                  <input
-                    type="date"
-                    value={eventDate}
-                    min={`${new Date().getFullYear()}-01-01`}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                    disabled={readOnly}
-                    className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
-                  />
+                  <div className="relative">
+                    <p
+                      className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                    >
+                      {eventDate
+                        ? formatLongDate(eventDate)
+                        : formatLongDate(new Date().toISOString().slice(0, 10))}
+                    </p>
+                    <input
+                      type="date"
+                      value={eventDate}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val < new Date().toISOString().slice(0, 10)) return;
+                        setEventDate(val);
+                      }}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                      disabled={readOnly}
+                      className="absolute inset-0 opacity-0 w-full cursor-pointer"
+                    />
+                  </div>
                 )}
               </div>
               <div>
@@ -684,7 +693,7 @@ export default function SponsorForm({
                       disabled={readOnly}
                       className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
                     >
-                      {eventDoorTime || "Select time"}
+                      {eventDoorTime || "7:00PM"}
                     </button>
                     {doorTimeOpen && (
                       <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
