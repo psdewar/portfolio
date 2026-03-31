@@ -59,9 +59,14 @@ export function createAutocomplete(
   const wrapper = document.createElement("div");
   wrapper.style.position = "relative";
 
+  const existingInput = container.querySelector("input");
+  const hadFocus = existingInput === document.activeElement;
+  const previousValue = existingInput?.value || "";
+
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "Eastside Baha'i Center, Bellevue, WA";
+  input.placeholder = "Magdalene Carney Institute, West Palm Beach, FL";
+  input.value = previousValue;
   if (inputClassName) input.className = inputClassName;
 
   const list = document.createElement("ul");
@@ -73,6 +78,8 @@ export function createAutocomplete(
 
   while (container.firstChild) container.removeChild(container.firstChild);
   container.appendChild(wrapper);
+
+  if (hadFocus) input.focus();
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   let suggestions: any[] = [];

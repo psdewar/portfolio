@@ -90,7 +90,6 @@ export default function SponsorForm({
   const cityContainerRef = useRef<HTMLDivElement>(null);
   const cityInputRef = useRef<HTMLInputElement>(null);
   const doorTimeRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const [doorTimeOpen, setDoorTimeOpen] = useState(false);
 
   const defaultSupporterItems =
@@ -607,7 +606,7 @@ export default function SponsorForm({
                       <input
                         ref={cityInputRef}
                         type="text"
-                        placeholder="Search by venue name or street address"
+                        placeholder="Magdalene Carney Institute, West Palm Beach, FL"
                         className={fieldClass}
                         onChange={(e) => {
                           const parts = e.target.value.split(",").map((s) => s.trim());
@@ -660,24 +659,15 @@ export default function SponsorForm({
                 {dateReadOnly ? (
                   eventDate && <p className={fieldClass}>{formatLongDate(eventDate)}</p>
                 ) : (
-                  <div className="relative">
-                    <input
-                      ref={dateInputRef}
-                      type="date"
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      disabled={readOnly}
-                      className="sr-only"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => dateInputRef.current?.showPicker?.()}
-                      disabled={readOnly}
-                      className={`${fieldClass} text-left w-full ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
-                    >
-                      {eventDate ? formatLongDate(eventDate) : "Select date"}
-                    </button>
-                  </div>
+                  <input
+                    type="date"
+                    value={eventDate}
+                    min={`${new Date().getFullYear()}-01-01`}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                    disabled={readOnly}
+                    className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                  />
                 )}
               </div>
               <div>
