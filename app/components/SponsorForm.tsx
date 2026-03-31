@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   CheckSquareIcon,
   SquareIcon,
@@ -84,10 +85,12 @@ export default function SponsorForm({
   initialEmail,
   onSuccess,
 }: SponsorFormProps) {
+  const router = useRouter();
   const mapsReady = useGoogleMaps();
   const cityContainerRef = useRef<HTMLDivElement>(null);
   const cityInputRef = useRef<HTMLInputElement>(null);
   const doorTimeRef = useRef<HTMLDivElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [doorTimeOpen, setDoorTimeOpen] = useState(false);
 
   const defaultSupporterItems =
@@ -300,11 +303,15 @@ export default function SponsorForm({
         return;
       }
 
-      setSubmitResult({
-        ok: true,
-        msg: editMode ? "Updated." : "Submitted. You will hear from me.",
-      });
-      onSuccess?.(fields);
+      const data = await res.json();
+
+      if (editMode) {
+        setSubmitResult({ ok: true, msg: "Updated." });
+        onSuccess?.(fields);
+      } else {
+        onSuccess?.(fields);
+        router.push(`/rsvp?submitted=${data.showSlug}`);
+      }
     } catch {
       setSubmitResult({ ok: false, msg: "Failed to submit. Try again." });
     } finally {
@@ -330,9 +337,8 @@ export default function SponsorForm({
   const desktopCols: number[][] = [[0], [1]];
 
   const showLocationDisplay = (show: Show) =>
-    getVenueLabel(show)
-      ? `${getVenueLabel(show)}, ${show.city}, ${show.region}`
-      : `${show.city}, ${show.region}`;
+    show.venueLabel ||
+    (show.venue ? `${show.venue}, ${show.city}, ${show.region}` : `${show.city}, ${show.region}`);
 
   const contactFields = (!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
     <div
@@ -580,7 +586,7 @@ export default function SponsorForm({
             )}
             <div>
               <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                Location
+                Venue or address
               </label>
               {cityReadOnly ? (
                 <div
@@ -601,7 +607,7 @@ export default function SponsorForm({
                       <input
                         ref={cityInputRef}
                         type="text"
-                        placeholder="Search by venue, address, or city"
+                        placeholder="Search by venue name or street address"
                         className={fieldClass}
                         onChange={(e) => {
                           const parts = e.target.value.split(",").map((s) => s.trim());
@@ -656,17 +662,21 @@ export default function SponsorForm({
                 ) : (
                   <div className="relative">
                     <input
+                      ref={dateInputRef}
                       type="date"
                       value={eventDate}
                       onChange={(e) => setEventDate(e.target.value)}
                       disabled={readOnly}
-                      className={`${fieldClass} absolute inset-0 top-auto opacity-0 cursor-pointer`}
+                      className="sr-only"
                     />
-                    <p
-                      className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                    <button
+                      type="button"
+                      onClick={() => dateInputRef.current?.showPicker?.()}
+                      disabled={readOnly}
+                      className={`${fieldClass} text-left w-full ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
                     >
                       {eventDate ? formatLongDate(eventDate) : "Select date"}
-                    </p>
+                    </button>
                   </div>
                 )}
               </div>

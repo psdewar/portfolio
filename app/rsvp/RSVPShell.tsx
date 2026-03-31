@@ -6,9 +6,11 @@ import { Show } from "../lib/shows";
 import { formatEventDateShort } from "../lib/dates";
 import Poster from "../components/Poster";
 import RSVPForm from "./[slug]/RSVPForm";
+import SubmittedToast from "./SubmittedToast";
 
-export default function RSVPShell({ shows }: { shows: Show[] }) {
+export default function RSVPShell({ shows, slug }: { shows: Show[]; slug?: string }) {
   const [selected, setSelected] = useState<Show | null>(null);
+  const [toastDismissed, setToastDismissed] = useState(false);
 
   const handleSelect = (show: Show) => {
     window.history.pushState(null, "", `/rsvp/${show.slug}`);
@@ -20,25 +22,34 @@ export default function RSVPShell({ shows }: { shows: Show[] }) {
     setSelected(null);
   };
 
+  const toast = slug && !toastDismissed && (
+    <SubmittedToast slug={slug} onDismiss={() => setToastDismissed(true)} />
+  );
+
   if (selected) {
     return (
-      <RSVPForm
-        eventId={selected.slug}
-        date={selected.date}
-        city={selected.city}
-        region={selected.region}
-        doorTime={selected.doorTime}
-        doorLabel={selected.doorLabel}
-        venue={selected.venue}
-        venueLabel={selected.venueLabel}
-        address={selected.address}
-        onBack={handleBack}
-      />
+      <>
+        {toast}
+        <RSVPForm
+          eventId={selected.slug}
+          date={selected.date}
+          city={selected.city}
+          region={selected.region}
+          doorTime={selected.doorTime}
+          doorLabel={selected.doorLabel}
+          venue={selected.venue}
+          venueLabel={selected.venueLabel}
+          address={selected.address}
+          onBack={handleBack}
+        />
+      </>
     );
   }
 
   return (
     <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
+      {toast}
+
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-full overflow-y-auto">
         <div className="px-[6%] py-8">
