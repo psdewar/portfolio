@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import { calculateStripeFee } from "../../api/shared/products";
 import ContactFields from "../../components/ContactFields";
@@ -203,15 +204,27 @@ export default function RSVPForm({
     />
   );
 
+  const backContent = (
+    <>
+      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
+      All shows
+    </>
+  );
+  const backClassName =
+    "flex items-center gap-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-4 text-xs uppercase tracking-wider";
   const backButton = onBack ? (
     <button
       onClick={onBack}
-      className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-4"
+      className={backClassName}
+      style={{ fontFamily: '"Space Mono", monospace' }}
     >
-      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
-      All shows
+      {backContent}
     </button>
-  ) : null;
+  ) : (
+    <Link href="/rsvp" className={backClassName} style={{ fontFamily: '"Space Mono", monospace' }}>
+      {backContent}
+    </Link>
+  );
   const totalDisplay = `$${(musicTotalCents / 100).toFixed(2)}`;
   const feeDisplay = `$${((musicTotalCents - formData.musicAmount) / 100).toFixed(2)}`;
 
