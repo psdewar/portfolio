@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsersIcon, MinusIcon, PlusIcon, ArrowLeft } from "@phosphor-icons/react";
+import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import { calculateStripeFee } from "../../api/shared/products";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
@@ -208,7 +208,7 @@ export default function RSVPForm({
       onClick={onBack}
       className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-4"
     >
-      <ArrowLeft size={16} weight="bold" />
+      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
       All shows
     </button>
   ) : null;
@@ -362,7 +362,7 @@ export default function RSVPForm({
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
         <div className="h-full flex-shrink-0">{poster}</div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center px-4 py-6 @container">
+        <div className="flex-1 min-w-0 flex flex-col px-4 py-8 overflow-y-auto @container">
           <div className="mb-2">
             {backButton}
             <h1

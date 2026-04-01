@@ -1,7 +1,7 @@
 "use client";
 
 import { formatEventDate } from "../lib/dates";
-import { getVenueLabel, getDoorLabel } from "../lib/shows";
+import { getDoorLabel } from "../lib/shows";
 
 interface PosterProps {
   date?: string;
@@ -24,7 +24,6 @@ export default function Poster({
   venueLabel,
   address,
 }: PosterProps) {
-  const venueDisplay = getVenueLabel({ venueLabel: venueLabel ?? null, venue: venue ?? null });
   return (
     <>
       <style jsx>{`
@@ -244,8 +243,8 @@ export default function Poster({
                 <div className="tags">Free Admission</div>
                 <div className="detail-value date">{formatEventDate(date)}</div>
                 <div className="detail-value">
-                  {venueDisplay ? (
-                    `${venueDisplay}, ${city}, ${region}`
+                  {venueLabel ? (
+                    venueLabel
                   ) : (
                     <>
                       {(venue || address) && `${venue || address}, `}
