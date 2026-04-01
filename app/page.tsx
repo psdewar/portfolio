@@ -175,7 +175,7 @@ export default function Page() {
                 href="/support"
                 className="py-2.5 px-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors text-white font-medium text-sm md:text-lg whitespace-nowrap text-center"
               >
-                Become a supporter
+                Support the From The Ground Up tour
               </Link>
             </div>
           </div>

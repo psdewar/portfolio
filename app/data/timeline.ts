@@ -33,6 +33,25 @@ export const TIMELINE: TimelineEvent[] = [
     title: "From The Ground Up Live Concert",
     location: "Vancouver, BC",
     type: "show",
+    url: "/rsvp/vancouver-bc-0",
+    urlLabel: "RSVP",
+  },
+  {
+    id: 2026041000,
+    date: "2026-04-10",
+    title: "From The Ground Up Live Concert",
+    location: "Richmond, BC",
+    type: "show",
+    url: "/rsvp/richmond-bc-0",
+    urlLabel: "RSVP",
+  },
+  {
+    id: 2026032800,
+    date: "2026-03-28",
+    title: "Sister's Wedding Reception",
+    description: "Najil Chak Residence",
+    location: "Tulum, Mexico",
+    type: "show",
   },
   {
     id: 2026032200,
@@ -48,6 +67,7 @@ export const TIMELINE: TimelineEvent[] = [
     date: "2026-03-21",
     title: "From The Ground Up Live Concert",
     location: "Fort Lauderdale, FL",
+    description: "River of Grace",
     type: "show",
   },
   {
@@ -77,7 +97,7 @@ export const TIMELINE: TimelineEvent[] = [
     id: 2026011800,
     date: "2026-01-18",
     title: "Better World Concert Tour w/ Colby Jeffers",
-    description: "Hayes Residence house show",
+    description: "Hayes Residence",
     location: "Edmonds, WA",
     type: "show",
   },
@@ -239,21 +259,10 @@ export const TIMELINE: TimelineEvent[] = [
   { id: 2018032000, date: "2018-03-20", title: "Baha'i", type: "single" },
 ];
 
-// Naw-Ruz 2025 - the starting point for the current journey
-export const NAW_RUZ_2025 = "2025-03-20";
+const NAW_RUZ_2025 = "2025-03-20";
 
-// Parse date for sorting (using noon to avoid timezone shifts)
 const parseDate = (dateStr: string) => new Date(dateStr + "T12:00:00").getTime();
 
-// Get upcoming events (sorted by date ascending)
-export const getUpcomingEvents = () =>
-  TIMELINE.filter((e) => !isPast(e.date)).sort((a, b) => parseDate(a.date) - parseDate(b.date));
-
-// Get past events (sorted by date descending - most recent first)
-export const getPastEvents = () =>
-  TIMELINE.filter((e) => isPast(e.date)).sort((a, b) => parseDate(b.date) - parseDate(a.date));
-
-// Get events since Naw-Ruz 2025
 export const getJourneyEvents = () =>
   TIMELINE.filter((e) => isPast(e.date) && parseDate(e.date) >= parseDate(NAW_RUZ_2025)).sort(
     (a, b) => parseDate(b.date) - parseDate(a.date),
