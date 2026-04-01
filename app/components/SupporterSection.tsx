@@ -370,7 +370,7 @@ export function SupporterSection({
             if (el) yearRefs.current.set(year, el);
             else yearRefs.current.delete(year);
           }}
-          className="mb-16 last:mb-0"
+          className="mb-16"
         >
           <h2
             className={`font-bebas text-[56px] md:text-[80px] leading-none pointer-events-none select-none sticky ${isModal ? "top-0" : "top-16"} backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-4 transition-colors ${
@@ -538,7 +538,7 @@ export function SupporterSection({
 
   function renderArchiveSection(): React.ReactNode {
     return (
-      <section className="mt-8 mb-0">
+      <section className="mt-8">
         <div className="flex items-center gap-3 py-3 sm:py-4 bg-neutral-100/50 dark:bg-neutral-900/50 border-y border-neutral-200 dark:border-neutral-800">
           <div className="w-12 sm:w-14 shrink-0 flex items-center justify-center">
             <ArchiveIcon className="w-7 h-7 sm:w-8 sm:h-8 text-neutral-400 dark:text-neutral-500" />
@@ -605,12 +605,12 @@ export function SupporterSection({
                 </button>
                 <div
                   onClick={() => setArchiveInfoVisible(false)}
-                  className={`absolute inset-0 bg-black/85 backdrop-blur-sm transform transition-transform duration-300 ease-out z-20 cursor-pointer flex flex-col px-5 py-4 sm:p-5 lg:p-8 overflow-y-auto ${
+                  className={`absolute inset-0 bg-black/85 backdrop-blur-sm transform transition-transform duration-300 ease-out z-20 cursor-pointer flex flex-col gap-3 p-3 overflow-y-auto ${
                     archiveInfoVisible ? "translate-x-0" : "translate-x-full"
                   }`}
                 >
-                  <h3 className="font-medium text-white text-sm sm:text-base mb-2">Exhibit PSD</h3>
-                  <p className="text-white/90 text-xs sm:text-sm leading-relaxed mb-3">
+                  <h3 className="font-medium text-white text-sm sm:text-base">Exhibit PSD</h3>
+                  <p className="text-white/90 text-xs sm:text-sm leading-relaxed">
                     Back when I attended the University of Florida, I gave out mixtape CDs and
                     performed at various clubs and venues in downtown Gainesville. During my
                     three-mixtape run from 2013 to when I graduated in 2015, I wrote raps to songs
@@ -621,7 +621,7 @@ export function SupporterSection({
                     artwork?
                   </p>
                   <div className="flex justify-center mt-auto">
-                    <span className="text-white/60 text-[10px] sm:text-xs bg-white/10 px-2 sm:px-3 py-1 rounded-full">
+                    <span className="text-white/60 text-[10px] sm:text-xs bg-white/10 px-2 py-1 rounded-lg">
                       Tap anywhere to see merch
                     </span>
                   </div>
@@ -667,8 +667,9 @@ export function SupporterSection({
               </h1>
               <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
                 I write and record every bar myself, and even built this site from scratch. Monthly
-                supporters fund my music directly and get early access to unreleased tracks, live
-                streams, and updates. Everyone gets full access, so give what you can!
+                supporters fund my music directly and get early access to unreleased tracks,
+                behind-the-scenes content, and updates. Everyone gets full access, so give what you
+                can!
               </p>
             </div>
             <div className="flex items-center justify-center mb-4 text-base">
