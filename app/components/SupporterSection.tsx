@@ -666,10 +666,8 @@ export function SupporterSection({
                 </span>
               </h1>
               <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                I write and record every bar myself, and even built this site from scratch. Monthly
-                supporters fund my music directly and get early access to unreleased tracks,
-                behind-the-scenes content, and updates. Everyone gets full access, so give what you
-                can!
+                Every dollar goes to recording, performing, and getting to the next city. All tiers
+                get the same access. Give what you can!
               </p>
             </div>
             <div className="flex items-center justify-center mb-4 text-base">
