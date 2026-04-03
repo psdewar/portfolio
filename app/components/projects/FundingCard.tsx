@@ -233,7 +233,7 @@ export function FundingCard({
             </h3>
             <VideoPlayButtonWithContext
               thumbnailSrc="/images/covers/fund-next-single-cover.jpg"
-              videoSrc="/videos/fund-next-single-45sec.mp4"
+              videoSrc="https://assets.peytspencer.com/videos/fund-next-single-45sec.mp4"
               videoId="fund-next-single"
               alt="Next single preview"
               className="mb-3 aspect-video"

@@ -17,17 +17,17 @@ export interface VideoMetadata {
 
 export const VIDEO_REGISTRY = {
   "exhibit-psd-live": {
-    src: "/videos/exhibit-psd-live.mp4",
+    src: "https://assets.peytspencer.com/videos/exhibit-psd-live.mp4",
     title: "Exhibit PSD Live Performance",
     description: "Rocking the stage with my live band",
   },
   "boise-fund": {
-    src: "/videos/boise-fund-60sec.mp4",
+    src: "https://assets.peytspencer.com/videos/boise-fund-60sec.mp4",
     title: "Flight to Boise Funding Campaign",
     description: "Opening for Mark Battles in Boise, Idaho",
   },
   "fund-next-single": {
-    src: "/videos/fund-next-single-45sec.mp4",
+    src: "https://assets.peytspencer.com/videos/fund-next-single-45sec.mp4",
     title: "Fund My Next Single",
     description: "Help fund my next Single",
   },
@@ -35,7 +35,7 @@ export const VIDEO_REGISTRY = {
   // Add more videos here as needed
   // Example:
   // "behind-the-scenes": {
-  //   src: "/videos/bts.mp4",
+  //   src: "https://assets.peytspencer.com/videos/bts.mp4",
   //   instagramUrl: "https://instagram.com/p/...",
   //   thumbnail: "/thumbnails/bts.jpg",
   //   title: "Behind the Scenes",

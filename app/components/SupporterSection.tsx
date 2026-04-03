@@ -554,7 +554,7 @@ export function SupporterSection({
           <div className="grid grid-cols-2">
             <div className="aspect-[9/16] relative bg-neutral-900 overflow-hidden">
               <video
-                src="/videos/exhibit-psd-live.mp4"
+                src="https://assets.peytspencer.com/videos/exhibit-psd-live.mp4"
                 className="w-full h-full object-cover"
                 controls
                 playsInline

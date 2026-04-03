@@ -16,7 +16,7 @@ interface DualVideoImageToggleProps {
 export function DualVideoImageToggle({
   left,
   right,
-  videoSrc = "/videos/boise-fund-60sec.mp4",
+  videoSrc = "https://assets.peytspencer.com/videos/boise-fund-60sec.mp4",
   instagramUrl = "https://www.instagram.com/peytspencer/reel/DPg61j5EWb8",
   className = "",
   videoId,
