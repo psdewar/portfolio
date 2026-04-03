@@ -23,6 +23,7 @@ function pamphletHtml(
     venueLabel: string | null;
   }>,
   format: PamphletFormat = "standard",
+  label?: string,
 ): string {
   const { W, H } = DIMS[format];
   const showsHtml = shows
@@ -101,7 +102,7 @@ function pamphletHtml(
         <div class="title-accent"></div>
         <div class="the-concert">My path of growth</div>
         <div class="the-concert">and the principles</div>
-        <div class="the-concert">that connect us</div>
+        <div class="the-concert">that connect us${label ? ` ${label.split(" ")[0]}` : ""}</div>${label ? `\n        <div class="the-concert">${label.split(" ").slice(1).join(" ")}</div>` : ""}
       </div>
       <div class="details">
         ${showsHtml}
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest) {
   }
 
   let selected: PamphletShow[] = [];
+  let pamphletLabel: string | undefined;
   const pamphletId = searchParams.get("id");
 
   if (!blank) {
@@ -150,6 +152,7 @@ export async function GET(request: NextRequest) {
       if (!pamphlet) {
         return new Response("Pamphlet not found", { status: 404 });
       }
+      pamphletLabel = pamphlet.label;
       const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
       selected = resolveShows(
         allShows,
@@ -183,7 +186,7 @@ export async function GET(request: NextRequest) {
   const rawFormat = searchParams.get("format") ?? "standard";
   const format: PamphletFormat = rawFormat === "ig" || rawFormat === "yt" ? rawFormat : "standard";
   const { W, H } = DIMS[format];
-  const html = pamphletHtml(selected, format);
+  const html = pamphletHtml(selected, format, pamphletLabel);
 
   try {
     const screenshot = await takeScreenshot({

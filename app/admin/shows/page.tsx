@@ -181,6 +181,7 @@ export default function ShowsAdminPage() {
                     <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
                   </div>
                   <div className="flex items-center gap-3">
+                    <CustomPosterButton />
                     {(
                       [
                         { fmt: "", label: "Blank" },
@@ -245,13 +246,13 @@ export default function ShowsAdminPage() {
               <div>
                 <div className="mb-8">
                   <h2 className="text-xs lg:text-sm font-light tracking-[0.2em] text-neutral-500 dark:text-neutral-500 uppercase">
-                    Past
+                    Completed
                   </h2>
                   <div className="w-8 h-px bg-gradient-to-r from-neutral-300 to-transparent dark:from-neutral-700 mt-3" />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                   {past.map((group) => (
-                    <ShowGroupCard key={group.showSlug} group={group} {...cardProps} />
+                    <ShowGroupCard key={group.showSlug} group={group} {...cardProps} readOnly />
                   ))}
                 </div>
               </div>
@@ -272,6 +273,152 @@ export default function ShowsAdminPage() {
   );
 }
 
+function CustomPosterButton() {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [venue, setVenue] = useState("");
+  const [doorTime, setDoorTime] = useState("7PM");
+  const [venueLabel, setVenueLabel] = useState("");
+  const [doorLabel, setDoorLabel] = useState("");
+  const [taglineSuffix, setTaglineSuffix] = useState("");
+
+  const buildHref = () => {
+    const params = new URLSearchParams();
+    if (date) params.set("date", date);
+    if (city) params.set("city", city);
+    if (region) params.set("region", region);
+    if (venue) params.set("venue", venue);
+    if (doorTime) params.set("doorTime", doorTime);
+    if (venueLabel) params.set("venueLabel", venueLabel);
+    if (doorLabel) params.set("doorLabel", doorLabel);
+    if (taglineSuffix) params.set("label", taglineSuffix);
+    return `/api/poster?${params.toString()}`;
+  };
+
+  const canDownload = date && city && region;
+  const [generating, setGenerating] = useState(false);
+
+  const handleDownload = async () => {
+    if (!canDownload) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(buildHref());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `poster-${city.toLowerCase().replace(/\s+/g, "-")}.jpg`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const inputClass =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
+
+  return (
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-sm shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                CUSTOM POSTER
+              </h4>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2 mb-4">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="City"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                placeholder="Region (e.g. BC, WA)"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={venue}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="Venue"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={doorTime}
+                onChange={(e) => setDoorTime(e.target.value)}
+                placeholder="Door time (e.g. 7PM)"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={venueLabel}
+                onChange={(e) => setVenueLabel(e.target.value)}
+                placeholder="Venue label override"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={doorLabel}
+                onChange={(e) => setDoorLabel(e.target.value)}
+                placeholder="Door label override"
+                className={inputClass}
+              />
+              <input
+                type="text"
+                value={taglineSuffix}
+                onChange={(e) => setTaglineSuffix(e.target.value)}
+                placeholder="Tagline suffix (e.g. in British Columbia)"
+                className={inputClass}
+              />
+            </div>
+            <button
+              onClick={handleDownload}
+              disabled={!canDownload || generating}
+              className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-30"
+            >
+              {generating ? "Generating..." : "Download Poster"}
+            </button>
+          </div>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+      >
+        Custom Poster
+      </button>
+    </>
+  );
+}
+
 function PamphletGroupButton({
   group,
   matchedPamphlet,
@@ -282,7 +429,8 @@ function PamphletGroupButton({
   onPamphletSaved: (p: Pamphlet) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [legName, setLegName] = useState(matchedPamphlet?.id ?? "");
+  const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
+  const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
     if (matchedPamphlet) {
       return Object.fromEntries(
@@ -321,8 +469,8 @@ function PamphletGroupButton({
     });
 
   const buildHref = (format: "standard" | "ig" | "yt" = "standard") => {
-    if (legName.trim()) {
-      const params = new URLSearchParams({ id: legName.trim() });
+    if (legId.trim()) {
+      const params = new URLSearchParams({ id: legId.trim() });
       if (format !== "standard") params.set("format", format);
       return `/api/pamphlet?${params.toString()}`;
     }
@@ -337,11 +485,12 @@ function PamphletGroupButton({
   };
 
   const savePamphlet = async (): Promise<boolean> => {
-    const id = legName.trim();
+    const id = legId.trim();
     if (!id) return true;
     setSaving(true);
     setSaveError("");
-    const payload = { id, shows: buildPamphletShows() };
+    const label = legLabel.trim() || undefined;
+    const payload = { id, shows: buildPamphletShows(), label };
     const isUpdate = matchedPamphlet?.id === id;
     const res = await fetch("/api/pamphlets", {
       method: isUpdate ? "PATCH" : "POST",
@@ -357,21 +506,28 @@ function PamphletGroupButton({
       }
       return false;
     }
-    onPamphletSaved({ id, shows: payload.shows });
+    onPamphletSaved({ id, label, shows: payload.shows });
     return true;
   };
 
   const handleDownload = async (fmt: "standard" | "ig" | "yt") => {
     const ok = await savePamphlet();
     if (!ok) return;
-    const suffix = fmt !== "standard" ? `-${fmt}` : "";
-    const filename = legName.trim()
-      ? `pamphlet-${legName.trim()}${suffix}.jpg`
-      : `pamphlet-${first.date}${suffix}.jpg`;
-    const link = document.createElement("a");
-    link.href = buildHref(fmt);
-    link.download = filename;
-    link.click();
+    setSaving(true);
+    try {
+      const res = await fetch(buildHref(fmt));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const suffix = fmt !== "standard" ? `-${fmt}` : "";
+      const filename = `pamphlet-${legId.trim() || first.date}${suffix}.jpg`;
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -398,9 +554,16 @@ function PamphletGroupButton({
             </div>
             <input
               type="text"
-              value={legName}
-              onChange={(e) => setLegName(e.target.value)}
-              placeholder="Leg name (e.g. south-florida)"
+              value={legId}
+              onChange={(e) => setLegId(e.target.value)}
+              placeholder="ID (e.g. british-columbia)"
+              className="w-full px-2 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
+            />
+            <input
+              type="text"
+              value={legLabel}
+              onChange={(e) => setLegLabel(e.target.value)}
+              placeholder="Tagline suffix (e.g. in British Columbia)"
               className="w-full px-2 py-1.5 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-4"
             />
             <div className="space-y-3 mb-4">
@@ -447,9 +610,9 @@ function PamphletGroupButton({
                     className="flex-1 text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
                   >
                     {saving
-                      ? "Saving..."
+                      ? "Generating..."
                       : fmt === "standard"
-                        ? `Download (${activeGroup.length})`
+                        ? `Save & Download (${activeGroup.length})`
                         : `${fmt.toUpperCase()} (${activeGroup.length})`}
                   </button>
                 ))}
@@ -468,7 +631,7 @@ function PamphletGroupButton({
       >
         <span className="text-xs tracking-widest text-neutral-400 uppercase">Pamphlet</span>
         <span>
-          {matchedPamphlet ? matchedPamphlet.id : label} &middot; {group.length} show
+          {matchedPamphlet?.label || matchedPamphlet?.id || label} &middot; {group.length} show
           {group.length !== 1 ? "s" : ""}
         </span>
       </button>
@@ -481,11 +644,13 @@ function ShowGroupCard({
   onUpdateSponsor,
   onRemoveSponsor,
   onShowUpdate,
+  readOnly = false,
 }: {
   group: ShowGroup;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  readOnly?: boolean;
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
@@ -683,7 +848,7 @@ function ShowGroupCard({
             </p>
           </div>
 
-          {show && (
+          {show && !readOnly && (
             <div className="space-y-2 pt-3">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm text-neutral-400 dark:text-neutral-500 uppercase tracking-wide font-light">
@@ -719,7 +884,7 @@ function ShowGroupCard({
             </div>
           )}
 
-          {confirmDelete && (
+          {!readOnly && confirmDelete && (
             <div className="flex gap-2 items-center pt-2">
               <input
                 autoFocus
@@ -751,66 +916,98 @@ function ShowGroupCard({
 
         {/* Right: actions — flush to top, right, bottom edges */}
         <div className="shrink-0 flex flex-col border-l border-neutral-200/50 dark:border-neutral-700/50 w-28">
-          <button
-            disabled
-            title="PDF renovating"
-            className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-400 dark:text-neutral-600 cursor-not-allowed font-light bg-neutral-50 dark:bg-neutral-800"
-          >
-            PDF
-          </button>
-          {show?.slug && (
-            <button
-              onClick={async () => {
-                const next = show.access === "private" ? "public" : "private";
-                onShowUpdate(show.slug, { access: next });
-                await fetch("/api/shows", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ slug: show.slug, access: next }),
-                });
-              }}
-              className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 transition-colors font-light ${
-                show.access === "private"
-                  ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                  : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              }`}
-            >
-              {show.access === "private" ? "Private" : "Public"}
-            </button>
-          )}
-          {supporters.length > 0 && (
-            <button
-              onClick={() => setViewingSupporters(true)}
-              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
-            >
-              +{supporters.length}
-            </button>
-          )}
-          <button
-            onClick={() => setEditingHost(true)}
-            className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
-          >
-            Amend
-          </button>
-          <button
-            onClick={() => {
-              setConfirmDelete(true);
-              setDeleteInput("");
-            }}
-            className="flex-1 flex items-center justify-center text-sm px-3 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light border-b border-neutral-200/50 dark:border-neutral-700/50"
-          >
-            Delete
-          </button>
-          {show?.slug ? (
-            <a
-              href={`/api/poster/${show.slug}`}
-              download={`poster-${show.slug}.jpg`}
-              className="flex-1 flex items-center justify-center text-sm px-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
-            >
-              Poster
-            </a>
+          {readOnly ? (
+            <>
+              {supporters.length > 0 && (
+                <button
+                  onClick={() => setViewingSupporters(true)}
+                  className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+                >
+                  +{supporters.length}
+                </button>
+              )}
+              <button
+                onClick={() => setEditingHost(true)}
+                className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+              >
+                View
+              </button>
+              {show?.slug ? (
+                <a
+                  href={`/api/poster/${show.slug}`}
+                  download={`poster-${show.slug}.jpg`}
+                  className="flex-1 flex items-center justify-center text-sm px-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
+                >
+                  Poster
+                </a>
+              ) : (
+                <div className="flex-1" />
+              )}
+            </>
           ) : (
-            <div className="flex-1" />
+            <>
+              <button
+                disabled
+                title="PDF renovating"
+                className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-400 dark:text-neutral-600 cursor-not-allowed font-light bg-neutral-50 dark:bg-neutral-800"
+              >
+                PDF
+              </button>
+              {show?.slug && (
+                <button
+                  onClick={async () => {
+                    const next = show.access === "private" ? "public" : "private";
+                    onShowUpdate(show.slug, { access: next });
+                    await fetch("/api/shows", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ slug: show.slug, access: next }),
+                    });
+                  }}
+                  className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 transition-colors font-light ${
+                    show.access === "private"
+                      ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  {show.access === "private" ? "Private" : "Public"}
+                </button>
+              )}
+              {supporters.length > 0 && (
+                <button
+                  onClick={() => setViewingSupporters(true)}
+                  className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+                >
+                  +{supporters.length}
+                </button>
+              )}
+              <button
+                onClick={() => setEditingHost(true)}
+                className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200/50 dark:border-neutral-700/50 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light"
+              >
+                Amend
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmDelete(true);
+                  setDeleteInput("");
+                }}
+                className="flex-1 flex items-center justify-center text-sm px-3 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors font-light border-b border-neutral-200/50 dark:border-neutral-700/50"
+              >
+                Delete
+              </button>
+              {show?.slug ? (
+                <a
+                  href={`/api/poster/${show.slug}`}
+                  download={`poster-${show.slug}.jpg`}
+                  className="flex-1 flex items-center justify-center text-sm px-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light"
+                >
+                  Poster
+                </a>
+              ) : (
+                <div className="flex-1" />
+              )}
+            </>
           )}
         </div>
       </div>

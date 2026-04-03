@@ -5,6 +5,7 @@ export interface PamphletShow {
 
 export interface Pamphlet {
   id: string;
+  label?: string;
   shows: PamphletShow[];
 }
 
