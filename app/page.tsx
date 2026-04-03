@@ -105,7 +105,7 @@ export default function Page() {
                   autoPlay
                   playsInline
                 >
-                  <source src="/videos/windstock.mp4" type="video/mp4" />
+                  <source src="https://assets.peytspencer.com/videos/windstock.mp4" type="video/mp4" />
                 </video>
                 <div className={overlayClass(3)} />
                 <button

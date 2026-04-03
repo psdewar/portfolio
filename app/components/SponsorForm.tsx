@@ -355,7 +355,7 @@ export default function SponsorForm({
             type="text"
             value={sponsorName}
             onChange={(e) => setSponsorName(e.target.value)}
-            placeholder="Jane Doe or Local Assembly"
+            placeholder="Your name or organization"
             required={isWizard && wizardMode === "supporter"}
             disabled={readOnly}
             className={fieldClass}
@@ -564,7 +564,7 @@ export default function SponsorForm({
 
           {/* Supporter: checkboxes (last, so honorarium is right before submit) */}
           <section>
-            <h2 className={headingClass}>How your community will support this upcoming concert</h2>
+            <h2 className={headingClass}>Ways to support</h2>
             <div className={compact ? "space-y-1" : "space-y-4"}>
               {SUPPORTER_ITEMS.map((item) => renderCheckItem(item, iconSize))}
             </div>
@@ -723,10 +723,7 @@ export default function SponsorForm({
 
           {/* Host: checkboxes */}
           <section>
-            <h2 className={headingClass}>
-              How your community will
-              {wizardMode === "host" ? " contribute" : " support this upcoming concert"}
-            </h2>
+            <h2 className={headingClass}>Ways to contribute</h2>
 
             {/* Mobile / tablet: CSS columns */}
             <div
