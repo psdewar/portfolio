@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
+import Poster from "../../components/Poster";
 import { type Show } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
@@ -440,84 +441,98 @@ function CustomPosterButton() {
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-sm shadow-xl"
+            className="w-full max-w-3xl shadow-xl rounded-l-lg overflow-hidden flex h-[520px]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                CUSTOM POSTER
-              </h4>
+            <div className="flex-1 min-w-0 bg-white dark:bg-neutral-800 p-6 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                  CUSTOM POSTER
+                </h4>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-2 mb-4">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="Region (e.g. BC, WA)"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  placeholder="Venue"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={doorTime}
+                  onChange={(e) => setDoorTime(e.target.value)}
+                  placeholder="Door time (e.g. 7PM)"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={venueLabel}
+                  onChange={(e) => setVenueLabel(e.target.value)}
+                  placeholder="Venue label override"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={doorLabel}
+                  onChange={(e) => setDoorLabel(e.target.value)}
+                  placeholder="Door label override"
+                  className={inputClass}
+                />
+                <textarea
+                  value={taglineSuffix}
+                  onChange={(e) => setTaglineSuffix(e.target.value)}
+                  placeholder="Tagline suffix (e.g. in British Columbia)"
+                  rows={2}
+                  className={inputClass + " resize-none"}
+                />
+              </div>
               <button
-                onClick={() => setOpen(false)}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                onClick={handleDownload}
+                disabled={!canDownload || generating}
+                className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-30"
               >
-                ✕
+                {generating ? "Generating..." : "Download Poster"}
               </button>
             </div>
-            <div className="space-y-2 mb-4">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="City"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                placeholder="Region (e.g. BC, WA)"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                placeholder="Venue"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={doorTime}
-                onChange={(e) => setDoorTime(e.target.value)}
-                placeholder="Door time (e.g. 7PM)"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={venueLabel}
-                onChange={(e) => setVenueLabel(e.target.value)}
-                placeholder="Venue label override"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={doorLabel}
-                onChange={(e) => setDoorLabel(e.target.value)}
-                placeholder="Door label override"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={taglineSuffix}
-                onChange={(e) => setTaglineSuffix(e.target.value)}
-                placeholder="Tagline suffix (e.g. in British Columbia)"
-                className={inputClass}
+            <div className="h-full">
+              <Poster
+                date={date || undefined}
+                city={city || undefined}
+                region={region || undefined}
+                venue={venue || undefined}
+                doorTime={doorTime || undefined}
+                venueLabel={venueLabel || undefined}
+                doorLabel={doorLabel || undefined}
+                taglineSuffix={taglineSuffix || undefined}
               />
             </div>
-            <button
-              onClick={handleDownload}
-              disabled={!canDownload || generating}
-              className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-30"
-            >
-              {generating ? "Generating..." : "Download Poster"}
-            </button>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
-import { Bebas_Neue, Parkinsans, Space_Mono, Fira_Sans } from "next/font/google";
+import { Bebas_Neue, Space_Mono, Fira_Sans } from "next/font/google";
 import { ClientLayout } from "./ClientLayout";
 
 const myFont = localFont({
@@ -14,10 +14,10 @@ const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
 });
 
-const parkinsans = Parkinsans({
-  weight: ["400", "500", "600", "700", "800"],
-  subsets: ["latin"],
+const parkinsans = localFont({
+  src: "./fonts/Parkinsans-VariableFont_wght.ttf",
   variable: "--font-parkinsans",
+  adjustFontFallback: "Arial",
 });
 
 const spaceMono = Space_Mono({

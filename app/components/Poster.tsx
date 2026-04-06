@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { formatEventDate } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
 
@@ -12,6 +13,7 @@ interface PosterProps {
   venue?: string | null;
   venueLabel?: string | null;
   address?: string | null;
+  taglineSuffix?: string;
 }
 
 export default function Poster({
@@ -23,6 +25,7 @@ export default function Poster({
   venue,
   venueLabel,
   address,
+  taglineSuffix,
 }: PosterProps) {
   return (
     <>
@@ -43,16 +46,6 @@ export default function Poster({
             aspect-ratio: 480 / 720;
             border-radius: 0;
           }
-        }
-        .poster-bg {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center;
-          z-index: 1;
         }
         .poster::before {
           content: "";
@@ -212,7 +205,14 @@ export default function Poster({
         }
       `}</style>
       <div className="poster">
-        <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" className="poster-bg" />
+        <Image
+          src="/Jan23OpenMicNight-08_Original.jpg"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 50vw"
+          style={{ objectFit: "cover", objectPosition: "center", zIndex: 1 }}
+        />
         <div className="photo-overlay" />
         <div className="bottom-overlay" />
         <div className="poster-content">
@@ -235,7 +235,17 @@ export default function Poster({
             <div className="title-accent" />
             <div className="the-concert">my path of growth</div>
             <div className="the-concert">and the principles</div>
-            <div className="the-concert">that connect us</div>
+            <div className="the-concert">
+              that connect us{taglineSuffix ? ` ${taglineSuffix.split("\n")[0]}` : ""}
+            </div>
+            {taglineSuffix
+              ?.split("\n")
+              .slice(1)
+              .map((line, i) => (
+                <div key={i} className="the-concert">
+                  {line}
+                </div>
+              ))}
           </div>
           {date && (
             <div className="details">
