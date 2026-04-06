@@ -15,15 +15,15 @@ import { useAudio } from "./contexts/AudioContext";
 const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
 const GlobalAudioPlayer = dynamic(
   () => import("./components/GlobalAudioPlayer").then((mod) => mod.GlobalAudioPlayer),
-  { ssr: false }
+  { ssr: false },
 );
 const MissingResourceIndicator = dynamic(
   () => import("./components/MissingResourceIndicator").then((mod) => mod.MissingResourceIndicator),
-  { ssr: false }
+  { ssr: false },
 );
 const DevToolsPanel = dynamic(
   () => import("./components/DevToolsPanel").then((mod) => mod.DevToolsPanel),
-  { ssr: false }
+  { ssr: false },
 );
 
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
@@ -36,9 +36,10 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === "/" || pathname === "/2026";
   const isListenPage = pathname === "/listen";
   const isLivePage = pathname === "/live";
+  const isAdminPage = pathname?.startsWith("/admin");
 
-  // OG mode: render only the content, no navbar/player/devtools
-  if (isOgMode) {
+  // OG mode or admin: render only the content, no site navbar/player/devtools
+  if (isOgMode || isAdminPage) {
     return (
       <main className="flex-auto min-w-0 flex flex-col">
         <Suspense>{children}</Suspense>

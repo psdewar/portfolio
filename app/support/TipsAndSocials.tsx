@@ -41,6 +41,7 @@ function TipsSection({ isOg = false }: { isOg?: boolean }) {
             alt="Venmo"
             width={120}
             height={25}
+            priority
             className="brightness-0 invert"
           />
         </a>

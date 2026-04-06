@@ -115,6 +115,13 @@ export function SupporterSection({
   const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
 
   useEffect(() => {
+    if (window.location.hash === "#supporter") {
+      window.history.replaceState({}, "", window.location.pathname);
+      setTimeout(() => tierSectionRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
+    }
+  }, []);
+
+  useEffect(() => {
     fetch("/api/schedule")
       .then((res) => res.json())
       .then((data) => {
@@ -654,8 +661,9 @@ export function SupporterSection({
       {/* Become a Monthly Supporter */}
       {!isPatron && (
         <section
+          id="supporter"
           ref={tierSectionRef}
-          className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isModal ? "pt-0" : "pt-8 md:pt-12"} pb-8 md:pb-12`}
+          className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isModal ? "pt-0" : "pt-8 md:pt-12"} pb-8 md:pb-12 scroll-mt-16`}
         >
           <div className="max-w-lg mx-auto">
             <div className="mb-4">

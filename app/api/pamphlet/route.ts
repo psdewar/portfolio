@@ -141,6 +141,23 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
+  // Placeholder slots: ph_0=2026-05-15, ph_1=2026-06-20&phl_1=Portland, OR
+  const placeholders: PamphletShow[] = [];
+  for (const [key, val] of searchParams.entries()) {
+    const m = key.match(/^ph_(\d+)$/);
+    if (m && val) {
+      const idx = parseInt(m[1]);
+      const locationLabel = searchParams.get(`phl_${idx}`)?.trim() || "TBA";
+      placeholders.push({
+        date: val,
+        city: "",
+        region: "",
+        venue: null,
+        venueLabel: locationLabel,
+      });
+    }
+  }
+
   let selected: PamphletShow[] = [];
   let pamphletLabel: string | undefined;
   const pamphletId = searchParams.get("id");
@@ -178,9 +195,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!selected.length) {
+    if (!selected.length && !placeholders.length) {
       return new Response("No shows found", { status: 404 });
     }
+  }
+
+  if (placeholders.length) {
+    selected = [...selected, ...placeholders].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
   }
 
   const rawFormat = searchParams.get("format") ?? "standard";

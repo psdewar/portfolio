@@ -60,6 +60,8 @@ export default function LivePage() {
   const [elapsedTime, setElapsedTime] = useState("");
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const thanksHandled = useRef(false);
+  const hlsConnected = useRef(false);
 
   useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
@@ -101,7 +103,9 @@ export default function LivePage() {
   };
 
   useEffect(() => {
-    if (searchParams.get("thanks") !== "1") return;
+    if (searchParams.get("thanks") !== "1" || thanksHandled.current) return;
+    if (isLoading) return;
+    thanksHandled.current = true;
     activatePatronStatus();
     posthog?.capture("patron_checkout_completed", { source: "live" });
 
@@ -114,9 +118,7 @@ export default function LivePage() {
     window.history.replaceState({}, "", "/live");
     const exitTimer = setTimeout(() => setShowThanks(false), 5000);
     return () => clearTimeout(exitTimer);
-  }, [searchParams, posthog, status.online, router]);
-
-  // Status now comes from useLiveStatus hook via SSE (no polling!)
+  }, [searchParams, posthog, status.online, isLoading, router]);
 
   useEffect(() => {
     fetch("/api/schedule")
@@ -173,11 +175,16 @@ export default function LivePage() {
   }, [isOgMode]);
 
   useEffect(() => {
-    if (!status.online) return;
+    if (!status.online) {
+      hlsConnected.current = false;
+      return;
+    }
+    if (hlsConnected.current) return;
 
-    const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
+    const video = desktopVideoRef.current || mobileVideoRef.current;
     if (!video) return;
 
+    hlsConnected.current = true;
     const src = `${OWNCAST_URL}/hls/stream.m3u8`;
 
     const tryAutoplay = (hls?: Hls) => {
@@ -206,14 +213,26 @@ export default function LivePage() {
       return () => {
         hls.destroy();
         hlsRef.current = null;
+        hlsConnected.current = false;
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
       video.addEventListener("loadedmetadata", () => tryAutoplay(), {
         once: true,
       });
+      return () => {
+        video.src = "";
+        hlsConnected.current = false;
+      };
     }
-  }, [status.online, isDesktop]);
+  }, [status.online]);
+
+  useEffect(() => {
+    if (!hlsRef.current) return;
+    const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
+    if (!video) return;
+    hlsRef.current.attachMedia(video);
+  }, [isDesktop]);
 
   const handleManualPlay = () => {
     const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;

@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+
+const adminPages = [
+  { segment: "shows", title: "Shows", href: "/admin/shows" },
+  { segment: "schedule", title: "Schedule", href: "/admin/schedule" },
+  { segment: "printouts", title: "Printouts", href: "/admin/printouts" },
+  { segment: "sync", title: "Sync", href: "/admin/sync" },
+];
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "peyt2024";
 
@@ -9,91 +18,121 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
-  // Check sessionStorage on mount
   useEffect(() => {
     const stored = sessionStorage.getItem("admin-auth");
-    if (stored === "true") {
-      setIsAuthenticated(true);
-    }
+    if (stored === "true") setIsAuthenticated(true);
     setIsChecking(false);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem("admin-auth", "true");
-      setIsAuthenticated(true);
-      setError("");
-    } else {
-      setError("Incorrect password");
-      setPassword("");
-    }
-  };
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const close = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [dropdownOpen]);
 
-  if (isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-        <div className="animate-spin w-8 h-8 border-2 border-neutral-300 border-t-neutral-600 rounded-full" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 p-4">
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg p-8 w-full max-w-sm"
-        >
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 mb-4"
-            autoFocus
-          />
-
-          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-
-          <button
-            type="submit"
-            className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all"
-          >
-            Enter
-          </button>
-        </form>
-      </div>
-    );
-  }
+  const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
+  const current = adminPages.find((p) => p.segment === segment);
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
-      {/* Admin header */}
-      <div className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950">
+      <div className="border-b border-neutral-200 dark:border-neutral-800 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium px-2 py-1 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded">
-              ADMIN
+            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-500">
+              Admin
             </span>
-            <span className="text-neutral-600 dark:text-neutral-400 text-sm">
-              Peyt Spencer Tools
-            </span>
+            {isAuthenticated && current && (
+              <div className="relative flex items-center gap-3" ref={dropdownRef}>
+                <span className="text-sm font-light text-neutral-300 dark:text-neutral-700 select-none">
+                  /
+                </span>
+                <button
+                  onClick={() => setDropdownOpen((o) => !o)}
+                  className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-900 dark:text-white hover:text-[#d4a553] transition-colors"
+                >
+                  {current.title}
+                </button>
+                {dropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 py-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl min-w-[160px] z-50">
+                    {adminPages.map((page) => (
+                      <Link
+                        key={page.href}
+                        href={page.href}
+                        onClick={() => setDropdownOpen(false)}
+                        className={`block px-4 py-2 text-sm transition-colors ${
+                          page.segment === segment
+                            ? "text-[#d4a553]"
+                            : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {page.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => {
-              sessionStorage.removeItem("admin-auth");
-              setIsAuthenticated(false);
-            }}
-            className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-          >
-            Logout
-          </button>
+          {isAuthenticated && segment === "printouts" && (
+            <span className="text-xs text-neutral-400 dark:text-neutral-600">
+              Print with Chrome, set margins to Default
+            </span>
+          )}
+          {isAuthenticated ? (
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("admin-auth");
+                setIsAuthenticated(false);
+                setPassword("");
+              }}
+              className="text-sm text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+            >
+              Logout
+            </button>
+          ) : !isChecking ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (password === ADMIN_PASSWORD) {
+                  sessionStorage.setItem("admin-auth", "true");
+                  setIsAuthenticated(true);
+                  setError("");
+                } else {
+                  setError("Incorrect password");
+                  setPassword("");
+                }
+              }}
+            >
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                placeholder={error || "Password"}
+                className={`w-40 px-3 py-1.5 text-sm rounded-lg border bg-neutral-100 dark:bg-neutral-900/50 text-neutral-900 dark:text-white focus:outline-none transition-colors ${
+                  error
+                    ? "border-red-300 dark:border-red-800 placeholder-red-400/70"
+                    : "border-neutral-300 dark:border-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-600 focus:border-neutral-400 dark:focus:border-neutral-600"
+                }`}
+                autoFocus
+              />
+            </form>
+          ) : null}
         </div>
       </div>
 
-      {children}
+      {isAuthenticated && children}
     </div>
   );
 }

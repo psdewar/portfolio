@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/live" },
   title: "Live",
   description:
-    "Watch rapper and Microsoft engineer Peyt Spencer live. Upcoming shows in Bellevue, Seattle, and the Pacific Northwest.",
+    "Watch rapper and Microsoft engineer Peyt Spencer live. From The Ground Up north American tour.",
   openGraph: {
     title: "Live | Peyt Spencer",
     description:
-      "Watch rapper and Microsoft engineer Peyt Spencer live. Upcoming shows in Bellevue, Seattle, and the Pacific Northwest.",
+      "Watch rapper and Microsoft engineer Peyt Spencer live. From The Ground Up north American tour.",
     images: [
       {
         url: "https://peytspencer.com/api/og/live",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Live | Peyt Spencer",
     description:
-      "Watch rapper and Microsoft engineer Peyt Spencer live. Upcoming shows in Bellevue, Seattle, and the Pacific Northwest.",
+      "Watch rapper and Microsoft engineer Peyt Spencer live. From The Ground Up north American tour.",
     images: ["https://peytspencer.com/api/og/live"],
   },
 };

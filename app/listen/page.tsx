@@ -415,7 +415,7 @@ export default function Page() {
                     )}
                     {isPatronOnly && !isPatron && (
                       <Link
-                        href="/support"
+                        href="/support#supporter"
                         onClick={(e) => e.stopPropagation()}
                         className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
                       >

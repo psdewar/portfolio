@@ -26,6 +26,14 @@ export function formatMonthDay(iso: string): string {
   });
 }
 
+export function formatDayMonthDay(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function formatLongDate(iso: string): string {
   return parseLocalDate(iso).toLocaleDateString("en-US", {
     month: "long",
