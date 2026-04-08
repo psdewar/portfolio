@@ -66,11 +66,12 @@ export default function SponsorAvatar() {
             )}
             <video
               ref={videoRef}
-              src="https://assets.peytspencer.com/videos/concert-ftgu-intro-45sec.mp4"
+              src="https://assets.peytspencer.com/videos/concert-ftgu-intro-2-15sec.mp4"
               className="w-full h-full object-cover"
               controls
               autoPlay
               playsInline
+              preload="metadata"
               onCanPlay={() => setLoading(false)}
               onEnded={handleClose}
             />
