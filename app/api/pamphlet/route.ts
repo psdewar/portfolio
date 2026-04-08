@@ -76,6 +76,7 @@ function pamphletHtml(
     .show-divider { height: 1px; background: rgba(255,255,255,0.1); }
     .bottom-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
     .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #c0b8a8; }
+    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; }" : ""}
     ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .lockup-img { height: 24.75px; } .lockup-records { font-size: 16.875px; margin-bottom: 1.125px; }" : ""}
   </style>
 </head>

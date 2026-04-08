@@ -6,29 +6,80 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { activatePatronStatus } from "../lib/patron";
 import { SOCIAL_LINKS } from "../components/Social";
 import { CopySimpleIcon, CheckIcon } from "@phosphor-icons/react";
+import { Toast } from "../components/Toast";
 
 const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
+const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 
-function TipsSection({ isOg = false }: { isOg?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+function TipsSection({ isOg = false, country = "US" }: { isOg?: boolean; country?: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastExiting, setToastExiting] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  const handleCopyZelle = () => {
-    navigator.clipboard.writeText(ZELLE_EMAIL);
-    setCopied(true);
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 2000);
+  const handleCopy = (text: string, key: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    timers.current.forEach(clearTimeout);
+    setCopied(key);
+    setToast(label);
+    setToastExiting(false);
+    timers.current = [
+      setTimeout(() => setCopied(null), 2000),
+      setTimeout(() => setToastExiting(true), 2500),
+      setTimeout(() => {
+        setToast(null);
+        setToastExiting(false);
+      }, 3000),
+    ];
   };
 
   return (
     <div className="flex-1 min-w-0">
+      {toast && <Toast message={toast} exiting={toastExiting} />}
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Send a Tip</h2>
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
         Your contribution helps me remain independent while funding my next live concert.
       </p>
       <div className="space-y-3">
+        {country === "CA" && INTERAC_EMAIL && !isOg && (
+          <button
+            onClick={() =>
+              handleCopy(
+                INTERAC_EMAIL,
+                "interac",
+                "Email copied, open your bank app to send an e-Transfer",
+              )
+            }
+            className="w-full flex items-center justify-between px-5 py-1 rounded-xl text-left transition-colors hover:opacity-90 overflow-hidden"
+            style={{ backgroundColor: "#FFBE00" }}
+          >
+            <Image
+              src="/interac_logo.svg"
+              alt="Interac e-Transfer"
+              width={56}
+              height={56}
+              className="shrink-0"
+            />
+            <span
+              className="flex items-center gap-1.5 text-base font-medium shrink-0"
+              style={{ color: "#333" }}
+            >
+              {copied === "interac" ? (
+                <>
+                  <CheckIcon size={14} weight="bold" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <CopySimpleIcon size={14} weight="bold" />
+                  Copy my email for e-Transfer
+                </>
+              )}
+            </span>
+          </button>
+        )}
         <a
           href="https://venmo.com/u/psdewar"
           target="_blank"
@@ -47,16 +98,16 @@ function TipsSection({ isOg = false }: { isOg?: boolean }) {
         </a>
         {ZELLE_EMAIL && !isOg && (
           <button
-            onClick={handleCopyZelle}
+            onClick={() => handleCopy(ZELLE_EMAIL, "zelle", "Email copied, open Zelle to send")}
             className="w-full flex items-center justify-between px-5 py-1 rounded-xl border-2 text-left transition-colors hover:opacity-90"
             style={{ borderColor: "#6D1ED4" }}
           >
             <Image src="/zelle_logo.svg" alt="Zelle" width={80} height={32} className="shrink-0" />
             <span className="flex items-center gap-1.5 text-base text-neutral-500 dark:text-neutral-400 shrink-0">
-              {copied ? (
+              {copied === "zelle" ? (
                 <>
                   <CheckIcon size={14} weight="bold" />
-                  Copied, now open Zelle
+                  Copied
                 </>
               ) : (
                 <>
@@ -97,7 +148,7 @@ function SocialSection() {
   );
 }
 
-export default function TipsAndSocials() {
+export default function TipsAndSocials({ country = "US" }: { country?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -123,7 +174,7 @@ export default function TipsAndSocials() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="flex flex-col gap-8 max-w-lg mx-auto">
-        <TipsSection isOg={searchParams.get("og") === "true"} />
+        <TipsSection isOg={searchParams.get("og") === "true"} country={country} />
         <SocialSection />
         <a
           href="/sponsor"

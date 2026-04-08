@@ -363,7 +363,7 @@ export default function StayConnected({
                 if (errors.otp) setErrors({});
               }}
               onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
-              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-center tracking-[0.5em] font-mono ${
+              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-center tracking-[0.5em] font-mono ${
                 errors.otp
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"

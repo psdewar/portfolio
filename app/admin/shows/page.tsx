@@ -7,6 +7,7 @@ import Poster from "../../components/Poster";
 import { type Show } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
+import { buildZip } from "../../lib/zip";
 
 interface Sponsor {
   showSlug: string | null;
@@ -171,22 +172,7 @@ export default function ShowsAdminPage() {
                   </h2>
                   <div className="flex items-center gap-2">
                     <CustomPosterButton />
-                    {(
-                      [
-                        { fmt: "", label: "Blank" },
-                        { fmt: "&format=ig", label: "Blank IG" },
-                        { fmt: "&format=yt", label: "Blank YT" },
-                      ] as const
-                    ).map(({ fmt, label }) => (
-                      <a
-                        key={label}
-                        href={`/api/pamphlet?blank=true${fmt}`}
-                        download={`pamphlet-${label.toLowerCase().replace(" ", "-")}.jpg`}
-                        className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
-                      >
-                        {label}
-                      </a>
-                    ))}
+                    <BlankPamphletButton />
                   </div>
                 </div>
                 <div className="space-y-10">
@@ -546,6 +532,41 @@ function CustomPosterButton() {
   );
 }
 
+function BlankPamphletButton() {
+  const [downloading, setDownloading] = useState(false);
+  const handleClick = async () => {
+    setDownloading(true);
+    try {
+      const [igRes, ytRes] = await Promise.all([
+        fetch("/api/pamphlet?blank=true&format=ig"),
+        fetch("/api/pamphlet?blank=true&format=yt"),
+      ]);
+      const [igBuf, ytBuf] = await Promise.all([igRes.arrayBuffer(), ytRes.arrayBuffer()]);
+      const zip = buildZip([
+        { name: "pamphlet-blank-ig.jpg", data: new Uint8Array(igBuf) },
+        { name: "pamphlet-blank-yt.jpg", data: new Uint8Array(ytBuf) },
+      ]);
+      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "pamphlet-blank.zip";
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+  return (
+    <button
+      onClick={handleClick}
+      disabled={downloading}
+      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50"
+    >
+      {downloading ? "Generating..." : "Blank"}
+    </button>
+  );
+}
+
 function PamphletGroupButton({
   group,
   matchedPamphlet,
@@ -605,20 +626,18 @@ function PamphletGroupButton({
     });
   };
 
-  const buildHref = (format: "standard" | "ig" | "yt" = "standard") => {
+  const buildHref = (format: "ig" | "yt") => {
     if (legId.trim()) {
-      const params = new URLSearchParams({ id: legId.trim() });
-      if (format !== "standard") params.set("format", format);
+      const params = new URLSearchParams({ id: legId.trim(), format });
       appendPlaceholders(params);
       return `/api/pamphlet?${params.toString()}`;
     }
     const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
-    const params = new URLSearchParams({ slugs: slugsParam });
+    const params = new URLSearchParams({ slugs: slugsParam, format });
     for (const g of activeGroup) {
       const slug = g.show!.slug;
       if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
     }
-    if (format !== "standard") params.set("format", format);
     appendPlaceholders(params);
     return `/api/pamphlet?${params.toString()}`;
   };
@@ -649,19 +668,22 @@ function PamphletGroupButton({
     return true;
   };
 
-  const handleDownload = async (fmt: "standard" | "ig" | "yt") => {
+  const handleDownload = async () => {
     const ok = await savePamphlet();
     if (!ok) return;
     setSaving(true);
     try {
-      const res = await fetch(buildHref(fmt));
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const suffix = fmt !== "standard" ? `-${fmt}` : "";
-      const filename = `pamphlet-${legId.trim() || first.date}${suffix}.jpg`;
+      const [igRes, ytRes] = await Promise.all([fetch(buildHref("ig")), fetch(buildHref("yt"))]);
+      const [igBuf, ytBuf] = await Promise.all([igRes.arrayBuffer(), ytRes.arrayBuffer()]);
+      const name = legId.trim() || first.date;
+      const zip = buildZip([
+        { name: `pamphlet-${name}-ig.jpg`, data: new Uint8Array(igBuf) },
+        { name: `pamphlet-${name}-yt.jpg`, data: new Uint8Array(ytBuf) },
+      ]);
+      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
       const link = document.createElement("a");
       link.href = url;
-      link.download = filename;
+      link.download = `pamphlet-${name}.zip`;
       link.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -786,22 +808,13 @@ function PamphletGroupButton({
             </div>
             {saveError && <div className="text-xs text-red-500 mb-2">{saveError}</div>}
             {total > 0 ? (
-              <div className="flex gap-2">
-                {(["standard", "ig", "yt"] as const).map((fmt) => (
-                  <button
-                    key={fmt}
-                    onClick={() => handleDownload(fmt)}
-                    disabled={saving}
-                    className="flex-1 text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
-                  >
-                    {saving
-                      ? "Generating..."
-                      : fmt === "standard"
-                        ? `Save & Download (${total})`
-                        : `${fmt.toUpperCase()} (${total})`}
-                  </button>
-                ))}
-              </div>
+              <button
+                onClick={handleDownload}
+                disabled={saving}
+                className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
+              >
+                {saving ? "Generating..." : `Save & Download (${total})`}
+              </button>
             ) : (
               <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
                 Select at least one show

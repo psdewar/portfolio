@@ -200,6 +200,13 @@ export function DevToolsPanel() {
             </button>
 
             <button
+              onClick={() => navigateTo("/support?country=CA")}
+              className="w-full py-2 px-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Support (Canada)
+            </button>
+
+            <button
               onClick={() => window.location.reload()}
               className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >

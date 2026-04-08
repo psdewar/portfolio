@@ -28,6 +28,7 @@ export default {
       animation: {
         "fade-in": "fade-in 0.3s ease-out",
         "slide-up-fade": "slide-up-fade 0.3s ease-out",
+        "slide-down": "slide-down 0.4s ease-out",
       },
       keyframes: {
         "fade-in": {
@@ -36,6 +37,10 @@ export default {
         },
         "slide-up-fade": {
           "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-down": {
+          "0%": { opacity: "0", transform: "translateY(-16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
       },
