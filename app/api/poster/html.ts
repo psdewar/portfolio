@@ -2,6 +2,15 @@ import { formatEventDate } from "../../lib/dates";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
+export type PosterFormat = "standard" | "ig" | "yt" | "eb";
+
+export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
+  standard: { W: 480, H: 720 },
+  ig: { W: 540, H: 675 },
+  yt: { W: 540, H: 540 },
+  eb: { W: 1080, H: 540 },
+};
+
 export function posterHtml(
   show: {
     date: string;
@@ -14,7 +23,9 @@ export function posterHtml(
     doorTime: string;
   },
   label?: string,
+  format: PosterFormat = "standard",
 ): string {
+  const { W, H } = POSTER_DIMS[format];
   const dateStr = formatEventDate(show.date);
   const cityRegion = `<span style="white-space:nowrap">${show.city}, ${show.region}</span>`;
   const location = show.venueLabel
@@ -31,7 +42,7 @@ export function posterHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 0; }
-    .poster { width: 480px; height: 720px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
+    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
     .poster-bg { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .poster::before { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E"); z-index: 11; pointer-events: none; opacity: 0.4; }
     .photo-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to right, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 15%, rgba(10,10,10,0.22) 45%, transparent 70%); z-index: 3; }
@@ -56,6 +67,9 @@ export function posterHtml(
     .qr-section { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
     .qr-code { width: 92px; height: 92px; }
     .qr-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #c0b8a8; text-align: center; line-height: 1; }
+    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; }" : ""}
+    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; }" : ""}
+    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 22.5px; margin-bottom: 1.5px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
   </style>
 </head>
 <body>

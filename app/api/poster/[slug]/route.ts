@@ -1,15 +1,12 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
-import { posterHtml } from "../html";
+import { posterHtml, POSTER_DIMS, type PosterFormat } from "../html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> },
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
@@ -17,22 +14,27 @@ export async function GET(
     return new Response("Show not found", { status: 404 });
   }
 
-  const html = posterHtml(show);
+  const rawFormat = request.nextUrl.searchParams.get("format") ?? "standard";
+  const format: PosterFormat =
+    rawFormat === "ig" || rawFormat === "yt" || rawFormat === "eb" ? rawFormat : "standard";
+  const { W, H } = POSTER_DIMS[format];
+  const html = posterHtml(show, undefined, format);
 
   try {
     const screenshot = await takeScreenshot({
       path: "about:blank",
       selector: ".poster",
-      viewport: { width: 480, height: 720 },
+      viewport: { width: W, height: H },
       deviceScaleFactor: 2,
       waitForTimeout: 1500,
       htmlContent: html,
     });
 
+    const suffix = format !== "standard" ? `-${format}` : "";
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Content-Disposition": `attachment; filename="poster-${slug}.jpg"`,
+        "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.jpg"`,
         "Cache-Control": "no-store",
       },
     });

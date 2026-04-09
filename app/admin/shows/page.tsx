@@ -532,6 +532,43 @@ function CustomPosterButton() {
   );
 }
 
+function PosterDownloadButton({ slug }: { slug: string }) {
+  const [downloading, setDownloading] = useState(false);
+  const handleClick = async () => {
+    setDownloading(true);
+    try {
+      const formats = ["standard", "ig", "yt", "eb"] as const;
+      const responses = await Promise.all(
+        formats.map((fmt) => fetch(`/api/poster/${slug}?format=${fmt}`)),
+      );
+      const buffers = await Promise.all(responses.map((r) => r.arrayBuffer()));
+      const zip = buildZip(
+        formats.map((fmt, i) => ({
+          name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.jpg`,
+          data: new Uint8Array(buffers[i]),
+        })),
+      );
+      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `poster-${slug}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+  return (
+    <button
+      onClick={handleClick}
+      disabled={downloading}
+      className="flex-1 flex items-center justify-center text-sm px-3 text-[#d4a553] hover:bg-[#d4a553]/5 dark:hover:bg-[#d4a553]/10 transition-colors disabled:opacity-50"
+    >
+      {downloading ? "..." : "Poster"}
+    </button>
+  );
+}
+
 function BlankPamphletButton() {
   const [downloading, setDownloading] = useState(false);
   const handleClick = async () => {
@@ -854,6 +891,7 @@ function ShowGroupCard({
   const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
+  const [confirmAccess, setConfirmAccess] = useState(false);
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
   const [labelSaveState, setLabelSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -1087,26 +1125,44 @@ function ShowGroupCard({
             >
               PDF
             </button>
-            {show?.slug && (
-              <button
-                onClick={async () => {
-                  const next = show.access === "private" ? "public" : "private";
-                  onShowUpdate(show.slug, { access: next });
-                  await fetch("/api/shows", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ slug: show.slug, access: next }),
-                  });
-                }}
-                className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
-                  show.access === "private"
-                    ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-              >
-                {show.access === "private" ? "Private" : "Public"}
-              </button>
-            )}
+            {show?.slug &&
+              (confirmAccess ? (
+                <div className="flex-1 flex items-center justify-center gap-1 text-sm px-3 border-b border-neutral-200 dark:border-neutral-800">
+                  <button
+                    onClick={async () => {
+                      const next = show.access === "private" ? "public" : "private";
+                      onShowUpdate(show.slug, { access: next });
+                      setConfirmAccess(false);
+                      await fetch("/api/shows", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ slug: show.slug, access: next }),
+                      });
+                    }}
+                    className="text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+                  >
+                    {show.access === "private" ? "Make Public" : "Make Private"}
+                  </button>
+                  <span className="text-neutral-300 dark:text-neutral-700">/</span>
+                  <button
+                    onClick={() => setConfirmAccess(false)}
+                    className="text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmAccess(true)}
+                  className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
+                    show.access === "private"
+                      ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  {show.access === "private" ? "Private" : "Public"}
+                </button>
+              ))}
             {supporters.length > 0 && (
               <button
                 onClick={() => setViewingSupporters(true)}
@@ -1130,17 +1186,7 @@ function ShowGroupCard({
             >
               Delete
             </button>
-            {show?.slug ? (
-              <a
-                href={`/api/poster/${show.slug}`}
-                download={`poster-${show.slug}.jpg`}
-                className="flex-1 flex items-center justify-center text-sm px-3 text-[#d4a553] hover:bg-[#d4a553]/5 dark:hover:bg-[#d4a553]/10 transition-colors"
-              >
-                Poster
-              </a>
-            ) : (
-              <div className="flex-1" />
-            )}
+            {show?.slug ? <PosterDownloadButton slug={show.slug} /> : <div className="flex-1" />}
           </div>
         </div>
         {confirmDelete && (
