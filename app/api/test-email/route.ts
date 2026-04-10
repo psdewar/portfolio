@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
         eventName: "From The Ground Up",
         eventDate: "Friday, February 20, 2026",
         eventTime: "Doors at 5pm",
-        purchasingMusic: true,
       });
       break;
     case "download":
