@@ -892,6 +892,15 @@ function ShowGroupCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [confirmAccess, setConfirmAccess] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSchedule, setEmailSchedule] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<string | null>(null);
+  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
+  const [emailConfirming, setEmailConfirming] = useState(false);
+  const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
   const [labelSaveState, setLabelSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -1068,6 +1077,147 @@ function ShowGroupCard({
           </div>
         </div>
       )}
+      {emailOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => {
+            setEmailOpen(false);
+            setEmailConfirming(false);
+          }}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                EMAIL RSVPS
+                {emailRecipientCount !== null && (
+                  <span className="ml-2 text-neutral-500">({emailRecipientCount} recipients)</span>
+                )}
+              </h4>
+              <button
+                onClick={() => {
+                  setEmailOpen(false);
+                  setEmailConfirming(false);
+                }}
+                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <input
+              type="text"
+              value={emailSubject}
+              onChange={(e) => {
+                setEmailSubject(e.target.value);
+                setEmailConfirming(false);
+              }}
+              placeholder="Subject"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400"
+            />
+            <textarea
+              value={emailBody}
+              onChange={(e) => {
+                setEmailBody(e.target.value);
+                setEmailConfirming(false);
+              }}
+              placeholder="Body (links like peytspencer.com/listen will auto-link)"
+              rows={8}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400 resize-y"
+            />
+            <input
+              type="datetime-local"
+              value={emailSchedule}
+              onChange={(e) => {
+                setEmailSchedule(e.target.value);
+                setEmailConfirming(false);
+              }}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white mb-3 focus:outline-none focus:border-neutral-400"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-neutral-500">
+                {emailSchedule
+                  ? `Scheduled: ${new Date(emailSchedule).toLocaleString()} ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+                  : "Sends immediately"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                  onClick={async () => {
+                    setEmailSending(true);
+                    setEmailResult(null);
+                    const res = await fetch("/api/show-email", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        slug: group.showSlug,
+                        subject: emailSubject,
+                        body: emailBody,
+                        test: true,
+                      }),
+                    });
+                    const data = await res.json();
+                    setEmailSending(false);
+                    setEmailResult(res.ok ? "Test sent to you" : data.error || "Failed");
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 transition-colors"
+                >
+                  Test
+                </button>
+                {emailConfirming ? (
+                  <button
+                    disabled={emailSending}
+                    onClick={async () => {
+                      setEmailSending(true);
+                      setEmailResult(null);
+                      const sendAt = emailSchedule
+                        ? Math.floor(new Date(emailSchedule).getTime() / 1000)
+                        : undefined;
+                      const res = await fetch("/api/show-email", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          slug: group.showSlug,
+                          subject: emailSubject,
+                          body: emailBody,
+                          sendAt,
+                        }),
+                      });
+                      const data = await res.json();
+                      setEmailSending(false);
+                      setEmailConfirming(false);
+                      if (res.ok) {
+                        setEmailResult(`Sent to ${data.sent} of ${data.total}`);
+                        setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug));
+                      } else {
+                        setEmailResult(data.error || "Failed");
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
+                  >
+                    {emailSending ? "Sending..." : `Confirm ${emailSchedule ? "Schedule" : "Send"}`}
+                  </button>
+                ) : (
+                  <button
+                    disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                    onClick={() => setEmailConfirming(true)}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-40 transition-colors"
+                  >
+                    {emailSchedule ? "Schedule" : "Send"}
+                  </button>
+                )}
+              </div>
+            </div>
+            {emailSentSlugs.has(group.showSlug) && !emailResult && (
+              <div className="mt-3 text-xs text-amber-600 dark:text-amber-500">
+                You already sent an email for this show in this session
+              </div>
+            )}
+            {emailResult && <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>}
+          </div>
+        </div>
+      )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
         <div className="flex flex-1">
           <div className="flex-1 min-w-0 p-5 flex flex-col gap-3">
@@ -1176,6 +1326,20 @@ function ShowGroupCard({
               className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
               Amend
+            </button>
+            <button
+              onClick={() => {
+                setEmailOpen(true);
+                setEmailResult(null);
+                setEmailConfirming(false);
+                fetch("/api/rsvp")
+                  .then((r) => r.json())
+                  .then((counts) => setEmailRecipientCount(counts[group.showSlug] || 0))
+                  .catch(() => setEmailRecipientCount(null));
+              }}
+              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              Email
             </button>
             <button
               onClick={() => {

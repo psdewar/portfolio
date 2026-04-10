@@ -886,7 +886,7 @@ export function SupporterSection({
                 <div className="absolute top-full left-0 right-0 z-20">
                   <div className="bg-[#111D7A] rounded-b-xl p-4 lg:p-5 shadow-xl">
                     <a
-                      href="/api/patron-download?file=singles-16s-2025"
+                      href="/api/download/pack?file=singles-16s-2025"
                       download="peyt-spencer-singles-and-16s-2025.zip"
                       className="flex items-center justify-center gap-2 w-full py-3 lg:py-4 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors mb-4"
                     >

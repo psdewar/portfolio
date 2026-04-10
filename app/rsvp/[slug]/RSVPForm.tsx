@@ -3,14 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  UsersIcon,
-  MinusIcon,
-  PlusIcon,
-  ArrowLeftIcon,
-  HeadphonesIcon,
-  HandHeartIcon,
-} from "@phosphor-icons/react";
+import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
@@ -204,6 +197,17 @@ export default function RSVPForm({
     return "I'll Be There";
   }
 
+  const rsvpLink = `peytspencer.com/rsvp/${eventId}`;
+  const [linkCopied, setLinkCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const copyRsvpLink = () =>
+    navigator.clipboard.writeText(rsvpLink).then(() => {
+      setLinkCopied(true);
+      clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
+    });
+
   const successContent = (size: "sm" | "lg") => (
     <div className={size === "lg" ? "space-y-8" : "space-y-6"}>
       <div>
@@ -217,43 +221,22 @@ export default function RSVPForm({
           className={`text-neutral-500 dark:text-neutral-400 uppercase tracking-wider ${size === "lg" ? "text-sm mt-3" : "text-xs mt-2"}`}
           style={{ fontFamily: '"Space Mono", monospace' }}
         >
-          Confirmation headed to your inbox. In the meantime:
+          I sent my 2025 Singles & 16s Pack to your inbox as a thank you.
         </p>
       </div>
-      <div className={`flex ${size === "lg" ? "flex-row gap-4" : "flex-col gap-3"}`}>
-        <Link
-          href="/support"
-          className={`flex items-center gap-3 ${size === "lg" ? "flex-1 px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors group`}
+      <button
+        onClick={copyRsvpLink}
+        className={`flex items-center justify-between w-full ${size === "lg" ? "px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors`}
+      >
+        <span
+          className={`${size === "lg" ? "text-lg" : "text-base"} font-medium text-neutral-900 dark:text-white`}
         >
-          <HandHeartIcon
-            className={`${size === "lg" ? "w-7 h-7" : "w-6 h-6"} text-[#d4a553]`}
-            weight="fill"
-          />
-          <div className="flex-1 min-w-0">
-            <span
-              className={`block ${size === "lg" ? "text-lg" : "text-base"} font-medium text-neutral-900 dark:text-white`}
-            >
-              Support my independence
-            </span>
-          </div>
-        </Link>
-        <Link
-          href="/listen?play=patience"
-          className={`flex items-center gap-3 ${size === "lg" ? "flex-1 px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors group`}
-        >
-          <HeadphonesIcon
-            className={`${size === "lg" ? "w-7 h-7" : "w-6 h-6"} text-[#d4a553]`}
-            weight="fill"
-          />
-          <div className="flex-1 min-w-0">
-            <span
-              className={`block ${size === "lg" ? "text-lg" : "text-base"} font-medium text-neutral-900 dark:text-white`}
-            >
-              Listen to Patience
-            </span>
-          </div>
-        </Link>
-      </div>
+          Share this RSVP with a friend
+        </span>
+        <span className="text-sm font-medium" style={{ color: "#d4a553" }}>
+          {linkCopied ? "Copied" : "Copy link"}
+        </span>
+      </button>
     </div>
   );
 

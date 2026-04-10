@@ -55,17 +55,20 @@ function signOff(): string {
 export async function sendOtpEmail(params: { to: string; code: string }): Promise<boolean> {
   const { to, code } = params;
 
-  return trySend({
-    to,
-    from: FROM,
-    subject: `${code} - your verification code`,
-    text: `Your code: ${code}\n\nExpires in 2 minutes. If you didn't request this, ignore this email.`,
-    html: emailWrapper(`
+  return trySend(
+    {
+      to,
+      from: FROM,
+      subject: `${code} - your verification code`,
+      text: `Your code: ${code}\n\nExpires in 2 minutes. If you didn't request this, ignore this email.`,
+      html: emailWrapper(`
       <div style="color:#7a7a75;font-size:13px;margin-bottom:16px;">Your verification code</div>
       <div style="font-size:36px;font-weight:700;letter-spacing:12px;color:#d4a553;font-family:monospace;margin-bottom:24px;">${code}</div>
       <div style="color:#9a9a95;font-size:13px;">Expires in 2 minutes.</div>
     `),
-  }, "OTP");
+    },
+    "OTP",
+  );
 }
 
 export async function sendGoLiveEmail(params: { to: string; firstName: string }): Promise<boolean> {
@@ -117,25 +120,20 @@ export async function sendRsvpConfirmation(params: {
   eventDate: string;
   eventTime: string;
   eventLocation?: string;
-  purchasingMusic?: boolean;
 }): Promise<boolean> {
-  const { to, name, guests, eventName, eventDate, eventTime, eventLocation, purchasingMusic } =
-    params;
+  const { to, name, guests, eventName, eventDate, eventTime, eventLocation } = params;
   const greeting = name ? `${name}, see` : "See";
   const guestLine = guests > 1 ? `${guests} spots reserved.` : "";
-  const listenUrl = `${SITE_URL}/listen`;
   const locationLine = eventLocation ? `\n${eventLocation}` : "";
+  const downloadUrl = `${SITE_URL}/2025/singles-and-16s`;
 
-  const musicNote = purchasingMusic
-    ? `<div style="background:#f5f5f2;border-radius:6px;padding:14px 16px;margin-bottom:28px;color:#4a4a4a;font-size:14px;">Your music download will arrive in a separate email after checkout.</div>`
-    : "";
-
-  return trySend({
-    to,
-    from: FROM,
-    subject: `${eventName} - You're confirmed`,
-    text: `${greeting} you soon!${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}${purchasingMusic ? "\n\nYour music download will arrive in a separate email after checkout." : ""}\n\nGet familiar with the music before the show: ${listenUrl}\n\nPeyt`,
-    html: emailWrapper(`
+  return trySend(
+    {
+      to,
+      from: FROM,
+      subject: `${eventName} - You're confirmed`,
+      text: `${greeting} you soon!${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}\n\nThanks for RSVPing. I sent you my 2025 Singles & 16s Pack (6 songs + lyricbook): ${downloadUrl}\n\nPeyt`,
+      html: emailWrapper(`
       ${goldHeading(`${greeting} you soon!`, guestLine || undefined)}
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
@@ -164,13 +162,14 @@ export async function sendRsvpConfirmation(params: {
         }
       </table>
 
-      ${musicNote}
-
-      <div style="margin-bottom:8px;">${ctaButton("Listen before the show", listenUrl)}</div>
+      <div style="color:#7a7a75;font-size:14px;margin-bottom:12px;">Thanks for RSVPing. I sent you my 2025 Singles & 16s Pack. 6 songs and a lyricbook.</div>
+      <div style="margin-bottom:8px;">${ctaButton("Download my music", downloadUrl)}</div>
 
       ${signOff()}
     `),
-  }, "RSVP");
+    },
+    "RSVP",
+  );
 }
 
 export async function sendSponsorSubmission(params: {
@@ -182,21 +181,19 @@ export async function sendSponsorSubmission(params: {
   const { name, email, city, items } = params;
 
   const itemsHtml = items
-    .map(
-      (item) =>
-        `<li style="color:#1a1a1a;font-size:15px;margin-bottom:8px;">${item}</li>`,
-    )
+    .map((item) => `<li style="color:#1a1a1a;font-size:15px;margin-bottom:8px;">${item}</li>`)
     .join("");
 
   const itemsText = items.map((item) => `  - ${item}`).join("\n");
 
-  return trySend({
-    to: FROM_EMAIL,
-    from: FROM,
-    replyTo: email,
-    subject: `Concert Support - ${city}`,
-    text: `Concert support submission from ${name} (${email})\nCity: ${city}\n\nItems:\n${itemsText}`,
-    html: emailWrapper(`
+  return trySend(
+    {
+      to: FROM_EMAIL,
+      from: FROM,
+      replyTo: email,
+      subject: `Concert Support - ${city}`,
+      text: `Concert support submission from ${name} (${email})\nCity: ${city}\n\nItems:\n${itemsText}`,
+      html: emailWrapper(`
       ${goldHeading("Concert Support", city)}
 
       <div style="margin-bottom:20px;">
@@ -212,7 +209,49 @@ export async function sendSponsorSubmission(params: {
 
       ${signOff()}
     `),
-  }, "Sponsor submission");
+    },
+    "Sponsor submission",
+  );
+}
+
+export async function sendShowBlast(params: {
+  recipients: Array<{ email: string; name: string }>;
+  subject: string;
+  body: string;
+  sendAt?: number;
+}): Promise<{ sent: number; failed: number }> {
+  const { recipients, subject, body, sendAt } = params;
+  if (recipients.length === 0) return { sent: 0, failed: 0 };
+
+  const linkify = (text: string) =>
+    text.replace(/(?:https?:\/\/)?(?:[\w-]+\.)+[\w]{2,}(?:\/[^\s]*)?/g, (match) => {
+      const href = match.startsWith("http") ? match : `https://${match}`;
+      return `<a href="${href}" style="color:#d4a553;text-decoration:none;">${match}</a>`;
+    });
+
+  const htmlBody = body
+    .split("\n\n")
+    .map((p) => {
+      return `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(p)}</div>`;
+    })
+    .join("");
+
+  const msg: Parameters<typeof sgMail.send>[0] = {
+    personalizations: recipients.map((r) => ({ to: [{ email: r.email }] })),
+    from: FROM,
+    subject,
+    text: `${body}\n\nPeyt`,
+    html: emailWrapper(`${htmlBody}${signOff()}`),
+    ...(sendAt ? { sendAt } : {}),
+  };
+
+  try {
+    await sgMail.send(msg);
+    return { sent: recipients.length, failed: 0 };
+  } catch (error) {
+    console.error("[SendGrid] Show blast error:", error);
+    return { sent: 0, failed: recipients.length };
+  }
 }
 
 export async function sendDownloadEmail(params: {
@@ -224,12 +263,13 @@ export async function sendDownloadEmail(params: {
   const { to, productName, downloadUrl, expiresIn = "30 days" } = params;
   const listenUrl = `${SITE_URL}/listen`;
 
-  return trySend({
-    to,
-    from: FROM,
-    subject: `${productName} is yours`,
-    text: `${productName} is yours. Download it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.\n\nMore music: ${listenUrl}\n\nPeyt`,
-    html: emailWrapper(`
+  return trySend(
+    {
+      to,
+      from: FROM,
+      subject: `${productName} is yours`,
+      text: `${productName} is yours. Download it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.\n\nMore music: ${listenUrl}\n\nPeyt`,
+      html: emailWrapper(`
       ${goldHeading(`${productName} is yours.`)}
 
       <div style="margin-bottom:10px;">${ctaButton("Download", downloadUrl)}</div>
@@ -241,5 +281,7 @@ export async function sendDownloadEmail(params: {
 
       ${signOff()}
     `),
-  }, "Download");
+    },
+    "Download",
+  );
 }

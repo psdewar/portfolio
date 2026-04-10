@@ -46,7 +46,8 @@ export default function SubmittedToast({
           Submitted
         </p>
         <p className="text-neutral-300 text-sm mb-4">
-          I'll send you the poster soon! In the meantime, share this RSVP link with your locale:
+          I sent my 2025 Singles & 16s Pack to your inbox as a thank you. Share this RSVP with a
+          friend:
         </p>
         <button
           onClick={copyLink}

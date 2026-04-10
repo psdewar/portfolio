@@ -2,7 +2,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MicrophoneStageIcon, WaveformIcon, LockSimpleIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
+import {
+  MicrophoneStageIcon,
+  WaveformIcon,
+  LockSimpleIcon,
+  DownloadSimpleIcon,
+} from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
@@ -264,7 +269,7 @@ export default function Page() {
             <div className="max-w-4xl mx-auto">
               <h2 className="font-bebas text-2xl text-white mb-4">Your Exclusive Content</h2>
               <a
-                href="/api/patron-download?file=singles-16s-2025"
+                href="/api/download/pack?file=singles-16s-2025"
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors mb-4"
               >
                 <DownloadSimpleIcon size={20} weight="bold" />
@@ -302,7 +307,9 @@ export default function Page() {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-medium text-center px-1">{track.title}</span>
+                        <span className="text-white text-xs font-medium text-center px-1">
+                          {track.title}
+                        </span>
                       </div>
                     </div>
                   );

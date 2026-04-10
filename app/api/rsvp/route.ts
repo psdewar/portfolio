@@ -4,6 +4,43 @@ import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows } from "../../lib/shows";
 
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const detail = searchParams.get("detail");
+
+  const { data, error } = await supabaseAdmin
+    .from("stay-connected")
+    .select("name, email, rsvp")
+    .not("rsvp", "is", null);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (detail === "emails") {
+    const grouped: Record<string, { name: string; email: string; guests: number }[]> = {};
+    for (const row of data || []) {
+      for (const entry of row.rsvp || []) {
+        const parts = entry.split(":");
+        const slug = parts[0];
+        const guests = parseInt(parts[1] || "1", 10);
+        if (!grouped[slug]) grouped[slug] = [];
+        grouped[slug].push({ name: row.name || "", email: row.email, guests });
+      }
+    }
+    return NextResponse.json(grouped);
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data || []) {
+    for (const entry of row.rsvp || []) {
+      const parts = entry.split(":");
+      const slug = parts[0];
+      const guests = parseInt(parts[1] || "1", 10);
+      counts[slug] = (counts[slug] || 0) + guests;
+    }
+  }
+  return NextResponse.json(counts);
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIP(request);

@@ -19,12 +19,6 @@ export async function GET(request: NextRequest) {
     return new NextResponse("File ID required", { status: 400 });
   }
 
-  // Check patron status
-  const patronToken = request.cookies.get("patronToken")?.value;
-  if (patronToken !== "active") {
-    return new NextResponse("Patron access required", { status: 403 });
-  }
-
   const fileConfig = ALLOWED_FILES[fileId];
   if (!fileConfig) {
     return new NextResponse("File not found", { status: 404 });
