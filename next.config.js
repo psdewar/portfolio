@@ -63,6 +63,7 @@ const nextConfig = {
       { source: "/events", destination: "/live", permanent: true },
       { source: "/concert", destination: "/live", permanent: true },
       { source: "/concerts", destination: "/live", permanent: true },
+      { source: "/2025/singles-and-16s", destination: "/api/download/pack?file=singles-16s-2025", permanent: false },
     ];
 
     return [...singlesRedirects, pressRedirect, ...aliasRedirects];
