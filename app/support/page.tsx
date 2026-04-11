@@ -34,7 +34,7 @@ export default async function SupportPage({
     return getTodayInTz(tz) === s.date;
   });
 
-  const country = countryOverride?.toUpperCase() === "CA" ? "CA" : todayShow ? "CA" : "US";
+  const country = countryOverride?.toUpperCase() === "US" ? "US" : "CA";
 
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">

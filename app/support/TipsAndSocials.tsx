@@ -43,7 +43,7 @@ function TipsSection({ isOg = false, country = "US" }: { isOg?: boolean; country
         Your contribution helps me remain independent while funding my next live concert.
       </p>
       <div className="space-y-3">
-        {country === "CA" && INTERAC_EMAIL && !isOg && (
+        {INTERAC_EMAIL && !isOg && (
           <button
             onClick={() =>
               handleCopy(
