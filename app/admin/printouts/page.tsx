@@ -90,10 +90,15 @@ function QrPage() {
         overflow: "hidden",
         width: "100vw",
         height: "100vh",
+        marginLeft: "-1.5rem",
       }}
     >
       <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-black text-white">
         <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "10vw" }}>
+          Thank You
+          <br />
+          Vancouver!
+          <br />
           Support
           <br />
           the Next
@@ -101,7 +106,7 @@ function QrPage() {
           Concert
         </h2>
       </div>
-      <div className="bg-white flex items-center justify-center" style={{ width: "66%" }}>
+      <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
         <Image
           src="https://assets.peytspencer.com/images/support-qr-s100.png"
           alt="Scan to support"

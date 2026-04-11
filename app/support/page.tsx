@@ -21,12 +21,7 @@ function getTodayInTz(tz: string): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: tz });
 }
 
-export default async function SupportPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ country?: string }>;
-}) {
-  const { country: countryOverride } = await searchParams;
+export default async function SupportPage() {
   const shows = await getUpcomingShows();
   const todayShow = shows.find((s) => {
     if (s.country !== "CA") return false;
@@ -34,12 +29,10 @@ export default async function SupportPage({
     return getTodayInTz(tz) === s.date;
   });
 
-  const country = countryOverride?.toUpperCase() === "US" ? "US" : "CA";
-
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">
       <Suspense>
-        <TipsAndSocials country={country} />
+        <TipsAndSocials showInterac={!!todayShow} />
       </Suspense>
 
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
