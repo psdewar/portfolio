@@ -243,13 +243,7 @@ function DropZone({
         }}
       />
       <p className="text-lg" style={parkinsans}>
-        Drop your photos and videos here
-      </p>
-      <p
-        className="mt-2 text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400"
-        style={mono}
-      >
-        Pick as many as you like
+        Drop your highest-quality photos and videos here
       </p>
     </div>
   );
