@@ -154,7 +154,7 @@ export default function EmailsAdminPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+    <div className="max-w-3xl mx-auto px-6 py-10 pb-96 space-y-8">
       <header>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Post-concert email</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
@@ -236,10 +236,6 @@ export default function EmailsAdminPage() {
           rows={10}
           className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:border-[#d4a553] font-mono text-sm"
         />
-        <p className="text-xs text-neutral-500">
-          Plain text, no personalization tokens. Links auto-linkify in the HTML version. Signed off
-          with &quot;Peyt&quot; automatically.
-        </p>
       </section>
 
       <section className="space-y-3">
@@ -253,12 +249,6 @@ export default function EmailsAdminPage() {
             onChange={(e) => setTestEmail(e.target.value)}
             placeholder="Test email (defaults to psd@lyrist.app)"
             className="flex-1 min-w-[240px] px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:border-[#d4a553] text-sm"
-          />
-          <input
-            type="datetime-local"
-            value={scheduleAt}
-            onChange={(e) => setScheduleAt(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:border-[#d4a553] text-sm"
           />
           <button
             onClick={() => send({ testOnly: true })}
@@ -278,6 +268,17 @@ export default function EmailsAdminPage() {
             {status.kind === "sending" ? "Sending..." : scheduleAt ? "Schedule" : "Send for real"}
           </button>
         </div>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            Schedule (optional, up to 72h)
+          </span>
+          <input
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(e) => setScheduleAt(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:border-[#d4a553] text-sm"
+          />
+        </label>
         <p className="text-xs text-neutral-500">
           Leave the schedule blank to send immediately. SendGrid caps scheduled sends at 72 hours
           out.

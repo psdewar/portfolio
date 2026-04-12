@@ -12,8 +12,6 @@
 //   MOMENTS_PASSCODE         the gate passcode
 
 export type UploadMeta = {
-  name: string;
-  email: string;
   passcode: string;
 };
 
@@ -31,8 +29,6 @@ export async function uploadFile(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       passcode: meta.passcode,
-      name: meta.name,
-      email: meta.email,
       filename: file.name,
       contentType: file.type,
       size: file.size,

@@ -17,17 +17,12 @@ type FileJob = {
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
 const mono = { fontFamily: '"Space Mono", monospace' } as const;
 const gold = "linear-gradient(to right, #d4a553, #e8c474)";
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function MomentsClient() {
   const [passcode, setPasscode] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [unlockError, setUnlockError] = useState("");
   const [unlockLoading, setUnlockLoading] = useState(false);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
 
   const [jobs, setJobs] = useState<FileJob[]>([]);
   const passcodeRef = useRef<HTMLInputElement>(null);
@@ -38,7 +33,6 @@ export default function MomentsClient() {
 
   const anySucceeded = jobs.some((j) => j.status === "done");
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
-  const firstName = name.trim().split(" ")[0];
 
   async function tryUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -65,23 +59,12 @@ export default function MomentsClient() {
     }
   }
 
-  function validateIdentity(): boolean {
-    const next: typeof errors = {};
-    if (!name.trim()) next.name = "Leave a name? Even first works.";
-    else if (email.trim() && !emailRegex.test(email)) {
-      next.email = "That email looks off.";
-    }
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  }
-
   function updateJob(id: string, patch: Partial<FileJob>) {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
   }
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    if (!validateIdentity()) return;
 
     const newJobs: FileJob[] = Array.from(fileList).map((file, i) => ({
       id: `${Date.now()}-${i}-${file.name}`,
@@ -91,7 +74,7 @@ export default function MomentsClient() {
     }));
     setJobs((prev) => [...prev, ...newJobs]);
 
-    const meta: UploadMeta = { name: name.trim(), email: email.trim(), passcode };
+    const meta: UploadMeta = { passcode };
     for (const job of newJobs) {
       updateJob(job.id, { status: "uploading" });
       try {
@@ -145,29 +128,6 @@ export default function MomentsClient() {
           </form>
         ) : (
           <div className="space-y-8">
-            <div className="space-y-3">
-              <FormInput
-                type="text"
-                placeholder="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                error={errors.name}
-                variant="gold"
-                autoComplete="name"
-                disabled={uploading}
-              />
-              <FormInput
-                type="email"
-                placeholder="Email (to tie it to your RSVP)"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={errors.email}
-                variant="gold"
-                autoComplete="email"
-                disabled={uploading}
-              />
-            </div>
-
             <div className="space-y-2">
               <p className="text-sm text-neutral-600 dark:text-neutral-300">
                 Pick from your camera roll or gallery. Anything forwarded through Messages,
@@ -180,7 +140,7 @@ export default function MomentsClient() {
               <div className="space-y-3">
                 {anySucceeded && (
                   <p className="text-sm text-neutral-600 dark:text-neutral-300" aria-live="polite">
-                    Got it{firstName ? `, ${firstName}` : ""}. Drop another if you have one.
+                    Got it. Drop another if you have one.
                   </p>
                 )}
                 <ul className="space-y-2">

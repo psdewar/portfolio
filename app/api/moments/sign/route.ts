@@ -19,10 +19,6 @@ const s3 =
       })
     : null;
 
-function sanitizeEmail(email: string) {
-  return email.toLowerCase().replace(/[^a-z0-9@._+-]/g, "-");
-}
-
 function sanitizeFilename(name: string) {
   return name.replace(/[^\w.-]/g, "_").slice(0, 200);
 }
@@ -51,16 +47,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { passcode, email, filename, contentType } = body as Record<string, string>;
+  const { passcode, filename, contentType } = body as Record<string, string>;
 
   if (passcode !== process.env.MOMENTS_PASSCODE) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!email || !filename) {
-    return NextResponse.json({ error: "Missing email or filename" }, { status: 400 });
+  if (!filename) {
+    return NextResponse.json({ error: "Missing filename" }, { status: 400 });
   }
 
-  const key = `drops/${sanitizeEmail(email)}/${Date.now()}-${sanitizeFilename(filename)}`;
+  const key = `drops/${Date.now()}-${sanitizeFilename(filename)}`;
 
   try {
     const url = await getSignedUrl(
