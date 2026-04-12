@@ -232,7 +232,7 @@ export async function sendShowBlast(params: {
   const htmlBody = body
     .split("\n\n")
     .map((p) => {
-      return `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(p)}</div>`;
+      return `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(p).replace(/\n/g, "<br>")}</div>`;
     })
     .join("");
 
@@ -240,8 +240,10 @@ export async function sendShowBlast(params: {
     personalizations: recipients.map((r) => ({ to: [{ email: r.email }] })),
     from: FROM,
     subject,
-    text: `${body}\n\nPeyt`,
-    html: emailWrapper(`${htmlBody}${signOff()}`),
+    text: body,
+    html: emailWrapper(
+      `${htmlBody}<div style="color:#9a9a95;font-size:13px;margin-top:28px;">Reply to this email anytime.</div>`,
+    ),
     ...(sendAt ? { sendAt } : {}),
   };
 
