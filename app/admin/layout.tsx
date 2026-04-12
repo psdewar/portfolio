@@ -7,6 +7,7 @@ import Link from "next/link";
 const adminPages = [
   { segment: "shows", title: "Shows", href: "/admin/shows" },
   { segment: "schedule", title: "Schedule", href: "/admin/schedule" },
+  { segment: "emails", title: "Emails", href: "/admin/emails" },
   { segment: "printouts", title: "Printouts", href: "/admin/printouts" },
   { segment: "sync", title: "Sync", href: "/admin/sync" },
 ];
