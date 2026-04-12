@@ -73,7 +73,7 @@ function TipsSection({ showInterac: initialShowInterac = false, isOg = false }: 
       </p>
       {!isOg && (
         <div className="space-y-3">
-          {useInterac && INTERAC_EMAIL ? (
+          {INTERAC_EMAIL && (
             <button
               onClick={() =>
                 handleCopy(
@@ -109,7 +109,8 @@ function TipsSection({ showInterac: initialShowInterac = false, isOg = false }: 
                 )}
               </span>
             </button>
-          ) : (
+          )}
+          {!useInterac && (
             <>
               <a
                 href="https://venmo.com/u/psdewar"
