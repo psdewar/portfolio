@@ -19,11 +19,19 @@ export type UploadResult = {
   url: string;
 };
 
-export async function uploadFile(
-  file: File,
-  meta: UploadMeta,
-  onProgress: (percent: number) => void,
-): Promise<UploadResult> {
+const MAX_ATTEMPTS = 3;
+
+class PermanentError extends Error {}
+
+function backoffMs(attempt: number) {
+  return Math.min(1000 * 2 ** attempt, 8000) + Math.floor(Math.random() * 500);
+}
+
+function isPermanent(status: number) {
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+async function signUpload(file: File, meta: UploadMeta): Promise<string> {
   const signRes = await fetch("/api/moments/sign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -34,28 +42,52 @@ export async function uploadFile(
       size: file.size,
     }),
   });
-
   if (!signRes.ok) {
     const data = await signRes.json().catch(() => ({}));
-    throw new Error(data.error || "Could not get upload URL");
+    const message = data.error || "Could not get upload URL";
+    throw isPermanent(signRes.status) ? new PermanentError(message) : new Error(message);
   }
-
   const { url } = (await signRes.json()) as { url: string; key: string };
+  return url;
+}
 
-  await new Promise<void>((resolve, reject) => {
+function putFile(url: string, file: File, onProgress: (percent: number) => void): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
     };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`Upload failed (${xhr.status})`));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      const err = new Error(`Upload failed (${xhr.status})`);
+      reject(isPermanent(xhr.status) ? new PermanentError(err.message) : err);
+    };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.send(file);
   });
+}
 
-  return { url };
+export async function uploadFile(
+  file: File,
+  meta: UploadMeta,
+  onProgress: (percent: number) => void,
+): Promise<UploadResult> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      onProgress(0);
+      const url = await signUpload(file, meta);
+      await putFile(url, file, onProgress);
+      return { url };
+    } catch (err) {
+      lastError = err;
+      if (err instanceof PermanentError) throw err;
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, backoffMs(attempt)));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Upload failed");
 }

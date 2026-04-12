@@ -33,6 +33,12 @@ export default function MomentsClient() {
 
   const anySucceeded = jobs.some((j) => j.status === "done");
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
+  const failedJobs = jobs.filter((j) => j.status === "error");
+  const doneCount = jobs.filter((j) => j.status === "done").length;
+
+  async function retryAllFailed() {
+    for (const job of failedJobs) await runJob(job);
+  }
 
   async function tryUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -74,18 +80,22 @@ export default function MomentsClient() {
     }));
     setJobs((prev) => [...prev, ...newJobs]);
 
+    for (const job of newJobs) await runJob(job);
+  }
+
+  async function runJob(job: FileJob) {
     const meta: UploadMeta = { passcode };
-    for (const job of newJobs) {
-      updateJob(job.id, { status: "uploading" });
-      try {
-        await uploadFile(job.file, meta, (pct) => updateJob(job.id, { progress: Math.round(pct) }));
-        updateJob(job.id, { status: "done", progress: 100 });
-      } catch (err) {
-        updateJob(job.id, {
-          status: "error",
-          error: err instanceof Error ? err.message : "Upload failed",
-        });
-      }
+    updateJob(job.id, { status: "uploading", progress: 0, error: undefined });
+    try {
+      await uploadFile(job.file, meta, (pct) =>
+        updateJob(job.id, { progress: Math.round(pct) }),
+      );
+      updateJob(job.id, { status: "done", progress: 100 });
+    } catch (err) {
+      updateJob(job.id, {
+        status: "error",
+        error: err instanceof Error ? err.message : "Upload failed",
+      });
     }
   }
 
@@ -138,14 +148,36 @@ export default function MomentsClient() {
 
             {jobs.length > 0 && (
               <div className="space-y-3">
-                {anySucceeded && (
-                  <p className="text-sm text-neutral-600 dark:text-neutral-300" aria-live="polite">
+                {failedJobs.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={retryAllFailed}
+                    aria-live="polite"
+                    aria-label={`Retry ${failedJobs.length} failed uploads`}
+                    className="sticky top-0 z-10 w-full flex items-center justify-between gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
+                  >
+                    <span className="text-sm text-red-700 dark:text-red-300" style={mono}>
+                      {failedJobs.length} failed
+                      {doneCount > 0 ? ` · ${doneCount} done` : ""}
+                    </span>
+                    <span
+                      className="text-xs uppercase tracking-wider text-[#d4a553] whitespace-nowrap"
+                      style={mono}
+                    >
+                      Retry all
+                    </span>
+                  </button>
+                ) : anySucceeded ? (
+                  <p
+                    className="text-sm text-neutral-600 dark:text-neutral-300"
+                    aria-live="polite"
+                  >
                     Got it. Drop another if you have one.
                   </p>
-                )}
+                ) : null}
                 <ul className="space-y-2">
                   {jobs.map((job) => (
-                    <JobRow key={job.id} job={job} />
+                    <JobRow key={job.id} job={job} onRetry={() => runJob(job)} />
                   ))}
                 </ul>
               </div>
@@ -209,7 +241,7 @@ function DropZone({
   );
 }
 
-function JobRow({ job }: { job: FileJob }) {
+function JobRow({ job, onRetry }: { job: FileJob; onRetry: () => void }) {
   const statusText =
     job.status === "done"
       ? "Done"
@@ -220,10 +252,16 @@ function JobRow({ job }: { job: FileJob }) {
           : `${job.progress}%`;
   const isError = job.status === "error";
 
-  return (
-    <li className="flex items-center gap-3 p-3 rounded-lg bg-neutral-100 dark:bg-white/5">
+  const rowClasses = `flex items-center gap-3 p-3 rounded-lg bg-neutral-100 dark:bg-white/5 ${
+    isError
+      ? "cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"
+      : ""
+  }`;
+
+  const content = (
+    <>
       <div className="flex-1 min-w-0">
-        <p className="truncate text-sm">{job.file.name}</p>
+        <p className="truncate text-sm text-left">{job.file.name}</p>
         <div className="mt-2 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
           <div
             className="h-full transition-all"
@@ -242,6 +280,29 @@ function JobRow({ job }: { job: FileJob }) {
       >
         {statusText}
       </span>
+      {isError && (
+        <span
+          className="text-xs uppercase tracking-wider text-[#d4a553]"
+          style={mono}
+        >
+          Retry
+        </span>
+      )}
+    </>
+  );
+
+  return isError ? (
+    <li>
+      <button
+        type="button"
+        onClick={onRetry}
+        className={`${rowClasses} w-full text-left`}
+        aria-label={`Retry uploading ${job.file.name}`}
+      >
+        {content}
+      </button>
     </li>
+  ) : (
+    <li className={rowClasses}>{content}</li>
   );
 }
