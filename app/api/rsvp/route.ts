@@ -29,13 +29,15 @@ export async function GET(request: Request) {
     return NextResponse.json(grouped);
   }
 
-  const counts: Record<string, number> = {};
+  const counts: Record<string, { responses: number; attending: number }> = {};
   for (const row of data || []) {
     for (const entry of row.rsvp || []) {
       const parts = entry.split(":");
       const slug = parts[0];
       const guests = parseInt(parts[1] || "1", 10);
-      counts[slug] = (counts[slug] || 0) + guests;
+      if (!counts[slug]) counts[slug] = { responses: 0, attending: 0 };
+      counts[slug].responses += 1;
+      counts[slug].attending += guests;
     }
   }
   return NextResponse.json(counts);

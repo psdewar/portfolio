@@ -899,12 +899,24 @@ function ShowGroupCard({
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<string | null>(null);
   const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
+  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(null);
   const [emailConfirming, setEmailConfirming] = useState(false);
   const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
   const [labelSaveState, setLabelSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (!group.showSlug) return;
+    fetch("/api/rsvp")
+      .then((r) => r.json())
+      .then((counts) => {
+        const c = counts[group.showSlug];
+        setRsvpCounts(c || null);
+      })
+      .catch(() => setRsvpCounts(null));
+  }, [group.showSlug]);
 
   const debounceSaveLabels = useCallback(
     (venue: string, door: string) => {
@@ -1228,6 +1240,11 @@ function ShowGroupCard({
               {location && (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{location}</p>
               )}
+              {rsvpCounts && (
+                <p className="text-xs text-neutral-500 mt-1">
+                  {rsvpCounts.responses} responses &middot; {rsvpCounts.attending} attending
+                </p>
+              )}
             </div>
 
             {show && (
@@ -1334,8 +1351,15 @@ function ShowGroupCard({
                 setEmailConfirming(false);
                 fetch("/api/rsvp")
                   .then((r) => r.json())
-                  .then((counts) => setEmailRecipientCount(counts[group.showSlug] || 0))
-                  .catch(() => setEmailRecipientCount(null));
+                  .then((counts) => {
+                    const c = counts[group.showSlug];
+                    setEmailRecipientCount(c?.responses || 0);
+                    setRsvpCounts(c || null);
+                  })
+                  .catch(() => {
+                    setEmailRecipientCount(null);
+                    setRsvpCounts(null);
+                  });
               }}
               className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
