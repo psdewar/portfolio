@@ -9,13 +9,25 @@ const customUrls = {
   bahai: "cWLQ",
 };
 
+const chromiumBin = ["node_modules/@sparticuz/chromium/bin/**"];
+
 const nextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
   outputFileTracingIncludes: {
-    "/api/og/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/poster/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/pamphlet/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/sponsor-pdf/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/og": chromiumBin,
+    "/api/og/listen": chromiumBin,
+    "/api/og/live": chromiumBin,
+    "/api/og/support": chromiumBin,
+    "/api/og/hire": chromiumBin,
+    "/api/og/shop": chromiumBin,
+    "/api/og/fund": chromiumBin,
+    "/api/og/fund/*": chromiumBin,
+    "/api/og/rsvp": chromiumBin,
+    "/api/og/rsvp/*": chromiumBin,
+    "/api/poster": chromiumBin,
+    "/api/poster/*": chromiumBin,
+    "/api/pamphlet": chromiumBin,
+    "/api/sponsor-pdf": chromiumBin,
   },
   images: {
     remotePatterns: [
@@ -70,7 +82,11 @@ const nextConfig = {
       { source: "/events", destination: "/live", permanent: true },
       { source: "/concert", destination: "/live", permanent: true },
       { source: "/concerts", destination: "/live", permanent: true },
-      { source: "/2025/singles-and-16s", destination: "/api/download/pack?file=singles-16s-2025", permanent: false },
+      {
+        source: "/2025/singles-and-16s",
+        destination: "/api/download/pack?file=singles-16s-2025",
+        permanent: false,
+      },
     ];
 
     return [...singlesRedirects, pressRedirect, ...aliasRedirects];
