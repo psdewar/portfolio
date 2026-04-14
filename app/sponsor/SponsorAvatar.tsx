@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { PlayIcon, PauseIcon, XIcon } from "@phosphor-icons/react";
 
 export default function SponsorAvatar() {
-  const [playing, setPlaying] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const autoOpen = searchParams.get("intro") === "1";
+  const [playing, setPlaying] = useState(autoOpen);
+  const [loading, setLoading] = useState(autoOpen);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handlePlay = () => {
@@ -20,6 +25,9 @@ export default function SponsorAvatar() {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+    }
+    if (searchParams.get("intro") === "1") {
+      router.replace(pathname);
     }
   };
 

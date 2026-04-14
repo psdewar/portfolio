@@ -8,12 +8,27 @@ const instrumentSans = Instrument_Sans({
   variable: "--font-instrument",
 });
 
+const title = "Concert Sponsor Application";
+const description =
+  "Sponsor a free, family-friendly hip-hop concert in your community with Peyt Spencer.";
+const ogImage = "https://peytspencer.com/api/og/sponsor";
+
 export const metadata: Metadata = {
-  title: "Concert Sponsor Application",
-  description:
-    "Sponsor a free, family-friendly hip-hop concert in your community with Peyt Spencer.",
+  title,
+  description,
   alternates: { canonical: "/sponsor" },
   robots: { index: false, follow: false },
+  openGraph: {
+    title,
+    description,
+    images: [{ url: ogImage, width: 1440, height: 2340 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [ogImage],
+  },
 };
 
 export default function SponsorLayout({ children }: { children: React.ReactNode }) {
