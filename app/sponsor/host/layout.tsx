@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    images: [{ url: ogImage, width: 1440, height: 2340 }],
+    images: [{ url: ogImage, width: 2160, height: 3840 }],
   },
   twitter: {
     card: "summary_large_image",

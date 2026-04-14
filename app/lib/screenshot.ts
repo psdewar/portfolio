@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { chromium as playwright, type Browser } from "playwright-core";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
@@ -22,9 +24,13 @@ export async function launchBrowser(): Promise<Browser> {
 
   // Production (Vercel/Lambda): use @sparticuz/chromium
   const chromium = (await import("@sparticuz/chromium")).default;
+  const binPath = path.join(process.cwd(), "node_modules/@sparticuz/chromium/bin");
+  const executablePath = fs.existsSync(binPath)
+    ? await chromium.executablePath(binPath)
+    : await chromium.executablePath();
   return playwright.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath,
     headless: true,
   });
 }
@@ -54,16 +60,16 @@ export async function takeScreenshot({
 
       await page.goto(url.toString(), { waitUntil: "networkidle" });
 
-      await page.waitForSelector('header', { timeout: 3000 }).catch(() => {});
+      await page.waitForSelector("header", { timeout: 3000 }).catch(() => {});
       await page.waitForTimeout(500);
 
       await page.evaluate(() => {
-        document.querySelectorAll('header').forEach(el => el.remove());
-        document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach(el => {
-          if (el.closest('main') === null) el.remove();
+        document.querySelectorAll("header").forEach((el) => el.remove());
+        document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach((el) => {
+          if (el.closest("main") === null) el.remove();
         });
-        const main = document.querySelector('main');
-        if (main) main.style.paddingBottom = '0';
+        const main = document.querySelector("main");
+        if (main) main.style.paddingBottom = "0";
       });
 
       await page.addStyleTag({
