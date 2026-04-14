@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 const title = "Host a Concert | Peyt Spencer";
 const description =
   "Book a date and location for a free, family-friendly hip-hop concert by Peyt Spencer in your community.";
-const ogImage = "https://peytspencer.com/images/covers/intro-video-cover.jpg";
+const ogImage = "https://peytspencer.com/api/og/sponsor/host";
 
 export const metadata: Metadata = {
   title,

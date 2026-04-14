@@ -11,7 +11,7 @@ const instrumentSans = Instrument_Sans({
 const title = "Concert Sponsor Application";
 const description =
   "Sponsor a free, family-friendly hip-hop concert in your community with Peyt Spencer.";
-const ogImage = "https://peytspencer.com/images/covers/intro-video-cover.jpg";
+const ogImage = "https://peytspencer.com/api/og/sponsor";
 
 export const metadata: Metadata = {
   title,

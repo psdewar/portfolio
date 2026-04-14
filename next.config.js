@@ -87,6 +87,17 @@ const nextConfig = {
         destination: "/api/download/pack?file=singles-16s-2025",
         permanent: false,
       },
+      // Sponsor OG serves a static cover image; other /api/og/* routes are screenshot handlers.
+      {
+        source: "/api/og/sponsor",
+        destination: "/images/covers/intro-video-cover.jpg",
+        permanent: false,
+      },
+      {
+        source: "/api/og/sponsor/host",
+        destination: "/images/covers/intro-video-cover.jpg",
+        permanent: false,
+      },
     ];
 
     return [...singlesRedirects, pressRedirect, ...aliasRedirects];
