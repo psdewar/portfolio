@@ -11,7 +11,7 @@ const instrumentSans = Instrument_Sans({
 const title = "Concert Sponsor Application";
 const description =
   "Sponsor a free, family-friendly hip-hop concert in your community with Peyt Spencer.";
-const ogImage = "https://peytspencer.com/api/og/sponsor";
+const ogImage = "https://peytspencer.com/images/covers/intro-video-cover.jpg";
 
 export const metadata: Metadata = {
   title,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    images: [{ url: ogImage, width: 1440, height: 2340 }],
+    images: [{ url: ogImage, width: 2160, height: 3840 }],
   },
   twitter: {
     card: "summary_large_image",

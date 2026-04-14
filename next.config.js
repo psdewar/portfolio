@@ -10,6 +10,13 @@ const customUrls = {
 };
 
 const nextConfig = {
+  serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
+  outputFileTracingIncludes: {
+    "/api/og/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/poster/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/pamphlet/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/sponsor-pdf/**/*": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "distrokid.com" },
