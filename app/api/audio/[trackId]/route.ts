@@ -24,7 +24,10 @@ const CF_ACCESS_CLIENT_SECRET = process.env.CF_ACCESS_CLIENT_SECRET || "";
 // Helper to simulate network delay in development
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ trackId: string }> }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ trackId: string }> },
+) {
   try {
     const { trackId: rawTrackId } = await params;
     const ip = extractIpAddress(request);
@@ -91,12 +94,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return new NextResponse(null, { status: 304 });
     }
 
-    // Set proper headers for private browser caching with range support
+    // Set proper headers for browser caching with range support.
+    // Patron tracks stay private (never stored in shared CDN/proxy caches).
+    // Non-patron tracks are immutable public assets → long-lived shared cache.
     const baseHeaders = createBaseHeaders(audioBuffer, etag, lastModified);
+    const cacheControl = isPatronTrack(trackId)
+      ? "private, max-age=86400, stale-while-revalidate=86400"
+      : "public, max-age=31536000, immutable";
     const headers = new Headers({
       ...baseHeaders,
       "Accept-Ranges": "bytes",
-      "Cache-Control": "private, max-age=86400, stale-while-revalidate=86400", // 24h private cache
+      "Cache-Control": cacheControl,
     });
 
     // Handle range requests for audio seeking

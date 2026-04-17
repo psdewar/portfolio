@@ -15,10 +15,10 @@ import FreestyleOverlay from "app/components/FreestyleOverlay";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
-import { isPatronTrack, PATRON_CONFIG } from "../data/patron-config";
+import { isPatronTrack } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
-import { Toast } from "app/components/Toast";
+import { useToast } from "../contexts/ToastContext";
 import ListenLoading from "./loading";
 
 interface TrackCard {
@@ -106,9 +106,13 @@ export default function Page() {
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
-  const [rsvpToast, setRsvpToast] = useState<string | null>(null);
-  const [toastExiting, setToastExiting] = useState(false);
   const [patronWelcome, setPatronWelcome] = useState(false);
+  const [patronEmail, setPatronEmail] = useState<string | null>(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    setPatronEmail(localStorage.getItem("patronEmail"));
+  }, []);
 
   // Success toast (read URL once on mount, cleared by replaceState)
   useEffect(() => {
@@ -132,20 +136,9 @@ export default function Page() {
     const message = success ? SUCCESS_MESSAGES[success] : null;
     if (!message) return;
 
-    setRsvpToast(message);
+    toast.show(message, 5000);
     window.history.replaceState({}, "", "/listen");
-
-    const exitTimer = setTimeout(() => setToastExiting(true), 4500);
-    const removeTimer = setTimeout(() => {
-      setRsvpToast(null);
-      setToastExiting(false);
-    }, 5000);
-
-    return () => {
-      clearTimeout(exitTimer);
-      clearTimeout(removeTimer);
-    };
-  }, []);
+  }, [toast]);
 
   // All tracks visible - playback gated by patron status
   const visibleTracks = ALL_VISIBLE_TRACKS;
@@ -240,8 +233,6 @@ export default function Page() {
 
   return (
     <>
-      {rsvpToast && <Toast message={rsvpToast} exiting={toastExiting} />}
-
       {showStayConnected && !playParam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />
@@ -265,56 +256,45 @@ export default function Page() {
         )}
 
         {isPatron && (
-          <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 px-4 sm:px-6 py-6">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="font-bebas text-2xl text-white mb-4">Your Exclusive Content</h2>
+          <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className="font-bebas text-2xl text-white">Your Exclusive Content</h2>
+                {patronEmail ? (
+                  <a
+                    href={`/api/stripe-portal?email=${encodeURIComponent(patronEmail)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
+                  >
+                    Manage subscription
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const email = prompt("Enter the email you used to subscribe:");
+                      if (!email) return;
+                      localStorage.setItem("patronEmail", email);
+                      setPatronEmail(email);
+                      window.open(
+                        `/api/stripe-portal?email=${encodeURIComponent(email)}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }}
+                    className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
+                  >
+                    Manage subscription
+                  </button>
+                )}
+              </div>
               <a
                 href="/api/download/pack?file=singles-16s-2025"
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors mb-4"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors"
               >
                 <DownloadSimpleIcon size={20} weight="bold" />
                 Download Singles & 16s Pack
               </a>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-4">
-                {PATRON_CONFIG.earlyAccess.trackIds.map((id) => {
-                  const track = ALL_VISIBLE_TRACKS.find((t) => t.id === id);
-                  if (!track) return null;
-                  const isCurrent = currentTrack?.id === id;
-                  const isLoadingThis = loadingTrack?.id === id;
-                  return (
-                    <div
-                      key={id}
-                      className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group"
-                      onClick={() => handlePlayTrack(id)}
-                    >
-                      {brokenImages.has(id) ? (
-                        <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center">
-                          <WaveformIcon size={32} weight="light" className="text-neutral-600" />
-                        </div>
-                      ) : (
-                        <Image
-                          alt={track.title}
-                          src={track.src}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 33vw, 20vw"
-                          onError={() => setBrokenImages((prev) => new Set(prev).add(id))}
-                        />
-                      )}
-                      {isCurrent && !isLoadingThis && (
-                        <div className="absolute top-1 right-1 z-10">
-                          <BlockVisualizer />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-medium text-center px-1">
-                          {track.title}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         )}

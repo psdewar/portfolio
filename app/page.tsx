@@ -3,12 +3,24 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import LiveBanner from "./components/LiveBanner";
 
 export default function Page() {
+  const router = useRouter();
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [supportAnimating, setSupportAnimating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleSupportClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(hover: hover)").matches) return;
+    if (supportAnimating) return;
+    e.preventDefault();
+    setSupportAnimating(true);
+    window.setTimeout(() => router.push("/support"), 1000);
+  };
 
   const imgClass = (i: number, alwaysColor = false) => {
     const base = "object-cover transform transition-all duration-100 ease-out";
@@ -105,7 +117,10 @@ export default function Page() {
                   autoPlay
                   playsInline
                 >
-                  <source src="https://assets.peytspencer.com/videos/windstock.mp4" type="video/mp4" />
+                  <source
+                    src="https://assets.peytspencer.com/videos/windstock.mp4"
+                    type="video/mp4"
+                  />
                 </video>
                 <div className={overlayClass(3)} />
                 <button
@@ -173,9 +188,38 @@ export default function Page() {
 
               <Link
                 href="/support"
-                className="py-2.5 px-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors text-white font-medium text-sm md:text-lg whitespace-nowrap text-center"
+                onClick={handleSupportClick}
+                className="group flex items-stretch text-white font-medium text-sm md:text-lg whitespace-nowrap h-10 md:h-12"
               >
-                Support the From The Ground Up tour
+                <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/c/cf/Flag_of_Canada.svg"
+                    alt=""
+                    aria-hidden
+                    className={`w-full h-full object-cover object-right transition-[filter,opacity] ${
+                      supportAnimating
+                        ? "duration-1000 grayscale-0 opacity-100"
+                        : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
+                    }`}
+                  />
+                </span>
+                <span className="flex-1 flex items-center justify-center px-4 bg-white/10 group-hover:bg-white/20 backdrop-blur-sm transition-colors">
+                  Support my tour across North America
+                </span>
+                <span className="aspect-square h-full shrink-0 overflow-hidden rounded-r-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
+                    alt=""
+                    aria-hidden
+                    className={`w-full h-full object-cover object-left transition-[filter,opacity] ${
+                      supportAnimating
+                        ? "duration-1000 grayscale-0 opacity-100"
+                        : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
+                    }`}
+                  />
+                </span>
               </Link>
             </div>
           </div>

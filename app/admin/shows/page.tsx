@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster from "../../components/Poster";
@@ -8,6 +8,47 @@ import { type Show } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
+import { useDebouncedSave } from "../../hooks/useDebouncedSave";
+
+function Modal({
+  onClose,
+  title,
+  header,
+  children,
+}: {
+  onClose: () => void;
+  title?: ReactNode;
+  header?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {header ??
+          (title !== undefined && (
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                {title}
+              </h4>
+              <button
+                onClick={onClose}
+                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface Sponsor {
   showSlug: string | null;
@@ -250,68 +291,47 @@ function CompletedSection({
   return (
     <div>
       {viewing && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setViewing(null)}
-        >
-          <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                SPONSOR
+        <Modal onClose={() => setViewing(null)} title="SPONSOR">
+          <SponsorForm
+            showSlug={viewing.host.showSlug ?? undefined}
+            submittedAt={viewing.host.submittedAt}
+            venue={viewing.host.venue}
+            address={viewing.host.address}
+            city={viewing.host.city}
+            region={viewing.host.region}
+            country={viewing.host.country}
+            date={viewing.host.date}
+            doorTime={viewing.host.doorTime}
+            initialName={viewing.host.name}
+            initialPhone={viewing.host.phone}
+            initialEmail={viewing.host.email}
+            initialItems={viewing.host.items}
+            compact
+            readOnly
+          />
+          {viewing.supporters.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-neutral-300 dark:border-neutral-700">
+              <h4 className="text-xs font-light tracking-widest uppercase text-neutral-500 mb-3">
+                Supporters ({viewing.supporters.length})
               </h4>
-              <button
-                onClick={() => setViewing(null)}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <SponsorForm
-              showSlug={viewing.host.showSlug ?? undefined}
-              submittedAt={viewing.host.submittedAt}
-              venue={viewing.host.venue}
-              address={viewing.host.address}
-              city={viewing.host.city}
-              region={viewing.host.region}
-              country={viewing.host.country}
-              date={viewing.host.date}
-              doorTime={viewing.host.doorTime}
-              initialName={viewing.host.name}
-              initialPhone={viewing.host.phone}
-              initialEmail={viewing.host.email}
-              initialItems={viewing.host.items}
-              compact
-              readOnly
-            />
-            {viewing.supporters.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-neutral-300 dark:border-neutral-700">
-                <h4 className="text-xs font-light tracking-widest uppercase text-neutral-500 mb-3">
-                  Supporters ({viewing.supporters.length})
-                </h4>
-                <div className="space-y-2">
-                  {viewing.supporters.map((s) => (
-                    <div
-                      key={s.submittedAt}
-                      className="text-sm text-neutral-700 dark:text-neutral-300"
-                    >
-                      <span className="font-medium">{s.name || s.email}</span>
-                      {s.name && s.email && (
-                        <span className="text-neutral-500 ml-2">{s.email}</span>
-                      )}
-                      {s.phone && <span className="text-neutral-500 ml-2">{s.phone}</span>}
-                      {s.items.length > 0 && (
-                        <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                {viewing.supporters.map((s) => (
+                  <div
+                    key={s.submittedAt}
+                    className="text-sm text-neutral-700 dark:text-neutral-300"
+                  >
+                    <span className="font-medium">{s.name || s.email}</span>
+                    {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
+                    {s.phone && <span className="text-neutral-500 ml-2">{s.phone}</span>}
+                    {s.items.length > 0 && (
+                      <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </Modal>
       )}
       <div className="flex items-center gap-4 mb-8">
         <h2 className="text-xs tracking-[0.2em] text-neutral-600 uppercase shrink-0">Completed</h2>
@@ -733,132 +753,113 @@ function PamphletGroupButton({
   return (
     <>
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                PAMPHLET &middot; {label}
-              </h4>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <input
-              type="text"
-              value={legId}
-              onChange={(e) => setLegId(e.target.value)}
-              placeholder="ID (e.g. british-columbia)"
-              className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
-            />
-            <input
-              type="text"
-              value={legLabel}
-              onChange={(e) => setLegLabel(e.target.value)}
-              placeholder="Tagline suffix (e.g. in British Columbia)"
-              className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-4"
-            />
-            <div className="space-y-3 mb-4">
-              {group.map((g) => {
-                const slug = g.show!.slug;
-                const isIncluded = included[slug];
-                return (
-                  <div key={slug} className={isIncluded ? "" : "opacity-40"}>
-                    <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
-                      <input
-                        type="checkbox"
-                        checked={isIncluded}
-                        onChange={(e) =>
-                          setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
-                        }
-                        className="rounded"
-                      />
-                      <span>
-                        {formatMonthDay(g.show!.date)} &middot; {g.show!.city}, {g.show!.region}
-                      </span>
-                    </label>
+        <Modal onClose={() => setOpen(false)} title={<>PAMPHLET &middot; {label}</>}>
+          <input
+            type="text"
+            value={legId}
+            onChange={(e) => setLegId(e.target.value)}
+            placeholder="ID (e.g. british-columbia)"
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
+          />
+          <input
+            type="text"
+            value={legLabel}
+            onChange={(e) => setLegLabel(e.target.value)}
+            placeholder="Tagline suffix (e.g. in British Columbia)"
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-4"
+          />
+          <div className="space-y-3 mb-4">
+            {group.map((g) => {
+              const slug = g.show!.slug;
+              const isIncluded = included[slug];
+              return (
+                <div key={slug} className={isIncluded ? "" : "opacity-40"}>
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
                     <input
-                      type="text"
-                      value={venueLabels[slug] ?? ""}
+                      type="checkbox"
+                      checked={isIncluded}
                       onChange={(e) =>
-                        setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
+                        setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
                       }
-                      disabled={!isIncluded}
-                      placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
-                      className="w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
+                      className="rounded"
                     />
-                  </div>
-                );
-              })}
-            </div>
-            <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
-                  Placeholder dates
-                </span>
-                <button
-                  onClick={() => setPlaceholders((prev) => [...prev, { date: "", label: "" }])}
-                  className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
-                >
-                  + Add slot
-                </button>
-              </div>
-              {placeholders.map((ph, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <input
-                    type="date"
-                    value={ph.date}
-                    onChange={(e) =>
-                      setPlaceholders((prev) =>
-                        prev.map((p, j) => (j === i ? { ...p, date: e.target.value } : p)),
-                      )
-                    }
-                    className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                  />
+                    <span>
+                      {formatMonthDay(g.show!.date)} &middot; {g.show!.city}, {g.show!.region}
+                    </span>
+                  </label>
                   <input
                     type="text"
-                    value={ph.label}
+                    value={venueLabels[slug] ?? ""}
                     onChange={(e) =>
-                      setPlaceholders((prev) =>
-                        prev.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)),
-                      )
+                      setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
                     }
-                    placeholder="TBA"
-                    className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                    disabled={!isIncluded}
+                    placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
+                    className="w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
                   />
-                  <button
-                    onClick={() => setPlaceholders((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
-                  >
-                    ✕
-                  </button>
                 </div>
-              ))}
-            </div>
-            {saveError && <div className="text-xs text-red-500 mb-2">{saveError}</div>}
-            {total > 0 ? (
-              <button
-                onClick={handleDownload}
-                disabled={saving}
-                className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
-              >
-                {saving ? "Generating..." : `Save & Download (${total})`}
-              </button>
-            ) : (
-              <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
-                Select at least one show
-              </div>
-            )}
+              );
+            })}
           </div>
-        </div>
+          <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
+                Placeholder dates
+              </span>
+              <button
+                onClick={() => setPlaceholders((prev) => [...prev, { date: "", label: "" }])}
+                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+              >
+                + Add slot
+              </button>
+            </div>
+            {placeholders.map((ph, i) => (
+              <div key={i} className="flex gap-2 mb-2">
+                <input
+                  type="date"
+                  value={ph.date}
+                  onChange={(e) =>
+                    setPlaceholders((prev) =>
+                      prev.map((p, j) => (j === i ? { ...p, date: e.target.value } : p)),
+                    )
+                  }
+                  className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                />
+                <input
+                  type="text"
+                  value={ph.label}
+                  onChange={(e) =>
+                    setPlaceholders((prev) =>
+                      prev.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)),
+                    )
+                  }
+                  placeholder="TBA"
+                  className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                />
+                <button
+                  onClick={() => setPlaceholders((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          {saveError && <div className="text-xs text-red-500 mb-2">{saveError}</div>}
+          {total > 0 ? (
+            <button
+              onClick={handleDownload}
+              disabled={saving}
+              className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
+            >
+              {saving ? "Generating..." : `Save & Download (${total})`}
+            </button>
+          ) : (
+            <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
+              Select at least one show
+            </div>
+          )}
+        </Modal>
       )}
       <button
         onClick={() => setOpen(true)}
@@ -899,13 +900,18 @@ function ShowGroupCard({
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<string | null>(null);
   const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
-  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(null);
+  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(
+    null,
+  );
   const [emailConfirming, setEmailConfirming] = useState(false);
   const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
   const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
   const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
-  const [labelSaveState, setLabelSaveState] = useState<"idle" | "saving" | "saved">("idle");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [dateValue, setDateValue] = useState(show?.date ?? host.date ?? "");
+  const [editingDate, setEditingDate] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const labelsSave = useDebouncedSave(show, onShowUpdate);
+  const dateSave = useDebouncedSave(show, onShowUpdate);
 
   useEffect(() => {
     if (!group.showSlug) return;
@@ -918,32 +924,13 @@ function ShowGroupCard({
       .catch(() => setRsvpCounts(null));
   }, [group.showSlug]);
 
-  const debounceSaveLabels = useCallback(
-    (venue: string, door: string) => {
-      if (!show) return;
-      clearTimeout(debounceRef.current);
-      setLabelSaveState("saving");
-      debounceRef.current = setTimeout(async () => {
-        const venueLabel = venue.trim() || null;
-        const doorLabel = door.trim() || null;
-        const res = await fetch("/api/shows", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: show.slug, venueLabel, doorLabel }),
-        });
-        if (res.ok) {
-          onShowUpdate(show.slug, { venueLabel, doorLabel });
-          setLabelSaveState("saved");
-          setTimeout(() => setLabelSaveState("idle"), 2000);
-        } else {
-          setLabelSaveState("idle");
-        }
-      }, 800);
-    },
-    [show, onShowUpdate],
-  );
+  const debounceSaveLabels = (venue: string, door: string) =>
+    labelsSave.save({ venueLabel: venue.trim() || null, doorLabel: door.trim() || null });
 
-  useEffect(() => () => clearTimeout(debounceRef.current), []);
+  const debounceSaveDate = (newDate: string) => {
+    if (!newDate) return;
+    dateSave.save({ date: newDate });
+  };
 
   const handleDeleteShow = async () => {
     if (group.showSlug) {
@@ -972,61 +959,37 @@ function ShowGroupCard({
   return (
     <>
       {editingHost && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setEditingHost(false)}
-        >
-          <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                AMEND SPONSOR
-              </h4>
-              <button
-                onClick={() => setEditingHost(false)}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <SponsorForm
-              showSlug={host.showSlug ?? undefined}
-              submittedAt={host.submittedAt}
-              venue={host.venue}
-              address={host.address}
-              city={host.city}
-              region={host.region}
-              country={host.country}
-              date={host.date}
-              doorTime={host.doorTime}
-              initialName={host.name}
-              initialPhone={host.phone}
-              initialEmail={host.email}
-              initialItems={host.items}
-              compact
-              editMode
-              onSuccess={(data) => {
-                setEditingHost(false);
-                onUpdateSponsor({ ...host, ...data });
-              }}
-            />
-          </div>
-        </div>
+        <Modal onClose={() => setEditingHost(false)} title="AMEND SPONSOR">
+          <SponsorForm
+            showSlug={host.showSlug ?? undefined}
+            submittedAt={host.submittedAt}
+            venue={host.venue}
+            address={host.address}
+            city={host.city}
+            region={host.region}
+            country={host.country}
+            date={host.date}
+            doorTime={host.doorTime}
+            initialName={host.name}
+            initialPhone={host.phone}
+            initialEmail={host.email}
+            initialItems={host.items}
+            compact
+            editMode
+            onSuccess={(data) => {
+              setEditingHost(false);
+              onUpdateSponsor({ ...host, ...data });
+            }}
+          />
+        </Modal>
       )}
       {viewingSupporters && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => {
+        <Modal
+          onClose={() => {
             setViewingSupporters(false);
             setEditingSupporter(null);
           }}
-        >
-          <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          header={
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
                 {editingSupporter ? "AMEND SUPPORTER" : `SUPPORTERS (${supporters.length})`}
@@ -1034,131 +997,141 @@ function ShowGroupCard({
               <button
                 onClick={() => {
                   if (editingSupporter) setEditingSupporter(null);
-                  else {
-                    setViewingSupporters(false);
-                  }
+                  else setViewingSupporters(false);
                 }}
                 className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
               >
                 {editingSupporter ? "← Back" : "✕"}
               </button>
             </div>
-            {editingSupporter ? (
-              <SponsorForm
-                showSlug={editingSupporter.showSlug ?? undefined}
-                submittedAt={editingSupporter.submittedAt}
-                venue={editingSupporter.venue}
-                address={editingSupporter.address}
-                city={editingSupporter.city}
-                region={editingSupporter.region}
-                country={editingSupporter.country}
-                date={editingSupporter.date}
-                doorTime={editingSupporter.doorTime}
-                initialName={editingSupporter.name}
-                initialPhone={editingSupporter.phone}
-                initialEmail={editingSupporter.email}
-                initialItems={editingSupporter.items}
-                compact
-                editMode
-                onSuccess={(data) => {
-                  onUpdateSponsor({ ...editingSupporter, ...data });
-                  setEditingSupporter(null);
-                }}
-              />
-            ) : (
-              <div className="space-y-1">
-                {supporters.map((s) => (
-                  <button
-                    key={s.submittedAt}
-                    onClick={() => setEditingSupporter(s)}
-                    className="w-full text-left px-3 py-2 rounded text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                  >
-                    <div className="text-neutral-700 dark:text-neutral-300">
-                      <span className="font-medium">{s.name || s.email}</span>
-                      {s.name && s.email && (
-                        <span className="text-neutral-500 ml-2">{s.email}</span>
-                      )}
-                    </div>
-                    {s.items.length > 0 && (
-                      <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          }
+        >
+          {editingSupporter ? (
+            <SponsorForm
+              showSlug={editingSupporter.showSlug ?? undefined}
+              submittedAt={editingSupporter.submittedAt}
+              venue={editingSupporter.venue}
+              address={editingSupporter.address}
+              city={editingSupporter.city}
+              region={editingSupporter.region}
+              country={editingSupporter.country}
+              date={editingSupporter.date}
+              doorTime={editingSupporter.doorTime}
+              initialName={editingSupporter.name}
+              initialPhone={editingSupporter.phone}
+              initialEmail={editingSupporter.email}
+              initialItems={editingSupporter.items}
+              compact
+              editMode
+              onSuccess={(data) => {
+                onUpdateSponsor({ ...editingSupporter, ...data });
+                setEditingSupporter(null);
+              }}
+            />
+          ) : (
+            <div className="space-y-1">
+              {supporters.map((s) => (
+                <button
+                  key={s.submittedAt}
+                  onClick={() => setEditingSupporter(s)}
+                  className="w-full text-left px-3 py-2 rounded text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <div className="text-neutral-700 dark:text-neutral-300">
+                    <span className="font-medium">{s.name || s.email}</span>
+                    {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
+                  </div>
+                  {s.items.length > 0 && (
+                    <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
       {emailOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => {
+        <Modal
+          onClose={() => {
             setEmailOpen(false);
             setEmailConfirming(false);
           }}
+          title={
+            <>
+              EMAIL RSVPS
+              {emailRecipientCount !== null && (
+                <span className="ml-2 text-neutral-500">({emailRecipientCount} recipients)</span>
+              )}
+            </>
+          }
         >
-          <div
-            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                EMAIL RSVPS
-                {emailRecipientCount !== null && (
-                  <span className="ml-2 text-neutral-500">({emailRecipientCount} recipients)</span>
-                )}
-              </h4>
+          <input
+            type="text"
+            value={emailSubject}
+            onChange={(e) => {
+              setEmailSubject(e.target.value);
+              setEmailConfirming(false);
+            }}
+            placeholder="Subject"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400"
+          />
+          <textarea
+            value={emailBody}
+            onChange={(e) => {
+              setEmailBody(e.target.value);
+              setEmailConfirming(false);
+            }}
+            placeholder="Body (links like peytspencer.com/listen will auto-link)"
+            rows={8}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400 resize-y"
+          />
+          <input
+            type="datetime-local"
+            value={emailSchedule}
+            onChange={(e) => {
+              setEmailSchedule(e.target.value);
+              setEmailConfirming(false);
+            }}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white mb-3 focus:outline-none focus:border-neutral-400"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-neutral-500">
+              {emailSchedule
+                ? `Scheduled: ${new Date(emailSchedule).toLocaleString()} ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+                : "Sends immediately"}
+            </span>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setEmailOpen(false);
-                  setEmailConfirming(false);
+                disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                onClick={async () => {
+                  setEmailSending(true);
+                  setEmailResult(null);
+                  const res = await fetch("/api/show-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      slug: group.showSlug,
+                      subject: emailSubject,
+                      body: emailBody,
+                      test: true,
+                    }),
+                  });
+                  const data = await res.json();
+                  setEmailSending(false);
+                  setEmailResult(res.ok ? "Test sent to you" : data.error || "Failed");
                 }}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-300 transition-colors"
+                className="px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 transition-colors"
               >
-                ✕
+                Test
               </button>
-            </div>
-            <input
-              type="text"
-              value={emailSubject}
-              onChange={(e) => {
-                setEmailSubject(e.target.value);
-                setEmailConfirming(false);
-              }}
-              placeholder="Subject"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400"
-            />
-            <textarea
-              value={emailBody}
-              onChange={(e) => {
-                setEmailBody(e.target.value);
-                setEmailConfirming(false);
-              }}
-              placeholder="Body (links like peytspencer.com/listen will auto-link)"
-              rows={8}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 mb-3 focus:outline-none focus:border-neutral-400 resize-y"
-            />
-            <input
-              type="datetime-local"
-              value={emailSchedule}
-              onChange={(e) => {
-                setEmailSchedule(e.target.value);
-                setEmailConfirming(false);
-              }}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white mb-3 focus:outline-none focus:border-neutral-400"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-neutral-500">
-                {emailSchedule
-                  ? `Scheduled: ${new Date(emailSchedule).toLocaleString()} ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
-                  : "Sends immediately"}
-              </span>
-              <div className="flex items-center gap-2">
+              {emailConfirming ? (
                 <button
-                  disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                  disabled={emailSending}
                   onClick={async () => {
                     setEmailSending(true);
                     setEmailResult(null);
+                    const sendAt = emailSchedule
+                      ? Math.floor(new Date(emailSchedule).getTime() / 1000)
+                      : undefined;
                     const res = await fetch("/api/show-email", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -1166,77 +1139,85 @@ function ShowGroupCard({
                         slug: group.showSlug,
                         subject: emailSubject,
                         body: emailBody,
-                        test: true,
+                        sendAt,
                       }),
                     });
                     const data = await res.json();
                     setEmailSending(false);
-                    setEmailResult(res.ok ? "Test sent to you" : data.error || "Failed");
+                    setEmailConfirming(false);
+                    if (res.ok) {
+                      setEmailResult(`Sent to ${data.sent} of ${data.total}`);
+                      setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug));
+                    } else {
+                      setEmailResult(data.error || "Failed");
+                    }
                   }}
-                  className="px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
                 >
-                  Test
+                  {emailSending ? "Sending..." : `Confirm ${emailSchedule ? "Schedule" : "Send"}`}
                 </button>
-                {emailConfirming ? (
-                  <button
-                    disabled={emailSending}
-                    onClick={async () => {
-                      setEmailSending(true);
-                      setEmailResult(null);
-                      const sendAt = emailSchedule
-                        ? Math.floor(new Date(emailSchedule).getTime() / 1000)
-                        : undefined;
-                      const res = await fetch("/api/show-email", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          slug: group.showSlug,
-                          subject: emailSubject,
-                          body: emailBody,
-                          sendAt,
-                        }),
-                      });
-                      const data = await res.json();
-                      setEmailSending(false);
-                      setEmailConfirming(false);
-                      if (res.ok) {
-                        setEmailResult(`Sent to ${data.sent} of ${data.total}`);
-                        setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug));
-                      } else {
-                        setEmailResult(data.error || "Failed");
-                      }
-                    }}
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
-                  >
-                    {emailSending ? "Sending..." : `Confirm ${emailSchedule ? "Schedule" : "Send"}`}
-                  </button>
-                ) : (
-                  <button
-                    disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
-                    onClick={() => setEmailConfirming(true)}
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-40 transition-colors"
-                  >
-                    {emailSchedule ? "Schedule" : "Send"}
-                  </button>
-                )}
-              </div>
+              ) : (
+                <button
+                  disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                  onClick={() => setEmailConfirming(true)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-40 transition-colors"
+                >
+                  {emailSchedule ? "Schedule" : "Send"}
+                </button>
+              )}
             </div>
-            {emailSentSlugs.has(group.showSlug) && !emailResult && (
-              <div className="mt-3 text-xs text-amber-600 dark:text-amber-500">
-                You already sent an email for this show in this session
-              </div>
-            )}
-            {emailResult && <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>}
           </div>
-        </div>
+          {emailSentSlugs.has(group.showSlug) && !emailResult && (
+            <div className="mt-3 text-xs text-amber-600 dark:text-amber-500">
+              You already sent an email for this show in this session
+            </div>
+          )}
+          {emailResult && <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>}
+        </Modal>
       )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
         <div className="flex flex-1">
           <div className="flex-1 min-w-0 p-5 flex flex-col gap-3">
             <div>
-              <p className="text-base text-neutral-900 dark:text-white font-medium">
-                {host.date ? formatEventDate(host.date) : "No date"}
-              </p>
+              {show?.slug ? (
+                <div className="flex items-center gap-2 relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingDate(true);
+                      requestAnimationFrame(() => {
+                        dateInputRef.current?.focus();
+                        dateInputRef.current?.showPicker?.();
+                      });
+                    }}
+                    className="text-base text-neutral-900 dark:text-white font-medium hover:text-[#d4a553] dark:hover:text-[#e8c474] transition-colors"
+                  >
+                    {dateValue ? formatEventDate(dateValue) : "No date"}
+                  </button>
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => {
+                      setDateValue(e.target.value);
+                      debounceSaveDate(e.target.value);
+                    }}
+                    onBlur={() => setEditingDate(false)}
+                    className={`absolute left-0 top-0 ${editingDate ? "opacity-0 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+                    tabIndex={-1}
+                  />
+                  {dateSave.state === "saving" && (
+                    <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
+                  )}
+                  {dateSave.state === "saved" && (
+                    <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
+                  )}
+                </div>
+              ) : (
+                <p className="text-base text-neutral-900 dark:text-white font-medium">
+                  {host.date ? formatEventDate(host.date) : "No date"}
+                </p>
+              )}
               {location && (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{location}</p>
               )}
@@ -1253,10 +1234,10 @@ function ShowGroupCard({
                   <h4 className="text-xs text-neutral-500 uppercase tracking-widest">
                     Poster Labels
                   </h4>
-                  {labelSaveState === "saving" && (
+                  {labelsSave.state === "saving" && (
                     <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
                   )}
-                  {labelSaveState === "saved" && (
+                  {labelsSave.state === "saved" && (
                     <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
                   )}
                 </div>

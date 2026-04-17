@@ -34,7 +34,7 @@ export const TIMELINE: TimelineEvent[] = [
     location: "Vancouver, BC",
     type: "show",
     url: "/rsvp/vancouver-bc-0",
-    urlLabel: "RSVP",
+    description: "Vancouver Baha'i Centre of Learning",
   },
   {
     id: 2026041000,
@@ -43,7 +43,6 @@ export const TIMELINE: TimelineEvent[] = [
     location: "Richmond, BC",
     type: "show",
     url: "/rsvp/richmond-bc-0",
-    urlLabel: "RSVP",
   },
   {
     id: 2026032800,

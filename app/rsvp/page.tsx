@@ -11,19 +11,7 @@ export default async function RSVPPage({
   const shows = await getUpcomingShows();
 
   if (shows.length === 0) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-neutral-950 flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1
-            className="text-4xl md:text-6xl text-neutral-900 dark:text-white mb-4 font-extrabold uppercase"
-            style={{ fontFamily: '"Parkinsans", sans-serif' }}
-          >
-            No Upcoming Shows
-          </h1>
-          <p className="text-neutral-500 dark:text-neutral-400">Check back soon for tour dates.</p>
-        </div>
-      </div>
-    );
+    redirect("/support?success=no_shows");
   }
 
   const rsvpable = shows.filter((s) => s.access !== "private");

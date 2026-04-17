@@ -21,10 +21,16 @@ function getTodayInTz(tz: string): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: tz });
 }
 
-export default async function SupportPage() {
+export default async function SupportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ now?: string }>;
+}) {
+  const params = await searchParams;
   const shows = await getUpcomingShows();
   const todayShow = shows.find((s) => {
     if (s.country !== "CA") return false;
+    if (params.now) return params.now === s.date;
     const tz = REGION_TZ[s.region] ?? "America/Vancouver";
     return getTodayInTz(tz) === s.date;
   });
@@ -32,7 +38,7 @@ export default async function SupportPage() {
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">
       <Suspense>
-        <TipsAndSocials showInterac={!!todayShow} />
+        <TipsAndSocials interacFirst={!!todayShow} />
       </Suspense>
 
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">

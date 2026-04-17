@@ -7,6 +7,7 @@ import { PostHogProvider } from "./components/PostHogProvider";
 import { AudioProvider } from "./contexts/AudioContext";
 import { VideoProvider } from "./contexts/VideoContext";
 import { DevToolsProvider } from "./contexts/DevToolsContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Footer } from "./components/Footer";
@@ -25,6 +26,17 @@ const DevToolsPanel = dynamic(
   () => import("./components/DevToolsPanel").then((mod) => mod.DevToolsPanel),
   { ssr: false },
 );
+
+function SiteTools() {
+  return (
+    <>
+      <Analytics />
+      <SpeedInsights />
+      <MissingResourceIndicator />
+      <DevToolsPanel />
+    </>
+  );
+}
 
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
@@ -47,18 +59,14 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Homepage: fullscreen hero with navbar
+  // Homepage: fullscreen hero, no navbar
   if (isHomePage) {
     return (
       <>
-        <Navbar />
-        <div className="h-[calc(100dvh-4rem)] overflow-hidden">
+        <div className="h-[100dvh] overflow-hidden">
           <Suspense>{children}</Suspense>
         </div>
-        <Analytics />
-        <SpeedInsights />
-        <MissingResourceIndicator />
-        <DevToolsPanel />
+        <SiteTools />
       </>
     );
   }
@@ -70,10 +78,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
         <Navbar />
         <Suspense>{children}</Suspense>
         <GlobalAudioPlayer />
-        <Analytics />
-        <SpeedInsights />
-        <MissingResourceIndicator />
-        <DevToolsPanel />
+        <SiteTools />
       </>
     );
   }
@@ -87,10 +92,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           <Suspense>{children}</Suspense>
         </main>
         <GlobalAudioPlayer />
-        <Analytics />
-        <SpeedInsights />
-        <MissingResourceIndicator />
-        <DevToolsPanel />
+        <SiteTools />
       </>
     );
   }
@@ -104,10 +106,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           <Suspense>{children}</Suspense>
         </main>
         <GlobalAudioPlayer />
-        <Analytics />
-        <SpeedInsights />
-        <MissingResourceIndicator />
-        <DevToolsPanel />
+        <SiteTools />
       </>
     );
   }
@@ -120,10 +119,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
       <Footer />
       <GlobalAudioPlayer />
-      <Analytics />
-      <SpeedInsights />
-      <MissingResourceIndicator />
-      <DevToolsPanel />
+      <SiteTools />
     </>
   );
 }
@@ -134,9 +130,11 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       <DevToolsProvider>
         <AudioProvider>
           <VideoProvider>
-            <Suspense>
-              <ClientLayoutInner>{children}</ClientLayoutInner>
-            </Suspense>
+            <ToastProvider>
+              <Suspense>
+                <ClientLayoutInner>{children}</ClientLayoutInner>
+              </Suspense>
+            </ToastProvider>
           </VideoProvider>
         </AudioProvider>
       </DevToolsProvider>

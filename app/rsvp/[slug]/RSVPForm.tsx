@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
@@ -170,26 +169,15 @@ export default function RSVPForm({
     />
   );
 
-  const backContent = (
-    <>
-      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
-      All shows
-    </>
-  );
-  const backClassName =
-    "inline-flex items-center gap-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-xs uppercase tracking-wider";
-  const backButton = onBack ? (
+  const backButton = onBack && (
     <button
       onClick={onBack}
-      className={backClassName}
+      className="inline-flex items-center gap-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-xs uppercase tracking-wider"
       style={{ fontFamily: '"Space Mono", monospace' }}
     >
-      {backContent}
+      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
+      All shows
     </button>
-  ) : (
-    <Link href="/rsvp" className={backClassName} style={{ fontFamily: '"Space Mono", monospace' }}>
-      {backContent}
-    </Link>
   );
 
   function submitLabel(): string {

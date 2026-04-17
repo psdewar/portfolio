@@ -23,11 +23,13 @@ export async function getShows(): Promise<Show[]> {
   return res.json();
 }
 
+const GRACE_MS = 36 * 60 * 60 * 1000;
+
 export async function getUpcomingShows(): Promise<Show[]> {
   const shows = await getShows();
-  const now = new Date();
+  const nowMs = Date.now();
   return shows
-    .filter((s) => s.status === "upcoming" && new Date(s.date + "T23:59:59") > now)
+    .filter((s) => s.status === "upcoming" && new Date(s.date).getTime() + GRACE_MS > nowMs)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 

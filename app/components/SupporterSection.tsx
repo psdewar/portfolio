@@ -5,12 +5,8 @@ import Link from "next/link";
 import posthog from "posthog-js";
 import { useHydrated } from "../hooks/useHydrated";
 import {
-  RadioIcon,
-  BroadcastIcon,
   XIcon,
   CheckIcon,
-  CaretRightIcon,
-  CaretDownIcon,
   PlayIcon,
   PauseIcon,
   MicrophoneStageIcon,
@@ -20,18 +16,14 @@ import {
   WavesIcon,
   LightbulbIcon,
   FireIcon,
-  DownloadSimpleIcon,
-  DiscIcon,
 } from "@phosphor-icons/react";
 
 import StayConnected from "./StayConnected";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
 import { TIER_ELEMENTS } from "../data/patron-config";
-import { TRACKLIST } from "../shop/shared";
 import { useDevTools } from "../contexts/DevToolsContext";
 import { useAudio } from "../contexts/AudioContext";
-import { formatNextStream } from "../lib/dates";
 
 const TIER_ICONS = [PencilIcon, WavesIcon, LightbulbIcon, FireIcon];
 const TIER_COLORS = ["#f97316", "#f56542", "#f0566d", "#ec4899"];
@@ -96,8 +88,6 @@ export function SupporterSection({
 
   const [archiveInfoVisible, setArchiveInfoVisible] = useState(true);
 
-  const [downloadExpanded, setDownloadExpanded] = useState(false);
-
   const [showVerifyForm, setShowVerifyForm] = useState(false);
   const [verifyEmail, setVerifyEmail] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -112,24 +102,11 @@ export function SupporterSection({
   const yearRefs = useRef<Map<string, HTMLElement>>(new Map());
   const tierFlashedRef = useRef(false);
   const tierRowsRef = useRef<HTMLDivElement>(null);
-  const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
-
   useEffect(() => {
     if (window.location.hash === "#supporter") {
       window.history.replaceState({}, "", window.location.pathname);
       setTimeout(() => tierSectionRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
     }
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/schedule")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.nextStream) {
-          setNextStreamDate(data.nextStream);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -338,20 +315,6 @@ export function SupporterSection({
 
     proceedToCheckout(amountCents, period);
   };
-
-  function handleManageSubscription(): void {
-    const storedEmail = localStorage.getItem("patronEmail");
-    const email = storedEmail || (simulatePatron ? "test@example.com" : null);
-    if (email) {
-      window.location.href = `/api/stripe-portal?email=${encodeURIComponent(email)}`;
-    } else {
-      const inputEmail = prompt("Enter the email you used to subscribe:");
-      if (inputEmail) {
-        localStorage.setItem("patronEmail", inputEmail);
-        window.location.href = `/api/stripe-portal?email=${encodeURIComponent(inputEmail)}`;
-      }
-    }
-  }
 
   const journeyEvents = getJourneyEvents();
 
@@ -812,144 +775,15 @@ export function SupporterSection({
       )}
 
       {/* Journey timeline */}
-      {!isPatron && (
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-48">
-          <div className="max-w-lg mx-auto">
-            <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">
-              Stacking the Days
-            </h1>
-            {renderTimeline()}
-            {renderArchiveSection()}
-          </div>
-        </section>
-      )}
-
-      {/* Patron header (active subscribers) */}
-      {isPatron && (
-        <section
-          className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isModal ? "pt-0" : "pt-8"} pb-4`}
-        >
-          <button
-            onClick={handleManageSubscription}
-            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm lg:text-base underline underline-offset-2 cursor-pointer mb-4"
-          >
-            Manage subscription
-          </button>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-            <Link
-              href="/listen"
-              className="flex items-center justify-between p-4 lg:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-600 bg-neutral-50 dark:bg-neutral-900/50 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <RadioIcon
-                  className="w-7 h-7 lg:w-8 lg:h-8 text-neutral-600 dark:text-neutral-400"
-                  weight="duotone"
-                />
-                <div className="flex flex-col">
-                  <span className="text-neutral-900 dark:text-white font-medium text-base lg:text-lg">
-                    Listen
-                  </span>
-                  <span className="text-neutral-500 text-xs lg:text-sm font-medium">
-                    Unreleased Music
-                  </span>
-                </div>
-              </div>
-              <CaretRightIcon
-                className="w-5 h-5 text-neutral-400 group-hover:translate-x-1 transition-transform"
-                weight="bold"
-              />
-            </Link>
-
-            <div className="relative">
-              <button
-                onClick={() => setDownloadExpanded(!downloadExpanded)}
-                className={`w-full flex items-center justify-between p-4 lg:p-5 border border-blue-500/30 hover:border-blue-500 bg-blue-500/5 hover:bg-blue-500/10 transition-all group ${downloadExpanded ? "rounded-t-xl" : "rounded-xl"}`}
-              >
-                <div className="flex items-center gap-3">
-                  <DiscIcon className="w-7 h-7 lg:w-8 lg:h-8 text-blue-500" weight="duotone" />
-                  <div className="flex flex-col text-left">
-                    <span className="text-blue-600 dark:text-blue-400 font-medium text-base lg:text-lg">
-                      Singles & 16s 2025
-                    </span>
-                    <span className="text-blue-500/70 text-xs lg:text-sm font-medium">
-                      6 tracks + lyricbook
-                    </span>
-                  </div>
-                </div>
-                <CaretDownIcon
-                  className={`w-5 h-5 text-blue-500 transition-transform duration-200 ${downloadExpanded ? "rotate-180" : ""}`}
-                  weight="bold"
-                />
-              </button>
-              {downloadExpanded && (
-                <div className="absolute top-full left-0 right-0 z-20">
-                  <div className="bg-[#111D7A] rounded-b-xl p-4 lg:p-5 shadow-xl">
-                    <a
-                      href="/api/download/pack?file=singles-16s-2025"
-                      download="peyt-spencer-singles-and-16s-2025.zip"
-                      className="flex items-center justify-center gap-2 w-full py-3 lg:py-4 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors mb-4"
-                    >
-                      <DownloadSimpleIcon className="w-5 h-5" weight="bold" />
-                      Download ZIP
-                    </a>
-                    <div className="space-y-1">
-                      {TRACKLIST.map((track) => (
-                        <div
-                          key={track.name}
-                          className="py-2.5 pl-4 pr-3 border-l-2 border-white/40 hover:border-white hover:bg-white/5 transition-all flex items-center justify-between"
-                        >
-                          <span className="font-bebas text-white text-xl lg:text-2xl">
-                            {track.name}
-                          </span>
-                          <span className="font-mono text-white/70 text-base lg:text-lg">
-                            {track.duration}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Link
-              href="/live"
-              className="flex items-center justify-between p-4 lg:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-600 bg-neutral-50 dark:bg-neutral-900/50 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <BroadcastIcon
-                  className="w-7 h-7 lg:w-8 lg:h-8 text-neutral-600 dark:text-neutral-400"
-                  weight="duotone"
-                />
-                <div className="flex flex-col">
-                  <span className="text-neutral-900 dark:text-white font-medium text-base lg:text-lg">
-                    Live
-                  </span>
-                  <span className="text-neutral-500 text-xs lg:text-sm font-medium">
-                    {nextStreamDate ? formatNextStream(nextStreamDate) : "Next Live"}
-                  </span>
-                </div>
-              </div>
-              <CaretRightIcon
-                className="w-5 h-5 text-neutral-400 group-hover:translate-x-1 transition-transform"
-                weight="bold"
-              />
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {/* Journey timeline (patrons see standalone full-width) */}
-      {isPatron && (
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <section className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isPatron ? "pb-8" : "pb-48"}`}>
+        <div className="max-w-lg mx-auto">
           <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">
             Stacking the Days
           </h1>
           {renderTimeline()}
           {renderArchiveSection()}
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* Floating CTA */}
       {!isPatron && showBottomCta && (

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDevTools } from "../contexts/DevToolsContext";
 
 export function DevToolsPanel() {
+  const [simulatedNow, setSimulatedNow] = useState("");
   const {
     isDevMode,
     simulateSlowNetwork,
@@ -21,6 +22,20 @@ export function DevToolsPanel() {
 
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isDevMode || simulatedNow) return;
+    fetch("/api/shows")
+      .then((r) => r.json())
+      .then((shows: { country?: string; date: string; status?: string }[]) => {
+        if (!Array.isArray(shows)) return;
+        const nextCa = shows
+          .filter((s) => s.country === "CA" && s.status === "upcoming")
+          .sort((a, b) => a.date.localeCompare(b.date))[0];
+        if (nextCa?.date) setSimulatedNow(nextCa.date);
+      })
+      .catch(() => {});
+  }, [isDevMode, simulatedNow]);
 
   const navigateTo = (path: string) => {
     router.push(path);
@@ -39,8 +54,8 @@ export function DevToolsPanel() {
           isOpen
             ? "bg-red-500 hover:bg-red-600"
             : simulateSlowNetwork || useLocalAudio
-            ? "bg-yellow-500 hover:bg-yellow-600"
-            : "bg-gray-800 hover:bg-gray-700"
+              ? "bg-yellow-500 hover:bg-yellow-600"
+              : "bg-gray-800 hover:bg-gray-700"
         }`}
         title="Dev Tools"
       >
@@ -177,9 +192,7 @@ export function DevToolsPanel() {
                   />
                 </button>
               </label>
-              <p className="text-xs text-gray-400 pl-4">
-                View patron experience on /support page
-              </p>
+              <p className="text-xs text-gray-400 pl-4">View patron experience on /support page</p>
             </div>
 
             <button
@@ -199,12 +212,22 @@ export function DevToolsPanel() {
               Download Page
             </button>
 
-            <button
-              onClick={() => navigateTo("/support?country=CA")}
-              className="w-full py-2 px-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Support (Canada)
-            </button>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={simulatedNow}
+                onChange={(e) => setSimulatedNow(e.target.value)}
+                className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-500"
+              />
+              <button
+                onClick={() =>
+                  navigateTo(simulatedNow ? `/support?now=${simulatedNow}` : "/support?country=CA")
+                }
+                className="shrink-0 py-2 px-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Support (CA)
+              </button>
+            </div>
 
             <button
               onClick={() => window.location.reload()}

@@ -4,17 +4,14 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ArrowIcon } from "./ArrowIcon";
 import { Social } from "./components/Social";
-import { usePatronStatus } from "./hooks/usePatronStatus";
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const isPatron = usePatronStatus();
   const pathname = usePathname() ?? "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
 
   const navItems = [
-    ...(isPatron ? [{ href: "/support#timeline", label: "Updates" }] : []),
     { href: "/support", label: "Support" },
     { href: "/listen", label: "Listen" },
     { href: "/live", label: "Live" },
