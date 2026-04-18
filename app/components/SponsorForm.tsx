@@ -783,7 +783,7 @@ export default function SponsorForm({
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Select a city above to enable submission.
+              Select a venue or address to enable submission.
             </p>
           )}
           {wizardMode === "host" && hasLocation && (

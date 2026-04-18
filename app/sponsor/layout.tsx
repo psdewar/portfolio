@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import SponsorAvatar from "./SponsorAvatar";
+import HostFAQ from "../components/HostFAQ";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function SponsorLayout({ children }: { children: React.ReactNode 
             </div>
           </div>
           {children}
+          <HostFAQ />
         </div>
       </div>
     </div>
