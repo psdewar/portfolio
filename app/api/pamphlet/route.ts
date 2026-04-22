@@ -21,22 +21,46 @@ function pamphletHtml(
     region: string;
     venue: string | null;
     venueLabel: string | null;
+    doorTime?: string | null;
+    doorLabel?: string | null;
   }>,
   format: PamphletFormat = "standard",
   label?: string,
+  showDoors = false,
+  showQr = false,
+  locationOverride = "",
 ): string {
   const { W, H } = DIMS[format];
+  const locationLabelFor = (s: (typeof shows)[number]) =>
+    s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const first = shows[0] ? locationLabelFor(shows[0]) : "";
+  const sharedVenueLabel =
+    locationOverride.trim() ||
+    (shows.length > 1 && shows.every((s) => locationLabelFor(s) === first) ? first : "");
+  const labelSplit = label?.split(/\s([\s\S]*)/) ?? [];
+  const [labelFirst = "", labelRest = ""] = labelSplit;
   const showsHtml = shows
     .map((show, i) => {
       const dateStr = formatEventDateShort(show.date);
-      const locationLabel = show.venueLabel
-        ? show.venueLabel
-        : `${show.venue ? `${show.venue}, ` : ""}${show.city}, ${show.region}`;
+      const doorsStr =
+        showDoors && (show.doorLabel || show.doorTime)
+          ? show.doorLabel || `Doors open ${show.doorTime}`
+          : "";
+      if (sharedVenueLabel) {
+        return `
+      ${i > 0 ? '<div class="show-divider"></div>' : ""}
+      <div class="show-item compact">
+        <div class="detail-value date">${dateStr}</div>
+        ${doorsStr ? `<div class="detail-value">${doorsStr}</div>` : ""}
+      </div>`;
+      }
+      const locationLabel = locationLabelFor(show);
       return `
       ${i > 0 ? '<div class="show-divider"></div>' : ""}
       <div class="show-item">
         <div class="detail-value date">${dateStr}</div>
         <div class="detail-value">${locationLabel}</div>
+        ${doorsStr ? `<div class="detail-value">${doorsStr}</div>` : ""}
       </div>`;
     })
     .join("");
@@ -68,14 +92,21 @@ function pamphletHtml(
     .the-concert { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; }
     .theme-topright { position: absolute; top: 24px; right: 28px; text-align: right; font-family: "Space Mono", monospace; font-size: 9px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #c0b8a8; line-height: 1.6; text-shadow: 0 0 8px rgba(0,0,0,0.6); }
     .details { margin-top: auto; width: 100%; }
-    .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1; }
-    .detail-value { font-size: 11px; font-weight: 500; color: #c0b8a8; letter-spacing: 0.02em; }
-    .detail-value.date { font-size: 13px; font-weight: 700; color: #f0ede6; }
-    .show-item { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; }
+    .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #e0b860; line-height: 1.4; white-space: pre-line; }
+    .top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+    .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #c0b8a8; line-height: 1; white-space: nowrap; }
+    .detail-value { font-size: 11px; font-weight: 500; color: #c0b8a8; letter-spacing: 0.02em; line-height: 1.3; }
+    .detail-value.date { font-size: 15px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1.1; }
+    .show-item { display: flex; flex-direction: column; gap: 1px; padding: 7px 0; }
+    .show-item.compact { flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; padding: 6px 0; }
+    .show-item.compact .detail-value.date { flex-shrink: 0; }
     .show-item:first-child { padding-top: 0; }
-    .show-divider { height: 1px; background: rgba(255,255,255,0.1); }
-    .bottom-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-    .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #c0b8a8; }
+    .show-divider { height: 1px; background: rgba(212,165,83,0.18); }
+    .details-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+    .shows-list { flex: 0 1 auto; min-width: 0; width: fit-content; }
+    .qr-section { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
+    .qr-code { width: 92px; height: 92px; display: block; }
+    ${format === "yt" ? ".qr-code { width: 72px; height: 72px; }" : ""}
     ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; }" : ""}
     ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .lockup-img { height: 24.75px; } .lockup-records { font-size: 16.875px; margin-bottom: 1.125px; }" : ""}
   </style>
@@ -103,13 +134,17 @@ function pamphletHtml(
         <div class="title-accent"></div>
         <div class="the-concert">My path of growth</div>
         <div class="the-concert">and the principles</div>
-        <div class="the-concert">that connect us${label ? ` ${label.split(" ")[0]}` : ""}</div>${label ? `\n        <div class="the-concert">${label.split(" ").slice(1).join(" ")}</div>` : ""}
+        <div class="the-concert">that connect us${labelFirst ? ` ${labelFirst}` : ""}</div>
+        ${labelRest ? `<div class="the-concert" style="white-space: pre-line;">${labelRest}</div>` : ""}
       </div>
       <div class="details">
-        ${showsHtml}
-        <div class="bottom-footer">
-          <div class="tags">Free Admission</div>
+        <div class="top-row">
+          <div class="tags">Free Admission${sharedVenueLabel ? ` · ${sharedVenueLabel}` : ""}</div>
           <div class="rsvp-label">peytspencer.com/rsvp</div>
+        </div>
+        <div class="details-row">
+          <div class="shows-list">${showsHtml}</div>
+          ${showQr ? `<div class="qr-section"><img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" class="qr-code" /></div>` : ""}
         </div>
       </div>
     </div>
@@ -125,7 +160,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const blank = searchParams.get("blank") === "true";
 
-  type PamphletShow = Pick<Show, "date" | "city" | "region" | "venue" | "venueLabel">;
+  type PamphletShow = Pick<
+    Show,
+    "date" | "city" | "region" | "venue" | "venueLabel" | "doorTime" | "doorLabel"
+  >;
 
   function resolveShows(
     allShows: Show[],
@@ -155,12 +193,17 @@ export async function GET(request: NextRequest) {
         region: "",
         venue: null,
         venueLabel: locationLabel,
+        doorTime: "",
+        doorLabel: null,
       });
     }
   }
 
   let selected: PamphletShow[] = [];
   let pamphletLabel: string | undefined;
+  let pamphletShowDoors = false;
+  let pamphletShowQr = false;
+  let pamphletLocation = "";
   const pamphletId = searchParams.get("id");
 
   if (!blank) {
@@ -171,6 +214,9 @@ export async function GET(request: NextRequest) {
         return new Response("Pamphlet not found", { status: 404 });
       }
       pamphletLabel = pamphlet.label;
+      pamphletShowDoors = pamphlet.showDoors ?? false;
+      pamphletShowQr = pamphlet.showQr ?? false;
+      pamphletLocation = pamphlet.location ?? "";
       const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
       selected = resolveShows(
         allShows,
@@ -183,11 +229,7 @@ export async function GET(request: NextRequest) {
         ?.split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-
-      if (!slugs?.length) {
-        return new Response("Missing slugs or id", { status: 400 });
-      }
-
+      if (!slugs?.length) return new Response("Missing slugs or id", { status: 400 });
       const allShows = await getShows();
       selected = resolveShows(
         allShows,
@@ -208,9 +250,16 @@ export async function GET(request: NextRequest) {
   }
 
   const rawFormat = searchParams.get("format") ?? "standard";
-  const format: PamphletFormat = rawFormat === "ig" || rawFormat === "yt" ? rawFormat : "standard";
+  const format: PamphletFormat = rawFormat in DIMS ? (rawFormat as PamphletFormat) : "standard";
   const { W, H } = DIMS[format];
-  const html = pamphletHtml(selected, format, pamphletLabel);
+  const flag = (key: string, fallback: boolean) => {
+    const v = searchParams.get(key);
+    return v === null ? fallback : v === "1";
+  };
+  const showDoors = flag("doors", pamphletShowDoors);
+  const showQr = flag("qr", pamphletShowQr);
+  const location = searchParams.get("loc") ?? pamphletLocation;
+  const html = pamphletHtml(selected, format, pamphletLabel, showDoors, showQr, location);
 
   try {
     const screenshot = await takeScreenshot({

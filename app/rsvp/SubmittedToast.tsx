@@ -14,7 +14,9 @@ export default function SubmittedToast({
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const link = slug ? `peytspencer.com/rsvp/${slug}` : "peytspencer.com/rsvp";
+  const slugs = slug?.split(",").filter(Boolean) ?? [];
+  const multi = slugs.length > 1;
+  const link = slugs.length === 1 ? `peytspencer.com/rsvp/${slugs[0]}` : "peytspencer.com/rsvp";
 
   const copyLink = () =>
     navigator.clipboard.writeText(link).then(() => {
@@ -46,8 +48,10 @@ export default function SubmittedToast({
           Submitted
         </p>
         <p className="text-neutral-300 text-sm mb-4">
-          I sent my 2025 Singles & 16s Pack to your inbox as a thank you. Share this RSVP with a
-          friend:
+          I sent my 2025 Singles & 16s Pack to your inbox as a thank you.{" "}
+          {multi
+            ? "Share this link so friends can pick a night:"
+            : "Share this RSVP with a friend:"}
         </p>
         <button
           onClick={copyLink}

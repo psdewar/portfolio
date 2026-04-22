@@ -17,7 +17,9 @@ export default async function SponsorHostPage({
       region={params.region}
       country={params.country}
       date={params.date}
+      initialDates={params.dates ? params.dates.split("|") : undefined}
       doorTime={params.doorTime}
+      initialDoorTimes={params.doorTimes ? params.doorTimes.split("|") : undefined}
       initialName={params.name}
       initialPhone={params.phone}
       initialEmail={params.email}

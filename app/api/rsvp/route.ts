@@ -153,3 +153,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { slug } = await request.json();
+    if (!slug || typeof slug !== "string") {
+      return NextResponse.json({ error: "slug required" }, { status: 400 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("stay-connected")
+      .select("id, rsvp")
+      .not("rsvp", "is", null);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const prefix = `${slug}:`;
+    let affected = 0;
+    for (const row of data || []) {
+      const original: string[] = row.rsvp || [];
+      const filtered = original.filter((e) => !e.startsWith(prefix));
+      if (filtered.length === original.length) continue;
+      const { error: updateError } = await supabaseAdmin
+        .from("stay-connected")
+        .update({ rsvp: filtered.length > 0 ? filtered : null })
+        .eq("id", row.id);
+      if (updateError) {
+        console.error("[RSVP DELETE] Update error for row", row.id, updateError);
+        continue;
+      }
+      affected += 1;
+    }
+
+    return NextResponse.json({ ok: true, affected });
+  } catch (error) {
+    console.error("[RSVP DELETE] Error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

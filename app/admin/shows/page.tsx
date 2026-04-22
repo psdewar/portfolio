@@ -161,12 +161,32 @@ export default function ShowsAdminPage() {
   const pastUngrouped = past.filter((g) => !pastGrouped.has(g.showSlug));
 
   const cardProps = {
+    pamphlets,
     onUpdateSponsor: (updated: Sponsor) =>
-      setSponsors((prev) => prev.map((s) => (s.submittedAt === updated.submittedAt ? updated : s))),
-    onRemoveSponsor: (submittedAt: string) =>
-      setSponsors((prev) => prev.filter((s) => s.submittedAt !== submittedAt)),
+      setSponsors((prev) =>
+        prev.map((s) =>
+          s.submittedAt === updated.submittedAt && s.showSlug === updated.showSlug ? updated : s,
+        ),
+      ),
+    onRemoveSponsor: (submittedAt: string, showSlug?: string | null) =>
+      setSponsors((prev) =>
+        prev.filter((s) =>
+          showSlug !== undefined
+            ? !(s.submittedAt === submittedAt && s.showSlug === showSlug)
+            : s.submittedAt !== submittedAt,
+        ),
+      ),
     onShowUpdate: (slug: string, fields: Partial<Show>) =>
       setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s))),
+    onPamphletCascade: (deletedSlug: string) =>
+      setPamphlets((prev) =>
+        prev.flatMap((p) => {
+          const remaining = p.shows.filter((s) => s.slug !== deletedSlug);
+          if (remaining.length === p.shows.length) return [p];
+          if (remaining.length === 0) return [];
+          return [{ ...p, shows: remaining }];
+        }),
+      ),
   };
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
@@ -636,6 +656,9 @@ function PamphletGroupButton({
   const [open, setOpen] = useState(false);
   const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
   const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
+  const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
+  const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
+  const [location, setLocation] = useState(matchedPamphlet?.location ?? "");
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
     if (matchedPamphlet) {
       return Object.fromEntries(
@@ -686,11 +709,17 @@ function PamphletGroupButton({
   const buildHref = (format: "ig" | "yt") => {
     if (legId.trim()) {
       const params = new URLSearchParams({ id: legId.trim(), format });
+      if (showDoors) params.set("doors", "1");
+      if (showQr) params.set("qr", "1");
+      if (location.trim()) params.set("loc", location);
       appendPlaceholders(params);
       return `/api/pamphlet?${params.toString()}`;
     }
     const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
     const params = new URLSearchParams({ slugs: slugsParam, format });
+    if (showDoors) params.set("doors", "1");
+    if (showQr) params.set("qr", "1");
+    if (location.trim()) params.set("loc", location);
     for (const g of activeGroup) {
       const slug = g.show!.slug;
       if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
@@ -705,7 +734,14 @@ function PamphletGroupButton({
     setSaving(true);
     setSaveError("");
     const label = legLabel.trim() || undefined;
-    const payload = { id, shows: buildPamphletShows(), label };
+    const payload = {
+      id,
+      shows: buildPamphletShows(),
+      label,
+      showDoors,
+      showQr,
+      location: location.trim() || undefined,
+    };
     const isUpdate = matchedPamphlet?.id === id;
     const res = await fetch("/api/pamphlets", {
       method: isUpdate ? "PATCH" : "POST",
@@ -721,7 +757,14 @@ function PamphletGroupButton({
       }
       return false;
     }
-    onPamphletSaved({ id, label, shows: payload.shows });
+    onPamphletSaved({
+      id,
+      label,
+      shows: payload.shows,
+      showDoors,
+      showQr,
+      location: payload.location,
+    });
     return true;
   };
 
@@ -761,13 +804,38 @@ function PamphletGroupButton({
             placeholder="ID (e.g. british-columbia)"
             className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
           />
-          <input
-            type="text"
+          <textarea
             value={legLabel}
             onChange={(e) => setLegLabel(e.target.value)}
-            placeholder="Tagline suffix (e.g. in British Columbia)"
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-4"
+            placeholder="Tagline suffix (e.g. in British Columbia, newlines allowed)"
+            rows={2}
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
           />
+          <textarea
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location after 'Free Admission ·' (newlines allowed)"
+            rows={2}
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
+          />
+          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+            <input
+              type="checkbox"
+              checked={showDoors}
+              onChange={(e) => setShowDoors(e.target.checked)}
+              className="rounded"
+            />
+            <span>Show door times on pamphlet</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+            <input
+              type="checkbox"
+              checked={showQr}
+              onChange={(e) => setShowQr(e.target.checked)}
+              className="rounded"
+            />
+            <span>Show QR code on pamphlet</span>
+          </label>
           <div className="space-y-3 mb-4">
             {group.map((g) => {
               const slug = g.show!.slug;
@@ -877,14 +945,18 @@ function PamphletGroupButton({
 
 function ShowGroupCard({
   group,
+  pamphlets,
   onUpdateSponsor,
   onRemoveSponsor,
   onShowUpdate,
+  onPamphletCascade,
 }: {
   group: ShowGroup;
+  pamphlets: Pamphlet[];
   onUpdateSponsor: (updated: Sponsor) => void;
-  onRemoveSponsor: (submittedAt: string) => void;
+  onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  onPamphletCascade: (deletedSlug: string) => void;
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
@@ -943,15 +1015,33 @@ function ShowGroupCard({
       await Promise.all([
         deleteSponsor(host.submittedAt),
         ...supporters.map((s) => deleteSponsor(s.submittedAt)),
+        fetch("/api/rsvp", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: group.showSlug }),
+        }),
       ]);
       await fetch("/api/shows", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug: group.showSlug }),
       });
+      const orphaned = pamphlets.filter(
+        (p) => p.shows.length === 1 && p.shows[0].slug === group.showSlug,
+      );
+      await Promise.all(
+        orphaned.map((p) =>
+          fetch("/api/pamphlets", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: p.id }),
+          }),
+        ),
+      );
+      onPamphletCascade(group.showSlug);
     }
-    onRemoveSponsor(host.submittedAt);
-    for (const s of supporters) onRemoveSponsor(s.submittedAt);
+    onRemoveSponsor(host.submittedAt, host.showSlug);
+    for (const s of supporters) onRemoveSponsor(s.submittedAt, s.showSlug);
   };
 
   const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
@@ -1359,31 +1449,39 @@ function ShowGroupCard({
           </div>
         </div>
         {confirmDelete && (
-          <div className="flex gap-2 items-center px-5 py-3 border-t border-neutral-200 dark:border-neutral-800">
-            <input
-              autoFocus
-              type="text"
-              value={deleteInput}
-              onChange={(e) => setDeleteInput(e.target.value)}
-              placeholder='type "delete"'
-              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
-            />
-            <button
-              onClick={handleDeleteShow}
-              disabled={deleteInput !== "delete"}
-              className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-            >
-              Confirm
-            </button>
-            <button
-              onClick={() => {
-                setConfirmDelete(false);
-                setDeleteInput("");
-              }}
-              className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="border-t border-neutral-200 dark:border-neutral-800">
+            {rsvpCounts && rsvpCounts.responses > 0 && !emailSentSlugs.has(group.showSlug) && (
+              <div className="px-5 pt-3 text-xs text-amber-600 dark:text-amber-500">
+                ⚠ {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
+                notified. Send a cancel email first.
+              </div>
+            )}
+            <div className="flex gap-2 items-center px-5 py-3">
+              <input
+                autoFocus
+                type="text"
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                placeholder='type "delete"'
+                className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              <button
+                onClick={handleDeleteShow}
+                disabled={deleteInput !== "delete"}
+                className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeleteInput("");
+                }}
+                className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>

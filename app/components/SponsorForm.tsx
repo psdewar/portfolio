@@ -10,6 +10,8 @@ import {
   LockSimpleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  XIcon,
+  PlusIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { SUPPORT_MENU, SUPPORTER_ITEMS } from "../lib/sponsor";
@@ -26,6 +28,16 @@ const DOOR_TIMES = Array.from({ length: 21 }, (_, i) => {
   const h12 = h % 12 || 12;
   return `${h12}:${String(min).padStart(2, "0")}${ampm}`;
 });
+
+function parseDoorTimeMinutes(t: string): number | null {
+  const m = t.match(/^(\d{1,2}):(\d{2})(AM|PM)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+  if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
 
 export interface SponsorFields {
   name: string;
@@ -58,6 +70,8 @@ interface SponsorFormProps {
   readOnly?: boolean;
   mode?: "host" | "supporter";
   initialItems?: string[];
+  initialDates?: string[];
+  initialDoorTimes?: string[];
   initialName?: string;
   initialPhone?: string;
   initialEmail?: string;
@@ -80,6 +94,8 @@ export default function SponsorForm({
   readOnly,
   mode,
   initialItems,
+  initialDates,
+  initialDoorTimes,
   initialName,
   initialPhone,
   initialEmail,
@@ -89,8 +105,8 @@ export default function SponsorForm({
   const mapsReady = useGoogleMaps();
   const cityContainerRef = useRef<HTMLDivElement>(null);
   const cityInputRef = useRef<HTMLInputElement>(null);
-  const doorTimeRef = useRef<HTMLDivElement>(null);
-  const [doorTimeOpen, setDoorTimeOpen] = useState(false);
+  const doorTimeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [doorTimeOpenIndex, setDoorTimeOpenIndex] = useState<number | null>(null);
 
   const defaultSupporterItems =
     mode === "supporter" && !editMode && !compact && !initialItems ? [SUPPORTER_ITEMS[0]] : [];
@@ -102,8 +118,13 @@ export default function SponsorForm({
   const [eventCity, setEventCity] = useState(city || "");
   const [eventRegion, setEventRegion] = useState(region || "");
   const [eventCountry, setEventCountry] = useState(country || "");
-  const [eventDate, setEventDate] = useState(date || "");
-  const [eventDoorTime, setEventDoorTime] = useState(doorTime || "");
+  const [eventDates, setEventDates] = useState<string[]>(
+    initialDates && initialDates.length > 0 ? initialDates : date ? [date] : [""],
+  );
+  const [eventDoorTimes, setEventDoorTimes] = useState<string[]>(() => {
+    const len = initialDates && initialDates.length > 0 ? initialDates.length : 1;
+    return Array.from({ length: len }, (_, i) => initialDoorTimes?.[i] ?? doorTime ?? "");
+  });
   const [sponsorName, setSponsorName] = useState(initialName || "");
   const [sponsorPhone, setSponsorPhone] = useState(initialPhone || "");
   const [sponsorEmail, setSponsorEmail] = useState(initialEmail || "");
@@ -190,14 +211,14 @@ export default function SponsorForm({
   }, [initAutocomplete]);
 
   useEffect(() => {
-    if (!doorTimeOpen) return;
+    if (doorTimeOpenIndex === null) return;
     const handler = (e: MouseEvent) => {
-      if (doorTimeRef.current && !doorTimeRef.current.contains(e.target as Node))
-        setDoorTimeOpen(false);
+      const ref = doorTimeRefs.current[doorTimeOpenIndex];
+      if (ref && !ref.contains(e.target as Node)) setDoorTimeOpenIndex(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [doorTimeOpen]);
+  }, [doorTimeOpenIndex]);
 
   const toggleItem = (item: string) => {
     setChecked((prev) => {
@@ -226,6 +247,43 @@ export default function SponsorForm({
         setSubmitResult({ ok: false, msg: "Please select a city." });
         return;
       }
+
+      const multi = eventDates.length > 1;
+      const seenByDate = new Map<string, number[]>();
+      for (let i = 0; i < eventDates.length; i++) {
+        const d = eventDates[i].trim();
+        if (!d) {
+          setSubmitResult({
+            ok: false,
+            msg: multi ? `Pick a date for row ${i + 1} or remove it.` : "Pick a date.",
+          });
+          return;
+        }
+        const t = eventDoorTimes[i]?.trim();
+        if (!t) {
+          setSubmitResult({
+            ok: false,
+            msg: multi ? `Pick a door time for ${formatLongDate(d)}.` : "Pick a door time.",
+          });
+          return;
+        }
+        const minutes = parseDoorTimeMinutes(t);
+        if (minutes === null) continue;
+        const prior = seenByDate.get(d) || [];
+        for (const pm of prior) {
+          if (Math.abs(pm - minutes) < 120) {
+            setSubmitResult({
+              ok: false,
+              msg:
+                pm === minutes
+                  ? `${formatLongDate(d)} at ${t} is listed twice. Change the door time or remove the duplicate.`
+                  : `Two shows on ${formatLongDate(d)} need at least 2 hours between door times.`,
+            });
+            return;
+          }
+        }
+        seenByDate.set(d, [...prior, minutes]);
+      }
     }
 
     if (isSupporter && !selectedShowSlug) {
@@ -236,6 +294,14 @@ export default function SponsorForm({
     setSubmitting(true);
     setSubmitResult(null);
 
+    const slotsToSubmit = isSupporter
+      ? []
+      : eventDates.map((d, i) => ({
+          date: d.trim(),
+          doorTime: eventDoorTimes[i].trim(),
+        }));
+    const primarySlot = slotsToSubmit[0] || { date: "", doorTime: "" };
+
     const fields: SponsorFields = {
       name: sponsorName.trim(),
       email,
@@ -245,51 +311,89 @@ export default function SponsorForm({
       country: isSupporter ? "" : eventCountry,
       venue: isSupporter ? "" : eventVenue || "",
       address: isSupporter ? "" : eventAddress || "",
-      date: isSupporter ? "" : eventDate || new Date().toISOString().slice(0, 10),
-      doorTime: isSupporter ? "" : eventDoorTime || "7:00PM",
+      date: isSupporter ? "" : primarySlot.date,
+      doorTime: isSupporter ? "" : primarySlot.doorTime,
       items: Array.from(checked),
       role: isSupporter ? "supporter" : "host",
     };
 
-    try {
-      let finalShowSlug = isSupporter ? selectedShowSlug : showSlug;
+    const buildSponsorBody = (slug: string, slot: { date: string; doorTime: string }) => ({
+      showSlug: slug,
+      ...fields,
+      date: slot.date,
+      doorTime: slot.doorTime,
+      ...(editMode && submittedAt ? { submittedAt } : {}),
+    });
 
-      if (!finalShowSlug && !editMode) {
-        const showRes = await fetch("/api/shows", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: eventDate || new Date().toISOString().slice(0, 10),
-            doorTime: eventDoorTime || "7:00PM",
-            city: eventCity,
-            region: eventRegion,
-            country: eventCountry,
-            venue: eventVenue || null,
-            address: eventAddress || null,
-            planStatus: "intent",
-          }),
-        });
-        if (!showRes.ok) {
-          setSubmitResult({ ok: false, msg: "Failed to book the date. Try again." });
+    try {
+      const isHostNewSubmission = !editMode && !isSupporter && !showSlug;
+
+      if (isHostNewSubmission) {
+        const showResults = await Promise.allSettled(
+          slotsToSubmit.map((slot) =>
+            fetch("/api/shows", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                date: slot.date,
+                doorTime: slot.doorTime,
+                city: eventCity,
+                region: eventRegion,
+                country: eventCountry,
+                venue: eventVenue || null,
+                address: eventAddress || null,
+                planStatus: "intent",
+              }),
+            }).then(async (r) => {
+              if (!r.ok) throw new Error(await r.text());
+              return { slug: (await r.json()).slug as string, slot };
+            }),
+          ),
+        );
+        const booked = showResults.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+
+        if (booked.length === 0) {
+          setSubmitResult({ ok: false, msg: "Didn't book. Text me and I'll fix it." });
           return;
         }
-        const showData = await showRes.json();
-        finalShowSlug = showData.slug;
+
+        await Promise.allSettled(
+          booked.map(({ slug, slot }) =>
+            fetch("/api/sponsors", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(buildSponsorBody(slug, slot)),
+            }),
+          ),
+        );
+
+        if (booked.length > 1) {
+          const pamphletId = `${eventCity}-${eventRegion}-${primarySlot.date}`
+            .toLowerCase()
+            .replace(/[^\w]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+          if (pamphletId) {
+            fetch("/api/pamphlets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: pamphletId,
+                shows: booked.map((b) => ({ slug: b.slug })),
+              }),
+            }).catch(() => {});
+          }
+        }
+
+        onSuccess?.(fields);
+        router.push(`/rsvp?submitted=${booked.map((b) => b.slug).join(",")}`);
+        return;
       }
 
-      const sponsorBody: Record<string, unknown> = {
-        showSlug: finalShowSlug,
-        ...fields,
-        role: fields.role,
-      };
-      if (!isSupporter && eventVenue) sponsorBody.venue = eventVenue;
-      if (!isSupporter && eventAddress) sponsorBody.address = eventAddress;
-      if (editMode && submittedAt) sponsorBody.submittedAt = submittedAt;
-
+      const finalShowSlug = isSupporter ? selectedShowSlug : showSlug;
       const res = await fetch("/api/sponsors", {
         method: editMode ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sponsorBody),
+        body: JSON.stringify(buildSponsorBody(finalShowSlug!, primarySlot)),
       });
 
       if (!res.ok) {
@@ -308,7 +412,7 @@ export default function SponsorForm({
         router.push(`/rsvp?submitted=${data.showSlug}`);
       }
     } catch {
-      setSubmitResult({ ok: false, msg: "Failed to submit. Try again." });
+      setSubmitResult({ ok: false, msg: "Didn't submit. Text me and I'll fix it." });
     } finally {
       setSubmitting(false);
     }
@@ -647,75 +751,135 @@ export default function SponsorForm({
               )}
             </div>
 
-            <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}>
-              <div>
-                <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Date
+            <div>
+              <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"} mb-1.5`}>
+                <label className="block text-xs text-neutral-400 uppercase tracking-wider">
+                  {eventDates.length > 1 ? "Dates" : "Date"}
                 </label>
-                {dateReadOnly ? (
-                  eventDate && <p className={fieldClass}>{formatLongDate(eventDate)}</p>
-                ) : (
-                  <div className="relative">
-                    <p
-                      className={`${fieldClass} ${eventDate ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
-                    >
-                      {eventDate
-                        ? formatLongDate(eventDate)
-                        : formatLongDate(new Date().toISOString().slice(0, 10))}
-                    </p>
-                    <input
-                      type="date"
-                      value={eventDate}
-                      min={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val < new Date().toISOString().slice(0, 10)) return;
-                        setEventDate(val);
-                      }}
-                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                      disabled={readOnly}
-                      className="absolute inset-0 opacity-0 w-full cursor-pointer"
-                    />
-                  </div>
-                )}
+                <label className="block text-xs text-neutral-400 uppercase tracking-wider">
+                  Doors open
+                </label>
               </div>
-              <div>
-                <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Door Time
-                </label>
-                {isPdfMode ? (
-                  <p className={fieldClass}>{eventDoorTime}</p>
-                ) : (
-                  <div className="relative" ref={doorTimeRef}>
-                    <button
-                      type="button"
-                      onClick={() => !readOnly && setDoorTimeOpen((o) => !o)}
-                      disabled={readOnly}
-                      className={`${fieldClass} text-left ${eventDoorTime ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
+              <div className="space-y-2.5">
+                {eventDates.map((d, i) => (
+                  <div key={i} className="relative">
+                    <div
+                      className={`grid grid-cols-2 items-start ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}
                     >
-                      {eventDoorTime || "7:00PM"}
-                    </button>
-                    {doorTimeOpen && (
-                      <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
-                        {DOOR_TIMES.map((t) => (
-                          <li key={t}>
+                      <div>
+                        {dateReadOnly ? (
+                          d && <p className={fieldClass}>{formatLongDate(d)}</p>
+                        ) : (
+                          <div className="group relative">
+                            <p
+                              aria-hidden="true"
+                              className={`${fieldClass} group-focus-within:border-neutral-900 dark:group-focus-within:border-white ${d ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                            >
+                              {d
+                                ? formatLongDate(d)
+                                : formatLongDate(new Date().toISOString().slice(0, 10))}
+                            </p>
+                            <input
+                              type="date"
+                              value={d}
+                              min={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val < new Date().toISOString().slice(0, 10)) return;
+                                setEventDates((prev) => prev.map((x, j) => (j === i ? val : x)));
+                              }}
+                              onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                              disabled={readOnly}
+                              aria-label={`Event date${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        {isPdfMode ? (
+                          <p className={fieldClass}>{eventDoorTimes[i]}</p>
+                        ) : (
+                          <div
+                            className="relative"
+                            ref={(el) => {
+                              doorTimeRefs.current[i] = el;
+                            }}
+                          >
                             <button
                               type="button"
-                              onClick={() => {
-                                setEventDoorTime(t);
-                                setDoorTimeOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTime ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
+                              onClick={() =>
+                                !readOnly && setDoorTimeOpenIndex((cur) => (cur === i ? null : i))
+                              }
+                              disabled={readOnly}
+                              aria-label={`Doors open${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
+                              className={`${fieldClass} text-left ${eventDoorTimes[i] ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
                             >
-                              {t}
+                              {eventDoorTimes[i] || "7:00PM"}
                             </button>
-                          </li>
-                        ))}
-                      </ul>
+                            {doorTimeOpenIndex === i && (
+                              <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
+                                {DOOR_TIMES.map((t) => (
+                                  <li key={t}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEventDoorTimes((prev) =>
+                                          prev.map((x, j) => (j === i ? t : x)),
+                                        );
+                                        setDoorTimeOpenIndex(null);
+                                      }}
+                                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTimes[i] ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
+                                    >
+                                      {t}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {i > 0 && !readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEventDates((prev) => prev.filter((_, j) => j !== i));
+                          setEventDoorTimes((prev) => prev.filter((_, j) => j !== i));
+                          setDoorTimeOpenIndex((cur) => (cur === i ? null : cur));
+                        }}
+                        aria-label={`Remove ${d ? formatLongDate(d) : "this date"}`}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 inline-flex items-center justify-center h-7 w-7 rounded-full bg-white dark:bg-neutral-950 text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 transition-colors"
+                      >
+                        <XIcon size={13} weight="bold" aria-hidden="true" />
+                      </button>
                     )}
                   </div>
-                )}
+                ))}
               </div>
+              {!readOnly && !editMode && eventDates.length < 3 && (
+                <button
+                  type="button"
+                  disabled={!eventDates[eventDates.length - 1]?.trim()}
+                  onClick={() => {
+                    setEventDates((prev) => {
+                      const last = prev[prev.length - 1];
+                      if (!last) return prev;
+                      const [y, m, d] = last.split("-").map(Number);
+                      const nextDate = new Date(Date.UTC(y, m - 1, d + 1))
+                        .toISOString()
+                        .slice(0, 10);
+                      return [...prev, nextDate];
+                    });
+                    setEventDoorTimes((prev) => [...prev, prev[prev.length - 1] || ""]);
+                  }}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-400 dark:hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 border border-dashed border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-neutral-600 disabled:hover:border-neutral-300 dark:disabled:hover:text-neutral-400 dark:disabled:hover:border-neutral-700"
+                >
+                  <PlusIcon size={12} weight="bold" aria-hidden="true" />
+                  Add another time
+                </button>
+              )}
             </div>
 
             {contactFields}
