@@ -9,7 +9,6 @@ export async function screenshotPoster(path: string): Promise<Response> {
       selector: ".poster",
       viewport: { width: 480, height: 780 },
       deviceScaleFactor: 3,
-      waitForTimeout: 1500,
     });
 
     return new Response(screenshot, {

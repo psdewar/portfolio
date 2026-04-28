@@ -10,10 +10,12 @@ interface ScreenshotOptions {
   selector?: string;
   viewport?: { width: number; height: number };
   deviceScaleFactor?: number;
-  waitForSelector?: string;
   waitForTimeout?: number;
   htmlContent?: string;
 }
+
+const BLOCKED =
+  /\/ingest\/|posthog\.com|vercel-insights|vitals\.vercel|va\.vercel-scripts|google-analytics|googletagmanager|gtag|doubleclick/;
 
 export async function launchBrowser(): Promise<Browser> {
   if (IS_LOCAL) {
@@ -40,8 +42,7 @@ export async function takeScreenshot({
   selector,
   viewport = { width: 1200, height: 630 },
   deviceScaleFactor,
-  waitForSelector,
-  waitForTimeout = 2000,
+  waitForTimeout,
   htmlContent,
 }: ScreenshotOptions) {
   const browser = await launchBrowser();
@@ -52,17 +53,16 @@ export async function takeScreenshot({
       ...(deviceScaleFactor ? { deviceScaleFactor } : {}),
     });
 
+    await page.route("**/*", (route) =>
+      BLOCKED.test(route.request().url()) ? route.abort() : route.continue(),
+    );
+
     if (htmlContent) {
-      await page.setContent(htmlContent, { waitUntil: "networkidle" });
+      await page.setContent(htmlContent, { waitUntil: "load" });
     } else {
       const url = new URL(path, BASE_URL);
       url.searchParams.set("og", "true");
-
-      await page.goto(url.toString(), { waitUntil: "networkidle" });
-
-      await page.waitForSelector("header", { timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(500);
-
+      await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 15000 });
       await page.evaluate(() => {
         document.querySelectorAll("header").forEach((el) => el.remove());
         document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach((el) => {
@@ -71,38 +71,21 @@ export async function takeScreenshot({
         const main = document.querySelector("main");
         if (main) main.style.paddingBottom = "0";
       });
-
       await page.addStyleTag({
-        content: `
-          header { display: none !important; }
-          nav { display: none !important; }
-          nextjs-portal { display: none !important; }
-          [data-nextjs-dialog-overlay] { display: none !important; }
-          [data-nextjs-toast] { display: none !important; }
-        `,
+        content: `header, nav, nextjs-portal, [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }`,
       });
+      await page.waitForLoadState("load", { timeout: 10000 }).catch(() => {});
     }
 
-    if (waitForSelector) {
-      await page.waitForSelector(waitForSelector, { timeout: 10000 }).catch(() => {});
-    }
-
-    if (waitForTimeout) {
-      await page.waitForTimeout(waitForTimeout);
-    }
-
-    let buffer: Buffer;
     if (selector) {
-      const element = page.locator(selector).first();
-      buffer = await element.screenshot({ type: "jpeg", quality: 95 });
-    } else {
-      buffer = await page.screenshot({ type: "jpeg", quality: 95 });
+      await page.waitForSelector(selector, { state: "visible", timeout: 10000 });
     }
 
-    // Convert Buffer to ArrayBuffer for proper BodyInit typing
-    const arrayBuffer = new ArrayBuffer(buffer.length);
-    new Uint8Array(arrayBuffer).set(buffer);
-    return arrayBuffer;
+    if (waitForTimeout) await page.waitForTimeout(waitForTimeout);
+
+    const target = selector ? page.locator(selector).first() : page;
+    const buffer = await target.screenshot({ type: "jpeg", quality: 95 });
+    return new Uint8Array(buffer);
   } finally {
     await browser.close();
   }
