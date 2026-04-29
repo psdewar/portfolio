@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LiveBanner from "./components/LiveBanner";
+import { useOgMode } from "./lib/useOgMode";
 
 export default function Page() {
   const router = useRouter();
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [supportAnimating, setSupportAnimating] = useState(false);
-  const [isOg, setIsOg] = useState(false);
+  const isOg = useOgMode();
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    setIsOg(new URLSearchParams(window.location.search).get("og") === "true");
-  }, []);
 
   const handleSupportClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window === "undefined") return;

@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* OG card capture mode — forces full-bleed dark background so live-page screenshots have no gray gutters */
-html.og-mode,
+/* OG card capture mode — forces full-bleed dark background so live-page screenshots have no gray gutters,
+   and gives body explicit height so pages using h-full chains render at viewport size */
+html.og-mode {
+  background: #0a0a0a !important;
+}
 html.og-mode body {
+  background: #0a0a0a !important;
+  min-height: 100vh !important;
+}
+html.og-mode body > main {
+  min-height: 100vh !important;
+  height: 100vh !important;
   background: #0a0a0a !important;
 }
 

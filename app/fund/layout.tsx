@@ -10,8 +10,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "https://peytspencer.com/api/og/fund",
-        width: 1200,
-        height: 630,
+        width: 1080,
+        height: 1920,
         alt: "Fund Peyt Spencer",
       },
     ],
