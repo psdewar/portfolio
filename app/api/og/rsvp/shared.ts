@@ -1,14 +1,25 @@
+import { type Show } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
+import { posterHtml, POSTER_DIMS } from "../../poster/html";
 
 const FALLBACK_IMAGE = new URL("/Jan23OpenMicNight-08_Original.jpg", "https://peytspencer.com");
 
-export async function screenshotPoster(path: string): Promise<Response> {
+export function fallbackResponse(): Response {
+  return Response.redirect(FALLBACK_IMAGE);
+}
+
+export async function screenshotPoster(show: Show): Promise<Response> {
+  const { W, H } = POSTER_DIMS.standard;
+  const html = posterHtml(show);
+
   try {
     const screenshot = await takeScreenshot({
-      path,
+      path: "about:blank",
       selector: ".poster",
-      viewport: { width: 480, height: 780 },
-      deviceScaleFactor: 3,
+      viewport: { width: W, height: H },
+      deviceScaleFactor: 2,
+      waitForTimeout: 1500,
+      htmlContent: html,
     });
 
     return new Response(screenshot, {
@@ -19,6 +30,6 @@ export async function screenshotPoster(path: string): Promise<Response> {
     });
   } catch (error) {
     console.error("Screenshot failed:", error);
-    return Response.redirect(FALLBACK_IMAGE);
+    return fallbackResponse();
   }
 }

@@ -41,7 +41,7 @@ export async function takeScreenshot({
   path,
   selector,
   viewport = { width: 1200, height: 630 },
-  deviceScaleFactor,
+  deviceScaleFactor = 2,
   waitForTimeout,
   htmlContent,
 }: ScreenshotOptions) {
@@ -50,7 +50,7 @@ export async function takeScreenshot({
   try {
     const page = await browser.newPage({
       viewport,
-      ...(deviceScaleFactor ? { deviceScaleFactor } : {}),
+      deviceScaleFactor,
     });
 
     await page.route("**/*", (route) =>
@@ -84,7 +84,7 @@ export async function takeScreenshot({
     if (waitForTimeout) await page.waitForTimeout(waitForTimeout);
 
     const target = selector ? page.locator(selector).first() : page;
-    const buffer = await target.screenshot({ type: "jpeg", quality: 95 });
+    const buffer = await target.screenshot({ type: "jpeg", quality: 100 });
     return new Uint8Array(buffer);
   } finally {
     await browser.close();
