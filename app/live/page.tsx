@@ -64,6 +64,12 @@ export default function LivePage() {
   const hlsConnected = useRef(false);
 
   useEffect(() => {
+    if (!isOgMode) return;
+    document.documentElement.classList.add("og-mode");
+    return () => document.documentElement.classList.remove("og-mode");
+  }, [isOgMode]);
+
+  useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
     localStorage.setItem("livePageVisited", "true");
     const startTime = viewStartTime.current;

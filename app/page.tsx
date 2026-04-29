@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,12 @@ export default function Page() {
   const [hovered, setHovered] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [supportAnimating, setSupportAnimating] = useState(false);
+  const [isOg, setIsOg] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    setIsOg(new URLSearchParams(window.location.search).get("og") === "true");
+  }, []);
 
   const handleSupportClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window === "undefined") return;
@@ -198,7 +203,7 @@ export default function Page() {
                     alt=""
                     aria-hidden
                     className={`w-full h-full object-cover object-right transition-[filter,opacity] ${
-                      supportAnimating
+                      supportAnimating || isOg
                         ? "duration-1000 grayscale-0 opacity-100"
                         : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
                     }`}
@@ -214,7 +219,7 @@ export default function Page() {
                     alt=""
                     aria-hidden
                     className={`w-full h-full object-cover object-left transition-[filter,opacity] ${
-                      supportAnimating
+                      supportAnimating || isOg
                         ? "duration-1000 grayscale-0 opacity-100"
                         : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
                     }`}

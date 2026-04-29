@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* OG card capture mode — forces full-bleed dark background so live-page screenshots have no gray gutters */
+html.og-mode,
+html.og-mode body {
+  background: #0a0a0a !important;
+}
+
 ::selection {
   background-color: #47a3f3;
   color: #fefefe;

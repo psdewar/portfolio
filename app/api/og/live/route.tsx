@@ -1,21 +1,17 @@
 import { takeScreenshot } from "../../../lib/screenshot";
-import { liveOgHtml, OG_DIMS } from "../../../lib/og-html";
-import { getUpcomingShows } from "../../../lib/shows";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function GET() {
   try {
-    const shows = await getUpcomingShows();
     const screenshot = await takeScreenshot({
-      path: "about:blank",
-      selector: ".poster",
-      viewport: OG_DIMS,
-      deviceScaleFactor: 2,
+      path: "/live",
+      viewport: { width: 430, height: 932 },
+      deviceScaleFactor: 3,
       waitForTimeout: 1500,
-      htmlContent: liveOgHtml(shows),
     });
+
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",

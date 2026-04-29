@@ -1,5 +1,4 @@
 import { takeScreenshot } from "../../lib/screenshot";
-import { homeOgHtml, OG_DIMS } from "../../lib/og-html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -7,13 +6,11 @@ export const maxDuration = 30;
 export async function GET() {
   try {
     const screenshot = await takeScreenshot({
-      path: "about:blank",
-      selector: ".poster",
-      viewport: OG_DIMS,
-      deviceScaleFactor: 2,
+      path: "/",
+      viewport: { width: 1200, height: 630 },
       waitForTimeout: 1500,
-      htmlContent: homeOgHtml(),
     });
+
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
