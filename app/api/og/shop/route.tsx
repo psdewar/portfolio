@@ -1,17 +1,19 @@
 import { takeScreenshot } from "../../../lib/screenshot";
+import { shopOgHtml, OG_DIMS } from "../../../lib/og-html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function GET() {
   try {
-    // Use mobile dimensions to show the bundle section without cutoff
     const screenshot = await takeScreenshot({
-      path: "/shop",
-      viewport: { width: 430, height: 932 },
+      path: "about:blank",
+      selector: ".poster",
+      viewport: OG_DIMS,
+      deviceScaleFactor: 2,
       waitForTimeout: 1500,
+      htmlContent: shopOgHtml(),
     });
-
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
@@ -21,7 +23,7 @@ export async function GET() {
   } catch (error) {
     console.error("Screenshot failed:", error);
     return Response.redirect(
-      new URL("/images/home/new-era-3-square.jpeg", "https://peytspencer.com")
+      new URL("/images/home/new-era-3-square.jpeg", "https://peytspencer.com"),
     );
   }
 }

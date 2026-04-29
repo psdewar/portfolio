@@ -13,8 +13,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "https://peytspencer.com/api/og/live",
-        width: 1290,
-        height: 2796,
+        width: 960,
+        height: 1440,
       },
     ],
   },
