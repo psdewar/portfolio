@@ -58,7 +58,8 @@ export async function takeScreenshot({
     );
 
     if (htmlContent) {
-      await page.setContent(htmlContent, { waitUntil: "load" });
+      await page.setContent(htmlContent, { waitUntil: "domcontentloaded", timeout: 12000 });
+      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     } else {
       const url = new URL(path, BASE_URL);
       url.searchParams.set("og", "true");

@@ -1,6 +1,31 @@
+import fs from "node:fs";
+import nodePath from "node:path";
 import { formatEventDate } from "../../lib/dates";
 
-const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
+const dataUrlCache = new Map<string, string>();
+function inlineAsset(publicRelativePath: string, mime: string): string {
+  const cached = dataUrlCache.get(publicRelativePath);
+  if (cached) return cached;
+  const filePath = nodePath.join(process.cwd(), "public", publicRelativePath);
+  const dataUrl = `data:${mime};base64,${fs.readFileSync(filePath).toString("base64")}`;
+  dataUrlCache.set(publicRelativePath, dataUrl);
+  return dataUrl;
+}
+
+function fontFace(family: string, weight: number, filename: string): string {
+  const src = inlineAsset(`fonts/${filename}`, "font/woff2");
+  return `@font-face { font-family: "${family}"; font-style: normal; font-weight: ${weight}; src: url("${src}") format('woff2'); }`;
+}
+
+function fontHead(): string {
+  return `<style>
+    ${fontFace("Parkinsans", 500, "parkinsans-500.woff2")}
+    ${fontFace("Parkinsans", 700, "parkinsans-700.woff2")}
+    ${fontFace("Parkinsans", 800, "parkinsans-800.woff2")}
+    ${fontFace("Fira Sans", 500, "fira-sans-500.woff2")}
+    ${fontFace("Space Mono", 400, "space-mono-400.woff2")}
+  </style>`;
+}
 
 export type PosterFormat = "standard" | "ig" | "yt" | "eb";
 
@@ -26,6 +51,8 @@ export function posterHtml(
   format: PosterFormat = "standard",
 ): string {
   const { W, H } = POSTER_DIMS[format];
+  const bgSrc = inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
+  const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
   const dateStr = formatEventDate(show.date);
   const cityRegion = `<span style="white-space:nowrap">${show.city}, ${show.region}</span>`;
   const location = show.venueLabel
@@ -36,9 +63,7 @@ export function posterHtml(
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Parkinsans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  ${fontHead()}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 0; }
@@ -74,7 +99,7 @@ export function posterHtml(
 </head>
 <body>
   <div class="poster">
-    <img src="${BASE_URL}/Jan23OpenMicNight-08_Original.jpg" alt="" class="poster-bg" />
+    <img src="${bgSrc}" alt="" class="poster-bg" />
     <div class="photo-overlay"></div>
     <div class="bottom-overlay"></div>
     <div class="content">
@@ -84,7 +109,7 @@ export function posterHtml(
         <div>peyt spencer</div>
       </div>
       <div class="lockup">
-        <img src="${BASE_URL}/lyrist-trademark-white.png" alt="Lyrist" class="lockup-img" />
+        <img src="${lockupSrc}" alt="Lyrist" class="lockup-img" />
         <span class="lockup-records">Records</span>
       </div>
       <div class="presents">presents</div>

@@ -10,6 +10,12 @@ const customUrls = {
 };
 
 const chromiumBin = ["node_modules/@sparticuz/chromium/bin/**"];
+const posterAssets = [
+  "public/Jan23OpenMicNight-08_Original.jpg",
+  "public/lyrist-trademark-white.png",
+  "public/fonts/**",
+];
+const posterBundle = [...chromiumBin, ...posterAssets];
 
 const nextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
@@ -22,11 +28,11 @@ const nextConfig = {
     "/api/og/shop": chromiumBin,
     "/api/og/fund": chromiumBin,
     "/api/og/fund/*": chromiumBin,
-    "/api/og/rsvp": chromiumBin,
-    "/api/og/rsvp/*": chromiumBin,
-    "/api/poster": chromiumBin,
-    "/api/poster/*": chromiumBin,
-    "/api/pamphlet": chromiumBin,
+    "/api/og/rsvp": posterBundle,
+    "/api/og/rsvp/*": posterBundle,
+    "/api/poster": posterBundle,
+    "/api/poster/*": posterBundle,
+    "/api/pamphlet": posterBundle,
     "/api/sponsor-pdf": chromiumBin,
   },
   images: {
