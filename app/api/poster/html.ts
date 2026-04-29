@@ -27,12 +27,13 @@ function fontHead(): string {
   </style>`;
 }
 
-export type PosterFormat = "standard" | "ig" | "yt" | "eb";
+export type PosterFormat = "standard" | "ig" | "yt" | "eb" | "letter";
 
 export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
   standard: { W: 480, H: 720 },
   ig: { W: 540, H: 675 },
   yt: { W: 540, H: 540 },
+  letter: { W: 612, H: 792 },
   eb: { W: 1080, H: 540 },
 };
 

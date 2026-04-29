@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug } from "../../../lib/shows";
-import { takeScreenshot } from "../../../lib/screenshot";
+import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, POSTER_DIMS, type PosterFormat } from "../html";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +16,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const rawFormat = request.nextUrl.searchParams.get("format") ?? "standard";
   const format: PosterFormat =
-    rawFormat === "ig" || rawFormat === "yt" || rawFormat === "eb" ? rawFormat : "standard";
+    rawFormat === "ig" || rawFormat === "yt" || rawFormat === "eb" || rawFormat === "letter"
+      ? rawFormat
+      : "standard";
   const { W, H } = POSTER_DIMS[format];
   const html = posterHtml(show, undefined, format);
+  const isPdf = request.nextUrl.searchParams.get("pdf") === "true";
+  const suffix = format !== "standard" ? `-${format}` : "";
 
   try {
+    if (isPdf) {
+      const pdf = await takePdf({
+        htmlContent: html,
+        viewport: { width: W, height: H },
+        pageFormat: "Letter",
+      });
+      return new Response(pdf, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const screenshot = await takeScreenshot({
       path: "about:blank",
       selector: ".poster",
@@ -30,7 +49,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       htmlContent: html,
     });
 
-    const suffix = format !== "standard" ? `-${format}` : "";
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
