@@ -12,6 +12,7 @@ interface ScreenshotOptions {
   deviceScaleFactor?: number;
   waitForTimeout?: number;
   htmlContent?: string;
+  type?: "jpeg" | "png";
 }
 
 const BLOCKED =
@@ -40,12 +41,12 @@ export async function launchBrowser(): Promise<Browser> {
 export async function takePdf({
   htmlContent,
   viewport,
-  pageFormat = "Letter",
+  pageFormat,
 }: {
   htmlContent: string;
   viewport: { width: number; height: number };
-  pageFormat?: "Letter" | "A4" | "Legal";
-}): Promise<Uint8Array> {
+  pageFormat?: "Letter" | "A4" | "Legal" | "match";
+}): Promise<ArrayBuffer> {
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage({ viewport });
@@ -56,24 +57,38 @@ export async function takePdf({
     await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
 
-    // Page dimensions at 96 DPI (Chromium's CSS pixel = 1/96 inch)
-    const PAGE_DIMS = {
-      Letter: { w: 816, h: 1056 },
-      A4: { w: 794, h: 1123 },
-      Legal: { w: 816, h: 1344 },
-    };
-    const target = PAGE_DIMS[pageFormat];
-    // Scale to fill the page without cropping (letterboxes if aspect mismatches)
-    const scale = Math.min(target.w / viewport.width, target.h / viewport.height);
-
-    const pdf = await page.pdf({
-      format: pageFormat,
-      printBackground: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
-      scale,
-      preferCSSPageSize: false,
-    });
-    return new Uint8Array(pdf);
+    // "match" or undefined → custom PDF page size matching the design's exact dimensions.
+    // This preserves any aspect ratio (square, 4:5, etc.) without letterboxing or cropping,
+    // and emits vector text at the design's native pixel scale.
+    const useMatch = !pageFormat || pageFormat === "match";
+    const pdf = useMatch
+      ? await page.pdf({
+          width: `${viewport.width}px`,
+          height: `${viewport.height}px`,
+          printBackground: true,
+          margin: { top: "0", right: "0", bottom: "0", left: "0" },
+          preferCSSPageSize: false,
+        })
+      : await (() => {
+          // Standard paper format with scaling to fill (letterboxes on aspect mismatch)
+          const PAGE_DIMS = {
+            Letter: { w: 816, h: 1056 },
+            A4: { w: 794, h: 1123 },
+            Legal: { w: 816, h: 1344 },
+          };
+          const target = PAGE_DIMS[pageFormat];
+          const scale = Math.min(target.w / viewport.width, target.h / viewport.height);
+          return page.pdf({
+            format: pageFormat,
+            printBackground: true,
+            margin: { top: "0", right: "0", bottom: "0", left: "0" },
+            scale,
+            preferCSSPageSize: false,
+          });
+        })();
+    const ab = new ArrayBuffer(pdf.length);
+    new Uint8Array(ab).set(pdf);
+    return ab;
   } finally {
     await browser.close();
   }
@@ -86,6 +101,7 @@ export async function takeScreenshot({
   deviceScaleFactor = 2,
   waitForTimeout,
   htmlContent,
+  type = "jpeg",
 }: ScreenshotOptions) {
   const browser = await launchBrowser();
 
@@ -106,6 +122,15 @@ export async function takeScreenshot({
       const url = new URL(path, BASE_URL);
       url.searchParams.set("og", "true");
       await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 15000 });
+      // Early: just add og-mode class so CSS rules apply during hydration. No DOM mutation here.
+      await page.evaluate(() => {
+        document.documentElement.classList.add("og-mode");
+      });
+      await page.addStyleTag({
+        content: `header, nav, nextjs-portal, [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }`,
+      });
+      await page.waitForLoadState("load", { timeout: 10000 }).catch(() => {});
+      // Late: after React hydration completes, do DOM removal. Safe now — won't break hydration.
       await page.evaluate(() => {
         document.documentElement.classList.add("og-mode");
         document.querySelectorAll("header").forEach((el) => el.remove());
@@ -115,10 +140,6 @@ export async function takeScreenshot({
         const main = document.querySelector("main");
         if (main) main.style.paddingBottom = "0";
       });
-      await page.addStyleTag({
-        content: `header, nav, nextjs-portal, [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }`,
-      });
-      await page.waitForLoadState("load", { timeout: 10000 }).catch(() => {});
     }
 
     if (selector) {
@@ -128,8 +149,13 @@ export async function takeScreenshot({
     if (waitForTimeout) await page.waitForTimeout(waitForTimeout);
 
     const target = selector ? page.locator(selector).first() : page;
-    const buffer = await target.screenshot({ type: "jpeg", quality: 100 });
-    return new Uint8Array(buffer);
+    const buffer =
+      type === "png"
+        ? await target.screenshot({ type: "png" })
+        : await target.screenshot({ type: "jpeg", quality: 100 });
+    const ab = new ArrayBuffer(buffer.length);
+    new Uint8Array(ab).set(buffer);
+    return ab;
   } finally {
     await browser.close();
   }

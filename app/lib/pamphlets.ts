@@ -9,7 +9,9 @@ export interface Pamphlet {
   shows: PamphletShow[];
   showDoors?: boolean;
   showQr?: boolean;
-  location?: string;
+  tags?: string;
+  venueImg?: string;
+  address?: string;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

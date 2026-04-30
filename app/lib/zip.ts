@@ -10,8 +10,15 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+function dosDateTime(d: Date): { date: number; time: number } {
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  return { date, time };
+}
+
 export function buildZip(files: Array<{ name: string; data: Uint8Array }>): Uint8Array {
   const encoder = new TextEncoder();
+  const { date: dosDate, time: dosTime } = dosDateTime(new Date());
   const entries = files.map((f) => {
     const name = encoder.encode(f.name);
     return { name, data: f.data, crc: crc32(f.data) };
@@ -36,6 +43,8 @@ export function buildZip(files: Array<{ name: string; data: Uint8Array }>): Uint
     view.setUint32(pos, 0x04034b50, true);
     view.setUint16(pos + 4, 20, true);
     view.setUint16(pos + 8, 0, true);
+    view.setUint16(pos + 10, dosTime, true);
+    view.setUint16(pos + 12, dosDate, true);
     view.setUint32(pos + 14, e.crc, true);
     view.setUint32(pos + 18, e.data.length, true);
     view.setUint32(pos + 22, e.data.length, true);
@@ -53,6 +62,8 @@ export function buildZip(files: Array<{ name: string; data: Uint8Array }>): Uint
     view.setUint16(pos + 4, 20, true);
     view.setUint16(pos + 6, 20, true);
     view.setUint16(pos + 10, 0, true);
+    view.setUint16(pos + 12, dosTime, true);
+    view.setUint16(pos + 14, dosDate, true);
     view.setUint32(pos + 16, e.crc, true);
     view.setUint32(pos + 20, e.data.length, true);
     view.setUint32(pos + 24, e.data.length, true);

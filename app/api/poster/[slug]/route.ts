@@ -21,38 +21,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       : "standard";
   const { W, H } = POSTER_DIMS[format];
   const html = posterHtml(show, undefined, format);
-  const isPdf = request.nextUrl.searchParams.get("pdf") === "true";
+  const asJpg = request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
 
   try {
-    if (isPdf) {
-      const pdf = await takePdf({
-        htmlContent: html,
+    if (asJpg) {
+      const screenshot = await takeScreenshot({
+        path: "about:blank",
+        selector: ".poster",
         viewport: { width: W, height: H },
-        pageFormat: "Letter",
+        deviceScaleFactor: 2,
+        waitForTimeout: 1500,
+        htmlContent: html,
       });
-      return new Response(pdf, {
+      return new Response(screenshot, {
         headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.pdf"`,
+          "Content-Type": "image/jpeg",
+          "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.jpg"`,
           "Cache-Control": "no-store",
         },
       });
     }
 
-    const screenshot = await takeScreenshot({
-      path: "about:blank",
-      selector: ".poster",
-      viewport: { width: W, height: H },
-      deviceScaleFactor: 2,
-      waitForTimeout: 1500,
+    const pdf = await takePdf({
       htmlContent: html,
+      viewport: { width: W, height: H },
+      pageFormat: format === "letter" ? "Letter" : "match",
     });
-
-    return new Response(screenshot, {
+    return new Response(pdf, {
       headers: {
-        "Content-Type": "image/jpeg",
-        "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.jpg"`,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.pdf"`,
         "Cache-Control": "no-store",
       },
     });

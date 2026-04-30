@@ -206,7 +206,11 @@ export default function Page() {
                     }`}
                   />
                 </span>
-                <span className="flex-1 flex items-center justify-center px-4 bg-white/10 group-hover:bg-white/20 backdrop-blur-sm transition-colors">
+                <span
+                  className={`flex-1 flex items-center justify-center px-4 backdrop-blur-sm transition-colors ${
+                    isOg ? "bg-white/20" : "bg-white/10 group-hover:bg-white/20"
+                  }`}
+                >
                   Support my tour across North America
                 </span>
                 <span className="aspect-square h-full shrink-0 overflow-hidden rounded-r-full">

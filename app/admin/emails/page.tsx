@@ -262,7 +262,7 @@ export default function EmailsAdminPage() {
             disabled={status.kind === "sending" || selected.size === 0}
             className="px-4 py-2 rounded-lg text-[#0a0a0a] font-medium text-sm disabled:opacity-50"
             style={{
-              background: "linear-gradient(to right, #d4a553, #e8c474)",
+              background: "linear-gradient(to right, #d4a553, #e0b860)",
             }}
           >
             {status.kind === "sending" ? "Sending..." : scheduleAt ? "Schedule" : "Send for real"}

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { takeScreenshot } from "../../lib/screenshot";
+import { takePdf } from "../../lib/screenshot";
 import { posterHtml } from "./html";
 
 export const dynamic = "force-dynamic";
@@ -31,19 +31,16 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const screenshot = await takeScreenshot({
-      path: "about:blank",
-      selector: ".poster",
-      viewport: { width: 480, height: 720 },
-      deviceScaleFactor: 2,
-      waitForTimeout: 1500,
+    const pdf = await takePdf({
       htmlContent: html,
+      viewport: { width: 480, height: 720 },
+      pageFormat: "match",
     });
 
-    return new Response(screenshot, {
+    return new Response(pdf, {
       headers: {
-        "Content-Type": "image/jpeg",
-        "Content-Disposition": `attachment; filename="poster-custom.jpg"`,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="poster-custom.pdf"`,
         "Cache-Control": "no-store",
       },
     });

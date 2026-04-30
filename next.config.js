@@ -15,6 +15,7 @@ const posterAssets = [
   "public/lyrist-trademark-white.png",
   "public/images/home/**",
   "public/fonts/**",
+  "public/*.webp",
 ];
 const posterBundle = [...chromiumBin, ...posterAssets];
 
