@@ -47,15 +47,6 @@ export default function Poster({
             border-radius: 0;
           }
         }
-        .poster::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-          z-index: 11;
-          pointer-events: none;
-          opacity: 0.4;
-        }
         .photo-overlay {
           position: absolute;
           left: 0;
@@ -92,7 +83,7 @@ export default function Poster({
           z-index: 5;
           display: flex;
           flex-direction: column;
-          padding: 5% 6%;
+          padding: 5cqw 5.833cqw;
         }
         .lockup {
           display: flex;
@@ -106,10 +97,11 @@ export default function Poster({
         }
         .lockup-records {
           font-family: var(--font-fira-sans), sans-serif;
-          font-size: 3.125cqw;
+          font-size: 3.333cqw;
           font-weight: 500;
           color: #ffffff;
-          margin-bottom: 0.208cqw;
+          transform: translateY(-0.104cqw);
+          will-change: transform;
         }
         .presents {
           font-family: var(--font-space-mono), monospace;
@@ -133,7 +125,7 @@ export default function Poster({
           line-height: 0.9;
         }
         .title-big {
-          font-size: 15cqw;
+          font-size: 11.76cqw;
           font-weight: 800;
           line-height: 0.9;
           letter-spacing: -0.01em;
@@ -144,7 +136,7 @@ export default function Poster({
         .title-accent {
           width: 13.333cqw;
           height: 0.625cqw;
-          background: linear-gradient(to right, #d4a553, #e8c474);
+          background: linear-gradient(to right, #d4a553, #e0b860);
           margin: 1.25cqw 0 1.458cqw;
         }
         .the-concert {
@@ -157,17 +149,18 @@ export default function Poster({
         }
         .theme-topright {
           position: absolute;
-          top: 5%;
-          right: 6%;
+          top: 5cqw;
+          right: 5.833cqw;
           text-align: right;
           font-family: var(--font-space-mono), monospace;
-          font-size: 1.875cqw;
+          font-size: 2.083cqw;
           font-weight: 400;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #c0b8a8;
+          color: #f0ede6;
           line-height: 1.6;
-          text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+          transform: translateY(-0.521cqw);
+          will-change: transform;
         }
         .details {
           margin-top: auto;
@@ -181,7 +174,7 @@ export default function Poster({
         .detail-value {
           font-size: 2.917cqw;
           font-weight: 500;
-          color: #c0b8a8;
+          color: #f0ede6;
           letter-spacing: 0.02em;
         }
         .detail-value.date {
@@ -217,8 +210,8 @@ export default function Poster({
         <div className="bottom-overlay" />
         <div className="poster-content">
           <div className="theme-topright">
-            <div>a rap concert by</div>
-            <div>microsoft engineer</div>
+            <div>a rap concert for all ages</div>
+            <div>by microsoft engineer</div>
             <div>peyt spencer</div>
           </div>
           <div className="lockup">

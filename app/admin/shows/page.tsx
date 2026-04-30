@@ -448,7 +448,7 @@ function CustomPosterButton() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `poster-${city.toLowerCase().replace(/\s+/g, "-")}.jpg`;
+      link.download = `poster-${city.toLowerCase().replace(/\s+/g, "-")}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -577,14 +577,14 @@ function PosterDownloadButton({ slug }: { slug: string }) {
   const handleClick = async () => {
     setDownloading(true);
     try {
-      const formats = ["standard", "ig", "yt", "eb"] as const;
+      const formats = ["standard", "ig", "yt", "eb", "letter"] as const;
       const responses = await Promise.all(
         formats.map((fmt) => fetch(`/api/poster/${slug}?format=${fmt}`)),
       );
       const buffers = await Promise.all(responses.map((r) => r.arrayBuffer()));
       const zip = buildZip(
         formats.map((fmt, i) => ({
-          name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.jpg`,
+          name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.pdf`,
           data: new Uint8Array(buffers[i]),
         })),
       );
@@ -615,13 +615,13 @@ function BlankPamphletButton() {
     setDownloading(true);
     try {
       const [igRes, ytRes] = await Promise.all([
-        fetch("/api/pamphlet?blank=true&format=ig"),
-        fetch("/api/pamphlet?blank=true&format=yt"),
+        fetch("/api/pamphlet?blank=true&format=ig&pdf=true"),
+        fetch("/api/pamphlet?blank=true&format=yt&pdf=true"),
       ]);
       const [igBuf, ytBuf] = await Promise.all([igRes.arrayBuffer(), ytRes.arrayBuffer()]);
       const zip = buildZip([
-        { name: "pamphlet-blank-ig.jpg", data: new Uint8Array(igBuf) },
-        { name: "pamphlet-blank-yt.jpg", data: new Uint8Array(ytBuf) },
+        { name: "pamphlet-blank-ig.pdf", data: new Uint8Array(igBuf) },
+        { name: "pamphlet-blank-yt.pdf", data: new Uint8Array(ytBuf) },
       ]);
       const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
       const link = document.createElement("a");
@@ -658,7 +658,37 @@ function PamphletGroupButton({
   const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
   const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
-  const [location, setLocation] = useState(matchedPamphlet?.location ?? "");
+  const [tags, setTags] = useState(matchedPamphlet?.tags ?? "");
+  const [tagInput, setTagInput] = useState("");
+  const [venueImg, setVenueImg] = useState(matchedPamphlet?.venueImg ?? "");
+  const [address, setAddress] = useState(matchedPamphlet?.address ?? "");
+
+  const tagsList = tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const TAG_MAX = 2; // Free Admission + 2 user tags = 3 pills total
+  const commitTag = () => {
+    const t = tagInput.trim();
+    if (!t || tagsList.length >= TAG_MAX) {
+      setTagInput("");
+      return;
+    }
+    setTags([...tagsList, t].join(", "));
+    setTagInput("");
+  };
+  const removeTag = (idx: number) => {
+    setTags(tagsList.filter((_, i) => i !== idx).join(", "));
+  };
+  const onTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "," || e.key === "Enter") {
+      e.preventDefault();
+      commitTag();
+    } else if (e.key === "Backspace" && tagInput === "" && tagsList.length > 0) {
+      e.preventDefault();
+      removeTag(tagsList.length - 1);
+    }
+  };
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
     if (matchedPamphlet) {
       return Object.fromEntries(
@@ -706,20 +736,24 @@ function PamphletGroupButton({
     });
   };
 
-  const buildHref = (format: "ig" | "yt") => {
-    if (legId.trim()) {
-      const params = new URLSearchParams({ id: legId.trim(), format });
+  const buildHref = (format: "ig" | "yt" | "letter" | "standard" | "eb", asPdf = false) => {
+    const applyExtras = (params: URLSearchParams) => {
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
-      if (location.trim()) params.set("loc", location);
+      if (tags.trim()) params.set("tags", tags);
+      if (venueImg.trim()) params.set("venueImg", venueImg.trim());
+      if (address.trim()) params.set("address", address.trim());
+      if (asPdf) params.set("pdf", "true");
+    };
+    if (legId.trim()) {
+      const params = new URLSearchParams({ id: legId.trim(), format });
+      applyExtras(params);
       appendPlaceholders(params);
       return `/api/pamphlet?${params.toString()}`;
     }
     const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
     const params = new URLSearchParams({ slugs: slugsParam, format });
-    if (showDoors) params.set("doors", "1");
-    if (showQr) params.set("qr", "1");
-    if (location.trim()) params.set("loc", location);
+    applyExtras(params);
     for (const g of activeGroup) {
       const slug = g.show!.slug;
       if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
@@ -740,7 +774,9 @@ function PamphletGroupButton({
       label,
       showDoors,
       showQr,
-      location: location.trim() || undefined,
+      tags: tags.trim() || undefined,
+      venueImg: venueImg.trim() || undefined,
+      address: address.trim() || undefined,
     };
     const isUpdate = matchedPamphlet?.id === id;
     const res = await fetch("/api/pamphlets", {
@@ -763,7 +799,9 @@ function PamphletGroupButton({
       shows: payload.shows,
       showDoors,
       showQr,
-      location: payload.location,
+      tags: payload.tags,
+      venueImg: payload.venueImg,
+      address: payload.address,
     });
     return true;
   };
@@ -773,12 +811,24 @@ function PamphletGroupButton({
     if (!ok) return;
     setSaving(true);
     try {
-      const [igRes, ytRes] = await Promise.all([fetch(buildHref("ig")), fetch(buildHref("yt"))]);
-      const [igBuf, ytBuf] = await Promise.all([igRes.arrayBuffer(), ytRes.arrayBuffer()]);
+      const [igRes, ytRes, letterRes, ebRes] = await Promise.all([
+        fetch(buildHref("ig", true)),
+        fetch(buildHref("yt", true)),
+        fetch(buildHref("letter", true)),
+        fetch(buildHref("eb", true)),
+      ]);
+      const [igBuf, ytBuf, letterBuf, ebBuf] = await Promise.all([
+        igRes.arrayBuffer(),
+        ytRes.arrayBuffer(),
+        letterRes.arrayBuffer(),
+        ebRes.arrayBuffer(),
+      ]);
       const name = legId.trim() || first.date;
       const zip = buildZip([
-        { name: `pamphlet-${name}-ig.jpg`, data: new Uint8Array(igBuf) },
-        { name: `pamphlet-${name}-yt.jpg`, data: new Uint8Array(ytBuf) },
+        { name: `pamphlet-${name}-ig.pdf`, data: new Uint8Array(igBuf) },
+        { name: `pamphlet-${name}-yt.pdf`, data: new Uint8Array(ytBuf) },
+        { name: `pamphlet-${name}-letter.pdf`, data: new Uint8Array(letterBuf) },
+        { name: `pamphlet-${name}-eb.pdf`, data: new Uint8Array(ebBuf) },
       ]);
       const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
       const link = document.createElement("a");
@@ -811,12 +861,56 @@ function PamphletGroupButton({
             rows={2}
             className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
           />
-          <textarea
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Location after 'Free Admission ·' (newlines allowed)"
-            rows={2}
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
+          <div className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 focus-within:ring-1 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 mb-3 flex flex-wrap items-center gap-1.5 min-h-[34px]">
+            <span className="inline-flex items-center px-2 py-0.5 text-xs uppercase tracking-wider rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-300/50 dark:border-amber-700/40">
+              Free Admission
+            </span>
+            {tagsList.map((t, i) => (
+              <span
+                key={`${t}-${i}`}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs uppercase tracking-wider rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+              >
+                {t}
+                <button
+                  type="button"
+                  onClick={() => removeTag(i)}
+                  className="ml-0.5 text-neutral-500 hover:text-red-500 transition-colors leading-none"
+                  aria-label={`Remove ${t}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={onTagKeyDown}
+              onBlur={commitTag}
+              disabled={tagsList.length >= TAG_MAX}
+              placeholder={
+                tagsList.length >= TAG_MAX
+                  ? "Max 3 tags"
+                  : tagsList.length === 0
+                    ? "Add tags (comma or Enter)"
+                    : ""
+              }
+              className="flex-1 min-w-[100px] outline-none bg-transparent text-sm text-neutral-900 dark:text-white disabled:cursor-not-allowed"
+            />
+          </div>
+          <input
+            type="text"
+            value={venueImg}
+            onChange={(e) => setVenueImg(e.target.value)}
+            placeholder="Venue logo file in /public (e.g. tcc.webp)"
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
+          />
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Address override (overrides show address line on pamphlet)"
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3"
           />
           <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
             <input
@@ -918,9 +1012,9 @@ function PamphletGroupButton({
             <button
               onClick={handleDownload}
               disabled={saving}
-              className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
+              className="block w-[calc(100%+3rem)] -mx-6 -mb-6 text-center text-sm px-3 py-4 rounded-b-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
             >
-              {saving ? "Generating..." : `Save & Download (${total})`}
+              {saving ? "Generating..." : "Save & Download"}
             </button>
           ) : (
             <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
@@ -1049,7 +1143,10 @@ function ShowGroupCard({
   return (
     <>
       {editingHost && (
-        <Modal onClose={() => setEditingHost(false)} title="AMEND SPONSOR">
+        <Modal
+          onClose={() => setEditingHost(false)}
+          title={host.showSlug ? `AMEND SPONSOR · ${host.showSlug}` : "AMEND SPONSOR"}
+        >
           <SponsorForm
             showSlug={host.showSlug ?? undefined}
             submittedAt={host.submittedAt}
@@ -1280,7 +1377,7 @@ function ShowGroupCard({
                         dateInputRef.current?.showPicker?.();
                       });
                     }}
-                    className="text-base text-neutral-900 dark:text-white font-medium hover:text-[#d4a553] dark:hover:text-[#e8c474] transition-colors"
+                    className="text-base text-neutral-900 dark:text-white font-medium hover:text-[#d4a553] dark:hover:text-[#e0b860] transition-colors"
                   >
                     {dateValue ? formatEventDate(dateValue) : "No date"}
                   </button>

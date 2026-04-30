@@ -5,10 +5,10 @@ export const maxDuration = 30;
 
 export async function GET() {
   try {
-    // Use iPhone Pro Max dimensions (430x932) for mobile layout
     const screenshot = await takeScreenshot({
       path: "/live",
       viewport: { width: 430, height: 932 },
+      deviceScaleFactor: 3,
       waitForTimeout: 1500,
     });
 

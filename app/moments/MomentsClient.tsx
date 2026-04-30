@@ -16,7 +16,7 @@ type FileJob = {
 
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
 const mono = { fontFamily: '"Space Mono", monospace' } as const;
-const gold = "linear-gradient(to right, #d4a553, #e8c474)";
+const gold = "linear-gradient(to right, #d4a553, #e0b860)";
 
 export default function MomentsClient() {
   const [passcode, setPasscode] = useState("");
@@ -87,9 +87,7 @@ export default function MomentsClient() {
     const meta: UploadMeta = { passcode };
     updateJob(job.id, { status: "uploading", progress: 0, error: undefined });
     try {
-      await uploadFile(job.file, meta, (pct) =>
-        updateJob(job.id, { progress: Math.round(pct) }),
-      );
+      await uploadFile(job.file, meta, (pct) => updateJob(job.id, { progress: Math.round(pct) }));
       updateJob(job.id, { status: "done", progress: 100 });
     } catch (err) {
       updateJob(job.id, {
@@ -168,10 +166,7 @@ export default function MomentsClient() {
                     </span>
                   </button>
                 ) : anySucceeded ? (
-                  <p
-                    className="text-sm text-neutral-600 dark:text-neutral-300"
-                    aria-live="polite"
-                  >
+                  <p className="text-sm text-neutral-600 dark:text-neutral-300" aria-live="polite">
                     Got it. Drop another if you have one.
                   </p>
                 ) : null}
@@ -253,9 +248,7 @@ function JobRow({ job, onRetry }: { job: FileJob; onRetry: () => void }) {
   const isError = job.status === "error";
 
   const rowClasses = `flex items-center gap-3 p-3 rounded-lg bg-neutral-100 dark:bg-white/5 ${
-    isError
-      ? "cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"
-      : ""
+    isError ? "cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors" : ""
   }`;
 
   const content = (
@@ -281,10 +274,7 @@ function JobRow({ job, onRetry }: { job: FileJob; onRetry: () => void }) {
         {statusText}
       </span>
       {isError && (
-        <span
-          className="text-xs uppercase tracking-wider text-[#d4a553]"
-          style={mono}
-        >
+        <span className="text-xs uppercase tracking-wider text-[#d4a553]" style={mono}>
           Retry
         </span>
       )}

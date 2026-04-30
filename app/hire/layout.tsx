@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "https://peytspencer.com/api/og/hire",
-        width: 1200,
-        height: 630,
+        width: 1290,
+        height: 2796,
         alt: "Hire Peyt Spencer",
       },
     ],

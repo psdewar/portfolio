@@ -14,7 +14,7 @@ const variantClasses: Record<Variant, { base: string; focus: string }> = {
   },
   gold: {
     base: "border-neutral-200 dark:border-neutral-700",
-    focus: "focus:border-[#d4a553] dark:focus:border-[#e8c474]",
+    focus: "focus:border-[#d4a553] dark:focus:border-[#e0b860]",
   },
 };
 

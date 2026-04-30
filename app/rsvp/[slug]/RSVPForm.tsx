@@ -214,7 +214,7 @@ export default function RSVPForm({
       </div>
       <button
         onClick={copyRsvpLink}
-        className={`flex items-center justify-between w-full ${size === "lg" ? "px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e8c474] transition-colors`}
+        className={`flex items-center justify-between w-full ${size === "lg" ? "px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e0b860] transition-colors`}
       >
         <span
           className={`${size === "lg" ? "text-lg" : "text-base"} font-medium text-neutral-900 dark:text-white`}
@@ -247,7 +247,12 @@ export default function RSVPForm({
                   <span className="block text-base md:text-lg text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
                     See you in
                   </span>
-                  <span className="block text-4xl text-neutral-900 dark:text-white">{city}</span>
+                  <span
+                    className="block text-4xl text-neutral-900 dark:text-white"
+                    style={{ animation: "rsvp-rise 0.6s cubic-bezier(0.32, 0.72, 0, 1) both" }}
+                  >
+                    {city}
+                  </span>
                 </h1>
                 <p
                   className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm uppercase tracking-wider"
@@ -276,17 +281,17 @@ export default function RSVPForm({
                   <label className="block text-neutral-600 dark:text-neutral-300 text-sm mb-2">
                     How many people?
                   </label>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-stretch h-14">
                     <button
                       type="button"
                       {...repeatProps(() => adjustGuests(-1))}
                       disabled={formData.guests <= 1}
-                      className="w-12 h-12 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors select-none"
+                      className="flex-[2] rounded-l-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
                     >
                       <MinusIcon className="w-5 h-5" weight="bold" />
                     </button>
-                    <div className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                      <UsersIcon className="w-5 h-5 text-[#d4a553]" />
+                    <div className="flex-[4] flex items-center justify-center gap-2 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
+                      <UsersIcon className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />
                       <span className="font-bebas text-2xl text-neutral-900 dark:text-white tabular-nums">
                         {formData.guests}
                       </span>
@@ -295,7 +300,7 @@ export default function RSVPForm({
                       type="button"
                       {...repeatProps(() => adjustGuests(1))}
                       disabled={formData.guests >= 10}
-                      className="w-12 h-12 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors select-none"
+                      className="flex-[2] rounded-r-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
                     >
                       <PlusIcon className="w-5 h-5" weight="bold" />
                     </button>
@@ -306,15 +311,11 @@ export default function RSVPForm({
                   type="submit"
                   disabled={isLoading}
                   className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  style={{ background: "linear-gradient(to right, #d4a553, #e8c474)" }}
+                  style={{ background: "linear-gradient(to right, #d4a553, #e0b860)" }}
                 >
                   {submitLabel()}
                 </button>
               </form>
-
-              <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-4">
-                You'll receive a confirmation email.
-              </p>
             </>
           )}
         </div>
@@ -339,7 +340,12 @@ export default function RSVPForm({
                   <span className="block text-xl text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
                     See you in
                   </span>
-                  <span className="block text-6xl text-neutral-900 dark:text-white">{city}</span>
+                  <span
+                    className="block text-6xl text-neutral-900 dark:text-white"
+                    style={{ animation: "rsvp-rise 0.6s cubic-bezier(0.32, 0.72, 0, 1) both" }}
+                  >
+                    {city}
+                  </span>
                 </h1>
                 <p
                   className="text-neutral-500 dark:text-neutral-400 text-sm uppercase tracking-wider"
@@ -373,12 +379,12 @@ export default function RSVPForm({
                       type="button"
                       {...repeatProps(() => adjustGuests(-1))}
                       disabled={formData.guests <= 1}
-                      className="w-[4.5rem] rounded-l-xl border-2 border-r-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 select-none"
+                      className="flex-[2] rounded-l-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
                     >
                       <MinusIcon className="w-6 h-6" weight="bold" />
                     </button>
-                    <div className="flex-1 flex items-center justify-center gap-3 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
-                      <UsersIcon className="w-7 h-7 text-[#d4a553]" />
+                    <div className="flex-[4] flex items-center justify-center gap-3 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
+                      <UsersIcon className="w-7 h-7 text-neutral-500 dark:text-neutral-400" />
                       <span className="font-bebas text-4xl text-neutral-900 dark:text-white tabular-nums">
                         {formData.guests}
                       </span>
@@ -387,7 +393,7 @@ export default function RSVPForm({
                       type="button"
                       {...repeatProps(() => adjustGuests(1))}
                       disabled={formData.guests >= 10}
-                      className="w-[4.5rem] rounded-r-xl border-2 border-l-0 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] dark:hover:border-[#e8c474] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 select-none"
+                      className="flex-[2] rounded-r-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
                     >
                       <PlusIcon className="w-6 h-6" weight="bold" />
                     </button>
@@ -398,14 +404,10 @@ export default function RSVPForm({
                   type="submit"
                   disabled={isLoading}
                   className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  style={{ background: "linear-gradient(to right, #d4a553, #e8c474)" }}
+                  style={{ background: "linear-gradient(to right, #d4a553, #e0b860)" }}
                 >
                   {submitLabel()}
                 </button>
-
-                <p className="text-neutral-500 dark:text-neutral-400 text-base">
-                  You'll receive a confirmation email.
-                </p>
               </form>
             </>
           )}

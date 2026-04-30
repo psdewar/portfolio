@@ -5,7 +5,7 @@ const title = "Moments from the concert";
 const description =
   "Send your photos and videos from From The Ground Up. Private link, passcode required.";
 const url = "https://peytspencer.com/moments";
-const ogImage = "https://peytspencer.com/api/og";
+const ogImage = "https://peytspencer.com/og/home.jpeg";
 
 export const metadata: Metadata = {
   title,

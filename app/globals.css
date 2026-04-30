@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* OG card capture mode — class lives on the home page wrapper (not <html>) because React 18's
+   hydration reconciles <html> attributes against the React tree, stripping any externally-added class. */
+
+/* Hide live-streaming banner in OG screenshots */
+.og-mode .live-banner {
+  display: none !important;
+}
+
+/* Home OG: force all grid panels to grayscale + dim overlay so the headline + CTA carry the frame */
+.og-mode .home-grid img {
+  filter: grayscale(100%) !important;
+  transform: none !important;
+}
+.og-mode .home-grid .panel-overlay {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+/* Home OG: force support CTA into hover state (gold/colored bg + colored flags) */
+.og-mode .support-cta-bg {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+.og-mode .support-cta-flag {
+  filter: grayscale(0) !important;
+  opacity: 1 !important;
+}
+
 ::selection {
   background-color: #47a3f3;
   color: #fefefe;
@@ -297,6 +323,17 @@ table {
   from {
     opacity: 0;
     transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rsvp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
   to {
     opacity: 1;

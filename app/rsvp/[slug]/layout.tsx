@@ -26,8 +26,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [
         {
           url: `https://peytspencer.com/api/og/rsvp/${slug}`,
-          width: 1440,
-          height: 2160,
+          width: 960,
+          height: 1440,
         },
       ],
     },

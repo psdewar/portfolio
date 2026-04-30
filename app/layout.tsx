@@ -50,7 +50,7 @@ const siteConfig = {
     "hire developer Bellevue",
     "rapper who codes",
   ],
-  ogImage: "https://peytspencer.com/api/og",
+  ogImage: "https://peytspencer.com/og/home.jpeg",
   social: {
     ig: "https://instagram.com/peytspencer",
     tt: "https://tiktok.com/@peytspencer",

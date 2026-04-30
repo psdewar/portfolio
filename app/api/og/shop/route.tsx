@@ -5,10 +5,10 @@ export const maxDuration = 30;
 
 export async function GET() {
   try {
-    // Use mobile dimensions to show the bundle section without cutoff
     const screenshot = await takeScreenshot({
       path: "/shop",
       viewport: { width: 430, height: 932 },
+      deviceScaleFactor: 3,
       waitForTimeout: 1500,
     });
 
@@ -21,7 +21,7 @@ export async function GET() {
   } catch (error) {
     console.error("Screenshot failed:", error);
     return Response.redirect(
-      new URL("/images/home/new-era-3-square.jpeg", "https://peytspencer.com")
+      new URL("/images/home/new-era-3-square.jpeg", "https://peytspencer.com"),
     );
   }
 }

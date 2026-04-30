@@ -8,6 +8,7 @@ export async function GET() {
     const screenshot = await takeScreenshot({
       path: "/hire",
       viewport: { width: 430, height: 932 },
+      deviceScaleFactor: 3,
       waitForTimeout: 1500,
     });
 
