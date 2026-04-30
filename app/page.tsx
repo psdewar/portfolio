@@ -75,11 +75,11 @@ export default function Page() {
 
   return (
     <div className="h-full w-full bg-neutral-900">
-      <LiveBanner />
+      {!isOg && <LiveBanner />}
       <div className="h-full">
         <section className="relative h-full">
           <div className="absolute inset-0 z-0">
-            <div className="h-full grid grid-cols-2 grid-rows-4 sm:grid-rows-6 sm:grid-cols-3 gap-0">
+            <div className="home-grid h-full grid grid-cols-2 grid-rows-4 sm:grid-rows-6 sm:grid-cols-3 gap-0">
               <div
                 className="relative row-span-3 sm:row-span-6 overflow-hidden order-2 sm:order-none"
                 {...imgHandlers(1)}
@@ -91,7 +91,7 @@ export default function Page() {
                   className={imgClass(1)}
                   priority
                 />
-                <div className={overlayClass(1)} />
+                <div className={`${overlayClass(1)} panel-overlay`} />
               </div>
               <div
                 className="relative row-span-1 sm:row-span-3 overflow-hidden order-1 sm:order-none"
@@ -104,7 +104,7 @@ export default function Page() {
                   className={imgClass(2, true)}
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
-                <div className={overlayClass(2, true)} />
+                <div className={`${overlayClass(2, true)} panel-overlay`} />
               </div>
               <div
                 className="relative row-span-3 sm:row-span-6 overflow-hidden order-3 sm:order-none"
@@ -124,7 +124,7 @@ export default function Page() {
                     type="video/mp4"
                   />
                 </video>
-                <div className={overlayClass(3)} />
+                <div className={`${overlayClass(3)} panel-overlay`} />
                 <button
                   className="absolute top-4 right-4 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors text-white pointer-events-auto"
                   aria-label={isMuted ? "Unmute video" : "Mute video"}
@@ -173,7 +173,7 @@ export default function Page() {
                   className={imgClass(4)}
                   priority
                 />
-                <div className={overlayClass(4)} />
+                <div className={`${overlayClass(4)} panel-overlay`} />
               </div>
             </div>
           </div>
@@ -199,18 +199,14 @@ export default function Page() {
                     src="https://upload.wikimedia.org/wikipedia/commons/c/cf/Flag_of_Canada.svg"
                     alt=""
                     aria-hidden
-                    className={`w-full h-full object-cover object-right transition-[filter,opacity] ${
-                      supportAnimating || isOg
+                    className={`support-cta-flag w-full h-full object-cover object-right transition-[filter,opacity] ${
+                      supportAnimating
                         ? "duration-1000 grayscale-0 opacity-100"
                         : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
                     }`}
                   />
                 </span>
-                <span
-                  className={`flex-1 flex items-center justify-center px-4 backdrop-blur-sm transition-colors ${
-                    isOg ? "bg-white/20" : "bg-white/10 group-hover:bg-white/20"
-                  }`}
-                >
+                <span className="support-cta-bg flex-1 flex items-center justify-center px-4 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white/20">
                   Support my tour across North America
                 </span>
                 <span className="aspect-square h-full shrink-0 overflow-hidden rounded-r-full">
@@ -219,8 +215,8 @@ export default function Page() {
                     src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
                     alt=""
                     aria-hidden
-                    className={`w-full h-full object-cover object-left transition-[filter,opacity] ${
-                      supportAnimating || isOg
+                    className={`support-cta-flag w-full h-full object-cover object-left transition-[filter,opacity] ${
+                      supportAnimating
                         ? "duration-1000 grayscale-0 opacity-100"
                         : "duration-200 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100"
                     }`}

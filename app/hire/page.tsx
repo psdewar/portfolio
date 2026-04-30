@@ -4,10 +4,8 @@ import { processFormData } from "../actions";
 import { ChangeEvent, useState } from "react";
 import { WarningCircleIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useOgMode } from "../lib/useOgMode";
 
 export default function Page() {
-  useOgMode();
   const initialInput = {
     name: "",
     email: "",

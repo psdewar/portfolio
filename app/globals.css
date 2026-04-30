@@ -17,6 +17,24 @@ html.og-mode body > main {
   background: #0a0a0a !important;
 }
 
+/* Home OG: force all grid panels to grayscale + dim overlay so the headline + CTA carry the frame */
+html.og-mode .home-grid img {
+  filter: grayscale(100%) !important;
+  transform: none !important;
+}
+html.og-mode .home-grid .panel-overlay {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+/* Home OG: force support CTA into hover state (gold/colored bg + colored flags) */
+html.og-mode .support-cta-bg {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+html.og-mode .support-cta-flag {
+  filter: grayscale(0) !important;
+  opacity: 1 !important;
+}
+
 ::selection {
   background-color: #47a3f3;
   color: #fefefe;

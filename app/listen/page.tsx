@@ -19,7 +19,6 @@ import { isPatronTrack } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import { useToast } from "../contexts/ToastContext";
-import { useOgMode } from "../lib/useOgMode";
 import ListenLoading from "./loading";
 
 interface TrackCard {
@@ -93,7 +92,6 @@ const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 const PLAYABLE_TRACK_IDS = new Set(TRACK_DATA.map((t) => t.id));
 
 export default function Page() {
-  useOgMode();
   const {
     loadTrack,
     loadPlaylist,
