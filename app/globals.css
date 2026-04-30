@@ -17,6 +17,11 @@ html.og-mode body > main {
   background: #0a0a0a !important;
 }
 
+/* Hide live-streaming banner in OG screenshots */
+html.og-mode .live-banner {
+  display: none !important;
+}
+
 /* Home OG: force all grid panels to grayscale + dim overlay so the headline + CTA carry the frame */
 html.og-mode .home-grid img {
   filter: grayscale(100%) !important;

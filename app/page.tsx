@@ -75,7 +75,7 @@ export default function Page() {
 
   return (
     <div className="h-full w-full bg-neutral-900">
-      {!isOg && <LiveBanner />}
+      <LiveBanner />
       <div className="h-full">
         <section className="relative h-full">
           <div className="absolute inset-0 z-0">

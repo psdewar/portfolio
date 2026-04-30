@@ -56,7 +56,7 @@ export default function LiveBanner() {
     return (
       <Link
         href="/live"
-        className="fixed top-4 inset-x-0 z-50 animate-fade-in flex justify-center pointer-events-none"
+        className="live-banner fixed top-4 inset-x-0 z-50 animate-fade-in flex justify-center pointer-events-none"
       >
         <div className="pointer-events-auto flex items-center gap-2 bg-red-600 text-white px-4 py-2 shadow-[0_0_20px_rgba(220,38,38,0.5)] hover:shadow-[0_0_30px_rgba(220,38,38,0.7)] transition-shadow animate-pulse-subtle">
           <span className="relative flex h-2 w-2">
@@ -76,7 +76,7 @@ export default function LiveBanner() {
     return (
       <Link
         href="/live"
-        className="fixed top-4 inset-x-0 z-50 animate-fade-in flex justify-center pointer-events-none"
+        className="live-banner fixed top-4 inset-x-0 z-50 animate-fade-in flex justify-center pointer-events-none"
       >
         <div className="pointer-events-auto flex items-center gap-2 bg-neutral-900/95 text-white px-5 py-2 backdrop-blur-sm border border-neutral-700 hover:border-neutral-500 transition-colors">
           <span className="font-bold text-sm uppercase tracking-widest text-amber-400">
