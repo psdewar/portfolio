@@ -122,17 +122,14 @@ export async function takeScreenshot({
       const url = new URL(path, BASE_URL);
       url.searchParams.set("og", "true");
       await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 15000 });
-      // Early: just add og-mode class so CSS rules apply during hydration. No DOM mutation here.
-      await page.evaluate(() => {
-        document.documentElement.classList.add("og-mode");
-      });
+      // Hide chrome/dev overlays before any layout settles. og-mode class itself is applied
+      // page-side via React state — adding it to <html> here is futile (React 18 hydration
+      // reconciles <html> attributes against the React tree and strips externally-added classes).
       await page.addStyleTag({
         content: `header, nav, nextjs-portal, [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }`,
       });
       await page.waitForLoadState("load", { timeout: 10000 }).catch(() => {});
-      // Late: after React hydration completes, do DOM removal. Safe now — won't break hydration.
       await page.evaluate(() => {
-        document.documentElement.classList.add("og-mode");
         document.querySelectorAll("header").forEach((el) => el.remove());
         document.querySelectorAll('[class*="h-24"], [class*="h-32"]').forEach((el) => {
           if (el.closest("main") === null) el.remove();

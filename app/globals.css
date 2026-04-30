@@ -2,40 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* OG card capture mode — forces full-bleed dark background so live-page screenshots have no gray gutters,
-   and gives body explicit height so pages using h-full chains render at viewport size */
-html.og-mode {
-  background: #0a0a0a !important;
-}
-html.og-mode body {
-  background: #0a0a0a !important;
-  min-height: 100vh !important;
-}
-html.og-mode body > main {
-  min-height: 100vh !important;
-  height: 100vh !important;
-  background: #0a0a0a !important;
-}
+/* OG card capture mode — class lives on the home page wrapper (not <html>) because React 18's
+   hydration reconciles <html> attributes against the React tree, stripping any externally-added class. */
 
 /* Hide live-streaming banner in OG screenshots */
-html.og-mode .live-banner {
+.og-mode .live-banner {
   display: none !important;
 }
 
 /* Home OG: force all grid panels to grayscale + dim overlay so the headline + CTA carry the frame */
-html.og-mode .home-grid img {
+.og-mode .home-grid img {
   filter: grayscale(100%) !important;
   transform: none !important;
 }
-html.og-mode .home-grid .panel-overlay {
+.og-mode .home-grid .panel-overlay {
   opacity: 1 !important;
   background: rgba(0, 0, 0, 0.5) !important;
 }
 /* Home OG: force support CTA into hover state (gold/colored bg + colored flags) */
-html.og-mode .support-cta-bg {
+.og-mode .support-cta-bg {
   background: rgba(255, 255, 255, 0.2) !important;
 }
-html.og-mode .support-cta-flag {
+.og-mode .support-cta-flag {
   filter: grayscale(0) !important;
   opacity: 1 !important;
 }
