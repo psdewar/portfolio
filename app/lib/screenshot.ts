@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium as playwright, type Browser } from "playwright-core";
 
-const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
+const BASE_URL =
+  process.env.OG_BASE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://peytspencer.com");
 const IS_LOCAL = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 
 interface ScreenshotOptions {

@@ -74,7 +74,7 @@ export default function Page() {
   };
 
   return (
-    <div className={`h-screen w-full bg-neutral-900 ${isOg ? "og-mode" : ""}`}>
+    <div className={`w-full bg-neutral-900 ${isOg ? "og-mode fixed inset-0" : "h-full"}`}>
       <LiveBanner />
       <div className="h-full">
         <section className="relative h-full">
