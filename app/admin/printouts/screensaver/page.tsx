@@ -3,7 +3,7 @@ import { getUpcomingShows } from "../../../lib/shows";
 
 export default async function ScreensaverPage() {
   const shows = await getUpcomingShows();
-  const nextCity = shows[0]?.city ?? "Bellevue";
+  const nextCity = shows[0]?.city ?? null;
 
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center">
@@ -16,9 +16,13 @@ export default async function ScreensaverPage() {
           style={{ paddingLeft: "0.125in", paddingRight: "0.125in" }}
         >
           <h2 className="font-bebas text-5xl lg:text-7xl leading-[0.95] tracking-wide">
-            Thank You
-            <br />
-            {nextCity}!
+            Thank You{nextCity ? "" : "!"}
+            {nextCity && (
+              <>
+                <br />
+                {nextCity}!
+              </>
+            )}
             <br />
             Support
             <br />

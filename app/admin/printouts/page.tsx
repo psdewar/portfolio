@@ -79,7 +79,7 @@ function DonationPage() {
   );
 }
 
-function QrPage({ city }: { city: string }) {
+function QrPage({ city }: { city: string | null }) {
   return (
     <div
       className="screen-only"
@@ -94,9 +94,13 @@ function QrPage({ city }: { city: string }) {
     >
       <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-black text-white">
         <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "10vw" }}>
-          Thank You
-          <br />
-          {city}!
+          Thank You{city ? "" : "!"}
+          {city && (
+            <>
+              <br />
+              {city}!
+            </>
+          )}
           <br />
           Support
           <br />
@@ -134,7 +138,7 @@ function DonationBoxLabel() {
 
 export default async function SignupSheetPage() {
   const shows = await getUpcomingShows();
-  const nextCity = shows[0]?.city ?? "Bellevue";
+  const nextCity = shows[0]?.city ?? null;
 
   return (
     <>

@@ -193,6 +193,7 @@ export default function RSVPForm({
       venue={venue}
       venueLabel={venueLabel}
       address={address}
+      tags="Free admission"
     />
   );
 
