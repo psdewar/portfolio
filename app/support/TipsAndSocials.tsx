@@ -70,7 +70,7 @@ function TipsSection({
     <div className="flex-1 min-w-0">
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Send a Tip</h2>
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
-        Your contribution helps me remain independent while funding my next live concert.
+        Your contribution helps me remain independent while funding my next tour stop.
         {!isOg &&
           (interacFirst
             ? " Tap to copy my email for an Interac e-Transfer, or use Venmo/Zelle if you prefer."
@@ -130,7 +130,7 @@ function TipsSection({
   );
 }
 
-function SocialSection() {
+export function SocialSection() {
   return (
     <div className="flex-1 min-w-0">
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">Find Me</h2>
@@ -195,13 +195,6 @@ export default function TipsAndSocials({ interacFirst = false }: { interacFirst?
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="flex flex-col gap-8 max-w-lg mx-auto">
         <TipsSection interacFirst={interacFirst} isOg={searchParams.get("og") === "true"} />
-        <SocialSection />
-        <a
-          href="/sponsor"
-          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"
-        >
-          Interested in sponsoring a live concert?
-        </a>
       </div>
     </div>
   );

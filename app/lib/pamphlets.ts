@@ -12,6 +12,7 @@ export interface Pamphlet {
   tags?: string;
   venueImg?: string;
   address?: string;
+  doorsOpen?: string;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

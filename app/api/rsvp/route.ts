@@ -91,15 +91,13 @@ export async function POST(request: Request) {
 
     if (contact) {
       const current: string[] = contact.rsvp || [];
-      if (current.some((r) => r.startsWith(eventId))) {
-        return NextResponse.json(
-          { error: "You've already RSVP'd! Check your email for details." },
-          { status: 400 },
-        );
-      }
+      // Replace any existing entry for this event (handles guest-count changes
+      // and second-pass support payments) by filtering, then appending fresh.
+      const filtered = current.filter((r) => !r.startsWith(`${eventId}:`));
+      const next = [...filtered, rsvpEntry];
       const { error: updateError } = await supabaseAdmin
         .from("stay-connected")
-        .update({ rsvp: [...current, rsvpEntry] })
+        .update({ rsvp: next })
         .eq("id", contact.id);
       if (updateError) {
         console.error("[RSVP] Update error:", updateError);
@@ -108,7 +106,13 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
-      console.log("[RSVP API] Appended", rsvpEntry, "to stay-connected for", emailLower);
+      console.log(
+        "[RSVP API] Upserted",
+        rsvpEntry,
+        "in stay-connected for",
+        emailLower,
+        filtered.length === current.length ? "(new)" : "(updated)",
+      );
     } else {
       const { error: insertError } = await supabaseAdmin.from("stay-connected").insert({
         email: emailLower,

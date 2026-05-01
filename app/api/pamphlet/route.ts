@@ -81,6 +81,7 @@ function pamphletHtml(
   tags = "",
   venueImgSrc = "",
   addressOverride = "",
+  doorsOpenOverride = "",
 ): string {
   const { W, H } = DIMS[format];
   const locationLabelFor = (s: (typeof shows)[number]) =>
@@ -158,11 +159,13 @@ function pamphletHtml(
     .bottom-left .tags { line-height: 1; }
     .bottom-left .detail-value { font-size: 14px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1; }
     .bottom-left .detail-value.date { font-size: 20px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1; }
+    .bottom-left.three-line .detail-value { font-size: 14px; }
+    .bottom-left.three-line .detail-value.date { font-size: 22px; }
     .bottom-right-stack { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
     .qr-code { width: 92px; height: 92px; display: block; }
     .theme-topright { position: absolute; top: 24px; right: 28px; text-align: right; font-family: "Space Mono", monospace; font-size: 10px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1.6; transform: translateY(-2.5px); will-change: transform; }
     .details { margin-top: auto; width: 100%; }
-    .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #e0b860; line-height: 1.4; white-space: pre-line; }
+    .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1.4; white-space: pre-line; }
     .top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
     .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #f0ede6; line-height: 1; white-space: nowrap; text-decoration: none; }
     .detail-value { font-size: 11px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1.3; }
@@ -176,8 +179,8 @@ function pamphletHtml(
     .shows-list { flex: 0 1 auto; min-width: 0; width: fit-content; }
     .qr-section { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
     .qr-code { width: 92px; height: 92px; display: block; }
-    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; }" : ""}
-    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .qr-code { width: 72px; height: 72px; }" : ""}
+    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
+    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; }" : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
     ${
       format === "letter"
@@ -192,6 +195,8 @@ function pamphletHtml(
       .rsvp-label { font-size: 12px; }
       .bottom-left .detail-value { font-size: 16.8px; }
       .bottom-left .detail-value.date { font-size: 24px; }
+      .bottom-left.three-line .detail-value { font-size: 16px; }
+      .bottom-left.three-line .detail-value.date { font-size: 26.5px; }
       .venue-img { height: 132px; max-width: 264px; }
       .qr-code { width: 110.4px; height: 110.4px; }
     `
@@ -231,8 +236,8 @@ function pamphletHtml(
           ? `
       <div class="details">
         <div class="bottom-row">
-          <div class="bottom-left">
-            <div class="tags">Free Admission${tagsSuffix}</div>
+          <div class="bottom-left${tagsList.length ? "" : " three-line"}">
+            ${tagsList.length ? `<div class="tags">${tagsList.join(sep)}</div>` : ""}
             <div class="detail-value date">${formatCombinedDates(shows.map((s) => s.date))}</div>
             <div class="detail-value">${
               addressOverride.trim() ||
@@ -241,7 +246,9 @@ function pamphletHtml(
                 : sharedVenueLabel || "")
             }</div>
             <div class="detail-value">${
-              shows[0]?.doorLabel || `Doors open at ${shows[0]?.doorTime || "7PM"}`
+              doorsOpenOverride ||
+              shows[0]?.doorLabel ||
+              `Doors open at ${shows[0]?.doorTime || "7PM"}`
             }</div>
           </div>
           <div class="bottom-right-stack">
@@ -253,7 +260,10 @@ function pamphletHtml(
           : `
       <div class="details">
         <div class="top-row">
-          <div class="tags">Free Admission${sharedVenueLabel ? ` · ${sharedVenueLabel}` : ""}</div>
+          ${(() => {
+            const parts = sharedVenueLabel ? [...tagsList, sharedVenueLabel] : tagsList;
+            return parts.length ? `<div class="tags">${parts.join(sep)}</div>` : `<div></div>`;
+          })()}
           <a class="rsvp-label" href="https://peytspencer.com/rsvp">peytspencer.com/rsvp</a>
         </div>
         <div class="details-row">
@@ -322,6 +332,7 @@ export async function GET(request: NextRequest) {
   let pamphletTags = "";
   let pamphletVenueImg = "";
   let pamphletAddress = "";
+  let pamphletDoorsOpen = "";
   const pamphletId = searchParams.get("id");
 
   if (!blank) {
@@ -337,6 +348,7 @@ export async function GET(request: NextRequest) {
       pamphletTags = pamphlet.tags ?? "";
       pamphletVenueImg = pamphlet.venueImg ?? "";
       pamphletAddress = pamphlet.address ?? "";
+      pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
       const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
       selected = resolveShows(
         allShows,
@@ -389,6 +401,7 @@ export async function GET(request: NextRequest) {
         : "image/webp";
   const venueImgSrc = venueImgPath ? inlineAsset(venueImgPath, venueMime) : "";
   const addressOverride = (searchParams.get("address") ?? pamphletAddress).trim();
+  const doorsOpenOverride = (searchParams.get("doorsOpen") ?? pamphletDoorsOpen).trim();
   const html = pamphletHtml(
     selected,
     format,
@@ -398,6 +411,7 @@ export async function GET(request: NextRequest) {
     tags,
     venueImgSrc,
     addressOverride,
+    doorsOpenOverride,
   );
   const isPdf = searchParams.get("pdf") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";

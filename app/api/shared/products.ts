@@ -223,7 +223,7 @@ export const SINGLE_PRICE_OVERRIDES: Record<string, number> = {
 function createSingleProduct(
   id: string,
   name: string,
-  priceCents: number = DEFAULT_SINGLE_PRICE_CENTS
+  priceCents: number = DEFAULT_SINGLE_PRICE_CENTS,
 ): DigitalProduct {
   return {
     id,
@@ -331,7 +331,7 @@ export const PRODUCTS: Record<string, Product> = {
   "mula-freestyle": createSingleProduct(
     "mula-freestyle",
     "Mula Freestyle",
-    SINGLE_PRICE_OVERRIDES["mula-freestyle"]
+    SINGLE_PRICE_OVERRIDES["mula-freestyle"],
   ),
 
   // Donation/tip (variable amount)
@@ -345,6 +345,19 @@ export const PRODUCTS: Record<string, Product> = {
     cancelPath: "/listen?canceled=true",
     minAmountCents: 100,
     suggestedAmounts: [300, 500, 1000, 2000],
+  },
+
+  // Support the next tour stop (paired with RSVP flow)
+  "support-next-concert": {
+    id: "support-next-concert",
+    name: "Support the next tour stop",
+    description: "Thank you! Your contribution helps me remain independent.",
+    type: "donation",
+    basePriceCents: 2000,
+    successPath: "/rsvp",
+    cancelPath: "/rsvp",
+    minAmountCents: 100,
+    suggestedAmounts: [500, 1000, 2000, 5000],
   },
 
   // =============================================================================

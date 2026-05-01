@@ -1,6 +1,5 @@
-"use client";
-
 import Image from "next/image";
+import { getUpcomingShows } from "../../lib/shows";
 
 const ROWS = 16;
 
@@ -59,7 +58,7 @@ function DonationPage() {
             <br />
             the Next
             <br />
-            Concert
+            Tour Stop
           </h2>
         </div>
         <div
@@ -80,7 +79,7 @@ function DonationPage() {
   );
 }
 
-function QrPage() {
+function QrPage({ city }: { city: string }) {
   return (
     <div
       className="screen-only"
@@ -97,13 +96,13 @@ function QrPage() {
         <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "10vw" }}>
           Thank You
           <br />
-          Vancouver!
+          {city}!
           <br />
           Support
           <br />
           the Next
           <br />
-          Concert
+          Tour Stop
         </h2>
       </div>
       <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
@@ -133,7 +132,10 @@ function DonationBoxLabel() {
   );
 }
 
-export default function SignupSheetPage() {
+export default async function SignupSheetPage() {
+  const shows = await getUpcomingShows();
+  const nextCity = shows[0]?.city ?? "Bellevue";
+
   return (
     <>
       <style>{`
@@ -220,7 +222,7 @@ export default function SignupSheetPage() {
         <SignupPage />
         <DonationPage />
         <DonationPage />
-        <QrPage />
+        <QrPage city={nextCity} />
         <DonationBoxLabel />
       </div>
     </>

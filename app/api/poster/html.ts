@@ -50,6 +50,8 @@ export function posterHtml(
   },
   label?: string,
   format: PosterFormat = "standard",
+  tags = "",
+  doorsOpenOverride = "",
 ): string {
   const { W, H } = POSTER_DIMS[format];
   const bgSrc = inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
@@ -59,6 +61,11 @@ export function posterHtml(
   const location = show.venueLabel
     ? show.venueLabel
     : `${show.venue || show.address ? `${show.venue || show.address}, ` : ""}${cityRegion}`;
+  const tagsList = tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 3);
 
   return `<!doctype html>
 <html lang="en">
@@ -89,11 +96,13 @@ export function posterHtml(
     .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1; }
     .detail-value { font-size: 14px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; }
     .detail-value.date { font-size: 20px; font-weight: 700; color: #f0ede6; }
+    .bottom-left.three-line .detail-value { font-size: 14px; }
+    .bottom-left.three-line .detail-value.date { font-size: 22px; }
     .qr-section { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
     .qr-code { width: 92px; height: 92px; }
     .qr-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; text-align: center; line-height: 1; }
-    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; }" : ""}
-    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; }" : ""}
+    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
+    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; } .bottom-left.three-line .detail-value { font-size: 14px; }" : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
   </style>
 </head>
@@ -124,11 +133,11 @@ export function posterHtml(
       </div>
       <div class="details">
         <div class="bottom-row">
-          <div class="bottom-left">
-            <div class="tags">Free Admission</div>
+          <div class="bottom-left${tagsList.length ? "" : " three-line"}">
+            ${tagsList.length ? `<div class="tags">${tagsList.join(" · ")}</div>` : ""}
             <div class="detail-value date">${dateStr}</div>
             <div class="detail-value">${location}</div>
-            <div class="detail-value">${show.doorLabel || `Doors open at ${show.doorTime}`}</div>
+            <div class="detail-value">${doorsOpenOverride || show.doorLabel || `Doors open at ${show.doorTime}`}</div>
           </div>
           <div class="qr-section">
             <div class="qr-label">peytspencer.com/rsvp</div>

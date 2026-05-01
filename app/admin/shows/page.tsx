@@ -422,6 +422,8 @@ function CustomPosterButton() {
   const [venueLabel, setVenueLabel] = useState("");
   const [doorLabel, setDoorLabel] = useState("");
   const [taglineSuffix, setTaglineSuffix] = useState("");
+  const [tags, setTags] = useState("Free admission");
+  const [doorsOpen, setDoorsOpen] = useState("");
 
   const buildHref = () => {
     const params = new URLSearchParams();
@@ -433,6 +435,8 @@ function CustomPosterButton() {
     if (venueLabel) params.set("venueLabel", venueLabel);
     if (doorLabel) params.set("doorLabel", doorLabel);
     if (taglineSuffix) params.set("label", taglineSuffix);
+    if (tags.trim()) params.set("tags", tags.trim());
+    if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
     return `/api/poster?${params.toString()}`;
   };
 
@@ -538,6 +542,20 @@ function CustomPosterButton() {
                   rows={2}
                   className={inputClass + " resize-none"}
                 />
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="Tags (comma-separated)"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={doorsOpen}
+                  onChange={(e) => setDoorsOpen(e.target.value)}
+                  placeholder="Doors open override"
+                  className={inputClass}
+                />
               </div>
               <button
                 onClick={handleDownload}
@@ -557,6 +575,8 @@ function CustomPosterButton() {
                 venueLabel={venueLabel || undefined}
                 doorLabel={doorLabel || undefined}
                 taglineSuffix={taglineSuffix || undefined}
+                tags={tags || undefined}
+                doorsOpen={doorsOpen || undefined}
               />
             </div>
           </div>
@@ -588,7 +608,9 @@ function PosterDownloadButton({ slug }: { slug: string }) {
           data: new Uint8Array(buffers[i]),
         })),
       );
-      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
+      );
       const link = document.createElement("a");
       link.href = url;
       link.download = `poster-${slug}.zip`;
@@ -623,7 +645,9 @@ function BlankPamphletButton() {
         { name: "pamphlet-blank-ig.pdf", data: new Uint8Array(igBuf) },
         { name: "pamphlet-blank-yt.pdf", data: new Uint8Array(ytBuf) },
       ]);
-      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
+      );
       const link = document.createElement("a");
       link.href = url;
       link.download = "pamphlet-blank.zip";
@@ -658,16 +682,17 @@ function PamphletGroupButton({
   const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
   const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
-  const [tags, setTags] = useState(matchedPamphlet?.tags ?? "");
+  const [tags, setTags] = useState(matchedPamphlet?.tags ?? "Free admission");
   const [tagInput, setTagInput] = useState("");
   const [venueImg, setVenueImg] = useState(matchedPamphlet?.venueImg ?? "");
   const [address, setAddress] = useState(matchedPamphlet?.address ?? "");
+  const [doorsOpen, setDoorsOpen] = useState(matchedPamphlet?.doorsOpen ?? "");
 
   const tagsList = tags
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
-  const TAG_MAX = 2; // Free Admission + 2 user tags = 3 pills total
+  const TAG_MAX = 3;
   const commitTag = () => {
     const t = tagInput.trim();
     if (!t || tagsList.length >= TAG_MAX) {
@@ -743,6 +768,7 @@ function PamphletGroupButton({
       if (tags.trim()) params.set("tags", tags);
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
       if (address.trim()) params.set("address", address.trim());
+      if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
       if (asPdf) params.set("pdf", "true");
     };
     if (legId.trim()) {
@@ -777,6 +803,7 @@ function PamphletGroupButton({
       tags: tags.trim() || undefined,
       venueImg: venueImg.trim() || undefined,
       address: address.trim() || undefined,
+      doorsOpen: doorsOpen.trim() || undefined,
     };
     const isUpdate = matchedPamphlet?.id === id;
     const res = await fetch("/api/pamphlets", {
@@ -802,6 +829,7 @@ function PamphletGroupButton({
       tags: payload.tags,
       venueImg: payload.venueImg,
       address: payload.address,
+      doorsOpen: payload.doorsOpen,
     });
     return true;
   };
@@ -830,7 +858,9 @@ function PamphletGroupButton({
         { name: `pamphlet-${name}-letter.pdf`, data: new Uint8Array(letterBuf) },
         { name: `pamphlet-${name}-eb.pdf`, data: new Uint8Array(ebBuf) },
       ]);
-      const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
+      );
       const link = document.createElement("a");
       link.href = url;
       link.download = `pamphlet-${name}.zip`;
@@ -862,9 +892,6 @@ function PamphletGroupButton({
             className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
           />
           <div className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 focus-within:ring-1 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 mb-3 flex flex-wrap items-center gap-1.5 min-h-[34px]">
-            <span className="inline-flex items-center px-2 py-0.5 text-xs uppercase tracking-wider rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-300/50 dark:border-amber-700/40">
-              Free Admission
-            </span>
             {tagsList.map((t, i) => (
               <span
                 key={`${t}-${i}`}
@@ -910,6 +937,13 @@ function PamphletGroupButton({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="Address override (overrides show address line on pamphlet)"
+            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
+          />
+          <input
+            type="text"
+            value={doorsOpen}
+            onChange={(e) => setDoorsOpen(e.target.value)}
+            placeholder="Doors open override (e.g. Doors open at 7:30PM both nights)"
             className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3"
           />
           <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">

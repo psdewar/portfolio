@@ -6,6 +6,7 @@ import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/r
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
+import { calculateStripeFee } from "../../api/shared/products";
 
 interface RSVPFormProps {
   eventId: string;
@@ -55,18 +56,21 @@ export default function RSVPForm({
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(searchParams.get("test") === "success");
+  const [submitted, setSubmitted] = useState(
+    searchParams.get("test") === "success" || !!searchParams.get("session_id"),
+  );
+  const [supportCents, setSupportCents] = useState(2000);
+  const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
+  const formatCents = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
     if (searchParams.get("session_id")) {
-      router.replace("/support");
-    } else if (searchParams.get("rsvp_success") === "true") {
-      router.replace("/support");
+      sessionStorage.setItem("stayConnectedCompleted", "true");
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   useEffect(() => {
     const isDesktop = window.matchMedia("(pointer: fine)").matches;
@@ -112,6 +116,29 @@ export default function RSVPForm({
       }
 
       sessionStorage.setItem("stayConnectedCompleted", "true");
+
+      if (supportCents > 0) {
+        const checkoutRes = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: "support-next-concert",
+            amount: totalWithFeesCents,
+            customerEmail: formData.email,
+            successPath: `/rsvp/${eventId}`,
+            cancelPath: `/rsvp/${eventId}`,
+            metadata: { eventId, name: formData.name },
+          }),
+        });
+        const checkoutData = await checkoutRes.json();
+        if (checkoutRes.ok && checkoutData.url) {
+          window.location.href = checkoutData.url;
+          return;
+        }
+        setErrors({ email: checkoutData.error || "Couldn't start checkout — try again." });
+        return;
+      }
+
       setSubmitted(true);
     } catch {
       setErrors({ email: "Failed to submit. Please try again." });
@@ -181,9 +208,65 @@ export default function RSVPForm({
   );
 
   function submitLabel(): string {
-    if (isLoading) return "Reserving...";
+    if (isLoading) return supportCents > 0 ? "Redirecting..." : "Reserving...";
     return "I'll Be There";
   }
+
+  const adjustSupport = (deltaCents: number) => setSupportCents((c) => Math.max(0, c + deltaCents));
+
+  const supportSection = (
+    <>
+      <div>
+        <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
+          Support the next tour stop
+        </label>
+        <div className="flex items-stretch h-14 lg:h-[4.5rem]">
+          <button
+            type="button"
+            {...repeatProps(() => adjustSupport(-500))}
+            disabled={supportCents <= 0}
+            className="flex-[2] rounded-l-lg lg:rounded-l-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
+            aria-label="Decrease support by $5"
+          >
+            <MinusIcon className="w-5 h-5 lg:w-6 lg:h-6" weight="bold" />
+          </button>
+          <div className="flex-[4] flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
+            <span className="font-bebas text-2xl lg:text-4xl text-neutral-900 dark:text-white tabular-nums">
+              {formatCents(supportCents)}
+            </span>
+          </div>
+          <button
+            type="button"
+            {...repeatProps(() => adjustSupport(500))}
+            className="flex-[2] rounded-r-lg lg:rounded-r-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors select-none"
+            aria-label="Increase support by $5"
+          >
+            <PlusIcon className="w-5 h-5 lg:w-6 lg:h-6" weight="bold" />
+          </button>
+        </div>
+        <p
+          className="mt-1.5 text-xs lg:text-sm text-neutral-500 dark:text-neutral-400 tabular-nums"
+          style={{ fontFamily: '"Space Mono", monospace' }}
+        >
+          {supportCents > 0 ? `${formatCents(totalWithFeesCents)} total with fees` : "no charges"}
+        </p>
+      </div>
+      <div className="flex items-center gap-3 text-xs lg:text-sm uppercase tracking-wider text-neutral-400 dark:text-neutral-500 select-none">
+        <span className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+        <span style={{ fontFamily: '"Space Mono", monospace' }}>or</span>
+        <span className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+      </div>
+      <label className="flex items-center gap-2 w-full px-3 py-3 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors text-sm lg:text-lg text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={supportCents === 0}
+          onChange={(e) => setSupportCents(e.target.checked ? 0 : 2000)}
+          className="w-4 h-4 lg:w-5 lg:h-5 rounded accent-[#d4a553]"
+        />
+        <span>RSVP for free</span>
+      </label>
+    </>
+  );
 
   const rsvpLink = `peytspencer.com/rsvp/${eventId}`;
   const [linkCopied, setLinkCopied] = useState(false);
@@ -231,7 +314,7 @@ export default function RSVPForm({
   return (
     <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
       {/* Mobile layout */}
-      <div className="lg:hidden flex flex-col h-full overflow-y-auto">
+      <div className="lg:hidden flex flex-col h-full overflow-y-auto touch-pan-y">
         <div className="px-[6%] py-8">
           {backButton}
 
@@ -307,11 +390,13 @@ export default function RSVPForm({
                   </div>
                 </div>
 
+                {supportSection}
+
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  style={{ background: "linear-gradient(to right, #d4a553, #e0b860)" }}
+                  className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
+                  style={{ background: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>
@@ -319,7 +404,7 @@ export default function RSVPForm({
             </>
           )}
         </div>
-        <div className="flex-shrink-0">{poster}</div>
+        <div className="flex-shrink-0 touch-pan-y">{poster}</div>
       </div>
 
       {/* Desktop layout */}
@@ -400,11 +485,13 @@ export default function RSVPForm({
                   </div>
                 </div>
 
+                {supportSection}
+
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  style={{ background: "linear-gradient(to right, #d4a553, #e0b860)" }}
+                  className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
+                  style={{ background: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>

@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
       doorLabel: searchParams.get("doorLabel"),
     },
     searchParams.get("label") || undefined,
+    "standard",
+    searchParams.get("tags") ?? "",
+    searchParams.get("doorsOpen") ?? "",
   );
 
   try {

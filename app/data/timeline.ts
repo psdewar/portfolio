@@ -28,6 +28,24 @@ const isPast = (dateStr: string): boolean => {
 
 export const TIMELINE: TimelineEvent[] = [
   {
+    id: 2026053000,
+    date: "2026-05-30",
+    title: "From The Ground Up Live Concert",
+    location: "Bellevue, WA",
+    description: "Third Culture Coffee",
+    type: "show",
+    url: "/rsvp/bellevue-wa-1",
+  },
+  {
+    id: 2026052900,
+    date: "2026-05-29",
+    title: "From The Ground Up Live Concert",
+    location: "Bellevue, WA",
+    description: "Third Culture Coffee",
+    type: "show",
+    url: "/rsvp/bellevue-wa-0",
+  },
+  {
     id: 2026041100,
     date: "2026-04-11",
     title: "From The Ground Up Live Concert",

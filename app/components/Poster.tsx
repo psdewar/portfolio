@@ -14,6 +14,8 @@ interface PosterProps {
   venueLabel?: string | null;
   address?: string | null;
   taglineSuffix?: string;
+  tags?: string;
+  doorsOpen?: string;
 }
 
 export default function Poster({
@@ -26,7 +28,14 @@ export default function Poster({
   venueLabel,
   address,
   taglineSuffix,
+  tags = "",
+  doorsOpen = "",
 }: PosterProps) {
+  const tagsList = tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 3);
   return (
     <>
       <style jsx>{`
@@ -182,6 +191,12 @@ export default function Poster({
           font-weight: 700;
           color: #f0ede6;
         }
+        .bottom-left.three-line .detail-value {
+          font-size: 2.917cqw;
+        }
+        .bottom-left.three-line .detail-value.date {
+          font-size: 4.583cqw;
+        }
         .tags {
           font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
@@ -242,8 +257,8 @@ export default function Poster({
           </div>
           {date && (
             <div className="details">
-              <div className="bottom-left">
-                <div className="tags">Free Admission</div>
+              <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
+                {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
                 <div className="detail-value date">{formatEventDate(date)}</div>
                 <div className="detail-value">
                   {venueLabel ? (
@@ -258,7 +273,8 @@ export default function Poster({
                   )}
                 </div>
                 <div className="detail-value">
-                  {getDoorLabel({ doorLabel: doorLabel ?? null, doorTime: doorTime ?? "" })}
+                  {doorsOpen ||
+                    getDoorLabel({ doorLabel: doorLabel ?? null, doorTime: doorTime ?? "" })}
                 </div>
               </div>
             </div>

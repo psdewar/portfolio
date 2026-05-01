@@ -1,6 +1,10 @@
 import Image from "next/image";
+import { getUpcomingShows } from "../../../lib/shows";
 
-export default function ScreensaverPage() {
+export default async function ScreensaverPage() {
+  const shows = await getUpcomingShows();
+  const nextCity = shows[0]?.city ?? "Bellevue";
+
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center">
       <div
@@ -12,11 +16,15 @@ export default function ScreensaverPage() {
           style={{ paddingLeft: "0.125in", paddingRight: "0.125in" }}
         >
           <h2 className="font-bebas text-5xl lg:text-7xl leading-[0.95] tracking-wide">
+            Thank You
+            <br />
+            {nextCity}!
+            <br />
             Support
             <br />
             the Next
             <br />
-            Concert
+            Tour Stop
           </h2>
           <p className="text-neutral-300 text-base lg:text-lg font-medium mt-1">
             peytspencer.com/support

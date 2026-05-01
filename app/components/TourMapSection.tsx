@@ -9,8 +9,9 @@ export default function TourMapSection() {
   )
     .sort((a, b) => b.date.localeCompare(a.date))
     .filter((e) => {
-      if (seen.has(e.location!)) return false;
-      seen.add(e.location!);
+      const key = `${e.location}|${e.date}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     })
     .map((e) => ({ location: e.location!, date: e.date, url: e.url }));
