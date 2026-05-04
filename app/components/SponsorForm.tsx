@@ -117,11 +117,11 @@ export default function SponsorForm({
   const [checked, setChecked] = useState<Set<string>>(
     new Set(initialItems || defaultSupporterItems),
   );
-  const [eventVenue, setEventVenue] = useState(venue || "");
-  const [eventAddress, setEventAddress] = useState(address || "");
-  const [eventCity, setEventCity] = useState(city || "");
-  const [eventRegion, setEventRegion] = useState(region || "");
-  const [eventCountry, setEventCountry] = useState(country || "");
+  const [eventVenue, setEventVenue] = useState(draftId ? "" : venue || "");
+  const [eventAddress, setEventAddress] = useState(draftId ? "" : address || "");
+  const [eventCity, setEventCity] = useState(draftId ? "" : city || "");
+  const [eventRegion, setEventRegion] = useState(draftId ? "" : region || "");
+  const [eventCountry, setEventCountry] = useState(draftId ? "" : country || "");
   const [eventDates, setEventDates] = useState<string[]>(
     initialDates && initialDates.length > 0 ? initialDates : date ? [date] : [""],
   );
@@ -342,6 +342,9 @@ export default function SponsorForm({
             doorTime: primarySlot.doorTime || undefined,
             venue: eventVenue || null,
             address: eventAddress || null,
+            city: eventCity,
+            region: eventRegion,
+            country: eventCountry,
           }),
         });
         if (!patchRes.ok) {
@@ -641,9 +644,16 @@ export default function SponsorForm({
     <div>
       {draftId && !isPdfMode && !readOnly && (
         <div className="mb-5 sm:mb-6 lg:mb-5 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 sm:p-5 bg-neutral-50 dark:bg-neutral-900/40">
+          {(city || date) && (
+            <p className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5">
+              {[city && region ? `${city}, ${region}` : city, date && formatLongDate(date)]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
           <p className="text-sm sm:text-base text-neutral-700 dark:text-neutral-300">
-            I started this booking for you. Add your venue and contact, and I'll send the
-            poster you can share with your Assembly. About 30 seconds.
+            I started this booking for you. Add your venue and contact, and I'll send a draft
+            of the poster you can share with your Assembly. We can make changes after.
           </p>
         </div>
       )}
