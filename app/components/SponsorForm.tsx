@@ -123,11 +123,18 @@ export default function SponsorForm({
   const [eventRegion, setEventRegion] = useState(draftId ? "" : region || "");
   const [eventCountry, setEventCountry] = useState(draftId ? "" : country || "");
   const [eventDates, setEventDates] = useState<string[]>(
-    initialDates && initialDates.length > 0 ? initialDates : date ? [date] : [""],
+    initialDates && initialDates.length > 0
+      ? initialDates
+      : date && !draftId
+        ? [date]
+        : [""],
   );
   const [eventDoorTimes, setEventDoorTimes] = useState<string[]>(() => {
     const len = initialDates && initialDates.length > 0 ? initialDates.length : 1;
-    return Array.from({ length: len }, (_, i) => initialDoorTimes?.[i] ?? doorTime ?? "");
+    return Array.from(
+      { length: len },
+      (_, i) => initialDoorTimes?.[i] ?? (draftId ? "" : doorTime) ?? "",
+    );
   });
   const [sponsorName, setSponsorName] = useState(initialName || "");
   const [sponsorPhone, setSponsorPhone] = useState(initialPhone || "");
@@ -148,7 +155,7 @@ export default function SponsorForm({
   const [hostNames, setHostNames] = useState<Record<string, string>>({});
 
   const cityReadOnly = isPdfMode || (compact && !!city);
-  const dateReadOnly = (compact && !!date) || isPdfMode || (!!draftId && !!date);
+  const dateReadOnly = (compact && !!date) || isPdfMode;
   const hasLocation = !!(eventCity && eventRegion);
 
   // Fetch shows + sponsors once when entering supporter mode
@@ -339,6 +346,7 @@ export default function SponsorForm({
           body: JSON.stringify({
             slug: draftSlug,
             visibility: "public",
+            date: primarySlot.date,
             doorTime: primarySlot.doorTime || undefined,
             venue: eventVenue || null,
             address: eventAddress || null,
@@ -644,11 +652,9 @@ export default function SponsorForm({
     <div>
       {draftId && !isPdfMode && !readOnly && (
         <div className="mb-5 sm:mb-6 lg:mb-5 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 sm:p-5 bg-neutral-50 dark:bg-neutral-900/40">
-          {(city || date) && (
+          {city && (
             <p className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5">
-              {[city && region ? `${city}, ${region}` : city, date && formatLongDate(date)]
-                .filter(Boolean)
-                .join(" · ")}
+              {region ? `${city}, ${region}` : city}
             </p>
           )}
           <p className="text-sm sm:text-base text-neutral-700 dark:text-neutral-300">
