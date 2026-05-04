@@ -1,4 +1,13 @@
 import sgMail from "@sendgrid/mail";
+import type { EmailImage } from "./email-image";
+
+// SDK TS types declare `contentId` (camelCase) but the v3 API requires
+// `content_id` (snake_case). Bug: sendgrid-nodejs#1080, unfixed in 8.1.6.
+declare module "@sendgrid/helpers/classes/attachment" {
+  interface AttachmentData {
+    content_id?: string;
+  }
+}
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
@@ -7,7 +16,10 @@ const FROM_NAME = "Peyt Spencer";
 const SITE_URL = "https://peytspencer.com";
 const FROM = { email: FROM_EMAIL, name: FROM_NAME };
 
-async function trySend(msg: Parameters<typeof sgMail.send>[0], label: string): Promise<boolean> {
+async function trySend(
+  msg: Parameters<typeof sgMail.send>[0],
+  label: string,
+): Promise<boolean> {
   try {
     await sgMail.send(msg);
     return true;
@@ -52,7 +64,10 @@ function signOff(): string {
 </div>`;
 }
 
-export async function sendOtpEmail(params: { to: string; code: string }): Promise<boolean> {
+export async function sendOtpEmail(params: {
+  to: string;
+  code: string;
+}): Promise<boolean> {
   const { to, code } = params;
 
   return trySend(
@@ -71,7 +86,10 @@ export async function sendOtpEmail(params: { to: string; code: string }): Promis
   );
 }
 
-export async function sendGoLiveEmail(params: { to: string; firstName: string }): Promise<boolean> {
+export async function sendGoLiveEmail(params: {
+  to: string;
+  firstName: string;
+}): Promise<boolean> {
   const result = await sendGoLiveEmailBatch([params]);
   return result.sent > 0;
 }
@@ -121,7 +139,8 @@ export async function sendRsvpConfirmation(params: {
   eventTime: string;
   eventLocation?: string;
 }): Promise<boolean> {
-  const { to, name, guests, eventName, eventDate, eventTime, eventLocation } = params;
+  const { to, name, guests, eventName, eventDate, eventTime, eventLocation } =
+    params;
   const greeting = name ? `${name}, see` : "See";
   const guestLine = guests > 1 ? `${guests} spots reserved.` : "";
   const locationLine = eventLocation ? `\n${eventLocation}` : "";
@@ -181,7 +200,10 @@ export async function sendSponsorSubmission(params: {
   const { name, email, city, items } = params;
 
   const itemsHtml = items
-    .map((item) => `<li style="color:#1a1a1a;font-size:15px;margin-bottom:8px;">${item}</li>`)
+    .map(
+      (item) =>
+        `<li style="color:#1a1a1a;font-size:15px;margin-bottom:8px;">${item}</li>`,
+    )
     .join("");
 
   const itemsText = items.map((item) => `  - ${item}`).join("\n");
@@ -214,36 +236,80 @@ export async function sendSponsorSubmission(params: {
   );
 }
 
+function escapeAttr(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export async function sendShowBlast(params: {
   recipients: Array<{ email: string; name: string }>;
   subject: string;
   body: string;
   sendAt?: number;
-}): Promise<{ sent: number; failed: number }> {
-  const { recipients, subject, body, sendAt } = params;
+  image?: EmailImage;
+}): Promise<{ sent: number; failed: number; error?: string }> {
+  const { recipients, subject, body, sendAt, image } = params;
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const linkify = (text: string) =>
-    text.replace(/(?:https?:\/\/)?(?:[\w-]+\.)+[\w]{2,}(?:\/[^\s]*)?/g, (match) => {
-      const href = match.startsWith("http") ? match : `https://${match}`;
-      return `<a href="${href}" style="color:#d4a553;text-decoration:none;">${match}</a>`;
-    });
+    text.replace(
+      /(?<![\w@.])(?:https?:\/\/)?(?:[\w-]+\.)+[\w]{2,}(?:\/[^\s]*)?/g,
+      (match) => {
+        const href = match.startsWith("http") ? match : `https://${match}`;
+        return `<a href="${href}" style="color:#d4a553;text-decoration:none;">${match}</a>`;
+      },
+    );
 
-  const htmlBody = body
-    .split("\n\n")
-    .map((p) => {
-      return `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(p).replace(/\n/g, "<br>")}</div>`;
-    })
-    .join("");
+  const renderParagraphs = (text: string) =>
+    text
+      .split("\n\n")
+      .map(
+        (p) =>
+          `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(escapeAttr(p)).replace(/\n/g, "<br>")}</div>`,
+      )
+      .join("");
+
+  const cid = "hero-image";
+  const imgTag = image
+    ? `<img src="cid:${cid}" alt="${escapeAttr(image.alt || "")}" width="432" style="display:block;width:100%;max-width:432px;height:auto;margin:0 auto 24px;border-radius:6px;" />`
+    : "";
+
+  const IMAGE_MARKER = "[image]";
+  let htmlBody: string;
+  if (image && body.includes(IMAGE_MARKER)) {
+    htmlBody = body.split(IMAGE_MARKER).map(renderParagraphs).join(imgTag);
+  } else {
+    htmlBody = `${imgTag}${renderParagraphs(body)}`;
+  }
+
+  const textBody = image
+    ? body.split(IMAGE_MARKER).join(`\n${IMAGE_MARKER}\n`)
+    : body;
 
   const msg: Parameters<typeof sgMail.send>[0] = {
     personalizations: recipients.map((r) => ({ to: [{ email: r.email }] })),
     from: FROM,
     subject,
-    text: body,
+    text: textBody,
     html: emailWrapper(
       `${htmlBody}<div style="color:#9a9a95;font-size:13px;margin-top:28px;">Reply to this email anytime.</div>`,
     ),
+    ...(image
+      ? {
+          attachments: [
+            {
+              filename: image.filename,
+              type: image.type,
+              content: image.base64,
+              disposition: "inline",
+              content_id: cid,
+            },
+          ],
+        }
+      : {}),
     ...(sendAt ? { sendAt } : {}),
   };
 
@@ -251,8 +317,24 @@ export async function sendShowBlast(params: {
     await sgMail.send(msg);
     return { sent: recipients.length, failed: 0 };
   } catch (error) {
-    console.error("[SendGrid] Show blast error:", error);
-    return { sent: 0, failed: recipients.length };
+    const sgError = error as {
+      response?: {
+        body?: { errors?: Array<{ message?: string; field?: string }> };
+      };
+      message?: string;
+    };
+    console.error(
+      "[SendGrid] Show blast error:",
+      sgError?.message,
+      JSON.stringify(sgError?.response?.body, null, 2),
+    );
+    const sgMessage =
+      sgError?.response?.body?.errors
+        ?.map((e) => `${e.field || "?"}: ${e.message}`)
+        .join("; ") ||
+      sgError?.message ||
+      "SendGrid send failed";
+    return { sent: 0, failed: recipients.length, error: sgMessage };
   }
 }
 
