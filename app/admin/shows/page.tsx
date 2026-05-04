@@ -192,6 +192,10 @@ export default function ShowsAdminPage() {
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
 
+  const drafts = shows
+    .filter((s) => s.visibility === "draft")
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   const handlePamphletSaved = (p: Pamphlet) => {
     setPamphlets((prev) => {
       const idx = prev.findIndex((x) => x.id === p.id);
@@ -225,6 +229,13 @@ export default function ShowsAdminPage() {
           </div>
         ) : (
           <>
+            <DraftsSection
+              drafts={drafts}
+              onDraftCreated={(show) => setShows((prev) => [...prev, show])}
+              onDraftDeleted={(slug) => setShows((prev) => prev.filter((s) => s.slug !== slug))}
+              onMessage={setMessage}
+            />
+
             {upcoming.length > 0 && (
               <div className="mb-16">
                 <div className="flex items-baseline justify-between mb-8">
@@ -293,6 +304,178 @@ export default function ShowsAdminPage() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function DraftsSection({
+  drafts,
+  onDraftCreated,
+  onDraftDeleted,
+  onMessage,
+}: {
+  drafts: Show[];
+  onDraftCreated: (show: Show) => void;
+  onDraftDeleted: (slug: string) => void;
+  onMessage: (m: { type: "success" | "error"; text: string } | null) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [date, setDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!city.trim() || !region.trim() || !date) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: city.trim(), region: region.trim(), date }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        onMessage({ type: "error", text: data.error || "Failed to create draft" });
+        return;
+      }
+      const showsRes = await fetch("/api/shows");
+      const allShows: Show[] = await showsRes.json().catch(() => []);
+      const created = allShows.find((s) => s.slug === data.slug);
+      if (created) onDraftCreated(created);
+      await navigator.clipboard.writeText(data.magicLink).catch(() => {});
+      onMessage({ type: "success", text: "Draft created. Magic link copied to clipboard." });
+      setCity("");
+      setRegion("");
+      setDate("");
+      setCreating(false);
+    } catch (err) {
+      onMessage({ type: "error", text: err instanceof Error ? err.message : "Failed" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyLink = async (show: Show) => {
+    if (!show.id) {
+      onMessage({ type: "error", text: "Draft missing id — redeploy chorus to backfill." });
+      return;
+    }
+    try {
+      const res = await fetch("/api/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existingId: show.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        onMessage({ type: "error", text: data.error || "Couldn't generate link" });
+        return;
+      }
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.magicLink);
+      setCopied(show.slug);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      onMessage({ type: "error", text: "Copy failed" });
+    }
+  };
+
+  const remove = async (show: Show) => {
+    if (!confirm(`Delete draft ${show.city}, ${show.region} on ${show.date}?`)) return;
+    const res = await fetch("/api/shows", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: show.slug }),
+    });
+    if (!res.ok) {
+      onMessage({ type: "error", text: "Failed to delete" });
+      return;
+    }
+    onDraftDeleted(show.slug);
+  };
+
+  return (
+    <div className="mb-12">
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-lg font-medium tracking-[0.15em] text-neutral-900 dark:text-white uppercase">
+          Drafts
+        </h2>
+        <button
+          onClick={() => setCreating((v) => !v)}
+          className="text-xs uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border border-dashed border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-1.5 transition-colors"
+        >
+          {creating ? "Cancel" : "New draft"}
+        </button>
+      </div>
+
+      {creating && (
+        <div className="mb-4 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="City"
+            className="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800/50 focus:outline-none focus:border-neutral-400"
+          />
+          <input
+            type="text"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="Region (e.g. WA)"
+            className="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800/50 focus:outline-none focus:border-neutral-400"
+          />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            min={new Date().toISOString().slice(0, 10)}
+            className="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800/50 focus:outline-none focus:border-neutral-400"
+          />
+          <button
+            onClick={submit}
+            disabled={submitting || !city.trim() || !region.trim() || !date}
+            className="px-3 py-2 text-sm rounded-md bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Creating..." : "Create + copy link"}
+          </button>
+        </div>
+      )}
+
+      {drafts.length === 0 ? (
+        <p className="text-sm text-neutral-500 dark:text-neutral-500">No drafts.</p>
+      ) : (
+        <div className="space-y-2">
+          {drafts.map((d) => (
+            <div
+              key={d.slug}
+              className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 px-4 py-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                  {d.city}, {d.region} — {formatMonthDay(d.date)}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
+                  {d.slug}
+                </p>
+              </div>
+              <button
+                onClick={() => copyLink(d)}
+                className="text-xs uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+              >
+                {copied === d.slug ? "Copied" : "Copy link"}
+              </button>
+              <button
+                onClick={() => remove(d)}
+                className="text-xs uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -730,7 +913,7 @@ function PamphletGroupButton({
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
       return Object.fromEntries(group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]));
     }
-    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.access !== "private"]));
+    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.visibility !== "private"]));
   });
   const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -1499,18 +1682,18 @@ function ShowGroupCard({
                 <div className="flex-1 flex items-center justify-center gap-1 text-sm px-3 border-b border-neutral-200 dark:border-neutral-800">
                   <button
                     onClick={async () => {
-                      const next = show.access === "private" ? "public" : "private";
-                      onShowUpdate(show.slug, { access: next });
+                      const next = show.visibility === "private" ? "public" : "private";
+                      onShowUpdate(show.slug, { visibility: next });
                       setConfirmAccess(false);
                       await fetch("/api/shows", {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ slug: show.slug, access: next }),
+                        body: JSON.stringify({ slug: show.slug, visibility: next }),
                       });
                     }}
                     className="text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
                   >
-                    {show.access === "private" ? "Make Public" : "Make Private"}
+                    {show.visibility === "private" ? "Make Public" : "Make Private"}
                   </button>
                   <span className="text-neutral-300 dark:text-neutral-700">/</span>
                   <button
@@ -1524,12 +1707,18 @@ function ShowGroupCard({
                 <button
                   onClick={() => setConfirmAccess(true)}
                   className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
-                    show.access === "private"
-                      ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    show.visibility === "draft"
+                      ? "text-neutral-500 dark:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      : show.visibility === "private"
+                        ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                        : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   }`}
                 >
-                  {show.access === "private" ? "Private" : "Public"}
+                  {show.visibility === "draft"
+                    ? "Draft"
+                    : show.visibility === "private"
+                      ? "Private"
+                      : "Public"}
                 </button>
               ))}
             {supporters.length > 0 && (

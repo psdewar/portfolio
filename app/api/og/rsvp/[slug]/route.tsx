@@ -11,6 +11,6 @@ export async function GET(
 ) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show) return fallbackResponse();
+  if (!show || show.visibility === "draft") return fallbackResponse();
   return screenshotPoster(show);
 }

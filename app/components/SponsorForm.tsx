@@ -75,6 +75,8 @@ interface SponsorFormProps {
   initialName?: string;
   initialPhone?: string;
   initialEmail?: string;
+  draftId?: string;
+  draftSlug?: string;
   onSuccess?: (data: SponsorFields) => void;
 }
 
@@ -99,6 +101,8 @@ export default function SponsorForm({
   initialName,
   initialPhone,
   initialEmail,
+  draftId,
+  draftSlug,
   onSuccess,
 }: SponsorFormProps) {
   const router = useRouter();
@@ -144,7 +148,7 @@ export default function SponsorForm({
   const [hostNames, setHostNames] = useState<Record<string, string>>({});
 
   const cityReadOnly = isPdfMode || (compact && !!city);
-  const dateReadOnly = (compact && !!date) || isPdfMode;
+  const dateReadOnly = (compact && !!date) || isPdfMode || (!!draftId && !!date);
   const hasLocation = !!(eventCity && eventRegion);
 
   // Fetch shows + sponsors once when entering supporter mode
@@ -326,6 +330,41 @@ export default function SponsorForm({
     });
 
     try {
+      const isDraftCompletion = !!(draftId && draftSlug && !isSupporter);
+
+      if (isDraftCompletion) {
+        const patchRes = await fetch("/api/shows", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: draftSlug,
+            visibility: "public",
+            doorTime: primarySlot.doorTime || undefined,
+            venue: eventVenue || null,
+            address: eventAddress || null,
+          }),
+        });
+        if (!patchRes.ok) {
+          setSubmitResult({ ok: false, msg: "Didn't save. Text me and I'll fix it." });
+          return;
+        }
+
+        const sponsorRes = await fetch("/api/sponsors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildSponsorBody(draftSlug, primarySlot)),
+        });
+        if (!sponsorRes.ok) {
+          const data = await sponsorRes.json().catch(() => ({}));
+          setSubmitResult({ ok: false, msg: data.error || "Couldn't save your details." });
+          return;
+        }
+
+        onSuccess?.(fields);
+        router.push(`/rsvp?submitted=${draftSlug}`);
+        return;
+      }
+
       const isHostNewSubmission = !editMode && !isSupporter && !showSlug;
 
       if (isHostNewSubmission) {
@@ -600,6 +639,14 @@ export default function SponsorForm({
 
   return (
     <div>
+      {draftId && !isPdfMode && !readOnly && (
+        <div className="mb-5 sm:mb-6 lg:mb-5 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 sm:p-5 bg-neutral-50 dark:bg-neutral-900/40">
+          <p className="text-sm sm:text-base text-neutral-700 dark:text-neutral-300">
+            I started this booking for you. Add your venue and contact, and I'll send the
+            poster you can share with your Assembly. About 30 seconds.
+          </p>
+        </div>
+      )}
       {showBackButton &&
         (backIsLink ? (
           <Link
@@ -858,7 +905,7 @@ export default function SponsorForm({
                   </div>
                 ))}
               </div>
-              {!readOnly && !editMode && eventDates.length < 3 && (
+              {!readOnly && !editMode && !draftId && eventDates.length < 3 && (
                 <button
                   type="button"
                   disabled={!eventDates[eventDates.length - 1]?.trim()}

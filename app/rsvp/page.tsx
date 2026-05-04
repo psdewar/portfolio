@@ -14,7 +14,7 @@ export default async function RSVPPage({
     redirect("/support?success=no_shows");
   }
 
-  const rsvpable = shows.filter((s) => s.access !== "private");
+  const rsvpable = shows.filter((s) => s.visibility !== "private");
 
   if (!params.submitted && rsvpable.length === 1) {
     redirect(`/rsvp/${rsvpable[0].slug}`);
