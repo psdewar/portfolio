@@ -328,7 +328,10 @@ export default function RSVPForm({
                   className="mb-2 font-extrabold uppercase leading-none"
                   style={{ fontFamily: '"Parkinsans", sans-serif' }}
                 >
-                  <span className="block text-base md:text-lg text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
+                  <span
+                    className="block text-base md:text-lg font-semibold tracking-widest"
+                    style={{ color: "#d4a553" }}
+                  >
                     See you in
                   </span>
                   <span
@@ -396,8 +399,8 @@ export default function RSVPForm({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
-                  style={{ background: "#d4a553" }}
+                  className="w-full py-4 font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
+                  style={{ background: "#0a0a0a", color: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>
@@ -423,7 +426,10 @@ export default function RSVPForm({
                   className="mb-2 font-extrabold uppercase leading-none"
                   style={{ fontFamily: '"Parkinsans", sans-serif' }}
                 >
-                  <span className="block text-xl text-neutral-400 dark:text-neutral-500 font-semibold tracking-widest">
+                  <span
+                    className="block text-xl font-semibold tracking-widest"
+                    style={{ color: "#d4a553" }}
+                  >
                     See you in
                   </span>
                   <span
@@ -491,8 +497,8 @@ export default function RSVPForm({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
-                  style={{ background: "#d4a553" }}
+                  className="w-full h-[4.5rem] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
+                  style={{ background: "#0a0a0a", color: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>
