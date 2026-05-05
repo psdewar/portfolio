@@ -203,7 +203,7 @@ export default function RSVPForm({
       className="inline-flex items-center gap-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-xs uppercase tracking-wider"
       style={{ fontFamily: '"Space Mono", monospace' }}
     >
-      <ArrowLeftIcon size={20} weight="bold" style={{ color: "#d4a553" }} />
+      <ArrowLeftIcon size={20} weight="bold" />
       All shows
     </button>
   );
@@ -399,8 +399,8 @@ export default function RSVPForm({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-4 font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
-                  style={{ background: "#0a0a0a", color: "#d4a553" }}
+                  className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
+                  style={{ background: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>
@@ -497,8 +497,8 @@ export default function RSVPForm({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-[4.5rem] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
-                  style={{ background: "#0a0a0a", color: "#d4a553" }}
+                  className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
+                  style={{ background: "#d4a553" }}
                 >
                   {submitLabel()}
                 </button>
