@@ -37,6 +37,13 @@ export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
   eb: { W: 1080, H: 540 },
 };
 
+export type PosterOptions = {
+  label?: string;
+  format?: PosterFormat;
+  tags?: string;
+  doorsOpenOverride?: string;
+};
+
 export function posterHtml(
   show: {
     date: string;
@@ -48,11 +55,9 @@ export function posterHtml(
     region: string;
     doorTime: string;
   },
-  label?: string,
-  format: PosterFormat = "standard",
-  tags = "",
-  doorsOpenOverride = "",
+  opts: PosterOptions = {},
 ): string {
+  const { label, format = "standard", tags = "", doorsOpenOverride = "" } = opts;
   const { W, H } = POSTER_DIMS[format];
   const bgSrc = inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");

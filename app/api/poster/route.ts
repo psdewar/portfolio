@@ -27,10 +27,11 @@ export async function GET(request: NextRequest) {
       venueLabel: searchParams.get("venueLabel"),
       doorLabel: searchParams.get("doorLabel"),
     },
-    searchParams.get("label") || undefined,
-    "standard",
-    searchParams.get("tags") ?? "",
-    searchParams.get("doorsOpen") ?? "",
+    {
+      label: searchParams.get("label") || undefined,
+      tags: searchParams.get("tags") ?? "",
+      doorsOpenOverride: searchParams.get("doorsOpen") ?? "",
+    },
   );
 
   try {
