@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getShowBySlug } from "../../lib/shows";
 import { musicEventSchema } from "../../lib/schema";
 
@@ -11,7 +11,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show) return {};
+  if (!show || show.visibility === "draft") return { robots: { index: false, follow: false } };
 
   const title = `RSVP - ${show.city}, ${show.region} | From The Ground Up`;
   const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.`;
@@ -43,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShowRSVPLayout({ params, children }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show || show.status !== "upcoming") redirect("/rsvp");
+  if (!show || show.visibility === "draft") notFound();
+  if (show.status !== "upcoming") redirect("/rsvp");
 
   const eventJsonLd = musicEventSchema({
     name: `${show.name} - A Concert by Peyt Spencer`,

@@ -18,6 +18,7 @@ import { SUPPORT_MENU, SUPPORTER_ITEMS } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 import { type Show, getVenueLabel, getDoorLabel } from "../lib/shows";
 import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
+import Poster from "./Poster";
 
 // 11:30AM → 9:30PM, 30-min increments
 const DOOR_TIMES = Array.from({ length: 21 }, (_, i) => {
@@ -141,6 +142,7 @@ export default function SponsorForm({
   const [sponsorEmail, setSponsorEmail] = useState(initialEmail || "");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [draftSubmitted, setDraftSubmitted] = useState(false);
 
   // Wizard state — only active for the public form (not editMode/compact/isPdfMode)
   const isWizard = !editMode && !compact && !isPdfMode;
@@ -179,7 +181,12 @@ export default function SponsorForm({
           setPickerShows(
             Array.isArray(showsData)
               ? showsData
-                  .filter((s) => s.status === "upcoming" && !isDatePast(s.date))
+                  .filter(
+                    (s) =>
+                      s.status === "upcoming" &&
+                      s.visibility !== "draft" &&
+                      !isDatePast(s.date),
+                  )
                   .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               : [],
           );
@@ -345,7 +352,6 @@ export default function SponsorForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             slug: draftSlug,
-            visibility: "public",
             date: primarySlot.date,
             doorTime: primarySlot.doorTime || undefined,
             venue: eventVenue || null,
@@ -372,7 +378,11 @@ export default function SponsorForm({
         }
 
         onSuccess?.(fields);
-        router.push(`/rsvp?submitted=${draftSlug}`);
+        setDraftSubmitted(true);
+        setSubmitResult({
+          ok: true,
+          msg: "Got it. I'll send the poster shortly so you can share with your Assembly.",
+        });
         return;
       }
 
@@ -647,6 +657,32 @@ export default function SponsorForm({
           ? "/sponsor"
           : null;
   const backIsLink = !!backHref;
+
+  if (draftSubmitted) {
+    return (
+      <div className="max-w-md mx-auto text-center">
+        <p className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-4">
+          This is what the poster looks like
+        </p>
+        <div
+          className="mx-auto overflow-hidden rounded-md"
+          style={{ width: "min(280px, 80vw)", aspectRatio: "2 / 3" }}
+        >
+          <Poster
+            date={eventDates[0]}
+            city={eventCity}
+            region={eventRegion}
+            doorTime={eventDoorTimes[0]}
+            venue={eventVenue || null}
+            address={eventAddress || null}
+          />
+        </div>
+        <p className="mt-6 text-sm sm:text-base text-neutral-700 dark:text-neutral-300 px-4">
+          Got it. I'll send the poster shortly so you can share with your Assembly.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1015,7 +1051,7 @@ export default function SponsorForm({
           )}
           {wizardMode === "host" && hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Submitting books the date.
+              {draftId ? "Submit to see your draft poster." : "Submitting books the date."}
             </p>
           )}
           <button
