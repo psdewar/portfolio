@@ -1,6 +1,7 @@
 import { type Show } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, POSTER_DIMS } from "../../poster/html";
+import { FREE_ADMISSION_TAG } from "../../../lib/poster-defaults";
 
 const FALLBACK_IMAGE = new URL("/Jan23OpenMicNight-08_Original.jpg", "https://peytspencer.com");
 
@@ -10,7 +11,7 @@ export function fallbackResponse(): Response {
 
 export async function screenshotPoster(show: Show): Promise<Response> {
   const { W, H } = POSTER_DIMS.standard;
-  const html = posterHtml(show);
+  const html = posterHtml(show, { tags: FREE_ADMISSION_TAG });
 
   try {
     const screenshot = await takeScreenshot({

@@ -9,6 +9,7 @@ import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
+import { FREE_ADMISSION_TAG } from "../../lib/poster-defaults";
 
 function Modal({
   onClose,
@@ -422,7 +423,7 @@ function CustomPosterButton() {
   const [venueLabel, setVenueLabel] = useState("");
   const [doorLabel, setDoorLabel] = useState("");
   const [taglineSuffix, setTaglineSuffix] = useState("");
-  const [tags, setTags] = useState("Free admission");
+  const [tags, setTags] = useState(FREE_ADMISSION_TAG);
   const [doorsOpen, setDoorsOpen] = useState("");
 
   const buildHref = () => {
@@ -682,7 +683,7 @@ function PamphletGroupButton({
   const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
   const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
-  const [tags, setTags] = useState(matchedPamphlet?.tags ?? "Free admission");
+  const [tags, setTags] = useState(matchedPamphlet?.tags ?? FREE_ADMISSION_TAG);
   const [tagInput, setTagInput] = useState("");
   const [venueImg, setVenueImg] = useState(matchedPamphlet?.venueImg ?? "");
   const [address, setAddress] = useState(matchedPamphlet?.address ?? "");

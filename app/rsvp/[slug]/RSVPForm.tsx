@@ -7,6 +7,7 @@ import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
+import { FREE_ADMISSION_TAG } from "../../lib/poster-defaults";
 
 interface RSVPFormProps {
   eventId: string;
@@ -193,7 +194,7 @@ export default function RSVPForm({
       venue={venue}
       venueLabel={venueLabel}
       address={address}
-      tags="Free admission"
+      tags={FREE_ADMISSION_TAG}
     />
   );
 

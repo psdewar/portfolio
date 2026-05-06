@@ -20,13 +20,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ? rawFormat
       : "standard";
   const { W, H } = POSTER_DIMS[format];
-  const html = posterHtml(
-    show,
-    undefined,
+  const html = posterHtml(show, {
     format,
-    request.nextUrl.searchParams.get("tags") ?? "",
-    request.nextUrl.searchParams.get("doorsOpen") ?? "",
-  );
+    tags: request.nextUrl.searchParams.get("tags") ?? "",
+    doorsOpenOverride: request.nextUrl.searchParams.get("doorsOpen") ?? "",
+  });
   const asJpg = request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
 
