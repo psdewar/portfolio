@@ -3,12 +3,6 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 /** @type {import('next').NextConfig} */
-const BASE = "https://distrokid.com/hyperfollow/peytspencer";
-const singles = require("./data/singles.json");
-const customUrls = {
-  bahai: "cWLQ",
-};
-
 const chromiumBin = ["node_modules/@sparticuz/chromium/bin/**"];
 const posterAssets = [
   "public/Jan23OpenMicNight-08_Original.jpg",
@@ -61,13 +55,6 @@ const nextConfig = {
     ];
   },
   redirects() {
-    const singlesRedirects = singles.map((slug) => ({
-      source: `/${slug}`,
-      destination: `${BASE}/${customUrls[slug] || slug}`,
-      permanent: false,
-      basePath: false,
-    }));
-
     const pressRedirect = {
       source: "/press",
       destination: "https://lyrist.app/records/peyt-spencer",
@@ -106,7 +93,7 @@ const nextConfig = {
       },
     ];
 
-    return [...singlesRedirects, pressRedirect, ...aliasRedirects];
+    return [pressRedirect, ...aliasRedirects];
   },
   async rewrites() {
     return [

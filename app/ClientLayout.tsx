@@ -99,9 +99,10 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Listen page: edge-to-edge grid, no footer, pad only for audio player
   if (isListenPage) {
+    const isTrackOverlay = !!searchParams?.get("play");
     return (
       <>
-        <Navbar />
+        {!isTrackOverlay && <Navbar />}
         <main className={`flex-auto min-w-0 flex flex-col ${hasAudioPlayer ? "pb-[62px]" : ""}`}>
           <Suspense>{children}</Suspense>
         </main>

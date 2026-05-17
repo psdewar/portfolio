@@ -4,7 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
 import { usePathname } from "next/navigation";
-import { PlayIcon, PauseIcon, ChatTextIcon, ArrowRightIcon } from "@phosphor-icons/react";
+import {
+  PlayIcon,
+  PauseIcon,
+  ChatTextIcon,
+  ArrowRightIcon,
+  CircleNotchIcon,
+} from "@phosphor-icons/react";
 
 // Parsed lyrics data - imported at build time from SRT files
 // Format: { start: seconds, end: seconds, text: string, isCTA?: boolean }
@@ -109,7 +115,7 @@ export const GlobalAudioPlayer: React.FC = () => {
   const thumbColor = `rgb(${Math.round(249 + (236 - 249) * t)}, ${Math.round(115 + (72 - 115) * t)}, ${Math.round(22 + (153 - 22) * t)})`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 safe-area-inset-bottom">
+    <div className="fixed bottom-0 left-0 right-0 z-[60] safe-area-inset-bottom">
       {/* Main player */}
       <div className="bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800">
         {/* Progress bar with expanded hit area extending upward */}
@@ -237,12 +243,11 @@ export const GlobalAudioPlayer: React.FC = () => {
                   e.stopPropagation();
                   toggle();
                 }}
-                disabled={isLoading}
-                className="w-12 h-12 sm:w-14 sm:h-14 -mr-3 sm:-mr-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 transition-all duration-200 active:scale-95 disabled:opacity-50"
-                aria-label={isPlaying ? "Pause" : "Play"}
+                className="w-12 h-12 sm:w-14 sm:h-14 -mr-3 sm:-mr-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 transition-all duration-200 active:scale-95"
+                aria-label={isPlaying ? "Pause" : isLoading ? "Loading" : "Play"}
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <CircleNotchIcon size={22} weight="bold" className="animate-spin" />
                 ) : isPlaying ? (
                   <PauseIcon size={20} weight="fill" />
                 ) : (

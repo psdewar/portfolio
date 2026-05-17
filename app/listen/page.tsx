@@ -11,7 +11,7 @@ import {
 import singles from "../../data/singles.json";
 import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
-import FreestyleOverlay from "app/components/FreestyleOverlay";
+import SingleOverlay from "app/components/SingleOverlay";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
@@ -51,8 +51,10 @@ const BASE_TRACKS: TrackCard[] = singles.filter(Boolean).map((s) => {
     bahai:
       "https://distrokid.imgix.net/http%3A%2F%2Fgather.fandalism.com%2F817413--560B3DA9-4F3D-4874-97F8E29A9D568D05--1521580586925--bahai.jpg?fm=jpg&q=75&w=800&s=babfe73fe179c6bcb2215fd14c4ddfac",
   };
+  const trackData = TRACK_DATA.find((t) => t.id === s);
+  const hasInlineLinks = !!trackData?.streamingLinks?.length;
   return {
-    href: `/${s}`,
+    href: hasInlineLinks ? undefined : `/${s}`,
     src: thumbs[s] ?? `https://distrokid.com/hyperfollow/peytspencer/${s}`,
     id: s,
     title: formatTrackTitle(s),
@@ -88,8 +90,9 @@ const WELCOME_PACK_IDS = new Set(PATRON_TRACKS.map((t) => t.id));
 const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
 const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 
-// All tracks in TRACK_DATA are playable
-const PLAYABLE_TRACK_IDS = new Set(TRACK_DATA.map((t) => t.id));
+const PLAYABLE_TRACK_IDS = new Set(
+  TRACK_DATA.filter((t) => (t.source ?? "hosted") === "hosted").map((t) => t.id),
+);
 
 export default function Page() {
   const {
@@ -224,7 +227,10 @@ export default function Page() {
     }
   }, [playParam, handlePlayTrack]);
 
-  const playMula = playParam === "mula-freestyle";
+  const overlayTrack =
+    playParam && PLAYABLE_TRACK_IDS.has(playParam)
+      ? ALL_TRACKS.find((t) => t.id === playParam)
+      : undefined;
 
   // Show skeleton while simulating slow network (dev only)
   if (isSimulatingLoad) {
@@ -240,13 +246,11 @@ export default function Page() {
       )}
 
       <div className="animate-fade-in">
-        {playMula && (
-          <FreestyleOverlay
-            trackId="mula-freestyle"
-            coverSrc={
-              ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.src || "/images/covers/mula.jpg"
-            }
-            href={ALL_TRACKS.find((t) => t.id === "mula-freestyle")?.href}
+        {overlayTrack && (
+          <SingleOverlay
+            trackId={overlayTrack.id}
+            coverSrc={overlayTrack.src}
+            href={overlayTrack.href}
             onClose={() => {
               window.history.replaceState({}, document.title, window.location.pathname);
               setPlayParam(null);
@@ -301,10 +305,22 @@ export default function Page() {
 
         <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {visibleTracks.map((t) => {
+            const trackData = TRACK_DATA.find((td) => td.id === t.id);
+            const isHosted = (trackData?.source ?? "hosted") === "hosted";
             const isCurrent = currentTrack?.id === t.id;
             const isLoadingThis = loadingTrack?.id === t.id;
             const isPatronOnly = isPatronTrack(t.id);
-            const canPlay = PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
+            const canPlay =
+              isHosted && PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
+
+            const handleTileClick = () => {
+              if (canPlay) {
+                handlePlayTrack(t.id);
+              } else {
+                window.history.pushState({}, "", `/listen?play=${t.id}`);
+                setPlayParam(t.id);
+              }
+            };
 
             return (
               <div
@@ -312,7 +328,7 @@ export default function Page() {
                 className={`relative overflow-hidden aspect-square group cursor-pointer${
                   patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
                 }`}
-                onClick={() => canPlay && handlePlayTrack(t.id)}
+                onClick={handleTileClick}
               >
                 {brokenImages.has(t.id) ? (
                   <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">

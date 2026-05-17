@@ -28,6 +28,7 @@ interface AudioState {
   duration: number;
   volume: number;
   isLoading: boolean;
+  buffered: number; // 0–1 fraction of track downloaded
   playlist: Track[];
   currentIndex: number;
   isShuffled: boolean;
@@ -57,26 +58,21 @@ export const useAudio = () => {
   return context;
 };
 
-// Singleton audio instance
 let globalAudio: HTMLAudioElement | null = null;
-const blobUrlCache = new Map<string, string>();
 
 const getGlobalAudio = () => {
   if (!globalAudio && typeof window !== "undefined") {
     globalAudio = new Audio();
-    globalAudio.preload = "auto";
-    // Important for Web Audio API to work with fetched blobs/external sources
+    // "metadata" prevents speculative download — bytes only flow when the user presses play.
+    globalAudio.preload = "metadata";
     globalAudio.crossOrigin = "anonymous";
   }
   return globalAudio;
 };
 
-const fetchAudioBlob = async (trackId: string): Promise<string> => {
-  if (blobUrlCache.has(trackId)) return blobUrlCache.get(trackId)!;
-
+const buildAudioUrl = (trackId: string): string => {
+  if (typeof window === "undefined") return `/api/audio/${trackId}`;
   const devSettings = getDevToolsState();
-
-  // Build URL with dev flags
   const url = new URL(`/api/audio/${trackId}`, window.location.origin);
   if (devSettings.isDevMode && devSettings.useLocalAudio) {
     url.searchParams.set("local", "1");
@@ -84,25 +80,7 @@ const fetchAudioBlob = async (trackId: string): Promise<string> => {
   if (devSettings.isDevMode && devSettings.simulateSlowNetwork) {
     url.searchParams.set("delay", String(devSettings.slowNetworkDelay));
   }
-
-  const response = await fetch(url.toString(), {
-    headers: { "Cache-Control": "private, max-age=86400" },
-  });
-
-  if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
-
-  const blob = await response.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  blobUrlCache.set(trackId, blobUrl);
-
-  setTimeout(() => {
-    if (blobUrlCache.has(trackId)) {
-      URL.revokeObjectURL(blobUrl);
-      blobUrlCache.delete(trackId);
-    }
-  }, 86400000);
-
-  return blobUrl;
+  return url.toString();
 };
 
 export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
@@ -115,6 +93,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     duration: 0,
     volume: 1.0,
     isLoading: false,
+    buffered: 0,
     playlist: [],
     currentIndex: -1,
     isShuffled: false,
@@ -122,9 +101,9 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     analyser: null,
   });
 
-  const loadingTrackId = useRef<string | null>(null);
   // Ref to track if we've already connected the Web Audio API to this element
   const isAudioSourceConnected = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Initialize Web Audio API
   useEffect(() => {
@@ -135,6 +114,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (!AudioCtx) return;
 
       const audioCtx = new AudioCtx();
+      audioCtxRef.current = audioCtx;
       const analyserNode = audioCtx.createAnalyser();
       analyserNode.fftSize = 64; // Low resolution for "blocky" look
 
@@ -145,14 +125,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
       isAudioSourceConnected.current = true;
       setState((prev) => ({ ...prev, analyser: analyserNode }));
-
-      // Resume context on user interaction (browsers block auto-audio-context)
-      const resumeAudio = () => {
-        if (audioCtx.state === "suspended") audioCtx.resume();
-      };
-      document.addEventListener("click", resumeAudio, { once: true });
-      document.addEventListener("touchstart", resumeAudio, { once: true });
-      document.addEventListener("keydown", resumeAudio, { once: true });
     } catch (e) {
       console.error("Web Audio API setup failed", e);
     }
@@ -173,18 +145,29 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
     };
 
-    const handlePlay = () => {
-      setState((prev) => ({ ...prev, isPlaying: true }));
+    // 'playing' fires when audio actually starts producing sound — 'play' fires on intent and lies.
+    const handlePlaying = () => {
+      setState((prev) => ({ ...prev, isPlaying: true, isLoading: false }));
+      cancelAnimationFrame(animationId);
       animationId = requestAnimationFrame(tick);
     };
 
+    const handleWaiting = () => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+    };
+
     const handlePause = () => {
-      setState((prev) => ({ ...prev, isPlaying: false, currentTime: audio.currentTime }));
+      setState((prev) => ({
+        ...prev,
+        isPlaying: false,
+        isLoading: false,
+        currentTime: audio.currentTime,
+      }));
       cancelAnimationFrame(animationId);
     };
 
     const handleEnded = () => {
-      setState((prev) => ({ ...prev, isPlaying: false }));
+      setState((prev) => ({ ...prev, isPlaying: false, isLoading: false }));
       cancelAnimationFrame(animationId);
     };
 
@@ -196,10 +179,29 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }));
     };
 
-    audio.addEventListener("play", handlePlay);
+    const handleCanPlay = () => {
+      setState((prev) => ({ ...prev, loadingTrack: null }));
+    };
+
+    const handleProgress = () => {
+      if (audio.buffered.length === 0 || !audio.duration || !isFinite(audio.duration)) return;
+      const end = audio.buffered.end(audio.buffered.length - 1);
+      setState((prev) => ({ ...prev, buffered: Math.min(1, end / audio.duration) }));
+    };
+
+    // 404s emit 'error' async after play()'s promise has resolved — try/catch in play() can't catch.
+    const handleError = () => {
+      setState((prev) => ({ ...prev, isPlaying: false, isLoading: false, buffered: 0 }));
+    };
+
+    audio.addEventListener("playing", handlePlaying);
+    audio.addEventListener("waiting", handleWaiting);
     audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("canplay", handleCanPlay);
+    audio.addEventListener("progress", handleProgress);
+    audio.addEventListener("error", handleError);
 
     // Start tick loop if already playing
     if (!audio.paused) {
@@ -208,20 +210,29 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     return () => {
       cancelAnimationFrame(animationId);
-      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("playing", handlePlaying);
+      audio.removeEventListener("waiting", handleWaiting);
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("canplay", handleCanPlay);
+      audio.removeEventListener("progress", handleProgress);
+      audio.removeEventListener("error", handleError);
     };
   }, [audio]);
 
   const play = useCallback(async () => {
     if (!audio || !audio.src) return;
+    // createMediaElementSource reroutes output through the graph; if the context is suspended, playback is silent.
+    if (audioCtxRef.current?.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
+    setState((prev) => ({ ...prev, isLoading: true }));
     try {
       await audio.play();
     } catch (err) {
       console.warn("Playback prevented:", err);
-      setState((prev) => ({ ...prev, isPlaying: false }));
+      setState((prev) => ({ ...prev, isPlaying: false, isLoading: false }));
     }
   }, [audio]);
 
@@ -257,35 +268,22 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
 
-      loadingTrackId.current = track.id;
-      setState((prev) => ({ ...prev, isLoading: true, isPlaying: false, loadingTrack: track }));
+      // Sync src assignment keeps play() inside the user-gesture window (Safari).
+      audio.src = buildAudioUrl(track.id);
+      audio.currentTime = 0;
 
-      try {
-        const blobUrl = await fetchAudioBlob(track.id);
+      setState((prev) => ({
+        ...prev,
+        currentTrack: track,
+        loadingTrack: autoPlay ? track : null,
+        isLoading: autoPlay,
+        isPlaying: false,
+        duration: track.duration || 0,
+        buffered: 0,
+      }));
 
-        if (loadingTrackId.current === track.id) {
-          audio.src = blobUrl;
-          audio.currentTime = 0;
-
-          setState((prev) => ({
-            ...prev,
-            currentTrack: track,
-            loadingTrack: null,
-            duration: track.duration || 0,
-            isLoading: false,
-          }));
-
-          if (autoPlay) {
-            await play();
-          }
-        }
-      } catch (error) {
-        console.error("Load track failed:", error);
-        setState((prev) => ({ ...prev, isLoading: false, loadingTrack: null }));
-      } finally {
-        if (loadingTrackId.current === track.id) {
-          loadingTrackId.current = null;
-        }
+      if (autoPlay) {
+        await play();
       }
     },
     [audio, state.currentTrack?.id, play]

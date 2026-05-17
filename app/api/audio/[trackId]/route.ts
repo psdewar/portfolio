@@ -65,71 +65,66 @@ export async function GET(
       }
     }
 
-    let audioBuffer: ArrayBuffer;
-
-    // Use local mock audio in dev mode
-    if (useLocalAudio) {
-      audioBuffer = generateMockAudioBuffer();
-    } else {
-      // All tracks: fetch from VPS via Cloudflare Access
-      const vpsUrl = `${VPS_AUDIO_BASE_URL}/${trackId}.mp3`;
-      const vpsHeaders: HeadersInit = {};
-      if (CF_ACCESS_CLIENT_ID && CF_ACCESS_CLIENT_SECRET) {
-        vpsHeaders["CF-Access-Client-Id"] = CF_ACCESS_CLIENT_ID;
-        vpsHeaders["CF-Access-Client-Secret"] = CF_ACCESS_CLIENT_SECRET;
-      }
-      const response = await fetch(vpsUrl, { headers: vpsHeaders });
-      if (!response.ok) {
-        console.error(`VPS fetch failed: ${response.status} for ${vpsUrl}`);
-        return new NextResponse("Track not found", { status: 404 });
-      }
-      audioBuffer = await response.arrayBuffer();
-    }
-
-    // For caching
-    const etag = generateETag(audioBuffer);
-    const lastModified = new Date().toUTCString();
-
-    if (checkConditionalHeaders(request, etag, lastModified)) {
-      return new NextResponse(null, { status: 304 });
-    }
-
-    // Set proper headers for browser caching with range support.
-    // Patron tracks stay private (never stored in shared CDN/proxy caches).
-    // Non-patron tracks are immutable public assets → long-lived shared cache.
-    const baseHeaders = createBaseHeaders(audioBuffer, etag, lastModified);
+    // Patron stays private (never on shared CDN); public gets long browser + CDN cache.
     const cacheControl = isPatronTrack(trackId)
       ? "private, max-age=86400, stale-while-revalidate=86400"
-      : "public, max-age=31536000, immutable";
-    const headers = new Headers({
-      ...baseHeaders,
-      "Accept-Ranges": "bytes",
-      "Cache-Control": cacheControl,
-    });
+      : "public, max-age=31536000, immutable, s-maxage=31536000";
 
-    // Handle range requests for audio seeking
-    const range = request.headers.get("range");
-    if (range) {
-      const rangeData = parseRangeHeader(range, audioBuffer.byteLength);
-
-      if (!rangeData) {
-        return new NextResponse("Invalid range", { status: 416 });
+    if (useLocalAudio) {
+      const audioBuffer = generateMockAudioBuffer();
+      const etag = generateETag(audioBuffer);
+      const lastModified = new Date().toUTCString();
+      if (checkConditionalHeaders(request, etag, lastModified)) {
+        return new NextResponse(null, { status: 304 });
       }
-
-      const { start, end } = rangeData;
-      const rangeHeaders = createRangeHeaders(start, end, audioBuffer.byteLength);
-
-      Object.entries(rangeHeaders).forEach(([key, value]) => {
-        headers.set(key, value);
+      const baseHeaders = createBaseHeaders(audioBuffer, etag, lastModified);
+      const headers = new Headers({
+        ...baseHeaders,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": cacheControl,
       });
-
-      return new NextResponse(audioBuffer.slice(start, end + 1), {
-        status: 206, // Partial Content
-        headers,
-      });
+      const range = request.headers.get("range");
+      if (range) {
+        const rangeData = parseRangeHeader(range, audioBuffer.byteLength);
+        if (!rangeData) return new NextResponse("Invalid range", { status: 416 });
+        const { start, end } = rangeData;
+        const rangeHeaders = createRangeHeaders(start, end, audioBuffer.byteLength);
+        Object.entries(rangeHeaders).forEach(([key, value]) => headers.set(key, value));
+        return new NextResponse(audioBuffer.slice(start, end + 1), { status: 206, headers });
+      }
+      return new NextResponse(audioBuffer, { headers });
     }
 
-    return new NextResponse(audioBuffer, { headers });
+    // Stream the VPS body through; forward Range so the browser can seek.
+    const vpsUrl = `${VPS_AUDIO_BASE_URL}/${trackId}.mp3`;
+    const vpsHeaders: HeadersInit = {};
+    if (CF_ACCESS_CLIENT_ID && CF_ACCESS_CLIENT_SECRET) {
+      vpsHeaders["CF-Access-Client-Id"] = CF_ACCESS_CLIENT_ID;
+      vpsHeaders["CF-Access-Client-Secret"] = CF_ACCESS_CLIENT_SECRET;
+    }
+    const incomingRange = request.headers.get("range");
+    if (incomingRange) vpsHeaders["Range"] = incomingRange;
+
+    const response = await fetch(vpsUrl, { headers: vpsHeaders });
+    if (!response.ok && response.status !== 206) {
+      console.error(`VPS fetch failed: ${response.status} for ${vpsUrl}`);
+      return new NextResponse("Track not found", { status: 404 });
+    }
+
+    const passthrough = new Headers();
+    const fwd = ["content-length", "content-range", "content-type", "etag", "last-modified"];
+    fwd.forEach((h) => {
+      const v = response.headers.get(h);
+      if (v) passthrough.set(h, v);
+    });
+    if (!passthrough.has("content-type")) passthrough.set("Content-Type", "audio/mpeg");
+    passthrough.set("Accept-Ranges", "bytes");
+    passthrough.set("Cache-Control", cacheControl);
+
+    return new NextResponse(response.body, {
+      status: response.status,
+      headers: passthrough,
+    });
   } catch (error) {
     logDevError(error, "Error fetching audio");
     return new NextResponse("Internal server error", { status: 500 });
