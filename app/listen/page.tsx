@@ -227,10 +227,7 @@ export default function Page() {
     }
   }, [playParam, handlePlayTrack]);
 
-  const overlayTrack =
-    playParam && PLAYABLE_TRACK_IDS.has(playParam)
-      ? ALL_TRACKS.find((t) => t.id === playParam)
-      : undefined;
+  const overlayTrack = playParam ? ALL_TRACKS.find((t) => t.id === playParam) : undefined;
 
   // Show skeleton while simulating slow network (dev only)
   if (isSimulatingLoad) {
