@@ -38,19 +38,46 @@ function SiteTools() {
   );
 }
 
+type SiteShellProps = {
+  children: React.ReactNode;
+  mainClassName?: string;
+  showFooter?: boolean;
+  bare?: boolean;
+};
+
+function SiteShell({ children, mainClassName, showFooter, bare }: SiteShellProps) {
+  if (bare) {
+    return (
+      <>
+        <Navbar />
+        <Suspense>{children}</Suspense>
+        <GlobalAudioPlayer />
+        <SiteTools />
+      </>
+    );
+  }
+  return (
+    <>
+      <Navbar />
+      <main className={mainClassName ?? "flex-auto min-w-0 flex flex-col"}>
+        <Suspense>{children}</Suspense>
+      </main>
+      {showFooter && <Footer />}
+      <GlobalAudioPlayer />
+      <SiteTools />
+    </>
+  );
+}
+
 function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { currentTrack } = useAudio();
-  const hasAudioPlayer = !!currentTrack;
+  const hasAudioPlayer = !!currentTrack && !searchParams?.get("play");
   const isOgMode = searchParams?.get("og") === "true";
-  const isSupportPage = pathname === "/support";
-  const isHomePage = pathname === "/" || pathname === "/2026";
-  const isListenPage = pathname === "/listen";
-  const isLivePage = pathname === "/live";
   const isAdminPage = pathname?.startsWith("/admin");
+  const isHomePage = pathname === "/" || pathname === "/2026";
 
-  // OG mode or admin: render only the content, no site navbar/player/devtools
   if (isOgMode || isAdminPage) {
     return (
       <main className="flex-auto min-w-0 flex flex-col">
@@ -59,7 +86,6 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Homepage: fullscreen hero, no navbar
   if (isHomePage) {
     return (
       <>
@@ -71,57 +97,28 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Support page: fullscreen with internal scroll, with audio player
-  if (isSupportPage) {
-    return (
-      <>
-        <Navbar />
-        <Suspense>{children}</Suspense>
-        <GlobalAudioPlayer />
-        <SiteTools />
-      </>
-    );
+  if (pathname === "/support") {
+    return <SiteShell bare>{children}</SiteShell>;
   }
 
-  // Live page: no footer, edge-to-edge
-  if (isLivePage) {
-    return (
-      <>
-        <Navbar />
-        <main className="flex-auto min-w-0 flex flex-col">
-          <Suspense>{children}</Suspense>
-        </main>
-        <GlobalAudioPlayer />
-        <SiteTools />
-      </>
-    );
+  if (pathname === "/live") {
+    return <SiteShell>{children}</SiteShell>;
   }
 
-  // Listen page: edge-to-edge grid, no footer, pad only for audio player
-  if (isListenPage) {
-    const isTrackOverlay = !!searchParams?.get("play");
+  if (pathname === "/listen") {
     return (
-      <>
-        {!isTrackOverlay && <Navbar />}
-        <main className={`flex-auto min-w-0 flex flex-col ${hasAudioPlayer ? "pb-[62px]" : ""}`}>
-          <Suspense>{children}</Suspense>
-        </main>
-        <GlobalAudioPlayer />
-        <SiteTools />
-      </>
+      <SiteShell
+        mainClassName={`flex-auto min-w-0 flex flex-col ${hasAudioPlayer ? "pb-[96px] sm:pb-[80px]" : ""}`}
+      >
+        {children}
+      </SiteShell>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="flex-auto min-w-0 flex flex-col pb-20">
-        <Suspense>{children}</Suspense>
-      </main>
-      <Footer />
-      <GlobalAudioPlayer />
-      <SiteTools />
-    </>
+    <SiteShell mainClassName="flex-auto min-w-0 flex flex-col pb-20" showFooter>
+      {children}
+    </SiteShell>
   );
 }
 

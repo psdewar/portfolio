@@ -547,3 +547,75 @@ table {
   animation: glow-rotate 6s linear infinite;
   pointer-events: none;
 }
+
+@keyframes cover-slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes cover-slide-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes cover-slide-out-to-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes cover-slide-out-to-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.animate-cover-in-right {
+  animation: cover-slide-in-from-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-cover-in-left {
+  animation: cover-slide-in-from-left 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-cover-out-left {
+  animation: cover-slide-out-to-left 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-cover-out-right {
+  animation: cover-slide-out-to-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-cover-in-right,
+  .animate-cover-in-left,
+  .animate-cover-out-left,
+  .animate-cover-out-right {
+    animation-duration: 1ms;
+  }
+}
+
+@keyframes streaming-link-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-streaming-in {
+  animation: streaming-link-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-streaming-in {
+    animation-duration: 1ms;
+  }
+}

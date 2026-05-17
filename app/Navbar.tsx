@@ -15,6 +15,7 @@ export function Navbar() {
     { href: "/support", label: "Support" },
     { href: "/listen", label: "Listen" },
     { href: "/live", label: "Live" },
+    { href: "/rsvp", label: "From The Ground Up" },
   ];
 
   const isActive = (href: string) => {

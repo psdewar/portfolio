@@ -28,6 +28,7 @@ export function useLiveStatus({ enabled = true }: UseLiveStatusOptions = {}) {
 
     let eventSource: EventSource | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
+    const loadingFallback = setTimeout(() => setIsLoading(false), 3500);
 
     const connect = () => {
       eventSource = new EventSource(`${RIFF_URL}/stream`);
@@ -48,8 +49,8 @@ export function useLiveStatus({ enabled = true }: UseLiveStatusOptions = {}) {
 
       eventSource.onerror = () => {
         setConnected(false);
+        setIsLoading(false);
         eventSource?.close();
-        // Reconnect after 3 seconds
         reconnectTimer = setTimeout(connect, 3000);
       };
     };
@@ -58,6 +59,7 @@ export function useLiveStatus({ enabled = true }: UseLiveStatusOptions = {}) {
 
     return () => {
       eventSource?.close();
+      clearTimeout(loadingFallback);
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, [enabled]);

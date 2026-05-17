@@ -28,25 +28,19 @@ interface AudioState {
   duration: number;
   volume: number;
   isLoading: boolean;
-  buffered: number; // 0–1 fraction of track downloaded
+  buffered: number;
   playlist: Track[];
-  currentIndex: number;
-  isShuffled: boolean;
-  repeatMode: "none" | "track" | "playlist";
-  analyser: AnalyserNode | null; // Added Analyser
+  analyser: AnalyserNode | null;
 }
 
 interface AudioContextType extends AudioState {
   play: () => Promise<void>;
   pause: () => void;
+  stop: () => void;
   toggle: () => void;
   seekTo: (time: number) => void;
   loadTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
   loadPlaylist: (tracks: Track[], startIndex?: number) => void;
-  nextTrack: () => void;
-  previousTrack: () => void;
-  toggleShuffle: () => void;
-  toggleRepeat: () => void;
   formatTime: (seconds: number) => string;
 }
 
@@ -63,7 +57,6 @@ let globalAudio: HTMLAudioElement | null = null;
 const getGlobalAudio = () => {
   if (!globalAudio && typeof window !== "undefined") {
     globalAudio = new Audio();
-    // "metadata" prevents speculative download — bytes only flow when the user presses play.
     globalAudio.preload = "metadata";
     globalAudio.crossOrigin = "anonymous";
   }
@@ -95,17 +88,13 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     isLoading: false,
     buffered: 0,
     playlist: [],
-    currentIndex: -1,
-    isShuffled: false,
-    repeatMode: "none",
     analyser: null,
   });
 
-  // Ref to track if we've already connected the Web Audio API to this element
   const isAudioSourceConnected = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const pendingReload = useRef(false);
 
-  // Initialize Web Audio API
   useEffect(() => {
     if (!audio || isAudioSourceConnected.current) return;
 
@@ -116,21 +105,27 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const audioCtx = new AudioCtx();
       audioCtxRef.current = audioCtx;
       const analyserNode = audioCtx.createAnalyser();
-      analyserNode.fftSize = 64; // Low resolution for "blocky" look
+      analyserNode.fftSize = 64;
 
-      // Create source and connect
       const source = audioCtx.createMediaElementSource(audio);
       source.connect(analyserNode);
       analyserNode.connect(audioCtx.destination);
 
       isAudioSourceConnected.current = true;
       setState((prev) => ({ ...prev, analyser: analyserNode }));
+
+      const resumeOnce = () => {
+        audioCtx.resume().catch(() => {});
+      };
+      const events: (keyof DocumentEventMap)[] = ["pointerdown", "touchend", "keydown"];
+      events.forEach((e) =>
+        document.addEventListener(e, resumeOnce, { once: true, capture: true, passive: true }),
+      );
     } catch (e) {
       console.error("Web Audio API setup failed", e);
     }
   }, [audio]);
 
-  // High-frequency time updates for precise lyrics sync
   useEffect(() => {
     if (!audio) return;
     let animationId: number;
@@ -145,7 +140,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
     };
 
-    // 'playing' fires when audio actually starts producing sound — 'play' fires on intent and lies.
     const handlePlaying = () => {
       setState((prev) => ({ ...prev, isPlaying: true, isLoading: false }));
       cancelAnimationFrame(animationId);
@@ -189,7 +183,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       setState((prev) => ({ ...prev, buffered: Math.min(1, end / audio.duration) }));
     };
 
-    // 404s emit 'error' async after play()'s promise has resolved — try/catch in play() can't catch.
     const handleError = () => {
       setState((prev) => ({ ...prev, isPlaying: false, isLoading: false, buffered: 0 }));
     };
@@ -203,7 +196,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     audio.addEventListener("progress", handleProgress);
     audio.addEventListener("error", handleError);
 
-    // Start tick loop if already playing
     if (!audio.paused) {
       animationId = requestAnimationFrame(tick);
     }
@@ -223,9 +215,12 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const play = useCallback(async () => {
     if (!audio || !audio.src) return;
-    // createMediaElementSource reroutes output through the graph; if the context is suspended, playback is silent.
     if (audioCtxRef.current?.state === "suspended") {
       audioCtxRef.current.resume();
+    }
+    if (pendingReload.current) {
+      pendingReload.current = false;
+      audio.load();
     }
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
@@ -238,7 +233,26 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const pause = useCallback(() => {
     if (!audio) return;
+    if (audio.readyState < 3) {
+      pendingReload.current = true;
+    }
     audio.pause();
+  }, [audio]);
+
+  const stop = useCallback(() => {
+    if (!audio) return;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    setState((prev) => ({
+      ...prev,
+      currentTrack: null,
+      loadingTrack: null,
+      isPlaying: false,
+      isLoading: false,
+      currentTime: 0,
+      buffered: 0,
+    }));
   }, [audio]);
 
   const toggle = useCallback(() => {
@@ -251,7 +265,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     (time: number) => {
       if (!audio) return;
       audio.currentTime = time;
-      // Update state immediately for visual feedback (especially when paused)
       setState((prev) => ({ ...prev, currentTime: time }));
     },
     [audio]
@@ -268,7 +281,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
 
-      // Sync src assignment keeps play() inside the user-gesture window (Safari).
       audio.src = buildAudioUrl(track.id);
       audio.currentTime = 0;
 
@@ -278,6 +290,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         loadingTrack: autoPlay ? track : null,
         isLoading: autoPlay,
         isPlaying: false,
+        currentTime: 0,
         duration: track.duration || 0,
         buffered: 0,
       }));
@@ -291,7 +304,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const loadPlaylist = useCallback(
     (tracks: Track[], startIndex = 0) => {
-      setState((prev) => ({ ...prev, playlist: tracks, currentIndex: startIndex }));
+      setState((prev) => ({ ...prev, playlist: tracks }));
       if (tracks[startIndex]) {
         loadTrack(tracks[startIndex], false);
       }
@@ -299,33 +312,11 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [loadTrack]
   );
 
-  const nextTrack = useCallback(() => {
-    if (state.playlist.length === 0) return;
-    const nextIndex = (state.currentIndex + 1) % state.playlist.length;
-    setState((prev) => ({ ...prev, currentIndex: nextIndex }));
-    loadTrack(state.playlist[nextIndex], true);
-  }, [state.playlist, state.currentIndex, loadTrack]);
-
-  const previousTrack = useCallback(() => {
-    if (state.playlist.length === 0) return;
-    const prevIndex = state.currentIndex === 0 ? state.playlist.length - 1 : state.currentIndex - 1;
-    setState((prev) => ({ ...prev, currentIndex: prevIndex }));
-    loadTrack(state.playlist[prevIndex], true);
-  }, [state.playlist, state.currentIndex, loadTrack]);
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
-
-  const toggleShuffle = () => setState((prev) => ({ ...prev, isShuffled: !prev.isShuffled }));
-  const toggleRepeat = () =>
-    setState((prev) => ({
-      ...prev,
-      repeatMode:
-        prev.repeatMode === "none" ? "track" : prev.repeatMode === "track" ? "playlist" : "none",
-    }));
 
   return (
     <AudioContext.Provider
@@ -333,14 +324,11 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         ...state,
         play,
         pause,
+        stop,
         toggle,
         seekTo,
         loadTrack,
         loadPlaylist,
-        nextTrack,
-        previousTrack,
-        toggleShuffle,
-        toggleRepeat,
         formatTime,
       }}
     >

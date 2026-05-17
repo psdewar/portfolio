@@ -1,262 +1,217 @@
 "use client";
-import React, { MouseEvent, TouchEvent, useState, useRef, useCallback } from "react";
-import Image from "next/image";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   PlayIcon,
   PauseIcon,
-  ChatTextIcon,
   ArrowRightIcon,
-  CircleNotchIcon,
+  CaretUpIcon,
+  CopyrightIcon,
 } from "@phosphor-icons/react";
+import { TRACK_DATA } from "../data/tracks";
+import { getCurrentLyric, isCtaLyric, type LyricLine } from "../lib/lyrics";
 
-// Parsed lyrics data - imported at build time from SRT files
-// Format: { start: seconds, end: seconds, text: string, isCTA?: boolean }
-import patienceLyrics from "../../data/lyrics/patience.json";
+const RIGHT_CELL_CLASSES =
+  "group-hover/right:bg-neutral-300 dark:group-hover/right:bg-neutral-700 group-active/right:bg-neutral-400 dark:group-active/right:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
 
-type LyricLine = { start: number; end: number; text: string; isCTA?: boolean };
-const LYRICS_DATA: Record<string, LyricLine[]> = {
-  patience: patienceLyrics as LyricLine[],
+const LyricView: React.FC<{ lyric?: LyricLine; variant: "mobile" | "desktop" }> = ({
+  lyric,
+  variant,
+}) => {
+  if (isCtaLyric(lyric)) {
+    const fontSize = variant === "mobile" ? "text-[14px]" : "text-[15px]";
+    return (
+      <Link
+        href="/shop"
+        onClick={(e) => e.stopPropagation()}
+        className={`pointer-events-auto inline-flex items-center gap-1.5 ${fontSize} font-medium text-orange-500 hover:text-pink-500 transition-colors`}
+      >
+        Get full lyrics
+        <ArrowRightIcon size={14} weight="bold" />
+      </Link>
+    );
+  }
+  if (variant === "mobile") {
+    return (
+      <p className="text-[14px] font-medium text-neutral-800 dark:text-white/85 text-center leading-tight max-h-[36px] overflow-hidden">
+        {lyric?.text || ""}
+      </p>
+    );
+  }
+  return (
+    <p className="text-[15px] font-medium text-neutral-800 dark:text-white/85 truncate text-center max-w-[55%]">
+      {lyric?.text || ""}
+    </p>
+  );
 };
-
-const CTA_MARKER = "[GET FULL LYRICS]";
 
 export const GlobalAudioPlayer: React.FC = () => {
   const pathname = usePathname() ?? "/";
-  const [showLyrics, setShowLyrics] = useState(true);
-  const { currentTrack, isPlaying, currentTime, duration, isLoading, toggle, seekTo, formatTime } =
-    useAudio();
-  const progressRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const {
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    buffered,
+    isLoading,
+    toggle,
+    seekTo,
+    formatTime,
+  } = useAudio();
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const [scrubX, setScrubX] = useState<number | null>(null);
-
-  const getPercentFromX = useCallback((clientX: number) => {
-    const rect = progressRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e: globalThis.MouseEvent) => {
-      const pct = getPercentFromX(e.clientX);
-      if (pct !== null) {
-        setScrubX(pct);
-        seekTo(pct * duration);
-      }
-    },
-    [getPercentFromX, seekTo, duration],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsScrubbing(false);
-    setScrubX(null);
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-  }, [handleMouseMove]);
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
   const isQuickShop = pathname === "/shop/quick";
-  if (!currentTrack || isHirePage || isFundPage || isQuickShop) return null;
+  const isOverlayOpen = !!searchParams?.get("play");
+
+  if (!currentTrack || isHirePage || isFundPage || isQuickShop || isOverlayOpen) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const lyrics = LYRICS_DATA[currentTrack.id] || [];
-  const LYRICS_OFFSET = 0.3;
-  const adjustedTime = currentTime + LYRICS_OFFSET;
-  const currentLyric = lyrics.find((l) => adjustedTime >= l.start && adjustedTime < l.end);
-  const hasLyrics = lyrics.length > 0;
-  const isCtaLyric = currentLyric?.text.includes(CTA_MARKER) || currentLyric?.text === "...";
+  const trackData = TRACK_DATA.find((t) => t.id === currentTrack.id);
+  const releaseYear = trackData?.releaseDate?.slice(0, 4);
+  const label = trackData?.label;
 
-  const handleProgressClick = (e: MouseEvent<HTMLDivElement>) => {
-    const pct = getPercentFromX(e.clientX);
-    if (pct !== null) seekTo(pct * duration);
+  const currentLyric = getCurrentLyric(currentTrack.id, currentTime, 0.3);
+
+  const handleScrub = (clientX: number, target: HTMLElement) => {
+    if (!duration) return;
+    const rect = target.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    seekTo(pct * duration);
   };
 
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    setIsScrubbing(true);
-    const pct = getPercentFromX(e.clientX);
-    if (pct !== null) {
-      setScrubX(pct);
-      seekTo(pct * duration);
-    }
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+  const openOverlay = () => {
+    router.push(`/listen?play=${currentTrack.id}`);
   };
-
-  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
-    setIsScrubbing(true);
-    const touch = e.touches[0];
-    const pct = getPercentFromX(touch.clientX);
-    if (pct !== null) {
-      setScrubX(pct);
-      seekTo(pct * duration);
-    }
-  };
-
-  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    const pct = getPercentFromX(touch.clientX);
-    if (pct !== null) {
-      setScrubX(pct);
-      seekTo(pct * duration);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsScrubbing(false);
-    setScrubX(null);
-  };
-
-  const thumbPosition = scrubX !== null ? scrubX * 100 : progressPercentage;
-  // Interpolate gradient color: orange-500 (#f97316) -> pink-500 (#ec4899)
-  const t = thumbPosition / 100;
-  const thumbColor = `rgb(${Math.round(249 + (236 - 249) * t)}, ${Math.round(115 + (72 - 115) * t)}, ${Math.round(22 + (153 - 22) * t)})`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[60] safe-area-inset-bottom">
-      {/* Main player */}
-      <div className="bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800">
-        {/* Progress bar with expanded hit area extending upward */}
+    <div className="fixed bottom-0 left-0 right-0 z-[60] sm:px-6 lg:px-8 pointer-events-none">
+      <div
+        className="max-w-7xl mx-auto pointer-events-auto bg-neutral-200 dark:bg-neutral-800 border-t sm:border-x border-neutral-300 dark:border-neutral-700"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+      <button
+        type="button"
+        aria-label="Seek"
+        onPointerDown={(e) => {
+          if (!duration) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          setIsScrubbing(true);
+          handleScrub(e.clientX, e.currentTarget);
+        }}
+        onPointerMove={(e) => {
+          if (!isScrubbing) return;
+          handleScrub(e.clientX, e.currentTarget);
+        }}
+        onPointerUp={(e) => {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+          setIsScrubbing(false);
+        }}
+        onPointerCancel={(e) => {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+          setIsScrubbing(false);
+        }}
+        className={`flex flex-col justify-center w-full px-4 py-1.5 sm:py-1 cursor-pointer touch-none group/scrub border-b border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${isLoading ? "animate-pulse" : ""}`}
+      >
         <div
-          ref={progressRef}
-          className="relative h-1.5 cursor-pointer group"
-          onClick={handleProgressClick}
-          onMouseDown={handleMouseDown}
-          onMouseEnter={() => setScrubX(progressPercentage / 100)}
-          onMouseLeave={() => {
-            if (!isScrubbing) setScrubX(null);
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className={`relative w-full bg-black/10 dark:bg-white/10 overflow-hidden transition-all rounded-full ${
+            isScrubbing ? "h-3" : "h-1"
+          }`}
         >
-          {/* Invisible expanded touch target */}
-          <div className="absolute -top-3 left-0 right-0 bottom-0" />
-          {/* Visible bar */}
-          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700">
-            <div
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-500 to-pink-500"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-          {/* Circular thumb - vertically centered on the bar */}
           <div
-            className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-md shadow-black/20 pointer-events-none transition-opacity duration-150 ${
-              scrubX !== null ? "opacity-100 scale-100" : "opacity-0 scale-75"
-            }`}
-            style={{ left: `${thumbPosition}%`, marginLeft: "-8px", backgroundColor: thumbColor }}
+            className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/25 rounded-full"
+            style={{ width: `${buffered * 100}%` }}
+          />
+          <div
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full"
+            style={{ width: `${progressPercentage}%` }}
           />
         </div>
+        <div className="flex items-center justify-between gap-3 text-neutral-500 dark:text-white/55 text-[10px] leading-none mt-1.5">
+          <span className="tabular-nums shrink-0">{formatTime(currentTime || 0)}</span>
+          {label && (
+            <span className="inline-flex items-center gap-1 min-w-0">
+              <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
+              <span className="truncate">
+                {releaseYear} {label}
+              </span>
+            </span>
+          )}
+          <span className="tabular-nums shrink-0">{formatTime(duration || 0)}</span>
+        </div>
+      </button>
 
-        <div
-          className="px-3 sm:px-4 cursor-pointer"
-          onClick={(e) => {
-            // Don't toggle if clicking on lyrics toggle button or progress bar
-            const target = e.target as HTMLElement;
-            if (target.closest("[data-no-toggle]")) return;
-            toggle();
-          }}
+      <div className="relative flex items-stretch border-b border-neutral-300 dark:border-neutral-700">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={isPlaying || isLoading ? "Pause" : "Play"}
+          className="flex items-stretch shrink-0 max-w-[40%] hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset group/play z-10"
         >
-          <div className="flex items-center gap-3">
-            {/* Left: Album art + title + time */}
-            <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-              {currentTrack.thumbnail && (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0 -ml-3 sm:-ml-4">
-                  <Image
-                    src={currentTrack.thumbnail}
-                    alt={currentTrack.title}
-                    width={56}
-                    height={56}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                  {currentTrack.title}
-                </div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </div>
-              </div>
-            </div>
-
-            {/* Center: Lyrics (desktop and mobile, inline) */}
-            {hasLyrics && showLyrics && (
-              <div className="flex-1 flex items-center justify-center min-w-0 px-2 sm:px-4">
-                {isCtaLyric ? (
-                  <Link
-                    href="/shop"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white text-xs sm:text-sm font-medium rounded-full transition-all hover:scale-105 flex-shrink-0"
-                  >
-                    Get full lyrics
-                    <ArrowRightIcon size={14} weight="bold" />
-                  </Link>
-                ) : (
-                  <p
-                    className={`text-neutral-700 dark:text-neutral-200 font-medium text-center leading-tight ${
-                      (currentLyric?.text?.length || 0) > 80
-                        ? "text-[10px] sm:text-xs"
-                        : (currentLyric?.text?.length || 0) > 60
-                          ? "text-[11px] sm:text-sm"
-                          : (currentLyric?.text?.length || 0) > 40
-                            ? "text-xs sm:text-base"
-                            : "text-sm sm:text-base md:text-lg"
-                    }`}
-                  >
-                    {currentLyric?.text || "♪"}
-                  </p>
-                )}
-              </div>
+          <span className="relative shrink-0 w-14 sm:w-12 h-14 sm:h-12 overflow-hidden">
+            {currentTrack.thumbnail && (
+              <img
+                src={currentTrack.thumbnail}
+                alt={currentTrack.title}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
             )}
-
-            {/* Spacer when lyrics hidden */}
-            {(!hasLyrics || !showLyrics) && <div className="flex-1" />}
-
-            {/* Right: Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Lyrics toggle */}
-              {hasLyrics && (
-                <button
-                  data-no-toggle
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowLyrics(!showLyrics);
-                  }}
-                  className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-colors ${
-                    showLyrics
-                      ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 dark:text-neutral-500"
-                  }`}
-                  aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
-                >
-                  <ChatTextIcon size={20} weight="regular" />
-                </button>
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/play:bg-black/55 group-active/play:bg-black/65 transition-colors text-white">
+              {isPlaying || isLoading ? (
+                <PauseIcon size={20} weight="fill" />
+              ) : (
+                <PlayIcon size={22} weight="fill" className="ml-px" />
               )}
+            </span>
+          </span>
+          <div className="self-center px-3 min-w-0 shrink">
+            <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate leading-tight text-left">
+              {currentTrack.title}
+            </p>
+            <p className="text-[11px] text-neutral-500 dark:text-white/55 truncate leading-tight text-left">
+              {currentTrack.artist}
+            </p>
+          </div>
+        </button>
 
-              {/* Play/pause button - square, flush to corner */}
-              <button
-                data-no-toggle
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggle();
-                }}
-                className="w-12 h-12 sm:w-14 sm:h-14 -mr-3 sm:-mr-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 transition-all duration-200 active:scale-95"
-                aria-label={isPlaying ? "Pause" : isLoading ? "Loading" : "Play"}
-              >
-                {isLoading ? (
-                  <CircleNotchIcon size={22} weight="bold" className="animate-spin" />
-                ) : isPlaying ? (
-                  <PauseIcon size={20} weight="fill" />
-                ) : (
-                  <PlayIcon size={20} weight="fill" className="ml-0.5" />
-                )}
-              </button>
+        <div className="flex flex-1 items-stretch min-w-0 group/right">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openOverlay}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                openOverlay();
+              }
+            }}
+            aria-label="Open track view"
+            className={`flex flex-1 items-center justify-center min-w-0 px-3 ${currentLyric ? "border-l border-neutral-300 dark:border-neutral-700" : ""} ${RIGHT_CELL_CLASSES}`}
+          >
+            <div className="sm:hidden flex items-center justify-center w-full">
+              <LyricView lyric={currentLyric} variant="mobile" />
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={openOverlay}
+            aria-label="Open track view"
+            className={`w-14 sm:w-12 h-14 sm:h-12 shrink-0 flex items-center justify-center text-neutral-900 dark:text-white z-10 ${RIGHT_CELL_CLASSES}`}
+          >
+            <CaretUpIcon size={20} weight="bold" />
+          </button>
         </div>
+
+        <div className="hidden sm:flex absolute inset-0 items-center justify-center pointer-events-none px-3">
+          <LyricView lyric={currentLyric} variant="desktop" />
+        </div>
+      </div>
       </div>
     </div>
   );

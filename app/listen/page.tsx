@@ -1,15 +1,13 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
-  MicrophoneStageIcon,
   WaveformIcon,
   LockSimpleIcon,
   DownloadSimpleIcon,
 } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
-import { ArrowIcon } from "app/ArrowIcon";
 import BlockVisualizer from "app/components/BlockVisualizer";
 import SingleOverlay from "app/components/SingleOverlay";
 import { useAudio } from "../contexts/AudioContext";
@@ -69,7 +67,6 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-// Welcome Pack tracks
 const PATRON_TRACKS: TrackCard[] = [
   {
     id: "so-good",
@@ -83,7 +80,6 @@ const PATRON_TRACKS: TrackCard[] = [
   },
 ];
 
-// Tracks awaiting artwork
 const ARTWORK_PENDING = new Set(["crg-freestyle", "so-good"]);
 const WELCOME_PACK_IDS = new Set(PATRON_TRACKS.map((t) => t.id));
 
@@ -101,14 +97,15 @@ export default function Page() {
     currentTrack,
     loadingTrack,
     isPlaying,
-    isLoading,
     toggle,
+    stop,
     playlist,
   } = useAudio();
   const isSimulatingLoad = useSimulatedLoading();
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
   const [patronWelcome, setPatronWelcome] = useState(false);
   const [patronEmail, setPatronEmail] = useState<string | null>(null);
   const toast = useToast();
@@ -117,7 +114,6 @@ export default function Page() {
     setPatronEmail(localStorage.getItem("patronEmail"));
   }, []);
 
-  // Success toast (read URL once on mount, cleared by replaceState)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const success = params.get("success");
@@ -143,10 +139,8 @@ export default function Page() {
     window.history.replaceState({}, "", "/listen");
   }, [toast]);
 
-  // All tracks visible - playback gated by patron status
   const visibleTracks = ALL_VISIBLE_TRACKS;
 
-  // Check sessionStorage client-side to avoid hydration mismatch
   useEffect(() => {
     if (shouldShowStayConnected()) {
       setShowStayConnected(true);
@@ -155,7 +149,6 @@ export default function Page() {
   const [playParam, setPlayParam] = useState<string | null>(null);
   const hasHandledAutoPlay = useRef(false);
 
-  // Initial Playlist Load - skip if a track is already loading or loaded to avoid race condition
   useEffect(() => {
     if (playlist.length === 0 && !currentTrack && !loadingTrack) {
       const urlParams = new URLSearchParams(window.location.search);
@@ -179,12 +172,10 @@ export default function Page() {
     }
   }, [loadPlaylist, playlist.length, currentTrack, loadingTrack]);
 
-  // Read URL param
+  const searchParams = useSearchParams();
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const urlParams = new URLSearchParams(window.location.search);
-    setPlayParam(urlParams.get("play"));
-  }, []);
+    setPlayParam(searchParams?.get("play") ?? null);
+  }, [searchParams]);
 
   const handlePlayTrack = useCallback(
     async (trackId: string, forcePlay = false) => {
@@ -217,19 +208,48 @@ export default function Page() {
     [currentTrack?.id, isPlaying, toggle, loadTrack],
   );
 
-  // AUTO-PLAY LOGIC
   useEffect(() => {
     if (!playParam || hasHandledAutoPlay.current) return;
+    hasHandledAutoPlay.current = true;
+
+    if (currentTrack?.id === playParam) return;
 
     if (PLAYABLE_TRACK_IDS.has(playParam)) {
       void handlePlayTrack(playParam, true);
-      hasHandledAutoPlay.current = true;
     }
-  }, [playParam, handlePlayTrack]);
+  }, [playParam, handlePlayTrack, currentTrack]);
 
   const overlayTrack = playParam ? ALL_TRACKS.find((t) => t.id === playParam) : undefined;
+  const overlayIndex = playParam ? visibleTracks.findIndex((t) => t.id === playParam) : -1;
+  const trackCount = visibleTracks.length;
+  const prevTrack =
+    overlayIndex >= 0 && trackCount > 1
+      ? visibleTracks[(overlayIndex - 1 + trackCount) % trackCount]
+      : undefined;
+  const nextTrack =
+    overlayIndex >= 0 && trackCount > 1
+      ? visibleTracks[(overlayIndex + 1) % trackCount]
+      : undefined;
+  const prevTrackId = prevTrack?.id;
+  const nextTrackId = nextTrack?.id;
 
-  // Show skeleton while simulating slow network (dev only)
+  const openTrackOverlay = useCallback(
+    (trackId: string) => {
+      window.history.pushState({}, "", `/listen?play=${trackId}`);
+      hasHandledAutoPlay.current = true;
+      setPlayParam(trackId);
+      const isHosted = PLAYABLE_TRACK_IDS.has(trackId);
+      const isPatronOnly = isPatronTrack(trackId);
+      const allowed = isHosted && (isPatron || !isPatronOnly);
+      if (allowed) {
+        void handlePlayTrack(trackId, true);
+      } else if (isPatronOnly && !isPatron) {
+        stop();
+      }
+    },
+    [handlePlayTrack, isPatron, stop],
+  );
+
   if (isSimulatingLoad) {
     return <ListenLoading />;
   }
@@ -242,203 +262,142 @@ export default function Page() {
         </div>
       )}
 
-      <div className="animate-fade-in">
-        {overlayTrack && (
-          <SingleOverlay
-            trackId={overlayTrack.id}
-            coverSrc={overlayTrack.src}
-            href={overlayTrack.href}
-            onClose={() => {
-              window.history.replaceState({}, document.title, window.location.pathname);
-              setPlayParam(null);
-              setShowStayConnected(false);
-            }}
-          />
-        )}
+      {overlayTrack && (
+        <SingleOverlay
+          trackId={overlayTrack.id}
+          coverSrc={overlayTrack.src}
+          href={overlayTrack.href}
+          artworkPending={ARTWORK_PENDING.has(overlayTrack.id)}
+          prevCoverSrc={prevTrack?.src}
+          nextCoverSrc={nextTrack?.src}
+          onPrev={prevTrackId ? () => openTrackOverlay(prevTrackId) : undefined}
+          onNext={nextTrackId ? () => openTrackOverlay(nextTrackId) : undefined}
+          onClose={() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setPlayParam(null);
+            setShowStayConnected(false);
+          }}
+        />
+      )}
 
-        {isPatron && (
-          <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className="font-bebas text-2xl text-white">Your Exclusive Content</h2>
-                {patronEmail ? (
-                  <a
-                    href={`/api/stripe-portal?email=${encodeURIComponent(patronEmail)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
-                  >
-                    Manage subscription
-                  </a>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const email = prompt("Enter the email you used to subscribe:");
-                      if (!email) return;
-                      localStorage.setItem("patronEmail", email);
-                      setPatronEmail(email);
-                      window.open(
-                        `/api/stripe-portal?email=${encodeURIComponent(email)}`,
-                        "_blank",
-                        "noopener,noreferrer",
-                      );
-                    }}
-                    className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
-                  >
-                    Manage subscription
-                  </button>
-                )}
-              </div>
-              <a
-                href="/api/download/pack?file=singles-16s-2025"
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors"
-              >
-                <DownloadSimpleIcon size={20} weight="bold" />
-                Download Singles & 16s Pack
-              </a>
+      {isPatron && (
+        <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="font-bebas text-2xl text-white">Your Exclusive Content</h2>
+              {patronEmail ? (
+                <a
+                  href={`/api/stripe-portal?email=${encodeURIComponent(patronEmail)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
+                >
+                  Manage subscription
+                </a>
+              ) : (
+                <button
+                  onClick={() => {
+                    const email = prompt("Enter the email you used to subscribe:");
+                    if (!email) return;
+                    localStorage.setItem("patronEmail", email);
+                    setPatronEmail(email);
+                    window.open(
+                      `/api/stripe-portal?email=${encodeURIComponent(email)}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
+                  }}
+                  className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
+                >
+                  Manage subscription
+                </button>
+              )}
             </div>
+            <a
+              href="/api/download/pack?file=singles-16s-2025"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors"
+            >
+              <DownloadSimpleIcon size={20} weight="bold" />
+              Download Singles & 16s Pack
+            </a>
           </div>
-        )}
-
-        <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {visibleTracks.map((t) => {
-            const trackData = TRACK_DATA.find((td) => td.id === t.id);
-            const isHosted = (trackData?.source ?? "hosted") === "hosted";
-            const isCurrent = currentTrack?.id === t.id;
-            const isLoadingThis = loadingTrack?.id === t.id;
-            const isPatronOnly = isPatronTrack(t.id);
-            const canPlay =
-              isHosted && PLAYABLE_TRACK_IDS.has(t.id) && (isPatron || !isPatronOnly);
-
-            const handleTileClick = () => {
-              if (canPlay) {
-                handlePlayTrack(t.id);
-              } else {
-                window.history.pushState({}, "", `/listen?play=${t.id}`);
-                setPlayParam(t.id);
-              }
-            };
-
-            return (
-              <div
-                key={t.id}
-                className={`relative overflow-hidden aspect-square group cursor-pointer${
-                  patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
-                }`}
-                onClick={handleTileClick}
-              >
-                {brokenImages.has(t.id) ? (
-                  <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
-                    <WaveformIcon size={48} weight="light" className="text-neutral-600" />
-                  </div>
-                ) : (
-                  <Image
-                    alt={t.title}
-                    src={t.src}
-                    fill
-                    className="object-cover absolute inset-0"
-                    loading="lazy"
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
-                  />
-                )}
-
-                {brokenImages.has(t.id) && (
-                  <div className="absolute bottom-2 right-2 z-10">
-                    <span className="text-sm font-medium text-white/80">{t.title}</span>
-                  </div>
-                )}
-
-                {ARTWORK_PENDING.has(t.id) && (
-                  <div className="absolute bottom-2 left-2 z-10">
-                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
-                      Early Listen
-                    </span>
-                  </div>
-                )}
-
-                {canPlay && isCurrent && !isLoadingThis && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <BlockVisualizer />
-                  </div>
-                )}
-
-                {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
-                  <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
-                    <LockSimpleIcon
-                      size={64}
-                      weight="bold"
-                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
-                    />
-                    <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
-                      Unlocking
-                    </span>
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center p-4">
-                  <div className="w-full flex flex-col gap-2">
-                    {canPlay && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlayTrack(t.id);
-                        }}
-                        disabled={isLoadingThis}
-                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-600 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                      >
-                        {isLoadingThis ? (
-                          <>
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              />
-                            </svg>
-                            Loading
-                          </>
-                        ) : isCurrent && isPlaying ? (
-                          "Pause"
-                        ) : (
-                          "Play"
-                        )}
-                      </button>
-                    )}
-                    {isPatronOnly && !isPatron && (
-                      <Link
-                        href="/support#supporter"
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                      >
-                        <MicrophoneStageIcon size={18} weight="regular" />
-                        Play
-                      </Link>
-                    )}
-                    {t.href && (
-                      <Link
-                        href={t.href}
-                        target="_blank"
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full py-2 bg-white/90 text-black rounded font-medium shadow-lg flex items-center justify-center gap-2"
-                      >
-                        Stream <ArrowIcon />
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
+      )}
+
+      <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {visibleTracks.map((t) => {
+          const isCurrent = currentTrack?.id === t.id;
+          const isLoadingThis = loadingTrack?.id === t.id;
+
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                setSuppressHoverId(t.id);
+                openTrackOverlay(t.id);
+              }}
+              onPointerLeave={() => {
+                if (suppressHoverId === t.id) setSuppressHoverId(null);
+              }}
+              aria-label={`Open ${t.title}`}
+              className={`relative aspect-square overflow-hidden cursor-pointer text-left transition-transform duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset${
+                suppressHoverId === t.id ? "" : " hover:scale-[1.05] hover:z-[70]"
+              }${
+                patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
+              }`}
+            >
+              {brokenImages.has(t.id) ? (
+                <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
+                  <WaveformIcon size={48} weight="light" className="text-neutral-600" />
+                </div>
+              ) : (
+                <Image
+                  alt={t.title}
+                  src={t.src}
+                  fill
+                  className="object-cover absolute inset-0"
+                  loading="lazy"
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
+                />
+              )}
+
+              {brokenImages.has(t.id) && (
+                <div className="absolute bottom-2 right-2 z-10">
+                  <span className="text-sm font-medium text-white/80">{t.title}</span>
+                </div>
+              )}
+
+              {ARTWORK_PENDING.has(t.id) && (
+                <div className="absolute bottom-2 left-2 z-10">
+                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
+                    Early Listen
+                  </span>
+                </div>
+              )}
+
+              {isCurrent && !isLoadingThis && (
+                <div className="absolute top-2 right-2 z-10">
+                  <BlockVisualizer />
+                </div>
+              )}
+
+              {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
+                <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
+                  <LockSimpleIcon
+                    size={64}
+                    weight="bold"
+                    className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                  />
+                  <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
+                    Unlocking
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </>
   );
