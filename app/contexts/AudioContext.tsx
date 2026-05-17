@@ -42,6 +42,7 @@ interface AudioContextType extends AudioState {
   loadTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
   loadPlaylist: (tracks: Track[], startIndex?: number) => void;
   formatTime: (seconds: number) => string;
+  getLyricTime: () => number;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -94,6 +95,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const isAudioSourceConnected = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const pendingReload = useRef(false);
+  const pendingSeek = useRef<number | null>(null);
 
   useEffect(() => {
     if (!audio || isAudioSourceConnected.current) return;
@@ -166,6 +168,10 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handleLoadedMetadata = () => {
+      if (pendingSeek.current !== null) {
+        audio.currentTime = pendingSeek.current;
+        pendingSeek.current = null;
+      }
       setState((prev) => ({
         ...prev,
         duration: audio.duration || prev.duration,
@@ -264,11 +270,22 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const seekTo = useCallback(
     (time: number) => {
       if (!audio) return;
-      audio.currentTime = time;
+      if (audio.readyState < 1) {
+        pendingSeek.current = time;
+      } else {
+        audio.currentTime = time;
+      }
       setState((prev) => ({ ...prev, currentTime: time }));
     },
     [audio]
   );
+
+  const getLyricTime = useCallback(() => {
+    if (!audio) return 0;
+    const ctx = audioCtxRef.current;
+    const latency = (ctx?.baseLatency ?? 0) + (ctx?.outputLatency ?? 0);
+    return audio.currentTime + latency;
+  }, [audio]);
 
   const loadTrack = useCallback(
     async (track: Track, autoPlay = false) => {
@@ -281,6 +298,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
 
+      pendingSeek.current = null;
       audio.src = buildAudioUrl(track.id);
       audio.currentTime = 0;
 
@@ -330,6 +348,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         loadTrack,
         loadPlaylist,
         formatTime,
+        getLyricTime,
       }}
     >
       {children}

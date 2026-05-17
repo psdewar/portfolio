@@ -83,6 +83,7 @@ export default function SingleOverlay({
     toggle,
     seekTo,
     formatTime,
+    getLyricTime,
   } = useAudio();
   const isPatron = usePatronStatus();
 
@@ -470,7 +471,7 @@ export default function SingleOverlay({
             <span className="flex-1 flex items-center px-4 min-w-0 text-left">
               {(() => {
                 const lyricsData = getLyrics(trackId);
-                const line = getCurrentLyric(trackId, currentTime || 0)?.text ?? "";
+                const line = getCurrentLyric(trackId, getLyricTime())?.text ?? "";
                 if (line) {
                   return (
                     <span className="text-neutral-800 dark:text-white/85 text-[15px] font-medium truncate">

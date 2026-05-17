@@ -61,6 +61,7 @@ export const GlobalAudioPlayer: React.FC = () => {
     toggle,
     seekTo,
     formatTime,
+    getLyricTime,
   } = useAudio();
   const [isScrubbing, setIsScrubbing] = useState(false);
 
@@ -76,7 +77,7 @@ export const GlobalAudioPlayer: React.FC = () => {
   const releaseYear = trackData?.releaseDate?.slice(0, 4);
   const label = trackData?.label;
 
-  const currentLyric = getCurrentLyric(currentTrack.id, currentTime, 0.3);
+  const currentLyric = getCurrentLyric(currentTrack.id, getLyricTime());
 
   const handleScrub = (clientX: number, target: HTMLElement) => {
     if (!duration) return;

@@ -3,6 +3,7 @@ import patienceLyrics from "../../data/lyrics/patience.json";
 export type LyricLine = { start: number; end: number; text: string; isCTA?: boolean };
 
 export const CTA_MARKER = "[GET FULL LYRICS]";
+export const LYRIC_LOOKAHEAD = 0.3;
 
 const LYRICS_DATA: Record<string, LyricLine[]> = {
   patience: patienceLyrics as LyricLine[],
@@ -13,7 +14,7 @@ export const getLyrics = (trackId: string): LyricLine[] | undefined => LYRICS_DA
 export const getCurrentLyric = (
   trackId: string,
   currentTime: number,
-  offset = 0,
+  offset = LYRIC_LOOKAHEAD,
 ): LyricLine | undefined => {
   const lines = LYRICS_DATA[trackId];
   if (!lines) return undefined;
