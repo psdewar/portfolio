@@ -46,7 +46,7 @@ function OverlayManager() {
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { loadTrack, setPlaylist, playlist } = useAudio();
+  const { loadTrack, setPlaylist, pause } = useAudio();
   const isPatron = usePatronStatus();
 
   const overlayTrackId = searchParams?.get("play") ?? null;
@@ -81,7 +81,10 @@ function OverlayManager() {
     if (!overlayTrackData) return;
     const isHosted = (overlayTrackData.source ?? "hosted") === "hosted";
     const isGated = isPatronTrack(overlayTrackData.id) && !isPatron;
-    if (!isHosted || isGated) return;
+    if (!isHosted || isGated) {
+      pause();
+      return;
+    }
     loadTrack(
       {
         id: overlayTrackData.id,
@@ -93,7 +96,7 @@ function OverlayManager() {
       },
       true,
     );
-  }, [overlayTrackId, isPatron, loadTrack]);
+  }, [overlayTrackId, isPatron, loadTrack, pause]);
 
   if (!overlayTrackData || isOgMode || isAdminPage) return null;
 
@@ -117,6 +120,8 @@ function OverlayManager() {
       artworkPending={overlayTrackData.artworkPending}
       prevCoverSrc={prevTrackData?.thumbnail}
       nextCoverSrc={nextTrackData?.thumbnail}
+      prevArtworkPending={prevTrackData?.artworkPending}
+      nextArtworkPending={nextTrackData?.artworkPending}
       onPrev={hasPrevNext && prevTrackData ? () => openOverlayTrack(prevTrackData.id) : undefined}
       onNext={hasPrevNext && nextTrackData ? () => openOverlayTrack(nextTrackData.id) : undefined}
       onClose={closeOverlay}

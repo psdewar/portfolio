@@ -47,19 +47,16 @@ interface Props {
   artworkPending?: boolean;
   prevCoverSrc?: string;
   nextCoverSrc?: string;
+  prevArtworkPending?: boolean;
+  nextArtworkPending?: boolean;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
 }
 
-const SWIPE_MIN_DISTANCE = 60;
-const SWIPE_MIN_VELOCITY = 0.3;
-const SWIPE_HORIZONTAL_RATIO = 1.5;
-
 const ROW_HOVER =
   "hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
 const ICON_BTN = `w-12 h-12 flex items-center justify-center shrink-0 text-neutral-900 dark:text-white ${ROW_HOVER}`;
-
 
 export default function SingleOverlay({
   trackId,
@@ -68,6 +65,8 @@ export default function SingleOverlay({
   artworkPending,
   prevCoverSrc,
   nextCoverSrc,
+  prevArtworkPending,
+  nextArtworkPending,
   onClose,
   onPrev,
   onNext,
@@ -104,6 +103,28 @@ export default function SingleOverlay({
   const currentLine = getCurrentLyric(trackId, getLyricTime())?.text;
   const isLoadingCurrent = isLoading && isCurrent;
 
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [isSnapping, setIsSnapping] = useState(false);
+
+  const coverRef = useRef<HTMLDivElement>(null);
+  const isDraggingCover = useRef(false);
+  const dragLocked = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragLockTimeRef = useRef(0);
+  const frozenAdjacent = useRef<{ src: string; dir: "next" | "prev"; snapping: boolean; coverReady: boolean; artworkPending?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!frozenAdjacent.current) return;
+    if (frozenAdjacent.current.snapping) {
+      frozenAdjacent.current.coverReady = true;
+    } else {
+      frozenAdjacent.current = null;
+    }
+  }, [coverSrc]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     [prevCoverSrc, nextCoverSrc].forEach((src) => {
@@ -113,41 +134,58 @@ export default function SingleOverlay({
     });
   }, [prevCoverSrc, nextCoverSrc]);
 
-  const [isScrubbing, setIsScrubbing] = useState(false);
-
-  const [outgoing, setOutgoing] = useState<{
-    src: string;
-    dir: "next" | "prev";
-    isPlaceholder: boolean;
-  } | null>(null);
-  const outgoingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const startSlide = useCallback(
-    (dir: "next" | "prev", run: () => void) => {
-      if (outgoingTimer.current) clearTimeout(outgoingTimer.current);
-      setOutgoing({ src: coverSrc, dir, isPlaceholder: !!artworkPending });
-      outgoingTimer.current = setTimeout(() => setOutgoing(null), 340);
-      run();
-    },
-    [coverSrc, artworkPending],
-  );
-
-  const triggerNext = useCallback(() => {
-    if (!onNext) return;
-    startSlide("next", onNext);
-  }, [onNext, startSlide]);
-
-  const triggerPrev = useCallback(() => {
-    if (!onPrev) return;
-    startSlide("prev", onPrev);
-  }, [onPrev, startSlide]);
-
   useEffect(
     () => () => {
-      if (outgoingTimer.current) clearTimeout(outgoingTimer.current);
+      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     },
     [],
   );
+
+  const coverTransition = isSnapping ? "transform 300ms ease-out" : "none";
+
+  const frozen = frozenAdjacent.current;
+  const leftSrc = frozen?.dir === "prev" ? frozen.src : prevCoverSrc;
+  const rightSrc = frozen?.dir === "next" ? frozen.src : nextCoverSrc;
+  const leftArtworkPending = frozen?.dir === "prev" ? frozen.artworkPending : prevArtworkPending;
+  const rightArtworkPending = frozen?.dir === "next" ? frozen.artworkPending : nextArtworkPending;
+  const displaySrc = dragX === 0 && frozen?.src ? frozen.src : coverSrc;
+  const showPlaceholder = !displaySrc || !!artworkPending || (dragX === 0 && !!frozen?.artworkPending);
+
+  const snapTo = useCallback((targetX: number, action?: () => void) => {
+    if (frozenAdjacent.current) {
+      frozenAdjacent.current.snapping = true;
+      frozenAdjacent.current.coverReady = false;
+    }
+    setIsSnapping(true);
+    setDragX(targetX);
+    action?.();
+    if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = setTimeout(() => {
+      if (frozenAdjacent.current) {
+        if (frozenAdjacent.current.coverReady) {
+          frozenAdjacent.current = null;
+        } else {
+          frozenAdjacent.current.snapping = false;
+        }
+      }
+      setDragX(0);
+      setIsSnapping(false);
+    }, 350);
+  }, []);
+
+  const triggerNext = useCallback(() => {
+    if (!onNext || isSnapping) return;
+    const w = coverRef.current?.clientWidth ?? 375;
+    if (nextCoverSrc) frozenAdjacent.current = { src: nextCoverSrc, dir: "next", snapping: false, coverReady: false, artworkPending: nextArtworkPending };
+    snapTo(-w, onNext);
+  }, [onNext, nextCoverSrc, nextArtworkPending, isSnapping, snapTo]);
+
+  const triggerPrev = useCallback(() => {
+    if (!onPrev || isSnapping) return;
+    const w = coverRef.current?.clientWidth ?? 375;
+    if (prevCoverSrc) frozenAdjacent.current = { src: prevCoverSrc, dir: "prev", snapping: false, coverReady: false, artworkPending: prevArtworkPending };
+    snapTo(w, onPrev);
+  }, [onPrev, prevCoverSrc, prevArtworkPending, isSnapping, snapTo]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -164,33 +202,6 @@ export default function SingleOverlay({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [onPrev, onNext, onClose, triggerPrev, triggerNext]);
-
-  const swipeStart = useRef<{ x: number; y: number; t: number } | null>(null);
-  const justSwiped = useRef(false);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch") return;
-    swipeStart.current = { x: e.clientX, y: e.clientY, t: performance.now() };
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    const start = swipeStart.current;
-    swipeStart.current = null;
-    if (!start || e.pointerType !== "touch") return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    const dt = Math.max(1, performance.now() - start.t);
-    if (Math.abs(dx) < Math.abs(dy) * SWIPE_HORIZONTAL_RATIO) return;
-    const passDistance = Math.abs(dx) >= SWIPE_MIN_DISTANCE;
-    const passVelocity = Math.abs(dx) / dt >= SWIPE_MIN_VELOCITY;
-    if (!passDistance && !passVelocity) return;
-    justSwiped.current = true;
-    setTimeout(() => {
-      justSwiped.current = false;
-    }, 350);
-    if (dx < 0) triggerNext();
-    else triggerPrev();
-  };
 
   const handleShare = async () => {
     if (!trackData) return;
@@ -210,7 +221,6 @@ export default function SingleOverlay({
   };
 
   const handlePlayToggle = () => {
-    if (justSwiped.current) return;
     if (isCurrent) {
       toggle();
       return;
@@ -227,6 +237,74 @@ export default function SingleOverlay({
       },
       true,
     );
+  };
+
+  const onCoverPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isSnapping) return;
+    isDraggingCover.current = true;
+    dragLocked.current = false;
+    dragStartX.current = e.clientX;
+    dragStartY.current = e.clientY;
+  };
+
+  const onCoverPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingCover.current) return;
+    const dx = e.clientX - dragStartX.current;
+    const dy = e.clientY - dragStartY.current;
+
+    if (!dragLocked.current) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Vertical — abort and let the browser handle pull-to-refresh / scroll
+        isDraggingCover.current = false;
+        return;
+      }
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragLocked.current = true;
+      dragLockTimeRef.current = performance.now();
+    }
+
+    const constrained =
+      !onNext && dx < 0 ? Math.max(dx / 4, -40) :
+      !onPrev && dx > 0 ? Math.min(dx / 4, 40) :
+      dx;
+    setDragX(constrained);
+  };
+
+  const onCoverPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingCover.current) return;
+    if (dragLocked.current) e.currentTarget.releasePointerCapture(e.pointerId);
+    isDraggingCover.current = false;
+    dragLocked.current = false;
+
+    const absX = Math.abs(dragX);
+    if (absX < 10) {
+      if (state === "playable") handlePlayToggle();
+      return;
+    }
+
+    const w = e.currentTarget.clientWidth;
+    const elapsed = Math.max(1, performance.now() - dragLockTimeRef.current);
+    const velocity = Math.abs(dragX) / elapsed;
+    const isFlick = velocity > 0.3;
+
+    if ((dragX < -w * 0.15 || (isFlick && dragX < 0)) && onNext) {
+      if (nextCoverSrc) frozenAdjacent.current = { src: nextCoverSrc, dir: "next", snapping: false, coverReady: false, artworkPending: nextArtworkPending };
+      snapTo(-w, onNext);
+    } else if ((dragX > w * 0.15 || (isFlick && dragX > 0)) && onPrev) {
+      if (prevCoverSrc) frozenAdjacent.current = { src: prevCoverSrc, dir: "prev", snapping: false, coverReady: false, artworkPending: prevArtworkPending };
+      snapTo(w, onPrev);
+    } else {
+      snapTo(0);
+    }
+  };
+
+  const onCoverPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingCover.current) return;
+    if (dragLocked.current) e.currentTarget.releasePointerCapture(e.pointerId);
+    isDraggingCover.current = false;
+    dragLocked.current = false;
+    if (dragX !== 0) snapTo(0);
   };
 
   return (
@@ -251,76 +329,73 @@ export default function SingleOverlay({
         </button>
 
         <div
+          ref={coverRef}
           className="relative aspect-square w-full overflow-hidden"
           style={{ touchAction: "pan-y" }}
-          onPointerDown={onPointerDown}
-          onPointerUp={onPointerUp}
-          onPointerCancel={() => {
-            swipeStart.current = null;
-          }}
+          onPointerDown={onCoverPointerDown}
+          onPointerMove={onCoverPointerMove}
+          onPointerUp={onCoverPointerUp}
+          onPointerCancel={onCoverPointerCancel}
         >
-          {outgoing &&
-            (outgoing.isPlaceholder ? (
+          {(leftSrc || leftArtworkPending) && (
+            leftArtworkPending ? (
               <div
-                key={`out-ph-${outgoing.src}`}
-                className={`absolute inset-0 bg-neutral-900 flex items-center justify-center ${
-                  outgoing.dir === "next"
-                    ? "animate-cover-out-left"
-                    : "animate-cover-out-right"
-                }`}
+                className="absolute inset-0 bg-neutral-900 flex items-center justify-center"
+                style={{ transform: `translateX(calc(-100% + ${dragX}px))`, transition: coverTransition }}
               >
                 <WaveformIcon size={96} weight="light" className="text-neutral-700" />
               </div>
             ) : (
               <img
-                key={`out-${outgoing.src}`}
-                src={outgoing.src}
+                src={leftSrc}
                 alt=""
-                className={`absolute inset-0 w-full h-full object-cover ${
-                  outgoing.dir === "next"
-                    ? "animate-cover-out-left"
-                    : "animate-cover-out-right"
-                }`}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{ transform: `translateX(calc(-100% + ${dragX}px))`, transition: coverTransition }}
               />
-            ))}
-          {artworkPending ? (
+            )
+          )}
+          {(rightSrc || rightArtworkPending) && (
+            rightArtworkPending ? (
+              <div
+                className="absolute inset-0 bg-neutral-900 flex items-center justify-center"
+                style={{ transform: `translateX(calc(100% + ${dragX}px))`, transition: coverTransition }}
+              >
+                <WaveformIcon size={96} weight="light" className="text-neutral-700" />
+              </div>
+            ) : (
+              <img
+                src={rightSrc}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{ transform: `translateX(calc(100% + ${dragX}px))`, transition: coverTransition }}
+              />
+            )
+          )}
+          {showPlaceholder ? (
             <div
-              key={`in-ph-${trackId}`}
-              className={`absolute inset-0 bg-neutral-900 flex items-center justify-center ${
-                outgoing
-                  ? outgoing.dir === "next"
-                    ? "animate-cover-in-right"
-                    : "animate-cover-in-left"
-                  : ""
-              }`}
+              className="absolute inset-0 bg-neutral-900 flex items-center justify-center"
+              style={{
+                transform: `translateX(${dragX}px)`,
+                transition: coverTransition,
+              }}
             >
               <WaveformIcon size={96} weight="light" className="text-neutral-700" />
             </div>
           ) : (
             <img
-              key={`in-${coverSrc}`}
-              src={coverSrc}
+              src={displaySrc}
               alt={trackData ? `${trackData.artist} - ${trackData.title}` : ""}
-              className={`absolute inset-0 w-full h-full object-cover ${
-                outgoing
-                  ? outgoing.dir === "next"
-                    ? "animate-cover-in-right"
-                    : "animate-cover-in-left"
-                  : ""
-              }`}
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-cover select-none"
+              style={{
+                transform: `translateX(${dragX}px)`,
+                transition: coverTransition,
+              }}
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10 pointer-events-none" />
-
-          {state === "playable" && (
-            <button
-              type="button"
-              onClick={handlePlayToggle}
-              aria-label={playing || (isLoading && isCurrent) ? "Pause" : "Play"}
-              className="absolute inset-0 z-10 cursor-pointer"
-            />
-          )}
-
           {artworkPending && (
             <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
               <span className="px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded text-[11px] text-white/80 uppercase tracking-wide">
