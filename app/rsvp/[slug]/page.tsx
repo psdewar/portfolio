@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { getShowBySlug } from "../../lib/shows";
 import RSVPForm from "./RSVPForm";
 
@@ -10,7 +10,8 @@ export default async function ShowRSVPPage({ params }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
-  if (!show || show.status !== "upcoming" || show.access === "private") redirect("/rsvp");
+  if (!show || show.visibility === "draft") notFound();
+  if (show.status !== "upcoming" || show.visibility === "private") redirect("/rsvp");
 
   return (
     <RSVPForm

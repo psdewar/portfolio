@@ -92,7 +92,7 @@ function ShowList({ shows, onSelect }: { shows: Show[]; onSelect: (show: Show) =
       </div>
       <div className="space-y-3">
         {shows.map((show) =>
-          show.access === "private" ? (
+          show.visibility === "private" ? (
             <div
               key={show.slug}
               className="w-full flex items-center gap-4 px-6 py-5 rounded-xl"

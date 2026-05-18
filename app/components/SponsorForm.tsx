@@ -18,6 +18,7 @@ import { SUPPORT_MENU, SUPPORTER_ITEMS } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 import { type Show, getVenueLabel, getDoorLabel } from "../lib/shows";
 import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
+import Poster from "./Poster";
 
 // 11:30AM → 9:30PM, 30-min increments
 const DOOR_TIMES = Array.from({ length: 21 }, (_, i) => {
@@ -75,6 +76,8 @@ interface SponsorFormProps {
   initialName?: string;
   initialPhone?: string;
   initialEmail?: string;
+  draftId?: string;
+  draftSlug?: string;
   onSuccess?: (data: SponsorFields) => void;
 }
 
@@ -99,6 +102,8 @@ export default function SponsorForm({
   initialName,
   initialPhone,
   initialEmail,
+  draftId,
+  draftSlug,
   onSuccess,
 }: SponsorFormProps) {
   const router = useRouter();
@@ -113,23 +118,31 @@ export default function SponsorForm({
   const [checked, setChecked] = useState<Set<string>>(
     new Set(initialItems || defaultSupporterItems),
   );
-  const [eventVenue, setEventVenue] = useState(venue || "");
-  const [eventAddress, setEventAddress] = useState(address || "");
-  const [eventCity, setEventCity] = useState(city || "");
-  const [eventRegion, setEventRegion] = useState(region || "");
-  const [eventCountry, setEventCountry] = useState(country || "");
+  const [eventVenue, setEventVenue] = useState(draftId ? "" : venue || "");
+  const [eventAddress, setEventAddress] = useState(draftId ? "" : address || "");
+  const [eventCity, setEventCity] = useState(draftId ? "" : city || "");
+  const [eventRegion, setEventRegion] = useState(draftId ? "" : region || "");
+  const [eventCountry, setEventCountry] = useState(draftId ? "" : country || "");
   const [eventDates, setEventDates] = useState<string[]>(
-    initialDates && initialDates.length > 0 ? initialDates : date ? [date] : [""],
+    initialDates && initialDates.length > 0
+      ? initialDates
+      : date && !draftId
+        ? [date]
+        : [""],
   );
   const [eventDoorTimes, setEventDoorTimes] = useState<string[]>(() => {
     const len = initialDates && initialDates.length > 0 ? initialDates.length : 1;
-    return Array.from({ length: len }, (_, i) => initialDoorTimes?.[i] ?? doorTime ?? "");
+    return Array.from(
+      { length: len },
+      (_, i) => initialDoorTimes?.[i] ?? (draftId ? "" : doorTime) ?? "",
+    );
   });
   const [sponsorName, setSponsorName] = useState(initialName || "");
   const [sponsorPhone, setSponsorPhone] = useState(initialPhone || "");
   const [sponsorEmail, setSponsorEmail] = useState(initialEmail || "");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [draftSubmitted, setDraftSubmitted] = useState(false);
 
   // Wizard state — only active for the public form (not editMode/compact/isPdfMode)
   const isWizard = !editMode && !compact && !isPdfMode;
@@ -168,7 +181,12 @@ export default function SponsorForm({
           setPickerShows(
             Array.isArray(showsData)
               ? showsData
-                  .filter((s) => s.status === "upcoming" && !isDatePast(s.date))
+                  .filter(
+                    (s) =>
+                      s.status === "upcoming" &&
+                      s.visibility !== "draft" &&
+                      !isDatePast(s.date),
+                  )
                   .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               : [],
           );
@@ -326,6 +344,48 @@ export default function SponsorForm({
     });
 
     try {
+      const isDraftCompletion = !!(draftId && draftSlug && !isSupporter);
+
+      if (isDraftCompletion) {
+        const patchRes = await fetch("/api/shows", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: draftSlug,
+            date: primarySlot.date,
+            doorTime: primarySlot.doorTime || undefined,
+            venue: eventVenue || null,
+            address: eventAddress || null,
+            city: eventCity,
+            region: eventRegion,
+            country: eventCountry,
+          }),
+        });
+        if (!patchRes.ok) {
+          setSubmitResult({ ok: false, msg: "Didn't save. Text me and I'll fix it." });
+          return;
+        }
+
+        const sponsorRes = await fetch("/api/sponsors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildSponsorBody(draftSlug, primarySlot)),
+        });
+        if (!sponsorRes.ok) {
+          const data = await sponsorRes.json().catch(() => ({}));
+          setSubmitResult({ ok: false, msg: data.error || "Couldn't save your details." });
+          return;
+        }
+
+        onSuccess?.(fields);
+        setDraftSubmitted(true);
+        setSubmitResult({
+          ok: true,
+          msg: "Got it. I'll send the poster shortly so you can share with your Assembly.",
+        });
+        return;
+      }
+
       const isHostNewSubmission = !editMode && !isSupporter && !showSlug;
 
       if (isHostNewSubmission) {
@@ -598,8 +658,47 @@ export default function SponsorForm({
           : null;
   const backIsLink = !!backHref;
 
+  if (draftSubmitted) {
+    return (
+      <div className="max-w-md mx-auto text-center">
+        <p className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-4">
+          This is what the poster looks like
+        </p>
+        <div
+          className="mx-auto overflow-hidden rounded-md"
+          style={{ width: "min(280px, 80vw)", aspectRatio: "2 / 3" }}
+        >
+          <Poster
+            date={eventDates[0]}
+            city={eventCity}
+            region={eventRegion}
+            doorTime={eventDoorTimes[0]}
+            venue={eventVenue || null}
+            address={eventAddress || null}
+          />
+        </div>
+        <p className="mt-6 text-sm sm:text-base text-neutral-700 dark:text-neutral-300 px-4">
+          Got it. I'll send the poster shortly so you can share with your Assembly.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {draftId && !isPdfMode && !readOnly && (
+        <div className="mb-5 sm:mb-6 lg:mb-5 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 sm:p-5 bg-neutral-50 dark:bg-neutral-900/40">
+          {city && (
+            <p className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5">
+              {region ? `${city}, ${region}` : city}
+            </p>
+          )}
+          <p className="text-sm sm:text-base text-neutral-700 dark:text-neutral-300">
+            I started this booking for you. Add your venue and contact, and I'll send a draft
+            of the poster you can share with your Assembly. We can make changes after.
+          </p>
+        </div>
+      )}
       {showBackButton &&
         (backIsLink ? (
           <Link
@@ -858,7 +957,7 @@ export default function SponsorForm({
                   </div>
                 ))}
               </div>
-              {!readOnly && !editMode && eventDates.length < 3 && (
+              {!readOnly && !editMode && !draftId && eventDates.length < 3 && (
                 <button
                   type="button"
                   disabled={!eventDates[eventDates.length - 1]?.trim()}
@@ -952,7 +1051,7 @@ export default function SponsorForm({
           )}
           {wizardMode === "host" && hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Submitting books the date.
+              {draftId ? "Submit to see your draft poster." : "Submitting books the date."}
             </p>
           )}
           <button
