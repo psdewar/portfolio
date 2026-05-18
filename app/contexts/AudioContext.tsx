@@ -41,6 +41,9 @@ interface AudioContextType extends AudioState {
   seekTo: (time: number) => void;
   loadTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
   loadPlaylist: (tracks: Track[], startIndex?: number) => void;
+  setPlaylist: (tracks: Track[]) => void;
+  nextTrack: () => void;
+  previousTrack: () => void;
   formatTime: (seconds: number) => string;
   getLyricTime: () => number;
 }
@@ -96,6 +99,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const pendingReload = useRef(false);
   const pendingSeek = useRef<number | null>(null);
+  const isTransitioning = useRef(false);
 
   useEffect(() => {
     if (!audio || isAudioSourceConnected.current) return;
@@ -156,7 +160,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       setState((prev) => ({
         ...prev,
         isPlaying: false,
-        isLoading: false,
+        isLoading: isTransitioning.current,
         currentTime: audio.currentTime,
       }));
       cancelAnimationFrame(animationId);
@@ -180,6 +184,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handleCanPlay = () => {
+      isTransitioning.current = false;
       setState((prev) => ({ ...prev, loadingTrack: null }));
     };
 
@@ -190,6 +195,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handleError = () => {
+      isTransitioning.current = false;
       setState((prev) => ({ ...prev, isPlaying: false, isLoading: false, buffered: 0 }));
     };
 
@@ -299,6 +305,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
 
       pendingSeek.current = null;
+      if (autoPlay) isTransitioning.current = true;
       audio.src = buildAudioUrl(track.id);
       audio.currentTime = 0;
 
@@ -330,6 +337,24 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [loadTrack]
   );
 
+  const setPlaylist = useCallback((tracks: Track[]) => {
+    setState((prev) => ({ ...prev, playlist: tracks }));
+  }, []);
+
+  const nextTrack = useCallback(() => {
+    if (state.playlist.length < 2) return;
+    const idx = state.playlist.findIndex((t) => t.id === state.currentTrack?.id);
+    const nextIdx = idx >= 0 ? (idx + 1) % state.playlist.length : 0;
+    loadTrack(state.playlist[nextIdx], true);
+  }, [state.playlist, state.currentTrack?.id, loadTrack]);
+
+  const previousTrack = useCallback(() => {
+    if (state.playlist.length < 2) return;
+    const idx = state.playlist.findIndex((t) => t.id === state.currentTrack?.id);
+    const prevIdx = idx > 0 ? idx - 1 : state.playlist.length - 1;
+    loadTrack(state.playlist[prevIdx], true);
+  }, [state.playlist, state.currentTrack?.id, loadTrack]);
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -347,6 +372,9 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         seekTo,
         loadTrack,
         loadPlaylist,
+        setPlaylist,
+        nextTrack,
+        previousTrack,
         formatTime,
         getLyricTime,
       }}

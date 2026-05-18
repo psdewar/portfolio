@@ -38,9 +38,8 @@ export interface TrackData {
   isrc?: string;
   upc?: string;
   label?: string;
-  // Omit defaults to "hosted". "stream-only" hides the play button and surfaces
-  // streaming links as the action. Add "preview-only" later for partial-clip flows.
   source?: TrackSource;
+  artworkPending?: boolean;
 }
 
 export type TrackSource = "hosted" | "stream-only";
@@ -56,6 +55,9 @@ export const TRACK_DATA: TrackData[] = [
     audioUrl: "/api/audio/so-good",
     thumbnail: "/images/covers/so-good.jpg",
     duration: 181,
+    releaseDate: "2026-01-01",
+    label: "Lyrist Records",
+    artworkPending: true,
   },
   {
     id: "crg-freestyle",
@@ -64,6 +66,9 @@ export const TRACK_DATA: TrackData[] = [
     audioUrl: "/api/audio/crg-freestyle",
     thumbnail: "/images/covers/crg-freestyle.jpg",
     duration: 94,
+    releaseDate: "2026-01-01",
+    label: "Lyrist Records",
+    artworkPending: true,
   },
   // Public tracks
   {

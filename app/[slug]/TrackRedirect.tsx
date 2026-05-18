@@ -1,20 +1,14 @@
 "use client";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function TrackRedirect({
-  slug,
-  title,
-  artist,
-}: {
-  slug: string;
-  title: string;
-  artist: string;
-}) {
+export default function TrackRedirect({ slug, title, artist }: { slug: string; title: string; artist: string }) {
+  const router = useRouter();
   const target = `/listen?play=${encodeURIComponent(slug)}`;
 
   useEffect(() => {
-    window.location.replace(target);
-  }, [target]);
+    router.replace(target);
+  }, [router, target]);
 
   return (
     <noscript>

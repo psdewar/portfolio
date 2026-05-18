@@ -314,7 +314,7 @@ export default function RSVPForm({
   );
 
   return (
-    <div className="fixed left-0 right-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
+    <div className="fixed left-0 right-0 top-14 bg-white dark:bg-neutral-950 overflow-hidden" style={{ bottom: "var(--player-h, 0px)" }}>
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-full overflow-y-auto touch-pan-y">
         <div className="px-[6%] py-8">

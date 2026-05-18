@@ -34,12 +34,14 @@ interface LiveChatProps {
   commenterName: string | null;
   onRequestSignIn: () => void;
   isFloating?: boolean;
+  isLive?: boolean;
 }
 
 export default function LiveChat({
   commenterName,
   onRequestSignIn,
   isFloating = true,
+  isLive = false,
 }: LiveChatProps) {
   const posthog = usePostHog();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -370,14 +372,14 @@ export default function LiveChat({
           <ViewerListPanel />
 
           {/* Chat Input - inlined to prevent focus loss */}
-          {!commenterName ? (
+          {!commenterName && isLive ? (
             <button
               onClick={onRequestSignIn}
               className="absolute bottom-4 left-3 right-3 py-3 bg-black/60 backdrop-blur-md rounded-full text-white text-sm font-medium"
             >
               Sign in to chat
             </button>
-          ) : (
+          ) : !commenterName ? null : (
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
               {/* Send error toast */}
               {sendError && (
@@ -518,7 +520,7 @@ export default function LiveChat({
             </button>
           </form>
         </div>
-      ) : (
+      ) : isLive ? (
         <div className="p-3 border-t border-neutral-200 dark:border-neutral-800">
           <button
             onClick={onRequestSignIn}
@@ -527,7 +529,7 @@ export default function LiveChat({
             Sign in to chat
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

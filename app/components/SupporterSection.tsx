@@ -789,8 +789,11 @@ export function SupporterSection({
       {!isPatron && showBottomCta && (
         <button
           onClick={() => tierSectionRef.current?.scrollIntoView({ behavior: "smooth" })}
-          className={`${isModal ? "absolute" : "fixed"} bottom-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 md:px-8 md:py-4 cursor-pointer text-white font-medium text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95`}
-          style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
+          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 px-5 py-3 md:px-8 md:py-4 cursor-pointer text-white font-medium text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95`}
+          style={{
+            background: "linear-gradient(to right, #f97316, #ec4899)",
+            bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
+          }}
         >
           <MicrophoneStageIcon className="w-6 h-6 md:w-7 md:h-7" weight="regular" />
           Support the music

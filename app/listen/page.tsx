@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   WaveformIcon,
   LockSimpleIcon,
@@ -9,11 +9,9 @@ import {
 } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
 import BlockVisualizer from "app/components/BlockVisualizer";
-import SingleOverlay from "app/components/SingleOverlay";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
-import { isPatronTrack } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import { useToast } from "../contexts/ToastContext";
@@ -91,16 +89,8 @@ const PLAYABLE_TRACK_IDS = new Set(
 );
 
 export default function Page() {
-  const {
-    loadTrack,
-    loadPlaylist,
-    currentTrack,
-    loadingTrack,
-    isPlaying,
-    toggle,
-    stop,
-    playlist,
-  } = useAudio();
+  const { loadPlaylist, currentTrack, loadingTrack, playlist } = useAudio();
+  const router = useRouter();
   const isSimulatingLoad = useSimulatedLoading();
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
@@ -146,9 +136,6 @@ export default function Page() {
       setShowStayConnected(true);
     }
   }, []);
-  const [playParam, setPlayParam] = useState<string | null>(null);
-  const hasHandledAutoPlay = useRef(false);
-
   useEffect(() => {
     if (playlist.length === 0 && !currentTrack && !loadingTrack) {
       const urlParams = new URLSearchParams(window.location.search);
@@ -156,99 +143,23 @@ export default function Page() {
       if (urlPlayParam && PLAYABLE_TRACK_IDS.has(urlPlayParam)) {
         return;
       }
-      const patienceTrack = TRACK_DATA.find((track) => track.id === "patience");
-      if (patienceTrack) {
-        loadPlaylist([
-          {
-            id: patienceTrack.id,
-            title: patienceTrack.title,
-            artist: patienceTrack.artist,
-            src: patienceTrack.audioUrl,
-            thumbnail: patienceTrack.thumbnail,
-            duration: patienceTrack.duration,
-          },
-        ]);
+      const playable = TRACK_DATA
+        .filter((t) => (t.source ?? "hosted") === "hosted")
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artist,
+          src: t.audioUrl,
+          thumbnail: t.thumbnail,
+          duration: t.duration,
+        }));
+      const startIdx = Math.max(0, playable.findIndex((t) => t.id === "patience"));
+      if (playable.length) {
+        loadPlaylist(playable, startIdx);
       }
     }
   }, [loadPlaylist, playlist.length, currentTrack, loadingTrack]);
 
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    setPlayParam(searchParams?.get("play") ?? null);
-  }, [searchParams]);
-
-  const handlePlayTrack = useCallback(
-    async (trackId: string, forcePlay = false) => {
-      if (!PLAYABLE_TRACK_IDS.has(trackId)) return;
-
-      if (currentTrack?.id === trackId) {
-        if (forcePlay) {
-          if (!isPlaying) toggle();
-        } else {
-          toggle();
-        }
-        return;
-      }
-
-      const trackData = TRACK_DATA.find((t) => t.id === trackId);
-      if (!trackData) return;
-
-      await loadTrack(
-        {
-          id: trackData.id,
-          title: trackData.title,
-          artist: trackData.artist,
-          src: trackData.audioUrl,
-          thumbnail: trackData.thumbnail,
-          duration: trackData.duration,
-        },
-        true,
-      );
-    },
-    [currentTrack?.id, isPlaying, toggle, loadTrack],
-  );
-
-  useEffect(() => {
-    if (!playParam || hasHandledAutoPlay.current) return;
-    hasHandledAutoPlay.current = true;
-
-    if (currentTrack?.id === playParam) return;
-
-    if (PLAYABLE_TRACK_IDS.has(playParam)) {
-      void handlePlayTrack(playParam, true);
-    }
-  }, [playParam, handlePlayTrack, currentTrack]);
-
-  const overlayTrack = playParam ? ALL_TRACKS.find((t) => t.id === playParam) : undefined;
-  const overlayIndex = playParam ? visibleTracks.findIndex((t) => t.id === playParam) : -1;
-  const trackCount = visibleTracks.length;
-  const prevTrack =
-    overlayIndex >= 0 && trackCount > 1
-      ? visibleTracks[(overlayIndex - 1 + trackCount) % trackCount]
-      : undefined;
-  const nextTrack =
-    overlayIndex >= 0 && trackCount > 1
-      ? visibleTracks[(overlayIndex + 1) % trackCount]
-      : undefined;
-  const prevTrackId = prevTrack?.id;
-  const nextTrackId = nextTrack?.id;
-
-  const openTrackOverlay = useCallback(
-    (trackId: string) => {
-      window.history.pushState({}, "", `/listen?play=${trackId}`);
-      hasHandledAutoPlay.current = true;
-      setPlayParam(trackId);
-      const isHosted = PLAYABLE_TRACK_IDS.has(trackId);
-      const isPatronOnly = isPatronTrack(trackId);
-      const allowed = isHosted && (isPatron || !isPatronOnly);
-      if (allowed) {
-        void handlePlayTrack(trackId, true);
-      } else if (isPatronOnly && !isPatron) {
-        stop();
-      }
-    },
-    [handlePlayTrack, isPatron, stop],
-  );
 
   if (isSimulatingLoad) {
     return <ListenLoading />;
@@ -256,28 +167,10 @@ export default function Page() {
 
   return (
     <>
-      {showStayConnected && !playParam && (
+      {showStayConnected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <StayConnected isModal onClose={() => setShowStayConnected(false)} />
         </div>
-      )}
-
-      {overlayTrack && (
-        <SingleOverlay
-          trackId={overlayTrack.id}
-          coverSrc={overlayTrack.src}
-          href={overlayTrack.href}
-          artworkPending={ARTWORK_PENDING.has(overlayTrack.id)}
-          prevCoverSrc={prevTrack?.src}
-          nextCoverSrc={nextTrack?.src}
-          onPrev={prevTrackId ? () => openTrackOverlay(prevTrackId) : undefined}
-          onNext={nextTrackId ? () => openTrackOverlay(nextTrackId) : undefined}
-          onClose={() => {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setPlayParam(null);
-            setShowStayConnected(false);
-          }}
-        />
       )}
 
       {isPatron && (
@@ -335,7 +228,7 @@ export default function Page() {
               type="button"
               onClick={() => {
                 setSuppressHoverId(t.id);
-                openTrackOverlay(t.id);
+                router.push(`/listen?play=${t.id}`);
               }}
               onPointerLeave={() => {
                 if (suppressHoverId === t.id) setSuppressHoverId(null);

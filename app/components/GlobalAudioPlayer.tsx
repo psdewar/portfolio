@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAudio } from "../contexts/AudioContext";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
@@ -8,43 +8,57 @@ import {
   PauseIcon,
   ArrowRightIcon,
   CaretUpIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   CopyrightIcon,
 } from "@phosphor-icons/react";
 import { TRACK_DATA } from "../data/tracks";
-import { getCurrentLyric, isCtaLyric, type LyricLine } from "../lib/lyrics";
+import { getLyrics, getCurrentLyric, isCtaLyric, type LyricLine } from "../lib/lyrics";
+import { useLiveStatus } from "../hooks/useLiveStatus";
 
-const RIGHT_CELL_CLASSES =
-  "group-hover/right:bg-neutral-300 dark:group-hover/right:bg-neutral-700 group-active/right:bg-neutral-400 dark:group-active/right:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
+const ROW_BTN =
+  "hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
 
-const LyricView: React.FC<{ lyric?: LyricLine; variant: "mobile" | "desktop" }> = ({
-  lyric,
-  variant,
-}) => {
+const LyricView: React.FC<{
+  lyric?: LyricLine;
+  hasLyrics?: boolean;
+  trackTitle?: string;
+  isLoaded?: boolean;
+}> = ({ lyric, hasLyrics, trackTitle, isLoaded }) => {
   if (isCtaLyric(lyric)) {
-    const fontSize = variant === "mobile" ? "text-[14px]" : "text-[15px]";
     return (
       <Link
         href="/shop"
         onClick={(e) => e.stopPropagation()}
-        className={`pointer-events-auto inline-flex items-center gap-1.5 ${fontSize} font-medium text-orange-500 hover:text-pink-500 transition-colors`}
+        className="pointer-events-auto inline-flex items-center gap-1.5 text-[15px] font-medium text-orange-500 hover:text-pink-500 transition-colors"
       >
         Get full lyrics
         <ArrowRightIcon size={14} weight="bold" />
       </Link>
     );
   }
-  if (variant === "mobile") {
+  if (lyric?.text) {
     return (
-      <p className="text-[14px] font-medium text-neutral-800 dark:text-white/85 text-center leading-tight max-h-[36px] overflow-hidden">
-        {lyric?.text || ""}
+      <p className="text-[15px] font-medium text-neutral-800 dark:text-white/85 text-left line-clamp-2 leading-snug w-full">
+        {lyric.text}
       </p>
     );
   }
-  return (
-    <p className="text-[15px] font-medium text-neutral-800 dark:text-white/85 truncate text-center max-w-[55%]">
-      {lyric?.text || ""}
-    </p>
-  );
+  if (hasLyrics) {
+    return (
+      <p className={`text-[15px] font-medium text-neutral-600 dark:text-white/55 text-left leading-tight ${isLoaded ? "" : "italic"}`}>
+        Read lyrics here...
+      </p>
+    );
+  }
+  if (trackTitle) {
+    return (
+      <p className="text-[15px] font-medium text-neutral-800 dark:text-white/85 w-full text-left truncate">
+        {trackTitle}
+      </p>
+    );
+  }
+  return null;
 };
 
 export const GlobalAudioPlayer: React.FC = () => {
@@ -62,21 +76,38 @@ export const GlobalAudioPlayer: React.FC = () => {
     seekTo,
     formatTime,
     getLyricTime,
+    nextTrack,
+    previousTrack,
   } = useAudio();
   const [isScrubbing, setIsScrubbing] = useState(false);
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
   const isQuickShop = pathname === "/shop/quick";
+  const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
+  const { online: isStreamLive } = useLiveStatus({ enabled: isLivePage });
+  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isQuickShop && !isOverlayOpen && !(isLivePage && isStreamLive);
 
-  if (!currentTrack || isHirePage || isFundPage || isQuickShop || isOverlayOpen) return null;
+  useEffect(() => {
+    if (isVisible) {
+      document.documentElement.style.setProperty(
+        "--player-h",
+        "calc(96px + env(safe-area-inset-bottom, 0px))",
+      );
+    } else {
+      document.documentElement.style.removeProperty("--player-h");
+    }
+  }, [isVisible]);
+
+  if (!isVisible) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
   const trackData = TRACK_DATA.find((t) => t.id === currentTrack.id);
   const releaseYear = trackData?.releaseDate?.slice(0, 4);
   const label = trackData?.label;
 
+  const lyricsData = getLyrics(currentTrack.id);
   const currentLyric = getCurrentLyric(currentTrack.id, getLyricTime());
 
   const handleScrub = (clientX: number, target: HTMLElement) => {
@@ -87,13 +118,15 @@ export const GlobalAudioPlayer: React.FC = () => {
   };
 
   const openOverlay = () => {
-    router.push(`/listen?play=${currentTrack.id}`);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("play", currentTrack.id);
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[60] sm:px-6 lg:px-8 pointer-events-none">
       <div
-        className="max-w-7xl mx-auto pointer-events-auto bg-neutral-200 dark:bg-neutral-800 border-t sm:border-x border-neutral-300 dark:border-neutral-700"
+        className="md:max-w-md mx-auto pointer-events-auto bg-neutral-200 dark:bg-neutral-800 border-t md:border-x border-neutral-300 dark:border-neutral-700"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
       <button
@@ -117,7 +150,7 @@ export const GlobalAudioPlayer: React.FC = () => {
           e.currentTarget.releasePointerCapture(e.pointerId);
           setIsScrubbing(false);
         }}
-        className={`flex flex-col justify-center w-full px-4 py-1.5 sm:py-1 cursor-pointer touch-none group/scrub border-b border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${isLoading ? "animate-pulse" : ""}`}
+        className={`flex flex-col justify-center w-full h-12 px-4 cursor-pointer touch-none group/scrub border-b border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${isLoading ? "animate-pulse" : ""}`}
       >
         <div
           className={`relative w-full bg-black/10 dark:bg-white/10 overflow-hidden transition-all rounded-full ${
@@ -139,7 +172,7 @@ export const GlobalAudioPlayer: React.FC = () => {
             <span className="inline-flex items-center gap-1 min-w-0">
               <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
               <span className="truncate">
-                {releaseYear} {label}
+                <span className="tabular-nums">{releaseYear}</span> {label}
               </span>
             </span>
           )}
@@ -152,66 +185,68 @@ export const GlobalAudioPlayer: React.FC = () => {
           type="button"
           onClick={toggle}
           aria-label={isPlaying || isLoading ? "Pause" : "Play"}
-          className="flex items-stretch shrink-0 max-w-[40%] hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset group/play z-10"
+          className="relative shrink-0 w-12 h-12 overflow-hidden hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset group/play z-10"
         >
-          <span className="relative shrink-0 w-14 sm:w-12 h-14 sm:h-12 overflow-hidden">
-            {currentTrack.thumbnail && (
-              <img
-                src={currentTrack.thumbnail}
-                alt={currentTrack.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+          {currentTrack.thumbnail && (
+            <img
+              src={currentTrack.thumbnail}
+              alt={currentTrack.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+          <span className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/play:bg-black/55 group-active/play:bg-black/65 transition-colors text-white">
+            {isPlaying || isLoading ? (
+              <PauseIcon size={20} weight="fill" />
+            ) : (
+              <PlayIcon size={22} weight="fill" className="ml-px" />
             )}
-            <span className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/play:bg-black/55 group-active/play:bg-black/65 transition-colors text-white">
-              {isPlaying || isLoading ? (
-                <PauseIcon size={20} weight="fill" />
-              ) : (
-                <PlayIcon size={22} weight="fill" className="ml-px" />
-              )}
-            </span>
           </span>
-          <div className="self-center px-3 min-w-0 shrink">
-            <p className="text-[13px] font-semibold text-neutral-900 dark:text-white truncate leading-tight text-left">
-              {currentTrack.title}
-            </p>
-            <p className="text-[11px] text-neutral-500 dark:text-white/55 truncate leading-tight text-left">
-              {currentTrack.artist}
-            </p>
-          </div>
         </button>
 
-        <div className="flex flex-1 items-stretch min-w-0 group/right">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={openOverlay}
-            onKeyDown={(e) => {
-              if (e.key === " " || e.key === "Enter") {
-                e.preventDefault();
-                openOverlay();
-              }
-            }}
-            aria-label="Open track view"
-            className={`flex flex-1 items-center justify-center min-w-0 px-3 ${currentLyric ? "border-l border-neutral-300 dark:border-neutral-700" : ""} ${RIGHT_CELL_CLASSES}`}
-          >
-            <div className="sm:hidden flex items-center justify-center w-full">
-              <LyricView lyric={currentLyric} variant="mobile" />
-            </div>
-          </div>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={openOverlay}
+          onKeyDown={(e) => {
+            if (e.key === " " || e.key === "Enter") {
+              e.preventDefault();
+              openOverlay();
+            }
+          }}
+          aria-label="Open track view"
+          className={`flex flex-1 items-center min-w-0 px-3 border-x border-neutral-300 dark:border-neutral-700 ${ROW_BTN}`}
+        >
+          <LyricView lyric={currentLyric} hasLyrics={!!lyricsData} trackTitle={currentTrack.title} isLoaded={!isLoading} />
+        </div>
 
+        <div className="flex items-stretch shrink-0">
           <button
             type="button"
-            onClick={openOverlay}
-            aria-label="Open track view"
-            className={`w-14 sm:w-12 h-14 sm:h-12 shrink-0 flex items-center justify-center text-neutral-900 dark:text-white z-10 ${RIGHT_CELL_CLASSES}`}
+            onClick={previousTrack}
+            aria-label="Previous track"
+            className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
           >
-            <CaretUpIcon size={20} weight="bold" />
+            <CaretLeftIcon size={20} weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={nextTrack}
+            aria-label="Next track"
+            className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+          >
+            <CaretRightIcon size={20} weight="bold" />
           </button>
         </div>
 
-        <div className="hidden sm:flex absolute inset-0 items-center justify-center pointer-events-none px-3">
-          <LyricView lyric={currentLyric} variant="desktop" />
-        </div>
+        <button
+          type="button"
+          onClick={openOverlay}
+          aria-label="Open track view"
+          className={`w-12 h-12 shrink-0 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+        >
+          <CaretUpIcon size={20} weight="bold" />
+        </button>
+
       </div>
       </div>
     </div>

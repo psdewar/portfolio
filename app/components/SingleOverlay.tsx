@@ -7,6 +7,8 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   CopyrightIcon,
+  PauseIcon,
+  PlayIcon,
   ShareFatIcon,
   WaveformIcon,
 } from "@phosphor-icons/react";
@@ -54,12 +56,10 @@ const SWIPE_MIN_DISTANCE = 60;
 const SWIPE_MIN_VELOCITY = 0.3;
 const SWIPE_HORIZONTAL_RATIO = 1.5;
 
-const formatDuration = (seconds?: number) => {
-  if (!seconds) return null;
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
+const ROW_HOVER =
+  "hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
+const ICON_BTN = `w-12 h-12 flex items-center justify-center shrink-0 text-neutral-900 dark:text-white ${ROW_HOVER}`;
+
 
 export default function SingleOverlay({
   trackId,
@@ -90,7 +90,6 @@ export default function SingleOverlay({
   const trackData = TRACK_DATA.find((t) => t.id === trackId);
   const isCurrent = currentTrack?.id === trackId;
   const playing = isCurrent && isPlaying;
-  const durationLabel = formatDuration(trackData?.duration);
   const releaseYear = trackData?.releaseDate?.slice(0, 4);
 
   const isPatronOnly = isPatronTrack(trackId);
@@ -100,6 +99,10 @@ export default function SingleOverlay({
     : isPatronOnly && !isPatron
       ? "patronGated"
       : "playable";
+
+  const lyricsData = getLyrics(trackId);
+  const currentLine = getCurrentLyric(trackId, getLyricTime())?.text;
+  const isLoadingCurrent = isLoading && isCurrent;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -236,30 +239,16 @@ export default function SingleOverlay({
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="fixed md:absolute right-4 z-40 flex flex-col items-center gap-2 top-[max(1rem,calc(env(safe-area-inset-top,0px)+0.5rem))] md:top-4"
+        <button
+          aria-label="Share"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleShare();
+          }}
+          className="fixed md:absolute right-4 z-40 w-12 h-12 md:w-11 md:h-11 rounded-full bg-black/60 backdrop-blur flex items-center justify-center text-white/90 hover:text-orange-500 hover:bg-black/80 active:bg-black transition-colors cursor-pointer top-[max(1rem,calc(env(safe-area-inset-top,0px)+0.5rem))] md:top-4 before:absolute before:content-[''] before:-top-4 before:-right-4 before:-bottom-2 before:left-0"
         >
-          <button
-            aria-label="Minimize"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="w-12 h-12 md:w-11 md:h-11 rounded-full bg-black/60 backdrop-blur flex items-center justify-center text-white/90 hover:text-orange-500 hover:bg-black/80 active:bg-black transition-colors cursor-pointer"
-          >
-            <CaretDownIcon className="w-5 h-5" weight="bold" />
-          </button>
-          <button
-            aria-label="Share"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleShare();
-            }}
-            className="w-12 h-12 md:w-11 md:h-11 rounded-full bg-black/60 backdrop-blur flex items-center justify-center text-white/90 hover:text-orange-500 hover:bg-black/80 active:bg-black transition-colors cursor-pointer"
-          >
-            <ShareFatIcon className="w-5 h-5" weight="bold" />
-          </button>
-        </div>
+          <ShareFatIcon className="w-5 h-5" weight="bold" />
+        </button>
 
         <div
           className="relative aspect-square w-full overflow-hidden"
@@ -332,58 +321,16 @@ export default function SingleOverlay({
             />
           )}
 
-          {onPrev && (
-            <button
-              type="button"
-              aria-label="Previous track"
-              onPointerDown={(e) => e.stopPropagation()}
-              onPointerUp={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerPrev();
-              }}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-16 h-24 flex items-center justify-end pr-1 group/nav cursor-pointer"
-            >
-              <span className="w-11 h-11 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white/90 group-hover/nav:text-orange-500 group-hover/nav:bg-black/75 group-active/nav:bg-black transition-colors">
-                <CaretLeftIcon className="w-5 h-5" weight="bold" />
-              </span>
-            </button>
-          )}
-          {onNext && (
-            <button
-              type="button"
-              aria-label="Next track"
-              onPointerDown={(e) => e.stopPropagation()}
-              onPointerUp={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerNext();
-              }}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-40 w-16 h-24 flex items-center justify-start pl-1 group/nav cursor-pointer"
-            >
-              <span className="w-11 h-11 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white/90 group-hover/nav:text-orange-500 group-hover/nav:bg-black/75 group-active/nav:bg-black transition-colors">
-                <CaretRightIcon className="w-5 h-5" weight="bold" />
-              </span>
-            </button>
-          )}
-
           {artworkPending && (
-            <>
-              <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
-                <span className="px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded text-[11px] text-white/80 uppercase tracking-wide">
-                  Early Listen
-                </span>
-              </div>
-              {trackData?.title && (
-                <div className="absolute bottom-4 right-4 z-10 pointer-events-none max-w-[60%] text-right">
-                  <span className="text-sm font-medium text-white/90">{trackData.title}</span>
-                </div>
-              )}
-            </>
+            <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
+              <span className="px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded text-[11px] text-white/80 uppercase tracking-wide">
+                Early Listen
+              </span>
+            </div>
           )}
         </div>
 
-        {state === "playable" && (
+        {state === "playable" ? (
           <div
             className={`px-4 ${
               isLoading && isCurrent ? "animate-pulse" : ""
@@ -438,102 +385,122 @@ export default function SingleOverlay({
                   <span className="inline-flex items-center gap-1 min-w-0">
                     <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
                     <span className="truncate">
-                      {releaseYear} {trackData.label}
+                      <span className="tabular-nums">{releaseYear}</span> {trackData.label}
                     </span>
                   </span>
                 )}
                 <span className="tabular-nums shrink-0">
-                  {durationLabel ?? formatTime(trackData?.duration ?? 0)}
+                  {formatTime(trackData?.duration ?? 0)}
                 </span>
               </div>
             </button>
           </div>
-        )}
-
-        {state === "playable" && (
-          <button
-            type="button"
-            onClick={handlePlayToggle}
-            aria-label={playing || (isLoading && isCurrent) ? "Pause" : "Play"}
-            className="flex items-stretch w-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors group/playrow focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset cursor-pointer"
-          >
-            <span className="w-12 h-12 text-neutral-900 dark:text-white flex items-center justify-center shrink-0 group-active/playrow:scale-95 transition-transform">
-              {playing || (isLoading && isCurrent) ? (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 translate-x-px" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </span>
-            <span className="flex-1 flex items-center px-4 min-w-0 text-left">
-              {(() => {
-                const lyricsData = getLyrics(trackId);
-                const line = getCurrentLyric(trackId, getLyricTime())?.text ?? "";
-                if (line) {
-                  return (
-                    <span className="text-neutral-800 dark:text-white/85 text-[15px] font-medium truncate">
-                      {line}
-                    </span>
-                  );
-                }
-                const isEngaged = isCurrent && (isPlaying || isLoading);
-                if (!isEngaged && trackData?.title) {
-                  return (
-                    <span className="text-neutral-800 dark:text-white/85 text-[15px] font-medium truncate">
-                      Play &ldquo;{trackData.title}&rdquo; now
-                    </span>
-                  );
-                }
-                if (lyricsData) {
-                  const isStillLoading = isLoading && isCurrent;
-                  return (
-                    <span
-                      className={`text-[15px] font-medium truncate ${
-                        isStillLoading
-                          ? "text-neutral-500 dark:text-white/40 italic animate-pulse"
-                          : "text-neutral-900 dark:text-white"
-                      }`}
-                    >
-                      Read lyrics here...
-                    </span>
-                  );
-                }
-                return (
-                  <span className="text-neutral-800 dark:text-white/85 text-[15px] font-medium truncate">
-                    Pause
-                  </span>
-                );
-              })()}
-            </span>
-          </button>
-        )}
-
-        {state === "patronGated" ? (
+        ) : (
           <Link
             href="/support#supporter"
-            className="relative block overflow-hidden bg-neutral-950 group"
+            className="relative block overflow-hidden bg-neutral-100 dark:bg-neutral-950 transition-colors group"
           >
             <span
               aria-hidden
               className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             />
-            <div className="relative flex items-center justify-between gap-3 px-4 py-5">
-              <p className="text-white/85 text-[15px] leading-none group-hover:text-white transition-colors">
-                Hear it first.
-              </p>
-              <span className="inline-flex items-center gap-1.5 text-white text-xs font-medium uppercase tracking-[0.18em] whitespace-nowrap">
-                Become a monthly supporter
+            <div className="relative flex items-center px-4 h-12">
+              {(releaseYear || trackData?.label) && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500 dark:text-white/55 group-hover:text-white/70 transition-colors min-w-0 shrink">
+                  <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
+                  <span className="truncate"><span className="tabular-nums">{releaseYear}</span> {trackData?.label}</span>
+                </span>
+              )}
+              <span className="ml-auto shrink-0 inline-flex items-center gap-2 whitespace-nowrap">
+                <span className="font-bebas text-2xl leading-none text-neutral-900 dark:text-white group-hover:text-white transition-colors">
+                  Become a Monthly{" "}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 group-hover:text-white">
+                    Supporter
+                  </span>
+                </span>
                 <CaretRightIcon
-                  className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"
+                  className="w-4 h-4 text-neutral-900 dark:text-white group-hover:text-white group-hover:translate-x-0.5 transition-all"
                   weight="bold"
                 />
               </span>
             </div>
           </Link>
-        ) : trackData?.streamingLinks?.length ? (
+        )}
+
+        <div className="sticky bottom-0 flex items-stretch w-full bg-neutral-200 dark:bg-neutral-800 z-10">
+          <button
+            type="button"
+            onClick={handlePlayToggle}
+            disabled={state !== "playable"}
+            aria-label={
+              state !== "playable"
+                ? "Not playable in app"
+                : playing || (isLoading && isCurrent)
+                  ? "Pause"
+                  : "Play"
+            }
+            className={`${ICON_BTN} disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {playing || (isLoading && isCurrent) ? (
+              <PauseIcon size={20} weight="fill" />
+            ) : (
+              <PlayIcon size={22} weight="fill" className="ml-px" />
+            )}
+          </button>
+          <div className="flex-1 flex items-center px-4 min-w-0 h-12 border-x border-neutral-300 dark:border-neutral-700">
+            {currentLine ? (
+              <p className="w-full text-left text-[15px] font-medium text-neutral-800 dark:text-white/85 line-clamp-2 leading-snug">
+                {currentLine}
+              </p>
+            ) : state === "playable" && lyricsData ? (
+              <p
+                className={`w-full text-left text-[15px] font-medium leading-tight ${
+                  isLoadingCurrent
+                    ? "text-neutral-500 dark:text-white/40 animate-pulse italic"
+                    : isCurrent
+                      ? "text-neutral-600 dark:text-white/55"
+                      : "text-neutral-600 dark:text-white/55 italic"
+                }`}
+              >
+                Read lyrics here...
+              </p>
+            ) : trackData?.title ? (
+              <p className="w-full text-left text-[15px] font-medium text-neutral-800 dark:text-white/85 truncate">
+                {trackData.title}
+              </p>
+            ) : null}
+          </div>
+          {onPrev && (
+            <button
+              type="button"
+              onClick={triggerPrev}
+              aria-label="Previous track"
+              className={ICON_BTN}
+            >
+              <CaretLeftIcon className="w-5 h-5" weight="bold" />
+            </button>
+          )}
+          {onNext && (
+            <button
+              type="button"
+              onClick={triggerNext}
+              aria-label="Next track"
+              className={ICON_BTN}
+            >
+              <CaretRightIcon className="w-5 h-5" weight="bold" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Minimize"
+            className={ICON_BTN}
+          >
+            <CaretDownIcon className="w-5 h-5" weight="bold" />
+          </button>
+        </div>
+
+        {trackData?.streamingLinks?.length ? (
           <div className="flex flex-col">
             {trackData.streamingLinks.map((link, i) => (
               <Link

@@ -13,7 +13,6 @@ import { useLiveStatus } from "../hooks/useLiveStatus";
 import { formatNextStream } from "../lib/dates";
 import { EyeIcon, BellIcon, SpeakerSlashIcon, PlayIcon, MapPinIcon } from "@phosphor-icons/react";
 import { TIMELINE, formatEventDate } from "../data/timeline";
-import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
@@ -29,9 +28,7 @@ export default function LivePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
-  const { currentTrack } = useAudio();
   const isPatron = usePatronStatus();
-  const hasAudioPlayer = !!currentTrack;
   const isOgMode = searchParams.get("og") === "true";
   const desktopVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
@@ -422,7 +419,8 @@ export default function LivePage() {
 
   return (
     <div
-      className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"} ${hasAudioPlayer && !isOgMode ? "bottom-16" : "bottom-0"}`}
+      className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"}`}
+      style={{ bottom: isOgMode ? "0" : "var(--player-h, 0px)" }}
       data-og-container
     >
       {showThanks && <Toast message="Thank you for supporting." />}
@@ -523,6 +521,7 @@ export default function LivePage() {
                     commenterName={status.online ? commenterName : null}
                     onRequestSignIn={() => setShowNotifyPanel(true)}
                     isFloating={false}
+                    isLive={status.online}
                   />
                 </div>
               </div>
@@ -590,6 +589,7 @@ export default function LivePage() {
                   commenterName={status.online ? commenterName : null}
                   onRequestSignIn={() => setShowNotifyPanel(true)}
                   isFloating={true}
+                  isLive={status.online}
                 />
               )}
             </div>
