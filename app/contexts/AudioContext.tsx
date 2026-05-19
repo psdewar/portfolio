@@ -153,7 +153,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handleWaiting = () => {
-      setState((prev) => ({ ...prev, isLoading: true }));
+      if (!audio.paused) setState((prev) => ({ ...prev, isLoading: true }));
     };
 
     const handlePause = () => {
@@ -239,7 +239,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       await audio.play();
     } catch (err) {
       console.warn("Playback prevented:", err);
-      setState((prev) => ({ ...prev, isPlaying: false, isLoading: false }));
+      isTransitioning.current = false;
+      setState((prev) => ({ ...prev, isPlaying: false, isLoading: false, loadingTrack: null }));
     }
   }, [audio]);
 
