@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { formatEventDate } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
 
@@ -16,6 +17,11 @@ interface PosterProps {
   taglineSuffix?: string;
   tags?: string;
   doorsOpen?: string;
+  showQr?: boolean;
+  venueImg?: string;
+  venueImgWidth?: number;
+  taglineAlign?: string;
+  debug?: boolean;
 }
 
 export default function Poster({
@@ -30,7 +36,36 @@ export default function Poster({
   taglineSuffix,
   tags = "",
   doorsOpen = "",
+  showQr = false,
+  venueImg = "",
+  venueImgWidth,
+  taglineAlign = "justify",
+  debug = false,
 }: PosterProps) {
+  const venueImgSrc = venueImg.trim()
+    ? venueImg.trim().startsWith("/")
+      ? venueImg.trim()
+      : `/${venueImg.trim()}`
+    : "";
+
+  // Debug: measure the tagline block (the minimum logo width) vs the logo.
+  const taglineRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLImageElement>(null);
+  const [taglineW, setTaglineW] = useState(0);
+  const [logoW, setLogoW] = useState(0);
+  useEffect(() => {
+    if (!debug) return;
+    const measure = () => {
+      if (taglineRef.current) setTaglineW(taglineRef.current.offsetWidth);
+      if (logoRef.current) setLogoW(logoRef.current.offsetWidth);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (taglineRef.current) ro.observe(taglineRef.current);
+    if (logoRef.current) ro.observe(logoRef.current);
+    return () => ro.disconnect();
+  }, [debug, venueImgSrc, venueImgWidth, taglineSuffix]);
+  const reached = logoW > 0 && taglineW > 0 && logoW >= taglineW - 1;
   const tagsList = tags
     .split(",")
     .map((t) => t.trim())
@@ -156,6 +191,30 @@ export default function Poster({
           text-transform: uppercase;
           color: #e0b860;
         }
+        .tagline-block {
+          width: fit-content;
+        }
+        .venue-img {
+          display: block;
+          height: 22.917cqw;
+          width: auto;
+          max-width: 45.833cqw;
+          margin: 2.917cqw 0 2.083cqw;
+          object-fit: contain;
+        }
+        .venue-wrap {
+          position: relative;
+          width: fit-content;
+        }
+        .venue-guide {
+          position: absolute;
+          top: 2.917cqw;
+          bottom: 2.083cqw;
+          left: 0;
+          border-left: 2px solid;
+          border-right: 2px solid;
+          pointer-events: none;
+        }
         .theme-topright {
           position: absolute;
           top: 5cqw;
@@ -211,6 +270,31 @@ export default function Poster({
           opacity: 0.4;
           margin: 0 0.5em;
         }
+        .bottom-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+        .qr-section {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 1.667cqw;
+        }
+        .qr-code {
+          width: 19.167cqw;
+          height: 19.167cqw;
+        }
+        .qr-label {
+          font-family: var(--font-space-mono), monospace;
+          font-size: 2.083cqw;
+          font-weight: 500;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #f0ede6;
+          text-align: center;
+          line-height: 1;
+        }
       `}</style>
       <div className="poster">
         <Image
@@ -241,41 +325,92 @@ export default function Poster({
               Up
             </div>
             <div className="title-accent" />
-            <div className="the-concert">my path of growth</div>
-            <div className="the-concert">and the principles</div>
-            <div className="the-concert">
-              that connect us{taglineSuffix ? ` ${taglineSuffix.split("\n")[0]}` : ""}
+            <div
+              className="tagline-block"
+              ref={taglineRef}
+              style={{
+                textAlign: taglineAlign as "justify" | "left",
+                textAlignLast: taglineAlign as "justify" | "left",
+              }}
+            >
+              <div className="the-concert">my path of growth</div>
+              <div className="the-concert">and the principles</div>
+              <div className="the-concert">
+                that connect us
+                {venueImgSrc ? " at" : taglineSuffix ? ` ${taglineSuffix.split("\n")[0]}` : ""}
+              </div>
+              {!venueImgSrc &&
+                taglineSuffix
+                  ?.split("\n")
+                  .slice(1)
+                  .map((line, i) => (
+                    <div key={i} className="the-concert">
+                      {line}
+                    </div>
+                  ))}
             </div>
-            {taglineSuffix
-              ?.split("\n")
-              .slice(1)
-              .map((line, i) => (
-                <div key={i} className="the-concert">
-                  {line}
-                </div>
-              ))}
+            {venueImgSrc && (
+              <div className="venue-wrap">
+                <img
+                  ref={logoRef}
+                  src={venueImgSrc}
+                  alt=""
+                  className="venue-img"
+                  style={
+                    venueImgWidth
+                      ? {
+                          width: `${(venueImgWidth * 100) / 480}cqw`,
+                          height: "auto",
+                          maxWidth: "none",
+                        }
+                      : undefined
+                  }
+                />
+                {debug && taglineW > 0 && (
+                  <div
+                    className="venue-guide"
+                    style={{
+                      width: taglineW,
+                      borderColor: reached ? "#22c55e" : "#ef4444",
+                    }}
+                  />
+                )}
+              </div>
+            )}
           </div>
           {date && (
             <div className="details">
-              <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
-                {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
-                <div className="detail-value date">{formatEventDate(date)}</div>
-                <div className="detail-value">
-                  {venueLabel ? (
-                    venueLabel
-                  ) : (
-                    <>
-                      {(venue || address) && `${venue || address}, `}
-                      <span className="whitespace-nowrap">
-                        {city}, {region}
-                      </span>
-                    </>
-                  )}
+              <div className="bottom-row">
+                <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
+                  {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
+                  <div className="detail-value date">{formatEventDate(date)}</div>
+                  <div className="detail-value">
+                    {venueLabel ? (
+                      venueLabel
+                    ) : (
+                      <>
+                        {(venue || address) && `${venue || address}, `}
+                        <span className="whitespace-nowrap">
+                          {city}, {region}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="detail-value">
+                    {doorsOpen ||
+                      getDoorLabel({ doorLabel: doorLabel ?? null, doorTime: doorTime ?? "" })}
+                  </div>
                 </div>
-                <div className="detail-value">
-                  {doorsOpen ||
-                    getDoorLabel({ doorLabel: doorLabel ?? null, doorTime: doorTime ?? "" })}
-                </div>
+                {showQr && (
+                  <div className="qr-section">
+                    <div className="qr-label">peytspencer.com/rsvp</div>
+                    <img
+                      src="https://assets.peytspencer.com/images/rsvp-qr-s10.png"
+                      alt="QR Code"
+                      className="qr-code"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

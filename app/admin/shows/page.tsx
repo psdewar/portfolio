@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { CircleNotchIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import {
+  CircleNotchIcon,
+  CheckCircleIcon,
+  TextAlignLeftIcon,
+  TextAlignJustifyIcon,
+} from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster from "../../components/Poster";
 import { type Show } from "../../lib/shows";
@@ -10,6 +15,7 @@ import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
 import { FREE_ADMISSION_TAG } from "../../lib/poster-defaults";
+import { areRegionsAdjacent } from "../../lib/region-adjacency";
 
 function Modal({
   onClose,
@@ -47,6 +53,112 @@ function Modal({
           ))}
         {children}
       </div>
+    </div>
+  );
+}
+
+function TagsField({
+  value,
+  onChange,
+  max = 3,
+  className,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  max?: number;
+  className?: string;
+}) {
+  const [input, setInput] = useState("");
+  const list = value
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const commit = () => {
+    const t = input.trim();
+    if (!t || list.length >= max) {
+      setInput("");
+      return;
+    }
+    onChange([...list, t].join(", "));
+    setInput("");
+  };
+  const remove = (idx: number) => onChange(list.filter((_, i) => i !== idx).join(", "));
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "," || e.key === "Enter") {
+      e.preventDefault();
+      commit();
+    } else if (e.key === "Backspace" && input === "" && list.length > 0) {
+      e.preventDefault();
+      remove(list.length - 1);
+    }
+  };
+  return (
+    <div className={className}>
+      {list.map((t, i) => (
+        <span
+          key={`${t}-${i}`}
+          className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 text-xs uppercase tracking-wider rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+        >
+          {t}
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="ml-0.5 text-neutral-500 hover:text-red-500 transition-colors leading-none"
+            aria-label={`Remove ${t}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={onKeyDown}
+        onBlur={commit}
+        disabled={list.length >= max}
+        placeholder={
+          list.length >= max
+            ? `Max ${max} tags`
+            : list.length === 0
+              ? "Add tags (comma or Enter)"
+              : ""
+        }
+        className="flex-1 min-w-[40px] outline-none bg-transparent text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 disabled:cursor-not-allowed"
+      />
+    </div>
+  );
+}
+
+// Renders the pamphlet HTML in a scaled iframe — no Puppeteer, instant preview.
+function PamphletPreviewFrame({ src }: { src: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setScale(el.clientHeight / 720);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="h-full bg-[#0a0a0a]" style={{ width: scale ? 480 * scale : 360 }}>
+      {src && scale > 0 && (
+        <iframe
+          src={src}
+          title="Pamphlet preview"
+          scrolling="no"
+          style={{
+            width: 480,
+            height: 720,
+            border: 0,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -125,23 +237,37 @@ export default function ShowsAdminPage() {
   const groupIntoLegs = (items: ShowGroup[]): ShowGroup[][] => {
     const withSlug = items.filter((g) => g.show?.slug && g.show?.date);
     if (!withSlug.length) return [];
+    // Shows manually flagged standalone are pulled out before chaining and
+    // re-added as their own one-show legs.
+    const chainable = withSlug.filter((g) => !g.show!.standalone);
+    const solo = withSlug.filter((g) => g.show!.standalone);
     const legs: ShowGroup[][] = [];
-    let current = [withSlug[0]];
-    for (let i = 1; i < withSlug.length; i++) {
-      const prev = withSlug[i - 1];
-      const next = withSlug[i];
-      const diffDays =
-        (new Date(next.show!.date).getTime() - new Date(prev.show!.date).getTime()) /
-        (1000 * 60 * 60 * 24);
-      const sameRegion = prev.show!.region === next.show!.region;
-      if (Math.abs(diffDays) <= (sameRegion ? 21 : 7)) {
-        current.push(next);
-      } else {
-        legs.push(current);
-        current = [next];
+    if (chainable.length) {
+      let current = [chainable[0]];
+      for (let i = 1; i < chainable.length; i++) {
+        const prev = chainable[i - 1];
+        const next = chainable[i];
+        const diffDays =
+          (new Date(next.show!.date).getTime() - new Date(prev.show!.date).getTime()) /
+          (1000 * 60 * 60 * 24);
+        const sameRegion = prev.show!.region === next.show!.region;
+        const adjacent =
+          sameRegion || areRegionsAdjacent(prev.show!.region, next.show!.region);
+        // Non-adjacent regions never chain — calendar proximity alone (e.g. WA
+        // and NJ 6 days apart) is not a tour leg.
+        if (adjacent && Math.abs(diffDays) <= (sameRegion ? 21 : 7)) {
+          current.push(next);
+        } else {
+          legs.push(current);
+          current = [next];
+        }
       }
+      legs.push(current);
     }
-    legs.push(current);
+    for (const s of solo) legs.push([s]);
+    legs.sort(
+      (a, b) => new Date(a[0].show!.date).getTime() - new Date(b[0].show!.date).getTime(),
+    );
     return legs;
   };
 
@@ -216,7 +342,7 @@ export default function ShowsAdminPage() {
         )}
 
         {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
@@ -246,13 +372,15 @@ export default function ShowsAdminPage() {
                     return (
                       <div key={i}>
                         <div className="flex items-center gap-4 mb-4">
-                          <PamphletGroupButton
+                          <PosterEditor
                             group={cluster}
                             matchedPamphlet={matched ?? null}
                             onPamphletSaved={handlePamphletSaved}
+                            onShowUpdate={cardProps.onShowUpdate}
+                            variant="leg"
                           />
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                           {cluster.map((g) => (
                             <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
                           ))}
@@ -268,7 +396,7 @@ export default function ShowsAdminPage() {
                         </span>
                         <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
                       </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                         {ungrouped.map((g) => (
                           <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
                         ))}
@@ -593,45 +721,6 @@ function CustomPosterButton() {
   );
 }
 
-function PosterDownloadButton({ slug }: { slug: string }) {
-  const [downloading, setDownloading] = useState(false);
-  const handleClick = async () => {
-    setDownloading(true);
-    try {
-      const formats = ["standard", "ig", "yt", "eb", "letter"] as const;
-      const responses = await Promise.all(
-        formats.map((fmt) => fetch(`/api/poster/${slug}?format=${fmt}`)),
-      );
-      const buffers = await Promise.all(responses.map((r) => r.arrayBuffer()));
-      const zip = buildZip(
-        formats.map((fmt, i) => ({
-          name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.pdf`,
-          data: new Uint8Array(buffers[i]),
-        })),
-      );
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `poster-${slug}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloading(false);
-    }
-  };
-  return (
-    <button
-      onClick={handleClick}
-      disabled={downloading}
-      className="flex-1 flex items-center justify-center text-sm px-3 text-[#d4a553] hover:bg-[#d4a553]/5 dark:hover:bg-[#d4a553]/10 transition-colors disabled:opacity-50"
-    >
-      {downloading ? "..." : "Poster"}
-    </button>
-  );
-}
-
 function BlankPamphletButton() {
   const [downloading, setDownloading] = useState(false);
   const handleClick = async () => {
@@ -669,52 +758,51 @@ function BlankPamphletButton() {
   );
 }
 
-function PamphletGroupButton({
+// Unified poster / pamphlet editor. One date renders a poster (/api/poster),
+// multiple dates render a pamphlet (/api/pamphlet) — the only difference is
+// date grouping. Single-date edits persist to the Show record; multi-date
+// edits persist to a Pamphlet record.
+function PosterEditor({
   group,
   matchedPamphlet,
   onPamphletSaved,
+  onShowUpdate,
+  variant,
 }: {
   group: ShowGroup[];
   matchedPamphlet: Pamphlet | null;
   onPamphletSaved: (p: Pamphlet) => void;
+  onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  variant: "card" | "leg";
 }) {
+  const isSingle = group.length === 1;
+  const soloShow = group[0].show;
+
   const [open, setOpen] = useState(false);
   const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
-  const [legLabel, setLegLabel] = useState(matchedPamphlet?.label ?? "");
+  const [tagline, setTagline] = useState(
+    isSingle ? (soloShow?.taglineSuffix ?? "") : (matchedPamphlet?.label ?? ""),
+  );
   const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
-  const [tags, setTags] = useState(matchedPamphlet?.tags ?? FREE_ADMISSION_TAG);
-  const [tagInput, setTagInput] = useState("");
-  const [venueImg, setVenueImg] = useState(matchedPamphlet?.venueImg ?? "");
+  const [tags, setTags] = useState(
+    isSingle
+      ? (soloShow?.tags ?? FREE_ADMISSION_TAG)
+      : (matchedPamphlet?.tags ?? FREE_ADMISSION_TAG),
+  );
+  const [venueImg, setVenueImg] = useState(
+    isSingle ? (soloShow?.venueImg ?? "") : (matchedPamphlet?.venueImg ?? ""),
+  );
+  const [venueImgWidth, setVenueImgWidth] = useState(() => {
+    const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
+    return w ? String(w) : "";
+  });
+  const [taglineAlign, setTaglineAlign] = useState<"justify" | "left">(() => {
+    const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
+    return a === "left" ? "left" : "justify";
+  });
   const [address, setAddress] = useState(matchedPamphlet?.address ?? "");
   const [doorsOpen, setDoorsOpen] = useState(matchedPamphlet?.doorsOpen ?? "");
-
-  const tagsList = tags
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const TAG_MAX = 3;
-  const commitTag = () => {
-    const t = tagInput.trim();
-    if (!t || tagsList.length >= TAG_MAX) {
-      setTagInput("");
-      return;
-    }
-    setTags([...tagsList, t].join(", "));
-    setTagInput("");
-  };
-  const removeTag = (idx: number) => {
-    setTags(tagsList.filter((_, i) => i !== idx).join(", "));
-  };
-  const onTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "," || e.key === "Enter") {
-      e.preventDefault();
-      commitTag();
-    } else if (e.key === "Backspace" && tagInput === "" && tagsList.length > 0) {
-      e.preventDefault();
-      removeTag(tagsList.length - 1);
-    }
-  };
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
     if (matchedPamphlet) {
       return Object.fromEntries(
@@ -726,6 +814,9 @@ function PamphletGroupButton({
     }
     return Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.venueLabel ?? ""]));
   });
+  const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
+  );
   const [included, setIncluded] = useState<Record<string, boolean>>(() => {
     if (matchedPamphlet) {
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
@@ -734,15 +825,17 @@ function PamphletGroupButton({
     return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.access !== "private"]));
   });
   const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState("");
+  const [previewSrc, setPreviewSrc] = useState("");
+  const [standalone, setStandalone] = useState(soloShow?.standalone ?? false);
 
   const first = group[0].show!;
   const last = group[group.length - 1].show!;
-  const label =
-    group.length === 1
-      ? formatMonthDay(first.date)
-      : `${formatMonthDay(first.date)} – ${formatMonthDay(last.date)}`;
+  const label = isSingle
+    ? formatMonthDay(first.date)
+    : `${formatMonthDay(first.date)} – ${formatMonthDay(last.date)}`;
 
   const activeGroup = group.filter((g) => included[g.show!.slug]);
 
@@ -762,17 +855,25 @@ function PamphletGroupButton({
     });
   };
 
-  const buildHref = (format: "ig" | "yt" | "letter" | "standard" | "eb", asPdf = false) => {
+  // ── multi-date: pamphlet ──────────────────────────────────────────────────
+  const buildPamphletHref = (
+    format: "ig" | "yt" | "print" | "standard" | "eb" | "fb" | "fbe",
+    asPdf = false,
+    forceSlugs = false,
+  ) => {
     const applyExtras = (params: URLSearchParams) => {
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
       if (tags.trim()) params.set("tags", tags);
+      if (tagline.trim()) params.set("label", tagline.trim());
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
+      if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
+      params.set("align", taglineAlign);
       if (address.trim()) params.set("address", address.trim());
       if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
       if (asPdf) params.set("pdf", "true");
     };
-    if (legId.trim()) {
+    if (legId.trim() && !forceSlugs) {
       const params = new URLSearchParams({ id: legId.trim(), format });
       applyExtras(params);
       appendPlaceholders(params);
@@ -792,17 +893,18 @@ function PamphletGroupButton({
   const savePamphlet = async (): Promise<boolean> => {
     const id = legId.trim();
     if (!id) return true;
-    setSaving(true);
     setSaveError("");
-    const label = legLabel.trim() || undefined;
+    const lbl = tagline.trim() || undefined;
     const payload = {
       id,
       shows: buildPamphletShows(),
-      label,
+      label: lbl,
       showDoors,
       showQr,
       tags: tags.trim() || undefined,
       venueImg: venueImg.trim() || undefined,
+      venueImgWidth: Number(venueImgWidth) || undefined,
+      taglineAlign,
       address: address.trim() || undefined,
       doorsOpen: doorsOpen.trim() || undefined,
     };
@@ -812,262 +914,550 @@ function PamphletGroupButton({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    setSaving(false);
     if (!res.ok) {
-      if (res.status === 409) {
-        setSaveError("Name already taken by another pamphlet");
-      } else {
-        setSaveError("Failed to save");
-      }
+      setSaveError(res.status === 409 ? "Name already taken by another pamphlet" : "Failed to save");
       return false;
     }
     onPamphletSaved({
       id,
-      label,
+      label: lbl,
       shows: payload.shows,
       showDoors,
       showQr,
       tags: payload.tags,
       venueImg: payload.venueImg,
+      venueImgWidth: payload.venueImgWidth,
+      taglineAlign: payload.taglineAlign,
       address: payload.address,
       doorsOpen: payload.doorsOpen,
     });
     return true;
   };
 
+  const zipAndDownload = (
+    entries: { name: string; data: Uint8Array }[],
+    zipName: string,
+  ) => {
+    const zip = buildZip(entries);
+    const url = URL.createObjectURL(new Blob([Uint8Array.from(zip)], { type: "application/zip" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = zipName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── single-date: poster ───────────────────────────────────────────────────
+  const buildPosterHref = (
+    format: "ig" | "yt" | "print" | "standard" | "eb" | "fb" | "fbe",
+    asJpg = false,
+  ) => {
+    const params = new URLSearchParams({ format });
+    if (tags.trim()) params.set("tags", tags.trim());
+    if (tagline.trim()) params.set("label", tagline.trim());
+    if (venueImg.trim()) params.set("venueImg", venueImg.trim());
+    if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
+    params.set("align", taglineAlign);
+    // Always sent so a download reflects the editor exactly, even unsaved.
+    params.set("venueLabel", venueLabels[soloShow!.slug] ?? "");
+    params.set("doorLabel", doorLabels[soloShow!.slug] ?? "");
+    if (asJpg) params.set("jpg", "true");
+    return `/api/poster/${soloShow!.slug}?${params.toString()}`;
+  };
+
+  // Persists immediately so the page regroups without waiting for download.
+  const toggleStandalone = async (val: boolean) => {
+    if (!soloShow) return;
+    setStandalone(val);
+    await fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: soloShow.slug, standalone: val }),
+    });
+    onShowUpdate(soloShow.slug, { standalone: val });
+  };
+
+  const persistShow = async () => {
+    const slug = soloShow!.slug;
+    const fields: Partial<Show> = {
+      venueLabel: venueLabels[slug]?.trim() || null,
+      doorLabel: doorLabels[slug]?.trim() || null,
+      tags: tags.trim() || null,
+      taglineSuffix: tagline.trim() || null,
+      venueImg: venueImg.trim() || null,
+      venueImgWidth: Number(venueImgWidth) || null,
+      taglineAlign,
+    };
+    await fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, ...fields }),
+    });
+    onShowUpdate(slug, fields);
+  };
+
   const handleDownload = async () => {
-    const ok = await savePamphlet();
-    if (!ok) return;
-    setSaving(true);
+    setDownloading(true);
     try {
-      const [igRes, ytRes, letterRes, ebRes] = await Promise.all([
-        fetch(buildHref("ig", true)),
-        fetch(buildHref("yt", true)),
-        fetch(buildHref("letter", true)),
-        fetch(buildHref("eb", true)),
-      ]);
-      const [igBuf, ytBuf, letterBuf, ebBuf] = await Promise.all([
-        igRes.arrayBuffer(),
-        ytRes.arrayBuffer(),
-        letterRes.arrayBuffer(),
-        ebRes.arrayBuffer(),
-      ]);
-      const name = legId.trim() || first.date;
-      const zip = buildZip([
-        { name: `pamphlet-${name}-ig.pdf`, data: new Uint8Array(igBuf) },
-        { name: `pamphlet-${name}-yt.pdf`, data: new Uint8Array(ytBuf) },
-        { name: `pamphlet-${name}-letter.pdf`, data: new Uint8Array(letterBuf) },
-        { name: `pamphlet-${name}-eb.pdf`, data: new Uint8Array(ebBuf) },
-      ]);
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `pamphlet-${name}.zip`;
-      link.click();
-      URL.revokeObjectURL(url);
+      if (isSingle) {
+        const slug = soloShow!.slug;
+        const pdfFmts = ["standard", "ig", "yt", "eb", "print"] as const;
+        const jpgFmts = ["fb", "fbe"] as const;
+        const entries = await Promise.all([
+          ...pdfFmts.map((fmt) =>
+            fetch(buildPosterHref(fmt))
+              .then((r) => r.arrayBuffer())
+              .then((buf) => ({
+                name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.pdf`,
+                data: new Uint8Array(buf),
+              })),
+          ),
+          ...jpgFmts.map((fmt) =>
+            fetch(buildPosterHref(fmt, true))
+              .then((r) => r.arrayBuffer())
+              .then((buf) => ({ name: `poster-${slug}-${fmt}.jpg`, data: new Uint8Array(buf) })),
+          ),
+        ]);
+        zipAndDownload(entries, `poster-${slug}.zip`);
+      } else {
+        const name = legId.trim() || first.date;
+        const pdfFmts = ["ig", "yt", "print", "eb"] as const;
+        const jpgFmts = ["fb", "fbe"] as const;
+        // forceSlugs so the download reflects current edits without a save.
+        const entries = await Promise.all([
+          ...pdfFmts.map((fmt) =>
+            fetch(buildPamphletHref(fmt, true, true))
+              .then((r) => r.arrayBuffer())
+              .then((buf) => ({ name: `pamphlet-${name}-${fmt}.pdf`, data: new Uint8Array(buf) })),
+          ),
+          ...jpgFmts.map((fmt) =>
+            fetch(buildPamphletHref(fmt, false, true))
+              .then((r) => r.arrayBuffer())
+              .then((buf) => ({ name: `pamphlet-${name}-${fmt}.jpg`, data: new Uint8Array(buf) })),
+          ),
+        ]);
+        zipAndDownload(entries, `pamphlet-${name}.zip`);
+      }
     } finally {
-      setSaving(false);
+      setDownloading(false);
     }
   };
 
+  // Reset poster styling to defaults — auto-save then persists the cleared state.
+  const handleReset = () => {
+    setTags(FREE_ADMISSION_TAG);
+    setTagline("");
+    setTaglineAlign("justify");
+    setVenueImg("");
+    setVenueImgWidth("");
+    setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+    setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+    if (!isSingle) {
+      setAddress("");
+      setDoorsOpen("");
+      setShowDoors(false);
+      setShowQr(false);
+      setPlaceholders([]);
+    }
+  };
+
+  // Esc closes the full-viewport editor — capture-phase + preventDefault so it
+  // doesn't also trigger browser behavior (exit fullscreen, stop, etc.).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open]);
+
+  // Debounced auto-save — single edits persist to the show, multi to the
+  // pamphlet record (when it has an ID). Mirrors the old inline Poster Labels.
+  // No `open` gate: editor fields can only change while the modal is open, and
+  // the gate would otherwise consume the initial-skip on the first real edit.
+  const autoSaveInit = useRef(true);
+  useEffect(() => {
+    if (autoSaveInit.current) {
+      autoSaveInit.current = false;
+      return;
+    }
+    const t = setTimeout(async () => {
+      setAutoState("saving");
+      try {
+        if (isSingle) await persistShow();
+        else if (legId.trim()) await savePamphlet();
+        setAutoState("saved");
+        setTimeout(() => setAutoState("idle"), 1800);
+      } catch {
+        setAutoState("idle");
+      }
+    }, 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    tags,
+    tagline,
+    taglineAlign,
+    venueImg,
+    venueImgWidth,
+    address,
+    doorsOpen,
+    showDoors,
+    showQr,
+    legId,
+    JSON.stringify(venueLabels),
+    JSON.stringify(doorLabels),
+    JSON.stringify(included),
+    JSON.stringify(placeholders),
+  ]);
+
+  // Debounced pamphlet preview (raw-HTML iframe — no Puppeteer).
+  useEffect(() => {
+    if (!open || isSingle) return;
+    if (activeGroup.length === 0) {
+      setPreviewSrc("");
+      return;
+    }
+    const t = setTimeout(() => {
+      setPreviewSrc(`${buildPamphletHref("standard", false, true)}&html=true&_=${Date.now()}`);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    open,
+    isSingle,
+    tags,
+    tagline,
+    venueImg,
+    address,
+    doorsOpen,
+    showDoors,
+    showQr,
+    JSON.stringify(venueLabels),
+    JSON.stringify(included),
+    JSON.stringify(placeholders),
+  ]);
+
   const total = activeGroup.length + placeholders.filter((p) => p.date).length;
+  const inputCls =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
+  const tagsCls =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 focus-within:ring-1 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 flex flex-wrap items-center gap-1.5 min-h-[34px]";
+  const soloSlug = soloShow?.slug ?? "";
 
   return (
     <>
       {open && (
-        <Modal onClose={() => setOpen(false)} title={<>PAMPHLET &middot; {label}</>}>
-          <input
-            type="text"
-            value={legId}
-            onChange={(e) => setLegId(e.target.value)}
-            placeholder="ID (e.g. british-columbia)"
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
-          />
-          <textarea
-            value={legLabel}
-            onChange={(e) => setLegLabel(e.target.value)}
-            placeholder="Tagline suffix (e.g. in British Columbia, newlines allowed)"
-            rows={2}
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3 resize-y"
-          />
-          <div className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 focus-within:ring-1 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 mb-3 flex flex-wrap items-center gap-1.5 min-h-[34px]">
-            {tagsList.map((t, i) => (
-              <span
-                key={`${t}-${i}`}
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs uppercase tracking-wider rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+        <div className="fixed inset-0 z-50 flex bg-white dark:bg-neutral-800">
+          {/* Inputs */}
+          <div className="w-[460px] shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                  {isSingle ? "POSTER" : "PAMPHLET"} &middot; {label}
+                </h4>
+                {autoState === "saving" && (
+                  <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
+                )}
+                {autoState === "saved" && (
+                  <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
+                )}
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
               >
-                {t}
-                <button
-                  type="button"
-                  onClick={() => removeTag(i)}
-                  className="ml-0.5 text-neutral-500 hover:text-red-500 transition-colors leading-none"
-                  aria-label={`Remove ${t}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={onTagKeyDown}
-              onBlur={commitTag}
-              disabled={tagsList.length >= TAG_MAX}
-              placeholder={
-                tagsList.length >= TAG_MAX
-                  ? "Max 3 tags"
-                  : tagsList.length === 0
-                    ? "Add tags (comma or Enter)"
-                    : ""
-              }
-              className="flex-1 min-w-[100px] outline-none bg-transparent text-sm text-neutral-900 dark:text-white disabled:cursor-not-allowed"
-            />
-          </div>
-          <input
-            type="text"
-            value={venueImg}
-            onChange={(e) => setVenueImg(e.target.value)}
-            placeholder="Venue logo file in /public (e.g. tcc.webp)"
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
-          />
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Address override (overrides show address line on pamphlet)"
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-2"
-          />
-          <input
-            type="text"
-            value={doorsOpen}
-            onChange={(e) => setDoorsOpen(e.target.value)}
-            placeholder="Doors open override (e.g. Doors open at 7:30PM both nights)"
-            className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 mb-3"
-          />
-          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
-            <input
-              type="checkbox"
-              checked={showDoors}
-              onChange={(e) => setShowDoors(e.target.checked)}
-              className="rounded"
-            />
-            <span>Show door times on pamphlet</span>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
-            <input
-              type="checkbox"
-              checked={showQr}
-              onChange={(e) => setShowQr(e.target.checked)}
-              className="rounded"
-            />
-            <span>Show QR code on pamphlet</span>
-          </label>
-          <div className="space-y-3 mb-4">
-            {group.map((g) => {
-              const slug = g.show!.slug;
-              const isIncluded = included[slug];
-              return (
-                <div key={slug} className={isIncluded ? "" : "opacity-40"}>
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
+              {!isSingle && (
+                <input
+                  type="text"
+                  value={legId}
+                  onChange={(e) => setLegId(e.target.value)}
+                  placeholder="ID (e.g. british-columbia)"
+                  className={`${inputCls} mb-2`}
+                />
+              )}
+              <textarea
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                placeholder="Tagline suffix (e.g. in British Columbia, newlines allowed)"
+                rows={2}
+                className={`${inputCls} mb-2 resize-y`}
+              />
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="text-xs text-neutral-500 mr-1">Tagline</span>
+                {(
+                  [
+                    ["justify", TextAlignJustifyIcon, "Justify"],
+                    ["left", TextAlignLeftIcon, "Left align"],
+                  ] as const
+                ).map(([val, Icon, title]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    title={title}
+                    aria-label={title}
+                    aria-pressed={taglineAlign === val}
+                    onClick={() => setTaglineAlign(val)}
+                    className={`flex items-center justify-center w-9 h-9 rounded border transition-colors ${
+                      taglineAlign === val
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300"
+                        : "border-neutral-300 dark:border-neutral-600 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
+                    }`}
+                  >
+                    <Icon size={18} />
+                  </button>
+                ))}
+              </div>
+              <TagsField value={tags} onChange={setTags} className={`${tagsCls} mb-3`} />
+              <input
+                type="text"
+                value={venueImg}
+                onChange={(e) => setVenueImg(e.target.value)}
+                placeholder="Venue logo file in /public (e.g. tcc.webp)"
+                className={`${inputCls} mb-2`}
+              />
+              <input
+                type="number"
+                value={venueImgWidth}
+                onChange={(e) => setVenueImgWidth(e.target.value)}
+                min={0}
+                step={1}
+                placeholder="Venue logo width in px (blank = default)"
+                className={`${inputCls} mb-2`}
+              />
+
+              {isSingle ? (
+                <>
+                  <input
+                    type="text"
+                    value={venueLabels[soloSlug] ?? ""}
+                    onChange={(e) =>
+                      setVenueLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
+                    }
+                    placeholder={`${soloShow?.venue || "Venue"}, ${soloShow?.city}, ${soloShow?.region}`}
+                    className={`${inputCls} mb-2`}
+                  />
+                  <input
+                    type="text"
+                    value={doorLabels[soloSlug] ?? ""}
+                    onChange={(e) =>
+                      setDoorLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
+                    }
+                    placeholder={`Doors open at ${soloShow?.doorTime || "7PM"}`}
+                    className={`${inputCls} mb-3`}
+                  />
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+                    <input
+                      type="checkbox"
+                      checked={standalone}
+                      onChange={(e) => toggleStandalone(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Keep separate — never group into a pamphlet leg</span>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Address override (overrides show address line on pamphlet)"
+                    className={`${inputCls} mb-2`}
+                  />
+                  <input
+                    type="text"
+                    value={doorsOpen}
+                    onChange={(e) => setDoorsOpen(e.target.value)}
+                    placeholder="Doors open override (e.g. Doors open at 7:30PM both nights)"
+                    className={`${inputCls} mb-3`}
+                  />
                   <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
                     <input
                       type="checkbox"
-                      checked={isIncluded}
-                      onChange={(e) =>
-                        setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
-                      }
+                      checked={showDoors}
+                      onChange={(e) => setShowDoors(e.target.checked)}
                       className="rounded"
                     />
-                    <span>
-                      {formatMonthDay(g.show!.date)} &middot; {g.show!.city}, {g.show!.region}
-                    </span>
+                    <span>Show door times on pamphlet</span>
                   </label>
-                  <input
-                    type="text"
-                    value={venueLabels[slug] ?? ""}
-                    onChange={(e) =>
-                      setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
-                    }
-                    disabled={!isIncluded}
-                    placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
-                    className="w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
-                  />
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+                    <input
+                      type="checkbox"
+                      checked={showQr}
+                      onChange={(e) => setShowQr(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Show QR code on pamphlet</span>
+                  </label>
+                  <div className="space-y-3 mb-4">
+                    {group.map((g) => {
+                      const slug = g.show!.slug;
+                      const isIncluded = included[slug];
+                      return (
+                        <div key={slug} className={isIncluded ? "" : "opacity-40"}>
+                          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                            <input
+                              type="checkbox"
+                              checked={isIncluded}
+                              onChange={(e) =>
+                                setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
+                              }
+                              className="rounded"
+                            />
+                            <span>
+                              {formatMonthDay(g.show!.date)} &middot; {g.show!.city},{" "}
+                              {g.show!.region}
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={venueLabels[slug] ?? ""}
+                            onChange={(e) =>
+                              setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
+                            }
+                            disabled={!isIncluded}
+                            placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
+                            className="w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
+                        Placeholder dates
+                      </span>
+                      <button
+                        onClick={() =>
+                          setPlaceholders((prev) => [...prev, { date: "", label: "" }])
+                        }
+                        className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+                      >
+                        + Add slot
+                      </button>
+                    </div>
+                    {placeholders.map((ph, i) => (
+                      <div key={i} className="flex gap-2 mb-2">
+                        <input
+                          type="date"
+                          value={ph.date}
+                          onChange={(e) =>
+                            setPlaceholders((prev) =>
+                              prev.map((p, j) => (j === i ? { ...p, date: e.target.value } : p)),
+                            )
+                          }
+                          className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                        />
+                        <input
+                          type="text"
+                          value={ph.label}
+                          onChange={(e) =>
+                            setPlaceholders((prev) =>
+                              prev.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)),
+                            )
+                          }
+                          placeholder="TBA"
+                          className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                        />
+                        <button
+                          onClick={() =>
+                            setPlaceholders((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-6 pt-4">
+              {saveError && <div className="text-sm text-red-500 mb-2">{saveError}</div>}
+              {!isSingle && total === 0 ? (
+                <div className="text-center text-sm px-3 py-3 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
+                  Select at least one show
                 </div>
-              );
-            })}
-          </div>
-          <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
-                Placeholder dates
-              </span>
-              <button
-                onClick={() => setPlaceholders((prev) => [...prev, { date: "", label: "" }])}
-                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
-              >
-                + Add slot
-              </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReset}
+                    disabled={downloading}
+                    className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    {downloading ? "Downloading…" : "Download"}
+                  </button>
+                </div>
+              )}
             </div>
-            {placeholders.map((ph, i) => (
-              <div key={i} className="flex gap-2 mb-2">
-                <input
-                  type="date"
-                  value={ph.date}
-                  onChange={(e) =>
-                    setPlaceholders((prev) =>
-                      prev.map((p, j) => (j === i ? { ...p, date: e.target.value } : p)),
-                    )
-                  }
-                  className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                />
-                <input
-                  type="text"
-                  value={ph.label}
-                  onChange={(e) =>
-                    setPlaceholders((prev) =>
-                      prev.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)),
-                    )
-                  }
-                  placeholder="TBA"
-                  className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                />
-                <button
-                  onClick={() => setPlaceholders((prev) => prev.filter((_, j) => j !== i))}
-                  className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
           </div>
-          {saveError && <div className="text-xs text-red-500 mb-2">{saveError}</div>}
-          {total > 0 ? (
-            <button
-              onClick={handleDownload}
-              disabled={saving}
-              className="block w-[calc(100%+3rem)] -mx-6 -mb-6 text-center text-sm px-3 py-4 rounded-b-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-50"
-            >
-              {saving ? "Generating..." : "Save & Download"}
-            </button>
-          ) : (
-            <div className="text-center text-xs px-3 py-1.5 rounded bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
-              Select at least one show
-            </div>
-          )}
-        </Modal>
+
+          {/* Preview — flush, full viewport height */}
+          <div className="flex-1 flex justify-end overflow-hidden bg-[#0a0a0a]">
+              {isSingle && soloShow ? (
+                <Poster
+                  date={soloShow.date}
+                  city={soloShow.city}
+                  region={soloShow.region}
+                  doorTime={soloShow.doorTime}
+                  doorLabel={doorLabels[soloSlug] || null}
+                  venue={soloShow.venue}
+                  venueLabel={venueLabels[soloSlug] || null}
+                  address={soloShow.address}
+                  taglineSuffix={tagline}
+                  tags={tags}
+                  venueImg={venueImg}
+                  venueImgWidth={Number(venueImgWidth) || undefined}
+                  taglineAlign={taglineAlign}
+                  showQr
+                  debug
+                />
+              ) : (
+                <PamphletPreviewFrame src={previewSrc} />
+              )}
+          </div>
+        </div>
       )}
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
-      >
-        <span className="text-xs tracking-widest text-neutral-500 uppercase">Pamphlet</span>
-        <span>
-          {matchedPamphlet?.label || matchedPamphlet?.id || label} &middot; {group.length} show
-          {group.length !== 1 ? "s" : ""}
-        </span>
-      </button>
+      {variant === "card" ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center justify-center text-sm px-3 py-2.5 text-[#d4a553] hover:bg-[#d4a553]/5 dark:hover:bg-[#d4a553]/10 transition-colors"
+        >
+          Poster
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+        >
+          <span className="text-xs tracking-widest text-neutral-500 uppercase">
+            {isSingle ? "Poster" : "Pamphlet"}
+          </span>
+          <span>
+            {matchedPamphlet?.label || matchedPamphlet?.id || label}
+            {!isSingle && ` · ${group.length} shows`}
+          </span>
+        </button>
+      )}
     </>
   );
 }
@@ -1106,12 +1496,9 @@ function ShowGroupCard({
   );
   const [emailConfirming, setEmailConfirming] = useState(false);
   const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
-  const [labelValue, setLabelValue] = useState(show?.venueLabel ?? "");
-  const [doorLabelValue, setDoorLabelValue] = useState(show?.doorLabel ?? "");
   const [dateValue, setDateValue] = useState(show?.date ?? host.date ?? "");
   const [editingDate, setEditingDate] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const labelsSave = useDebouncedSave(show, onShowUpdate);
   const dateSave = useDebouncedSave(show, onShowUpdate);
 
   useEffect(() => {
@@ -1124,9 +1511,6 @@ function ShowGroupCard({
       })
       .catch(() => setRsvpCounts(null));
   }, [group.showSlug]);
-
-  const debounceSaveLabels = (venue: string, door: string) =>
-    labelsSave.save({ venueLabel: venue.trim() || null, doorLabel: door.trim() || null });
 
   const debounceSaveDate = (newDate: string) => {
     if (!newDate) return;
@@ -1399,7 +1783,7 @@ function ShowGroupCard({
       )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
         <div className="flex flex-1">
-          <div className="flex-1 min-w-0 p-5 flex flex-col gap-3">
+          <div className="flex-1 min-w-0 p-5 flex flex-col justify-center gap-3">
             <div>
               {show?.slug ? (
                 <div className="flex items-center gap-2 relative">
@@ -1450,54 +1834,19 @@ function ShowGroupCard({
               )}
             </div>
 
-            {show && (
-              <div className="mt-auto space-y-2">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-xs text-neutral-500 uppercase tracking-widest">
-                    Poster Labels
-                  </h4>
-                  {labelsSave.state === "saving" && (
-                    <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
-                  )}
-                  {labelsSave.state === "saved" && (
-                    <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={labelValue}
-                  onChange={(e) => {
-                    setLabelValue(e.target.value);
-                    debounceSaveLabels(e.target.value, doorLabelValue);
-                  }}
-                  placeholder={`${host.venue || "Venue"}, ${host.city}, ${host.region}`}
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800/50 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-500"
-                />
-                <input
-                  type="text"
-                  value={doorLabelValue}
-                  onChange={(e) => {
-                    setDoorLabelValue(e.target.value);
-                    debounceSaveLabels(labelValue, e.target.value);
-                  }}
-                  placeholder={`Doors open at ${host.doorTime || "7PM"}`}
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800/50 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-500"
-                />
-              </div>
-            )}
           </div>
 
           <div className="shrink-0 flex flex-col border-l border-neutral-200 dark:border-neutral-800 w-28">
             <button
               disabled
               title="PDF renovating"
-              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-300 dark:text-neutral-700 cursor-not-allowed"
+              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-300 dark:text-neutral-700 cursor-not-allowed"
             >
               PDF
             </button>
             {show?.slug &&
               (confirmAccess ? (
-                <div className="flex-1 flex items-center justify-center gap-1 text-sm px-3 border-b border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-center gap-1 text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800">
                   <button
                     onClick={async () => {
                       const next = show.access === "private" ? "public" : "private";
@@ -1524,7 +1873,7 @@ function ShowGroupCard({
               ) : (
                 <button
                   onClick={() => setConfirmAccess(true)}
-                  className={`flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
+                  className={`flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
                     show.access === "private"
                       ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                       : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -1536,14 +1885,14 @@ function ShowGroupCard({
             {supporters.length > 0 && (
               <button
                 onClick={() => setViewingSupporters(true)}
-                className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
                 +{supporters.length}
               </button>
             )}
             <button
               onClick={() => setEditingHost(true)}
-              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
               Amend
             </button>
@@ -1564,7 +1913,7 @@ function ShowGroupCard({
                     setRsvpCounts(null);
                   });
               }}
-              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
               Email
             </button>
@@ -1573,11 +1922,21 @@ function ShowGroupCard({
                 setConfirmDelete(true);
                 setDeleteInput("");
               }}
-              className="flex-1 flex items-center justify-center text-sm px-3 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
             >
               Delete
             </button>
-            {show?.slug ? <PosterDownloadButton slug={show.slug} /> : <div className="flex-1" />}
+            {show?.slug ? (
+              <PosterEditor
+                group={[group]}
+                matchedPamphlet={null}
+                onPamphletSaved={() => {}}
+                onShowUpdate={onShowUpdate}
+                variant="card"
+              />
+            ) : (
+              <div className="flex-1" />
+            )}
           </div>
         </div>
         {confirmDelete && (

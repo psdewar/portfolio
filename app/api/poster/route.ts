@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { takePdf } from "../../lib/screenshot";
-import { posterHtml } from "./html";
+import { posterHtml, inlineVenueImg } from "./html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
       label: searchParams.get("label") || undefined,
       tags: searchParams.get("tags") ?? "",
       doorsOpenOverride: searchParams.get("doorsOpen") ?? "",
+      venueImgSrc: inlineVenueImg(searchParams.get("venueImg") ?? ""),
+      venueImgWidth: Number(searchParams.get("venueImgW")) || undefined,
+      taglineAlign: searchParams.get("align") || undefined,
     },
   );
 

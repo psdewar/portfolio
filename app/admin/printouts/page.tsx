@@ -102,7 +102,7 @@ function QrPage({ city }: { city: string | null }) {
             </>
           )}
           <br />
-          Support
+          <span style={{ color: "#d4a553" }}>Help Fund</span>
           <br />
           the Next
           <br />
@@ -113,6 +113,46 @@ function QrPage({ city }: { city: string | null }) {
         <Image
           src="https://assets.peytspencer.com/images/support-qr-s100.png"
           alt="Scan to support"
+          width={1120}
+          height={1120}
+          style={{ width: "88%", height: "auto", maxHeight: "90vh" }}
+          unoptimized
+        />
+      </div>
+    </div>
+  );
+}
+
+function RsvpQrPage() {
+  return (
+    <div
+      className="screen-only"
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        overflow: "hidden",
+        width: "100vw",
+        height: "100vh",
+        marginLeft: "-1.5rem",
+      }}
+    >
+      <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-black text-white">
+        <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "10vw" }}>
+          Fri May 29
+          <br />
+          Sat May 30
+          <br />
+          Doors Open
+          <br />
+          at 7:30PM
+          <br />
+          <span style={{ color: "#d4a553" }}>RSVP Now</span>
+        </h2>
+      </div>
+      <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
+        <Image
+          src="https://assets.peytspencer.com/images/rsvp-qr-s100.png"
+          alt="Scan to RSVP"
           width={1120}
           height={1120}
           style={{ width: "88%", height: "auto", maxHeight: "90vh" }}
@@ -138,7 +178,7 @@ function DonationBoxLabel() {
 
 export default async function SignupSheetPage() {
   const shows = await getUpcomingShows();
-  const nextCity = shows[0]?.city ?? null;
+  const currentCity = shows[0]?.city ?? null;
 
   return (
     <>
@@ -226,7 +266,19 @@ export default async function SignupSheetPage() {
         <SignupPage />
         <DonationPage />
         <DonationPage />
-        <QrPage city={nextCity} />
+        <QrPage city={currentCity} />
+        <hr
+          className="screen-only"
+          style={{
+            display: "block",
+            border: 0,
+            height: 1,
+            width: "100vw",
+            marginLeft: "-1.5rem",
+            backgroundColor: "#d4a553",
+          }}
+        />
+        <RsvpQrPage />
         <DonationBoxLabel />
       </div>
     </>

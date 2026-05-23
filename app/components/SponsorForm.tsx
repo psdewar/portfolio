@@ -39,6 +39,27 @@ function parseDoorTimeMinutes(t: string): number | null {
   return h * 60 + min;
 }
 
+// "Bwe Kafe, West Palm Beach, FL" → { venue, city, region }. Two- or
+// three-part comma form only — used when the host typed an address Google
+// didn't autocomplete (or skipped picking a suggestion).
+function parseTypedLocation(raw: string): {
+  venue: string;
+  city: string;
+  region: string;
+} | null {
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return null;
+  if (parts.length === 2) return { venue: "", city: parts[0], region: parts[1] };
+  return {
+    venue: parts.slice(0, -2).join(", "),
+    city: parts[parts.length - 2],
+    region: parts[parts.length - 1],
+  };
+}
+
 export interface SponsorFields {
   name: string;
   email: string;
@@ -242,10 +263,36 @@ export default function SponsorForm({
 
     const isSupporter = wizardMode === "supporter";
 
+    // Captured here so the rest of submit uses the recovered values even
+    // before setState has flushed.
+    let resolvedVenue = eventVenue;
+    let resolvedCity = eventCity;
+    let resolvedRegion = eventRegion;
+    let resolvedCountry = eventCountry;
+
     if (!isSupporter) {
-      if (!eventCity || !eventRegion) {
-        setSubmitResult({ ok: false, msg: "Please select a city." });
-        return;
+      if (!resolvedCity || !resolvedRegion) {
+        const typedInput = cityContainerRef.current?.querySelector("input");
+        const typed = typedInput?.value?.trim() || "";
+        const parsed = typed ? parseTypedLocation(typed) : null;
+        if (parsed) {
+          resolvedVenue = resolvedVenue || parsed.venue;
+          resolvedCity = parsed.city;
+          resolvedRegion = parsed.region;
+          resolvedCountry = resolvedCountry || "US";
+          setEventVenue(resolvedVenue);
+          setEventCity(resolvedCity);
+          setEventRegion(resolvedRegion);
+          setEventCountry(resolvedCountry);
+        } else {
+          setSubmitResult({
+            ok: false,
+            msg: typed
+              ? "Add city and state — like 'Bwe Kafe, West Palm Beach, FL'."
+              : "Add a venue or address.",
+          });
+          return;
+        }
       }
 
       const multi = eventDates.length > 1;
@@ -306,10 +353,10 @@ export default function SponsorForm({
       name: sponsorName.trim(),
       email,
       phone: sponsorPhone.trim(),
-      city: isSupporter ? "" : eventCity,
-      region: isSupporter ? "" : eventRegion,
-      country: isSupporter ? "" : eventCountry,
-      venue: isSupporter ? "" : eventVenue || "",
+      city: isSupporter ? "" : resolvedCity,
+      region: isSupporter ? "" : resolvedRegion,
+      country: isSupporter ? "" : resolvedCountry,
+      venue: isSupporter ? "" : resolvedVenue || "",
       address: isSupporter ? "" : eventAddress || "",
       date: isSupporter ? "" : primarySlot.date,
       doorTime: isSupporter ? "" : primarySlot.doorTime,
@@ -337,10 +384,10 @@ export default function SponsorForm({
               body: JSON.stringify({
                 date: slot.date,
                 doorTime: slot.doorTime,
-                city: eventCity,
-                region: eventRegion,
-                country: eventCountry,
-                venue: eventVenue || null,
+                city: resolvedCity,
+                region: resolvedRegion,
+                country: resolvedCountry,
+                venue: resolvedVenue || null,
                 address: eventAddress || null,
                 planStatus: "intent",
               }),
@@ -368,7 +415,7 @@ export default function SponsorForm({
         );
 
         if (booked.length > 1) {
-          const pamphletId = `${eventCity}-${eventRegion}-${primarySlot.date}`
+          const pamphletId = `${resolvedCity}-${resolvedRegion}-${primarySlot.date}`
             .toLowerCase()
             .replace(/[^\w]+/g, "-")
             .replace(/^-+|-+$/g, "");
@@ -709,15 +756,12 @@ export default function SponsorForm({
                         placeholder="Magdalene Carney Institute, West Palm Beach, FL"
                         className={fieldClass}
                         onChange={(e) => {
-                          const parts = e.target.value.split(",").map((s) => s.trim());
-                          if (parts.length >= 3) {
-                            setEventVenue(parts.slice(0, -2).join(", "));
-                            setEventCity(parts[parts.length - 2]);
-                            setEventRegion(parts[parts.length - 1]);
-                          } else if (parts.length === 2) {
-                            setEventVenue("");
-                            setEventCity(parts[0]);
-                            setEventRegion(parts[1]);
+                          const parsed = parseTypedLocation(e.target.value);
+                          if (parsed) {
+                            setEventVenue(parsed.venue);
+                            setEventCity(parsed.city);
+                            setEventRegion(parsed.region);
+                            if (!eventCountry) setEventCountry("US");
                           }
                         }}
                       />
@@ -947,7 +991,11 @@ export default function SponsorForm({
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Select a venue or address to enable submission.
+              Pick a suggestion, or type{" "}
+              <span className="text-neutral-500 dark:text-neutral-300">
+                Venue, City, ST
+              </span>
+              .
             </p>
           )}
           {wizardMode === "host" && hasLocation && (
@@ -960,7 +1008,6 @@ export default function SponsorForm({
             disabled={
               submitting ||
               submitResult?.ok === true ||
-              (wizardMode !== "supporter" && !editMode && !compact && !hasLocation) ||
               (wizardMode === "supporter" && !sponsorName.trim())
             }
             className={`w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity ${compact ? "py-2 text-xs" : "py-3 lg:py-4 text-sm lg:text-base"}`}

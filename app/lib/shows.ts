@@ -13,6 +13,15 @@ export interface Show {
   status: "upcoming" | "past" | "cancelled";
   planStatus?: "intent" | "booked" | "complete";
   access?: "public" | "private";
+  tags?: string | null;
+  taglineSuffix?: string | null;
+  venueImg?: string | null;
+  // Venue logo display width in px; blank/null uses the default CSS sizing.
+  venueImgWidth?: number | null;
+  // Tagline alignment: "justify" (default) or "left".
+  taglineAlign?: string | null;
+  // Manual override: never chain this show into a pamphlet leg.
+  standalone?: boolean | null;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

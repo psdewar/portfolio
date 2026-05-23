@@ -11,6 +11,8 @@ export interface Pamphlet {
   showQr?: boolean;
   tags?: string;
   venueImg?: string;
+  venueImgWidth?: number;
+  taglineAlign?: string;
   address?: string;
   doorsOpen?: string;
 }

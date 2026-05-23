@@ -3,19 +3,11 @@ import { type Show, getShows } from "../../lib/shows";
 import { getPamphlets } from "../../lib/pamphlets";
 import { formatEventDateShort } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
-import { inlineAsset } from "../poster/html";
+import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
-type PamphletFormat = "standard" | "ig" | "yt" | "letter" | "eb";
-
-const DIMS: Record<PamphletFormat, { W: number; H: number }> = {
-  standard: { W: 480, H: 720 },
-  ig: { W: 540, H: 675 },
-  yt: { W: 540, H: 540 },
-  letter: { W: 612, H: 792 },
-  eb: { W: 1080, H: 540 },
-};
+type PamphletFormat = keyof typeof POSTER_DIMS;
 
 function formatCombinedDates(dates: string[]): string {
   if (dates.length === 0) return "";
@@ -82,20 +74,25 @@ function pamphletHtml(
   venueImgSrc = "",
   addressOverride = "",
   doorsOpenOverride = "",
+  venueImgWidth = 0,
+  taglineAlign = "justify",
 ): string {
-  const { W, H } = DIMS[format];
+  const { W, H } = POSTER_DIMS[format];
+  const venueImgStyle = venueImgWidth
+    ? ` style="width:${venueImgWidth}px;height:auto;max-width:none"`
+    : "";
   const locationLabelFor = (s: (typeof shows)[number]) =>
     s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
   const first = shows[0] ? locationLabelFor(shows[0]) : "";
   const sharedVenueLabel =
     tags.trim() ||
     (shows.length > 1 && shows.every((s) => locationLabelFor(s) === first) ? first : "");
-  const isEb = format === "eb";
+  const isWide = format === "eb" || format === "fb" || format === "fbe";
   const labelSplit = label?.split(/\s([\s\S]*)/) ?? [];
   const [labelFirstRaw = "", labelRestRaw = ""] = labelSplit;
-  const labelFirst = isEb ? "" : labelFirstRaw;
-  const labelRest = isEb ? "" : labelRestRaw;
-  const venueImgSrcEffective = isEb ? "" : venueImgSrc;
+  const labelFirst = isWide ? "" : labelFirstRaw;
+  const labelRest = isWide ? "" : labelRestRaw;
+  const venueImgSrcEffective = isWide ? "" : venueImgSrc;
   const tagsList = tags
     .split(",")
     .map((t) => t.trim())
@@ -153,6 +150,7 @@ function pamphletHtml(
     .title-big { font-size: 72px; font-weight: 800; line-height: 0.9; letter-spacing: -0.01em; color: #f0ede6; text-transform: uppercase; margin-left: -2px; }
     .title-accent { width: 64px; height: 3px; background: linear-gradient(to right, #d4a553, #e0b860); margin: 6px 0 7px; }
     .the-concert { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; }
+    .tagline-block { width: fit-content; text-align: ${taglineAlign}; text-align-last: ${taglineAlign}; }
     .venue-img { display: block; height: 110px; width: auto; max-width: 220px; margin: 14px 0 10px; object-fit: contain; }
     .bottom-row { display: flex; align-items: stretch; justify-content: space-between; gap: 16px; }
     .bottom-left { display: flex; flex-direction: column; justify-content: space-between; }
@@ -182,8 +180,11 @@ function pamphletHtml(
     ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
     ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; }" : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
+    ${format === "fb" || format === "fbe" ? wideBannerCss() + " .venue-img { display: none; }" : ""}
+    ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
+    ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
     ${
-      format === "letter"
+      format === "print"
         ? `
       .title-from { font-size: 31.2px; }
       .lockup-img { height: 26.4px; }
@@ -206,7 +207,7 @@ function pamphletHtml(
 </head>
 <body>
   <div class="poster">
-    <img src="${BASE_URL}/Jan23OpenMicNight-08_Original.jpg" alt="" class="poster-bg" />
+    <img src="${format === "fb" || format === "fbe" ? `${BASE_URL}/Jan23OpenMicNight-07_Original.JPEG` : `${BASE_URL}/Jan23OpenMicNight-08_Original.jpg`}" alt="" class="poster-bg" />
     <div class="photo-overlay"></div>
     <div class="bottom-overlay"></div>
     <div class="content">
@@ -225,11 +226,13 @@ function pamphletHtml(
         <div class="title-big">Ground</div>
         <div class="title-big" style="margin-bottom:0">Up</div>
         <div class="title-accent"></div>
+        <div class="tagline-block">
         <div class="the-concert">my path of growth</div>
         <div class="the-concert">and the principles</div>
         <div class="the-concert">that connect us${venueImgSrcEffective ? " at" : labelFirst ? ` ${labelFirst}` : ""}</div>
         ${!venueImgSrcEffective && labelRest ? `<div class="the-concert" style="white-space: pre-line;">${labelRest}</div>` : ""}
-        ${venueImgSrcEffective ? `<img src="${venueImgSrc}" alt="" class="venue-img" />` : ""}
+        </div>
+        ${venueImgSrcEffective ? `<img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />` : ""}
       </div>
       ${
         venueImgSrc
@@ -331,6 +334,8 @@ export async function GET(request: NextRequest) {
   let pamphletShowQr = false;
   let pamphletTags = "";
   let pamphletVenueImg = "";
+  let pamphletVenueImgWidth = 0;
+  let pamphletTaglineAlign = "";
   let pamphletAddress = "";
   let pamphletDoorsOpen = "";
   const pamphletId = searchParams.get("id");
@@ -347,6 +352,8 @@ export async function GET(request: NextRequest) {
       pamphletShowQr = pamphlet.showQr ?? false;
       pamphletTags = pamphlet.tags ?? "";
       pamphletVenueImg = pamphlet.venueImg ?? "";
+      pamphletVenueImgWidth = pamphlet.venueImgWidth ?? 0;
+      pamphletTaglineAlign = pamphlet.taglineAlign ?? "";
       pamphletAddress = pamphlet.address ?? "";
       pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
       const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
@@ -382,8 +389,8 @@ export async function GET(request: NextRequest) {
   }
 
   const rawFormat = searchParams.get("format") ?? "standard";
-  const format: PamphletFormat = rawFormat in DIMS ? (rawFormat as PamphletFormat) : "standard";
-  const { W, H } = DIMS[format];
+  const format: PamphletFormat = rawFormat in POSTER_DIMS ? (rawFormat as PamphletFormat) : "standard";
+  const { W, H } = POSTER_DIMS[format];
   const flag = (key: string, fallback: boolean) => {
     const v = searchParams.get(key);
     return v === null ? fallback : v === "1";
@@ -391,28 +398,29 @@ export async function GET(request: NextRequest) {
   const showDoors = flag("doors", pamphletShowDoors);
   const showQr = flag("qr", pamphletShowQr);
   const tags = searchParams.get("tags") ?? pamphletTags;
-  const venueImgPath = (searchParams.get("venueImg")?.trim() || pamphletVenueImg).trim();
-  const venueMime = venueImgPath.endsWith(".png")
-    ? "image/png"
-    : venueImgPath.endsWith(".jpg") || venueImgPath.endsWith(".jpeg")
-      ? "image/jpeg"
-      : venueImgPath.endsWith(".svg")
-        ? "image/svg+xml"
-        : "image/webp";
-  const venueImgSrc = venueImgPath ? inlineAsset(venueImgPath, venueMime) : "";
+  const venueImgSrc = inlineVenueImg(searchParams.get("venueImg")?.trim() || pamphletVenueImg);
   const addressOverride = (searchParams.get("address") ?? pamphletAddress).trim();
   const doorsOpenOverride = (searchParams.get("doorsOpen") ?? pamphletDoorsOpen).trim();
   const html = pamphletHtml(
     selected,
     format,
-    pamphletLabel,
+    searchParams.get("label") ?? pamphletLabel,
     showDoors,
     showQr,
     tags,
     venueImgSrc,
     addressOverride,
     doorsOpenOverride,
+    Number(searchParams.get("venueImgW")) || pamphletVenueImgWidth,
+    searchParams.get("align") || pamphletTaglineAlign || "justify",
   );
+  // Raw HTML for in-app previews — skips Puppeteer entirely.
+  if (searchParams.get("html") === "true") {
+    return new Response(html, {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
   const isPdf = searchParams.get("pdf") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
   const baseName = blank
@@ -424,7 +432,7 @@ export async function GET(request: NextRequest) {
       const pdf = await takePdf({
         htmlContent: html,
         viewport: { width: W, height: H },
-        pageFormat: format === "letter" ? "Letter" : "match",
+        pageFormat: format === "print" ? "Letter" : "match",
       });
       return new Response(pdf, {
         headers: {

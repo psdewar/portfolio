@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug } from "../../../lib/shows";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
-import { posterHtml, POSTER_DIMS, type PosterFormat } from "../html";
+import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -14,16 +14,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new Response("Show not found", { status: 404 });
   }
 
-  const rawFormat = request.nextUrl.searchParams.get("format") ?? "standard";
-  const format: PosterFormat =
-    rawFormat === "ig" || rawFormat === "yt" || rawFormat === "eb" || rawFormat === "letter"
-      ? rawFormat
-      : "standard";
+  const sp = request.nextUrl.searchParams;
+  const rawFormat = sp.get("format") ?? "standard";
+  const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "standard";
   const { W, H } = POSTER_DIMS[format];
-  const html = posterHtml(show, {
+  // venueLabel/doorLabel params let a download reflect unsaved editor state.
+  const venueLabelParam = sp.get("venueLabel");
+  const doorLabelParam = sp.get("doorLabel");
+  const effShow = {
+    ...show,
+    venueLabel: venueLabelParam !== null ? venueLabelParam : show.venueLabel,
+    doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
+  };
+  const html = posterHtml(effShow, {
     format,
+    label: request.nextUrl.searchParams.get("label") || undefined,
     tags: request.nextUrl.searchParams.get("tags") ?? "",
     doorsOpenOverride: request.nextUrl.searchParams.get("doorsOpen") ?? "",
+    venueImgSrc: inlineVenueImg(request.nextUrl.searchParams.get("venueImg") ?? ""),
+    venueImgWidth: Number(request.nextUrl.searchParams.get("venueImgW")) || undefined,
+    taglineAlign: request.nextUrl.searchParams.get("align") || undefined,
   });
   const asJpg = request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
@@ -50,7 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const pdf = await takePdf({
       htmlContent: html,
       viewport: { width: W, height: H },
-      pageFormat: format === "letter" ? "Letter" : "match",
+      pageFormat: format === "print" ? "Letter" : "match",
     });
     return new Response(pdf, {
       headers: {

@@ -12,6 +12,21 @@ export function inlineAsset(publicRelativePath: string, mime: string): string {
   return dataUrl;
 }
 
+// Resolve a /public-relative venue logo path to an inlined data URL, picking
+// the mime from the extension. Empty/blank input yields "".
+export function inlineVenueImg(publicRelativePath: string): string {
+  const p = publicRelativePath.trim();
+  if (!p) return "";
+  const mime = p.endsWith(".png")
+    ? "image/png"
+    : p.endsWith(".jpg") || p.endsWith(".jpeg")
+      ? "image/jpeg"
+      : p.endsWith(".svg")
+        ? "image/svg+xml"
+        : "image/webp";
+  return inlineAsset(p, mime);
+}
+
 function fontFace(family: string, weight: number, filename: string): string {
   const src = inlineAsset(`fonts/${filename}`, "font/woff2");
   return `@font-face { font-family: "${family}"; font-style: normal; font-weight: ${weight}; src: url("${src}") format('woff2'); }`;
@@ -27,21 +42,30 @@ function fontHead(): string {
   </style>`;
 }
 
-export type PosterFormat = "standard" | "ig" | "yt" | "eb" | "letter";
+export type PosterFormat = "standard" | "ig" | "yt" | "eb" | "print" | "fb" | "fbe";
 
 export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
   standard: { W: 480, H: 720 },
   ig: { W: 540, H: 675 },
   yt: { W: 540, H: 540 },
-  letter: { W: 612, H: 792 },
+  print: { W: 612, H: 792 },
   eb: { W: 1080, H: 540 },
+  fb: { W: 820, H: 312 },
+  fbe: { W: 960, H: 502 },
 };
+
+export function wideBannerCss(): string {
+  return `.poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
+}
 
 export type PosterOptions = {
   label?: string;
   format?: PosterFormat;
   tags?: string;
   doorsOpenOverride?: string;
+  venueImgSrc?: string;
+  venueImgWidth?: number;
+  taglineAlign?: string;
 };
 
 export function posterHtml(
@@ -57,9 +81,25 @@ export function posterHtml(
   },
   opts: PosterOptions = {},
 ): string {
-  const { label, format = "standard", tags = "", doorsOpenOverride = "" } = opts;
+  const {
+    label,
+    format = "standard",
+    tags = "",
+    doorsOpenOverride = "",
+    venueImgSrc = "",
+    venueImgWidth,
+    taglineAlign = "justify",
+  } = opts;
   const { W, H } = POSTER_DIMS[format];
-  const bgSrc = inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
+  const isWideBanner = format === "fb" || format === "fbe";
+  // Venue logo replaces the tagline suffix when both are present (matches the pamphlet).
+  const showVenueImg = !!venueImgSrc && !isWideBanner && format !== "eb";
+  const venueImgStyle = venueImgWidth
+    ? ` style="width:${venueImgWidth}px;height:auto;max-width:none"`
+    : "";
+  const bgSrc = isWideBanner
+    ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
+    : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
   const dateStr = formatEventDate(show.date);
   const cityRegion = `<span style="white-space:nowrap">${show.city}, ${show.region}</span>`;
@@ -94,6 +134,8 @@ export function posterHtml(
     .title-big { font-size: 72px; font-weight: 800; line-height: 0.9; letter-spacing: -0.01em; color: #f0ede6; text-transform: uppercase; margin-left: -2px; }
     .title-accent { width: 64px; height: 3px; background: linear-gradient(to right, #d4a553, #e0b860); margin: 6px 0 7px; }
     .the-concert { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; }
+    .tagline-block { width: fit-content; text-align: ${taglineAlign}; text-align-last: ${taglineAlign}; }
+    .venue-img { display: block; height: 110px; width: auto; max-width: 220px; margin: 14px 0 10px; object-fit: contain; }
     .theme-topright { position: absolute; top: 24px; right: 28px; text-align: right; font-family: "Space Mono", monospace; font-size: 10px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1.6; transform: translateY(-2.5px); will-change: transform; }
     .details { margin-top: auto; width: 100%; }
     .bottom-row { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -109,6 +151,9 @@ export function posterHtml(
     ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
     ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; } .bottom-left.three-line .detail-value { font-size: 14px; }" : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
+    ${format === "fb" || format === "fbe" ? wideBannerCss() : ""}
+    ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
+    ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
   </style>
 </head>
 <body>
@@ -132,9 +177,11 @@ export function posterHtml(
         <div class="title-big">Ground</div>
         <div class="title-big" style="margin-bottom:0">Up</div>
         <div class="title-accent"></div>
+        <div class="tagline-block">
         <div class="the-concert">my path of growth</div>
         <div class="the-concert">and the principles</div>
-        <div class="the-concert">that connect us${label ? ` ${label.split(" ")[0]}` : ""}</div>${label ? `\n        <div class="the-concert">${label.split(" ").slice(1).join(" ")}</div>` : ""}
+        <div class="the-concert">that connect us${showVenueImg ? " at" : label ? ` ${label.split(" ")[0]}` : ""}</div>${!showVenueImg && label ? `\n        <div class="the-concert">${label.split(" ").slice(1).join(" ")}</div>` : ""}
+        </div>${showVenueImg ? `\n        <img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />` : ""}
       </div>
       <div class="details">
         <div class="bottom-row">
