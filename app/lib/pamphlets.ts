@@ -9,6 +9,7 @@ export interface Pamphlet {
   shows: PamphletShow[];
   showDoors?: boolean;
   showQr?: boolean;
+  pinTopRsvp?: boolean;
   tags?: string;
   venueImg?: string;
   venueImgWidth?: number;

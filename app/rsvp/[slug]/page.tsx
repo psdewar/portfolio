@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getShowBySlug } from "../../lib/shows";
-import RSVPForm from "./RSVPForm";
+import { getUpcomingShows } from "../../lib/shows";
+import RSVPShell from "../RSVPShell";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -8,21 +8,10 @@ interface Props {
 
 export default async function ShowRSVPPage({ params }: Props) {
   const { slug } = await params;
-  const show = await getShowBySlug(slug);
+  const shows = await getUpcomingShows();
+  const show = shows.find((s) => s.slug === slug);
 
-  if (!show || show.status !== "upcoming" || show.access === "private") redirect("/rsvp");
+  if (!show || show.access === "private") redirect("/rsvp");
 
-  return (
-    <RSVPForm
-      eventId={show.slug}
-      date={show.date}
-      city={show.city}
-      region={show.region}
-      doorTime={show.doorTime}
-      doorLabel={show.doorLabel}
-      venue={show.venue}
-      venueLabel={show.venueLabel}
-      address={show.address}
-    />
-  );
+  return <RSVPShell shows={shows} initialSlug={slug} />;
 }

@@ -1,59 +1,14 @@
 import { NextRequest } from "next/server";
 import { type Show, getShows } from "../../lib/shows";
 import { getPamphlets } from "../../lib/pamphlets";
-import { formatEventDateShort } from "../../lib/dates";
+import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
 import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
+import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
 type PamphletFormat = keyof typeof POSTER_DIMS;
-
-function formatCombinedDates(dates: string[]): string {
-  if (dates.length === 0) return "";
-  const parsed = dates
-    .map((d) => new Date(d + "T00:00:00"))
-    .sort((a, b) => a.getTime() - b.getTime());
-  const short = (d: Date) => d.toLocaleString("en-US", { weekday: "short" });
-  const month = (d: Date) => d.toLocaleString("en-US", { month: "long" });
-  const long = (d: Date) => d.toLocaleString("en-US", { weekday: "long" });
-  const sameMonth = parsed.every(
-    (d) => d.getMonth() === parsed[0].getMonth() && d.getFullYear() === parsed[0].getFullYear(),
-  );
-  const sameYear = parsed.every((d) => d.getFullYear() === parsed[0].getFullYear());
-  const includeWeekdays = parsed.length <= 3;
-
-  // Single date: conventional "Friday, May 29, 2026"
-  if (parsed.length === 1) {
-    return `${long(parsed[0])}, ${month(parsed[0])} ${parsed[0].getDate()}, ${parsed[0].getFullYear()}`;
-  }
-
-  // Same month, ≤3 dates: "Fri 29 · Sat 30 · May 2026"
-  if (sameMonth && includeWeekdays) {
-    const dayPairs = parsed.map((d) => `${short(d)} ${d.getDate()}`).join(" · ");
-    return `${dayPairs} · ${month(parsed[0])} ${parsed[0].getFullYear()}`;
-  }
-  // Same month, >3 dates: drop weekdays for compactness
-  if (sameMonth) {
-    return `${month(parsed[0])} ${parsed.map((d) => d.getDate()).join(", ")}, ${parsed[0].getFullYear()}`;
-  }
-  // Same year, ≤3 dates: "Fri, May 29 & Sat, Jun 6, 2026"
-  if (sameYear && includeWeekdays) {
-    const parts = parsed.map((d) => `${short(d)}, ${month(d)} ${d.getDate()}`);
-    return `${parts.join(" & ")}, ${parsed[0].getFullYear()}`;
-  }
-  // Same year, >3 dates: drop weekdays
-  if (sameYear) {
-    return `${parsed.map((d) => `${month(d)} ${d.getDate()}`).join(", ")}, ${parsed[0].getFullYear()}`;
-  }
-  // Different years
-  return parsed
-    .map(
-      (d) =>
-        `${includeWeekdays ? short(d) + ", " : ""}${month(d)} ${d.getDate()}, ${d.getFullYear()}`,
-    )
-    .join(" & ");
-}
 
 function pamphletHtml(
   shows: Array<{
@@ -70,61 +25,73 @@ function pamphletHtml(
   label?: string,
   showDoors = false,
   showQr = false,
+  pinTopRsvp = true,
   tags = "",
   venueImgSrc = "",
-  addressOverride = "",
-  doorsOpenOverride = "",
   venueImgWidth = 0,
   taglineAlign = "justify",
+  centerLogo = false,
+  doorsOpenOverride = "",
 ): string {
   const { W, H } = POSTER_DIMS[format];
+  // Mirror preview's cqw units (percentage of container width) at this format's W.
+  const pct = (v: number) => +((W * v) / 100).toFixed(3);
   const venueImgStyle = venueImgWidth
     ? ` style="width:${venueImgWidth}px;height:auto;max-width:none"`
     : "";
   const locationLabelFor = (s: (typeof shows)[number]) =>
     s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
-  const first = shows[0] ? locationLabelFor(shows[0]) : "";
-  const sharedVenueLabel =
-    tags.trim() ||
-    (shows.length > 1 && shows.every((s) => locationLabelFor(s) === first) ? first : "");
+  const firstLoc = shows[0] ? locationLabelFor(shows[0]) : "";
+  const allSameLocation = shows.length > 1 && shows.every((s) => locationLabelFor(s) === firstLoc);
+  const sharedLocation = allSameLocation ? firstLoc : "";
+  const isCompact = !!sharedLocation;
   const isWide = format === "eb" || format === "fb" || format === "fbe";
-  const labelSplit = label?.split(/\s([\s\S]*)/) ?? [];
-  const [labelFirstRaw = "", labelRestRaw = ""] = labelSplit;
-  const labelFirst = isWide ? "" : labelFirstRaw;
-  const labelRest = isWide ? "" : labelRestRaw;
   const venueImgSrcEffective = isWide ? "" : venueImgSrc;
+  const taglineLines = isWide ? [] : (label || DEFAULT_TAGLINE).split("\n");
+  const taglineDivs = taglineLines
+    .map((line) => `        <div class="the-concert">${line}</div>`)
+    .join("\n");
   const tagsList = tags
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean)
-    .slice(0, 2);
-  const sep = tagsList.length >= 2 ? " · " : " · ";
-  const tagsSuffix = tagsList.length ? sep + tagsList.join(sep) : "";
-  const showsHtml = shows
-    .map((show, i) => {
-      const dateStr = formatEventDateShort(show.date);
-      const doorsStr =
-        showDoors && (show.doorLabel || show.doorTime)
-          ? show.doorLabel || `Doors open ${show.doorTime}`
-          : "";
-      if (sharedVenueLabel) {
+    .slice(0, 3);
+  const topRowParts = [...tagsList, ...(sharedLocation ? [sharedLocation] : [])];
+  const tagsLine = topRowParts.join(" · ");
+  let showsHtml: string;
+  if (isCompact) {
+    const combinedDate = formatCombinedDates(shows.map((s) => s.date));
+    const first = shows[0];
+    const compactDoors = showDoors
+      ? doorsOpenOverride ||
+        first?.doorLabel ||
+        (first?.doorTime ? `Doors open at ${first.doorTime}` : "")
+      : "";
+    showsHtml = `
+      <div class="pamphlet-show">
+        <div class="pamphlet-date">${combinedDate}</div>
+        ${compactDoors ? `<div class="pamphlet-detail">${compactDoors}</div>` : ""}
+      </div>`;
+  } else {
+    showsHtml = shows
+      .map((show, i) => {
+        const dateStr = formatEventDateShort(show.date);
+        const doorsStr =
+          showDoors && (show.doorLabel || show.doorTime)
+            ? show.doorLabel || `Doors open ${show.doorTime}`
+            : "";
+        const dividerHtml =
+          i > 0 && format !== "print" ? '<div class="pamphlet-divider"></div>' : "";
         return `
-      ${i > 0 ? '<div class="show-divider"></div>' : ""}
-      <div class="show-item compact">
-        <div class="detail-value date">${dateStr}</div>
-        ${doorsStr ? `<div class="detail-value">${doorsStr}</div>` : ""}
+      ${dividerHtml}
+      <div class="pamphlet-show">
+        <div class="pamphlet-date">${dateStr}</div>
+        <div class="pamphlet-detail">${locationLabelFor(show)}</div>
+        ${doorsStr ? `<div class="pamphlet-detail">${doorsStr}</div>` : ""}
       </div>`;
-      }
-      const locationLabel = locationLabelFor(show);
-      return `
-      ${i > 0 ? '<div class="show-divider"></div>' : ""}
-      <div class="show-item">
-        <div class="detail-value date">${dateStr}</div>
-        <div class="detail-value">${locationLabel}</div>
-        ${doorsStr ? `<div class="detail-value">${doorsStr}</div>` : ""}
-      </div>`;
-    })
-    .join("");
+      })
+      .join("");
+  }
 
   return `<!doctype html>
 <html lang="en">
@@ -140,69 +107,39 @@ function pamphletHtml(
     .poster-bg { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .photo-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to right, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 15%, rgba(10,10,10,0.22) 45%, transparent 70%); z-index: 3; }
     .bottom-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 40%; background: linear-gradient(to top, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0.75) 25%, rgba(10,10,10,0.4) 55%, transparent 100%); z-index: 4; }
-    .content { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; padding: 24px 28px; }
-    .lockup { display: flex; align-items: center; gap: 3px; margin-bottom: 4px; }
-    .lockup-img { height: 22px; width: auto; }
-    .lockup-records { font-family: "Fira Sans", sans-serif; font-size: 16px; font-weight: 500; color: #ffffff; transform: translateY(-1.5px); will-change: transform; }
-    .presents { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; margin-bottom: 8px; margin-top: 8px; }
+    .content { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; padding: ${pct(5)}px ${pct(5.833)}px; }
+    .lockup { display: flex; align-items: center; gap: ${pct(0.625)}px; margin-bottom: ${pct(0.833)}px; }
+    .lockup-img { height: ${pct(4.583)}px; width: auto; }
+    .lockup-records { font-family: "Fira Sans", sans-serif; font-size: ${pct(3.333)}px; font-weight: 500; color: #ffffff; transform: translateY(${-pct(0.104)}px); will-change: transform; }
+    .presents { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; margin-bottom: ${pct(1.667)}px; margin-top: ${pct(1.667)}px; }
     .title-block { margin-bottom: auto; }
-    .title-from { font-size: 26px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #d4a553; line-height: 0.9; }
-    .title-big { font-size: 72px; font-weight: 800; line-height: 0.9; letter-spacing: -0.01em; color: #f0ede6; text-transform: uppercase; margin-left: -2px; }
-    .title-accent { width: 64px; height: 3px; background: linear-gradient(to right, #d4a553, #e0b860); margin: 6px 0 7px; }
-    .the-concert { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; }
+    .title-from { font-size: ${pct(5.417)}px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #d4a553; line-height: 0.9; }
+    .title-big { font-size: ${pct(11.76)}px; font-weight: 800; line-height: 0.9; letter-spacing: -0.01em; color: #f0ede6; text-transform: uppercase; margin-left: ${-pct(0.417)}px; }
+    .title-accent { width: ${pct(13.333)}px; height: ${pct(0.625)}px; background: linear-gradient(to right, #d4a553, #e0b860); margin: ${pct(1.25)}px 0 ${pct(1.458)}px; }
+    .the-concert { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; }
     .tagline-block { width: fit-content; text-align: ${taglineAlign}; text-align-last: ${taglineAlign}; }
-    .venue-img { display: block; height: 110px; width: auto; max-width: 220px; margin: 14px 0 10px; object-fit: contain; }
-    .bottom-row { display: flex; align-items: stretch; justify-content: space-between; gap: 16px; }
-    .bottom-left { display: flex; flex-direction: column; justify-content: space-between; }
-    .bottom-left .tags { line-height: 1; }
-    .bottom-left .detail-value { font-size: 14px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1; }
-    .bottom-left .detail-value.date { font-size: 20px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1; }
-    .bottom-left.three-line .detail-value { font-size: 14px; }
-    .bottom-left.three-line .detail-value.date { font-size: 22px; }
-    .bottom-right-stack { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
-    .qr-code { width: 92px; height: 92px; display: block; }
-    .theme-topright { position: absolute; top: 24px; right: 28px; text-align: right; font-family: "Space Mono", monospace; font-size: 10px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1.6; transform: translateY(-2.5px); will-change: transform; }
+    .venue-wrap { position: relative; width: fit-content; }
+    .venue-img { display: block; height: ${pct(22.917)}px; width: auto; max-width: ${pct(45.833)}px; margin: ${pct(2.917)}px 0 ${pct(2.083)}px; object-fit: contain; }
+    .theme-topright { position: absolute; top: ${pct(5)}px; right: ${pct(5.833)}px; text-align: right; font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1.6; transform: translateY(${-pct(0.521)}px); will-change: transform; }
     .details { margin-top: auto; width: 100%; }
-    .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1.4; white-space: pre-line; }
-    .top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .rsvp-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #f0ede6; line-height: 1; white-space: nowrap; text-decoration: none; }
-    .detail-value { font-size: 11px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1.3; }
-    .detail-value.date { font-size: 15px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1.1; }
-    .show-item { display: flex; flex-direction: column; gap: 1px; padding: 7px 0; }
-    .show-item.compact { flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; padding: 6px 0; }
-    .show-item.compact .detail-value.date { flex-shrink: 0; }
-    .show-item:first-child { padding-top: 0; }
-    .show-divider { height: 1px; background: rgba(212,165,83,0.18); }
-    .details-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
-    .shows-list { flex: 0 1 auto; min-width: 0; width: fit-content; }
-    .qr-section { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
-    .qr-code { width: 92px; height: 92px; display: block; }
-    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
-    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; }" : ""}
+    .tags { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1; }
+    .pamphlet-top { display: flex; align-items: baseline; justify-content: space-between; gap: ${pct(3.333)}px; margin-bottom: ${pct(2.083)}px; }
+    .pamphlet-rows { position: relative; display: flex; align-items: stretch; justify-content: space-between; gap: ${pct(3.75)}px; }
+    .pamphlet-shows { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+    .pamphlet-divider { height: ${pct(0.208)}px; background: rgba(212,165,83,0.18); margin: ${pct(0.729)}px 0; }
+    .pamphlet-show { display: flex; flex-direction: column; gap: ${pct(1.667)}px; }
+    .pamphlet-date { font-size: ${pct(4.167)}px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1.1; flex-shrink: 0; }
+    .pamphlet-detail { font-size: ${pct(2.917)}px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1.3; }
+    .qr-section { display: flex; flex-direction: column; align-items: flex-end; gap: ${pct(1.667)}px; flex-shrink: 0; justify-content: ${pinTopRsvp ? "space-between" : "flex-end"}; }
+    .qr-code { width: ${pct(19.167)}px; height: ${pct(19.167)}px; display: block; }
+    .qr-label { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1; white-space: nowrap; text-decoration: none; text-align: center; }
+    ${format === "ig" ? `.title-from { font-size: ${pct(4.444)}px; } .title-big { font-size: ${pct(12.222)}px; }` : ""}
+    ${format === "yt" ? `.title-from { font-size: ${pct(3.611)}px; } .title-big { font-size: ${pct(10)}px; } .venue-img { height: ${pct(16)}px; max-width: ${pct(32)}px; margin: ${pct(2)}px 0 ${pct(1.5)}px; } .pamphlet-date { font-size: ${pct(3.2)}px; } .pamphlet-detail { font-size: ${pct(2.2)}px; } .qr-label { font-size: ${pct(1.8)}px; }` : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() + " .venue-img { display: none; }" : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
-    ${
-      format === "print"
-        ? `
-      .title-from { font-size: 31.2px; }
-      .lockup-img { height: 26.4px; }
-      .lockup-records { font-size: 19.2px; }
-      .presents { font-size: 12px; }
-      .the-concert { font-size: 12px; }
-      .theme-topright { font-size: 12px; }
-      .tags { font-size: 12px; }
-      .rsvp-label { font-size: 12px; }
-      .bottom-left .detail-value { font-size: 16.8px; }
-      .bottom-left .detail-value.date { font-size: 24px; }
-      .bottom-left.three-line .detail-value { font-size: 16px; }
-      .bottom-left.three-line .detail-value.date { font-size: 26.5px; }
-      .venue-img { height: 132px; max-width: 264px; }
-      .qr-code { width: 110.4px; height: 110.4px; }
-    `
-        : ""
-    }
+    ${format === "print" ? ".pamphlet-divider { display: none; }" : ""}
   </style>
 </head>
 <body>
@@ -226,57 +163,43 @@ function pamphletHtml(
         <div class="title-big">Ground</div>
         <div class="title-big" style="margin-bottom:0">Up</div>
         <div class="title-accent"></div>
-        <div class="tagline-block">
-        <div class="the-concert">my path of growth</div>
-        <div class="the-concert">and the principles</div>
-        <div class="the-concert">that connect us${venueImgSrcEffective ? " at" : labelFirst ? ` ${labelFirst}` : ""}</div>
-        ${!venueImgSrcEffective && labelRest ? `<div class="the-concert" style="white-space: pre-line;">${labelRest}</div>` : ""}
+        <div class="tagline-block" id="tagline-block">
+${taglineDivs}
         </div>
-        ${venueImgSrcEffective ? `<img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />` : ""}
+        ${venueImgSrcEffective ? `<div class="venue-wrap" id="venue-wrap"><img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} /></div>` : ""}
       </div>
-      ${
-        venueImgSrc
-          ? `
       <div class="details">
-        <div class="bottom-row">
-          <div class="bottom-left${tagsList.length ? "" : " three-line"}">
-            ${tagsList.length ? `<div class="tags">${tagsList.join(sep)}</div>` : ""}
-            <div class="detail-value date">${formatCombinedDates(shows.map((s) => s.date))}</div>
-            <div class="detail-value">${
-              addressOverride.trim() ||
-              (shows[0]
-                ? [shows[0].address, shows[0].city, shows[0].region].filter(Boolean).join(", ")
-                : sharedVenueLabel || "")
-            }</div>
-            <div class="detail-value">${
-              doorsOpenOverride ||
-              shows[0]?.doorLabel ||
-              `Doors open at ${shows[0]?.doorTime || "7PM"}`
-            }</div>
-          </div>
-          <div class="bottom-right-stack">
-            <a class="rsvp-label" href="https://peytspencer.com/rsvp">peytspencer.com/rsvp</a>
+        ${tagsLine ? `<div class="pamphlet-top"><div class="tags">${tagsLine}</div></div>` : ""}
+        <div class="pamphlet-rows">
+          <div class="pamphlet-shows">${showsHtml}</div>
+          <div class="qr-section">
+            <a class="qr-label" href="https://peytspencer.com/rsvp">peytspencer.com/rsvp</a>
             ${showQr ? `<img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" class="qr-code" />` : ""}
           </div>
         </div>
-      </div>`
-          : `
-      <div class="details">
-        <div class="top-row">
-          ${(() => {
-            const parts = sharedVenueLabel ? [...tagsList, sharedVenueLabel] : tagsList;
-            return parts.length ? `<div class="tags">${parts.join(sep)}</div>` : `<div></div>`;
-          })()}
-          <a class="rsvp-label" href="https://peytspencer.com/rsvp">peytspencer.com/rsvp</a>
-        </div>
-        <div class="details-row">
-          <div class="shows-list">${showsHtml}</div>
-          ${showQr ? `<div class="qr-section"><img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" class="qr-code" /></div>` : ""}
-        </div>
-      </div>`
-      }
+      </div>
     </div>
   </div>
+  <script>
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function() {
+      var label = document.querySelector('.qr-section .qr-label');
+      var qr = document.querySelector('.qr-section .qr-code');
+      if (label && qr) {
+        var ls = parseFloat(getComputedStyle(label).letterSpacing) || 0;
+        var w = label.getBoundingClientRect().width - ls;
+        qr.style.width = w + 'px';
+        qr.style.height = w + 'px';
+      }
+      ${centerLogo ? `
+      var tagline = document.getElementById('tagline-block');
+      var wrap = document.getElementById('venue-wrap');
+      if (tagline && wrap) {
+        wrap.style.width = tagline.offsetWidth + 'px';
+        wrap.style.display = 'flex';
+        wrap.style.justifyContent = 'center';
+      }` : ""}
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -332,11 +255,11 @@ export async function GET(request: NextRequest) {
   let pamphletLabel: string | undefined;
   let pamphletShowDoors = false;
   let pamphletShowQr = false;
+  let pamphletPinTopRsvp = true;
   let pamphletTags = "";
   let pamphletVenueImg = "";
   let pamphletVenueImgWidth = 0;
   let pamphletTaglineAlign = "";
-  let pamphletAddress = "";
   let pamphletDoorsOpen = "";
   const pamphletId = searchParams.get("id");
 
@@ -350,11 +273,11 @@ export async function GET(request: NextRequest) {
       pamphletLabel = pamphlet.label;
       pamphletShowDoors = pamphlet.showDoors ?? false;
       pamphletShowQr = pamphlet.showQr ?? false;
+      pamphletPinTopRsvp = pamphlet.pinTopRsvp ?? true;
       pamphletTags = pamphlet.tags ?? "";
       pamphletVenueImg = pamphlet.venueImg ?? "";
       pamphletVenueImgWidth = pamphlet.venueImgWidth ?? 0;
       pamphletTaglineAlign = pamphlet.taglineAlign ?? "";
-      pamphletAddress = pamphlet.address ?? "";
       pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
       const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps.venueLabel]));
       selected = resolveShows(
@@ -397,9 +320,10 @@ export async function GET(request: NextRequest) {
   };
   const showDoors = flag("doors", pamphletShowDoors);
   const showQr = flag("qr", pamphletShowQr);
+  const pinTopRsvp = flag("pinTopRsvp", pamphletPinTopRsvp);
+  const centerLogo = flag("centerLogo", false);
   const tags = searchParams.get("tags") ?? pamphletTags;
   const venueImgSrc = inlineVenueImg(searchParams.get("venueImg")?.trim() || pamphletVenueImg);
-  const addressOverride = (searchParams.get("address") ?? pamphletAddress).trim();
   const doorsOpenOverride = (searchParams.get("doorsOpen") ?? pamphletDoorsOpen).trim();
   const html = pamphletHtml(
     selected,
@@ -407,12 +331,13 @@ export async function GET(request: NextRequest) {
     searchParams.get("label") ?? pamphletLabel,
     showDoors,
     showQr,
+    pinTopRsvp,
     tags,
     venueImgSrc,
-    addressOverride,
-    doorsOpenOverride,
     Number(searchParams.get("venueImgW")) || pamphletVenueImgWidth,
     searchParams.get("align") || pamphletTaglineAlign || "justify",
+    centerLogo,
+    doorsOpenOverride,
   );
   // Raw HTML for in-app previews — skips Puppeteer entirely.
   if (searchParams.get("html") === "true") {

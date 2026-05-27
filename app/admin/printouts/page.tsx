@@ -104,7 +104,7 @@ function QrPage({ city }: { city: string | null }) {
           <br />
           <span style={{ color: "#d4a553" }}>Help Fund</span>
           <br />
-          the Next
+          my Next
           <br />
           Tour Stop
         </h2>

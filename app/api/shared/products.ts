@@ -347,10 +347,10 @@ export const PRODUCTS: Record<string, Product> = {
     suggestedAmounts: [300, 500, 1000, 2000],
   },
 
-  // Support the next tour stop (paired with RSVP flow)
+  // Help fund next tour stop (paired with RSVP flow)
   "support-next-concert": {
     id: "support-next-concert",
-    name: "Support the next tour stop",
+    name: "Help fund next tour stop",
     description: "Thank you! Your contribution helps me remain independent.",
     type: "donation",
     basePriceCents: 2000,

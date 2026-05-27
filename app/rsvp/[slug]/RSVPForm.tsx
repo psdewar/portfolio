@@ -220,7 +220,7 @@ export default function RSVPForm({
     <>
       <div>
         <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
-          Support the next tour stop
+          Help fund my next tour stop
         </label>
         <div className="flex items-stretch h-14 lg:h-[4.5rem]">
           <button
@@ -317,7 +317,7 @@ export default function RSVPForm({
     <div className="fixed left-0 right-0 top-14 bg-white dark:bg-neutral-950 overflow-hidden" style={{ bottom: "var(--player-h, 0px)" }}>
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-full overflow-y-auto touch-pan-y">
-        <div className="px-[6%] py-8">
+        <div className="px-4 sm:px-6 py-8">
           {backButton}
 
           {submitted ? (
@@ -414,8 +414,8 @@ export default function RSVPForm({
 
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
-        <div className="h-full flex-shrink-0">{poster}</div>
-        <div className="flex-1 min-w-0 flex flex-col px-4 py-8 overflow-y-auto @container">
+        <div className="h-full flex-shrink-0 aspect-[480/720]">{poster}</div>
+        <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto @container">
           {backButton}
 
           {submitted ? (

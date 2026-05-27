@@ -8,14 +8,19 @@ import {
   TextAlignJustifyIcon,
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
-import Poster from "../../components/Poster";
+import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
-import { FREE_ADMISSION_TAG } from "../../lib/poster-defaults";
+import { FREE_ADMISSION_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
+import {
+  type PosterFormat,
+  PAMPHLET_PREVIEW_FORMATS,
+  POSTER_PREVIEW_FORMATS,
+} from "../../lib/poster-formats";
 
 function Modal({
   onClose,
@@ -130,39 +135,6 @@ function TagsField({
   );
 }
 
-// Renders the pamphlet HTML in a scaled iframe — no Puppeteer, instant preview.
-function PamphletPreviewFrame({ src }: { src: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setScale(el.clientHeight / 720);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return (
-    <div ref={ref} className="h-full bg-[#0a0a0a]" style={{ width: scale ? 480 * scale : 360 }}>
-      {src && scale > 0 && (
-        <iframe
-          src={src}
-          title="Pamphlet preview"
-          scrolling="no"
-          style={{
-            width: 480,
-            height: 720,
-            border: 0,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
 interface Sponsor {
   showSlug: string | null;
   name: string;
@@ -237,33 +209,40 @@ export default function ShowsAdminPage() {
   const groupIntoLegs = (items: ShowGroup[]): ShowGroup[][] => {
     const withSlug = items.filter((g) => g.show?.slug && g.show?.date);
     if (!withSlug.length) return [];
-    // Shows manually flagged standalone are pulled out before chaining and
-    // re-added as their own one-show legs.
     const chainable = withSlug.filter((g) => !g.show!.standalone);
     const solo = withSlug.filter((g) => g.show!.standalone);
-    const legs: ShowGroup[][] = [];
-    if (chainable.length) {
-      let current = [chainable[0]];
-      for (let i = 1; i < chainable.length; i++) {
-        const prev = chainable[i - 1];
-        const next = chainable[i];
+
+    const n = chainable.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const find = (x: number): number => {
+      if (parent[x] !== x) parent[x] = find(parent[x]);
+      return parent[x];
+    };
+
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = chainable[i].show!;
+        const b = chainable[j].show!;
         const diffDays =
-          (new Date(next.show!.date).getTime() - new Date(prev.show!.date).getTime()) /
-          (1000 * 60 * 60 * 24);
-        const sameRegion = prev.show!.region === next.show!.region;
-        const adjacent =
-          sameRegion || areRegionsAdjacent(prev.show!.region, next.show!.region);
-        // Non-adjacent regions never chain — calendar proximity alone (e.g. WA
-        // and NJ 6 days apart) is not a tour leg.
-        if (adjacent && Math.abs(diffDays) <= (sameRegion ? 21 : 7)) {
-          current.push(next);
-        } else {
-          legs.push(current);
-          current = [next];
+          Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000;
+        const sameRegion = a.region === b.region;
+        const adjacent = sameRegion || areRegionsAdjacent(a.region, b.region);
+        if (adjacent && diffDays <= (sameRegion ? 21 : 7)) {
+          parent[find(i)] = find(j);
         }
       }
-      legs.push(current);
     }
+
+    const buckets = new Map<number, ShowGroup[]>();
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      if (!buckets.has(root)) buckets.set(root, []);
+      buckets.get(root)!.push(chainable[i]);
+    }
+
+    const legs: ShowGroup[][] = [...buckets.values()].map((leg) =>
+      leg.sort((a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime()),
+    );
     for (const s of solo) legs.push([s]);
     legs.sort(
       (a, b) => new Date(a[0].show!.date).getTime() - new Date(b[0].show!.date).getTime(),
@@ -493,7 +472,7 @@ function CompletedSection({
           );
           const slugs = new Set(sorted.map((g) => g.show!.slug));
           const matched = pamphlets.find((p) => p.shows.some((s) => slugs.has(s.slug)));
-          const legName = matched?.label || matched?.id?.replace(/-/g, " ");
+          const legName = matched?.id?.replace(/-/g, " ");
 
           return (
             <div key={i}>
@@ -550,7 +529,7 @@ function CustomPosterButton() {
   const [doorTime, setDoorTime] = useState("7PM");
   const [venueLabel, setVenueLabel] = useState("");
   const [doorLabel, setDoorLabel] = useState("");
-  const [taglineSuffix, setTaglineSuffix] = useState("");
+  const [taglineSuffix, setTaglineSuffix] = useState(DEFAULT_TAGLINE);
   const [tags, setTags] = useState(FREE_ADMISSION_TAG);
   const [doorsOpen, setDoorsOpen] = useState("");
 
@@ -667,8 +646,8 @@ function CustomPosterButton() {
                 <textarea
                   value={taglineSuffix}
                   onChange={(e) => setTaglineSuffix(e.target.value)}
-                  placeholder="Tagline suffix (e.g. in British Columbia)"
-                  rows={2}
+                  placeholder="Tagline"
+                  rows={3}
                   className={inputClass + " resize-none"}
                 />
                 <input
@@ -781,10 +760,11 @@ function PosterEditor({
   const [open, setOpen] = useState(false);
   const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
   const [tagline, setTagline] = useState(
-    isSingle ? (soloShow?.taglineSuffix ?? "") : (matchedPamphlet?.label ?? ""),
+    isSingle ? (soloShow?.taglineSuffix ?? DEFAULT_TAGLINE) : (matchedPamphlet?.label ?? DEFAULT_TAGLINE),
   );
   const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
+  const [pinTopRsvp, setPinTopRsvp] = useState(matchedPamphlet?.pinTopRsvp ?? true);
   const [tags, setTags] = useState(
     isSingle
       ? (soloShow?.tags ?? FREE_ADMISSION_TAG)
@@ -794,6 +774,10 @@ function PosterEditor({
     isSingle ? (soloShow?.venueImg ?? "") : (matchedPamphlet?.venueImg ?? ""),
   );
   const [venueImgWidth, setVenueImgWidth] = useState(() => {
+    const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
+    return w ? String(w) : "";
+  });
+  const [committedImgWidth, setCommittedImgWidth] = useState(() => {
     const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
     return w ? String(w) : "";
   });
@@ -828,8 +812,9 @@ function PosterEditor({
   const [downloading, setDownloading] = useState(false);
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState("");
-  const [previewSrc, setPreviewSrc] = useState("");
   const [standalone, setStandalone] = useState(soloShow?.standalone ?? false);
+  const [centerLogo, setCenterLogo] = useState(false);
+  const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
 
   const first = group[0].show!;
   const last = group[group.length - 1].show!;
@@ -864,12 +849,13 @@ function PosterEditor({
     const applyExtras = (params: URLSearchParams) => {
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
+      if (!pinTopRsvp) params.set("pinTopRsvp", "0");
+      if (centerLogo) params.set("centerLogo", "1");
       if (tags.trim()) params.set("tags", tags);
       if (tagline.trim()) params.set("label", tagline.trim());
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
       if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
       params.set("align", taglineAlign);
-      if (address.trim()) params.set("address", address.trim());
       if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
       if (asPdf) params.set("pdf", "true");
     };
@@ -901,7 +887,8 @@ function PosterEditor({
       label: lbl,
       showDoors,
       showQr,
-      tags: tags.trim() || undefined,
+      pinTopRsvp,
+      tags: tags.trim() || null,
       venueImg: venueImg.trim() || undefined,
       venueImgWidth: Number(venueImgWidth) || undefined,
       taglineAlign,
@@ -924,6 +911,7 @@ function PosterEditor({
       shows: payload.shows,
       showDoors,
       showQr,
+      pinTopRsvp,
       tags: payload.tags,
       venueImg: payload.venueImg,
       venueImgWidth: payload.venueImgWidth,
@@ -1021,7 +1009,7 @@ function PosterEditor({
         zipAndDownload(entries, `poster-${slug}.zip`);
       } else {
         const name = legId.trim() || first.date;
-        const pdfFmts = ["ig", "yt", "print", "eb"] as const;
+        const pdfFmts = ["print", "ig", "yt", "eb"] as const;
         const jpgFmts = ["fb", "fbe"] as const;
         // forceSlugs so the download reflects current edits without a save.
         const entries = await Promise.all([
@@ -1057,6 +1045,7 @@ function PosterEditor({
       setDoorsOpen("");
       setShowDoors(false);
       setShowQr(false);
+      setPinTopRsvp(true);
       setPlaceholders([]);
     }
   };
@@ -1075,6 +1064,21 @@ function PosterEditor({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);
+
+  const prevVenueImg = useRef(venueImg);
+  useEffect(() => {
+    const was = prevVenueImg.current.trim();
+    const now = venueImg.trim();
+    prevVenueImg.current = venueImg;
+    if (!was && now) {
+      setTagline((prev) => {
+        const lines = prev.split("\n");
+        const last = lines[lines.length - 1];
+        if (!last.endsWith(" at")) lines[lines.length - 1] = last + " at";
+        return lines.join("\n");
+      });
+    }
+  }, [venueImg]);
 
   // Debounced auto-save — single edits persist to the show, multi to the
   // pamphlet record (when it has an ID). Mirrors the old inline Poster Labels.
@@ -1109,6 +1113,7 @@ function PosterEditor({
     doorsOpen,
     showDoors,
     showQr,
+    pinTopRsvp,
     legId,
     JSON.stringify(venueLabels),
     JSON.stringify(doorLabels),
@@ -1116,32 +1121,6 @@ function PosterEditor({
     JSON.stringify(placeholders),
   ]);
 
-  // Debounced pamphlet preview (raw-HTML iframe — no Puppeteer).
-  useEffect(() => {
-    if (!open || isSingle) return;
-    if (activeGroup.length === 0) {
-      setPreviewSrc("");
-      return;
-    }
-    const t = setTimeout(() => {
-      setPreviewSrc(`${buildPamphletHref("standard", false, true)}&html=true&_=${Date.now()}`);
-    }, 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    isSingle,
-    tags,
-    tagline,
-    venueImg,
-    address,
-    doorsOpen,
-    showDoors,
-    showQr,
-    JSON.stringify(venueLabels),
-    JSON.stringify(included),
-    JSON.stringify(placeholders),
-  ]);
 
   const total = activeGroup.length + placeholders.filter((p) => p.date).length;
   const inputCls =
@@ -1188,8 +1167,8 @@ function PosterEditor({
               <textarea
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
-                placeholder="Tagline suffix (e.g. in British Columbia, newlines allowed)"
-                rows={2}
+                placeholder="Tagline"
+                rows={3}
                 className={`${inputCls} mb-2 resize-y`}
               />
               <div className="flex items-center gap-1.5 mb-3">
@@ -1225,15 +1204,27 @@ function PosterEditor({
                 placeholder="Venue logo file in /public (e.g. tcc.webp)"
                 className={`${inputCls} mb-2`}
               />
-              <input
-                type="number"
-                value={venueImgWidth}
-                onChange={(e) => setVenueImgWidth(e.target.value)}
-                min={0}
-                step={1}
-                placeholder="Venue logo width in px (blank = default)"
-                className={`${inputCls} mb-2`}
-              />
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="number"
+                  value={venueImgWidth}
+                  onChange={(e) => setVenueImgWidth(e.target.value)}
+                  onBlur={() => setCommittedImgWidth(venueImgWidth)}
+                  min={0}
+                  step={1}
+                  placeholder="Venue logo width in px (blank = default)"
+                  className={inputCls}
+                />
+                <label className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={centerLogo}
+                    onChange={(e) => setCenterLogo(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-xs">Center</span>
+                </label>
+              </div>
 
               {isSingle ? (
                 <>
@@ -1290,7 +1281,7 @@ function PosterEditor({
                     />
                     <span>Show door times on pamphlet</span>
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
                     <input
                       type="checkbox"
                       checked={showQr}
@@ -1298,6 +1289,15 @@ function PosterEditor({
                       className="rounded"
                     />
                     <span>Show QR code on pamphlet</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+                    <input
+                      type="checkbox"
+                      checked={pinTopRsvp}
+                      onChange={(e) => setPinTopRsvp(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Pin RSVP link to top</span>
                   </label>
                   <div className="space-y-3 mb-4">
                     {group.map((g) => {
@@ -1412,7 +1412,23 @@ function PosterEditor({
           </div>
 
           {/* Preview — flush, full viewport height */}
-          <div className="flex-1 flex justify-end overflow-hidden bg-[#0a0a0a]">
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
+            <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
+              {(isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setPreviewFormat(f)}
+                  className={`px-2.5 py-1 text-xs uppercase tracking-wider rounded transition-colors ${
+                    previewFormat === f
+                      ? "bg-[#d4a553] text-black"
+                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 flex justify-end overflow-hidden">
               {isSingle && soloShow ? (
                 <Poster
                   date={soloShow.date}
@@ -1426,14 +1442,41 @@ function PosterEditor({
                   taglineSuffix={tagline}
                   tags={tags}
                   venueImg={venueImg}
-                  venueImgWidth={Number(venueImgWidth) || undefined}
+                  venueImgWidth={Number(committedImgWidth) || undefined}
                   taglineAlign={taglineAlign}
                   showQr
                   debug
+                  centerLogo={centerLogo}
+                  format={previewFormat}
                 />
               ) : (
-                <PamphletPreviewFrame src={previewSrc} />
+                <Poster
+                  taglineSuffix={tagline}
+                  tags={tags}
+                  venueImg={venueImg}
+                  venueImgWidth={Number(committedImgWidth) || undefined}
+                  taglineAlign={taglineAlign}
+                  showDoors={showDoors}
+                  showQr={showQr}
+                  pinTopRsvp={pinTopRsvp}
+                  doorsOpen={doorsOpen}
+                  debug
+                  centerLogo={centerLogo}
+                  format={previewFormat}
+                  shows={activeGroup.map(
+                    (g): PamphletShowItem => ({
+                      date: g.show!.date,
+                      city: g.show!.city,
+                      region: g.show!.region,
+                      venue: g.show!.venue,
+                      venueLabel: venueLabels[g.show!.slug] || g.show!.venueLabel,
+                      doorTime: g.show!.doorTime,
+                      doorLabel: g.show!.doorLabel,
+                    }),
+                  )}
+                />
               )}
+            </div>
           </div>
         </div>
       )}
@@ -1453,7 +1496,7 @@ function PosterEditor({
             {isSingle ? "Poster" : "Pamphlet"}
           </span>
           <span>
-            {matchedPamphlet?.label || matchedPamphlet?.id || label}
+            {matchedPamphlet?.id || label}
             {!isSingle && ` · ${group.length} shows`}
           </span>
         </button>

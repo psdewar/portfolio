@@ -37,6 +37,7 @@ next-env.d.ts
 
 # custom
 scripts/
+public/design/
 
 # Playwright
 node_modules/

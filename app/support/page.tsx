@@ -44,9 +44,7 @@ export default async function SupportPage({
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
         <div className="flex flex-col gap-4 max-w-lg mx-auto">
           <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white">Tour Stops</h2>
-          <Suspense>
-            <TourMapSection />
-          </Suspense>
+          <TourMapSection shows={shows} />
           <a
             href="/sponsor"
             className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"

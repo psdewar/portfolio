@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import nodePath from "node:path";
 import { formatEventDate } from "../../lib/dates";
+import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 
 const dataUrlCache = new Map<string, string>();
 export function inlineAsset(publicRelativePath: string, mime: string): string {
@@ -42,17 +43,8 @@ function fontHead(): string {
   </style>`;
 }
 
-export type PosterFormat = "standard" | "ig" | "yt" | "eb" | "print" | "fb" | "fbe";
-
-export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
-  standard: { W: 480, H: 720 },
-  ig: { W: 540, H: 675 },
-  yt: { W: 540, H: 540 },
-  print: { W: 612, H: 792 },
-  eb: { W: 1080, H: 540 },
-  fb: { W: 820, H: 312 },
-  fbe: { W: 960, H: 502 },
-};
+import { POSTER_DIMS, type PosterFormat } from "../../lib/poster-formats";
+export { POSTER_DIMS, type PosterFormat };
 
 export function wideBannerCss(): string {
   return `.poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
@@ -111,6 +103,10 @@ export function posterHtml(
     .map((t) => t.trim())
     .filter(Boolean)
     .slice(0, 3);
+  const taglineLines = (label || DEFAULT_TAGLINE).split("\n");
+  const taglineDivs = taglineLines
+    .map((line) => `        <div class="the-concert">${line}</div>`)
+    .join("\n");
 
   return `<!doctype html>
 <html lang="en">
@@ -138,14 +134,14 @@ export function posterHtml(
     .venue-img { display: block; height: 110px; width: auto; max-width: 220px; margin: 14px 0 10px; object-fit: contain; }
     .theme-topright { position: absolute; top: 24px; right: 28px; text-align: right; font-family: "Space Mono", monospace; font-size: 10px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1.6; transform: translateY(-2.5px); will-change: transform; }
     .details { margin-top: auto; width: 100%; }
-    .bottom-row { display: flex; justify-content: space-between; align-items: flex-start; }
-    .bottom-left { display: flex; flex-direction: column; gap: 10px; }
+    .bottom-row { display: flex; justify-content: space-between; align-items: stretch; }
+    .bottom-left { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
     .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1; }
     .detail-value { font-size: 14px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; }
     .detail-value.date { font-size: 20px; font-weight: 700; color: #f0ede6; }
     .bottom-left.three-line .detail-value { font-size: 14px; }
     .bottom-left.three-line .detail-value.date { font-size: 22px; }
-    .qr-section { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .qr-section { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
     .qr-code { width: 92px; height: 92px; }
     .qr-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; text-align: center; line-height: 1; }
     ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
@@ -178,9 +174,7 @@ export function posterHtml(
         <div class="title-big" style="margin-bottom:0">Up</div>
         <div class="title-accent"></div>
         <div class="tagline-block">
-        <div class="the-concert">my path of growth</div>
-        <div class="the-concert">and the principles</div>
-        <div class="the-concert">that connect us${showVenueImg ? " at" : label ? ` ${label.split(" ")[0]}` : ""}</div>${!showVenueImg && label ? `\n        <div class="the-concert">${label.split(" ").slice(1).join(" ")}</div>` : ""}
+${taglineDivs}
         </div>${showVenueImg ? `\n        <img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />` : ""}
       </div>
       <div class="details">
