@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 const title = "RSVP | From The Ground Up";
 const description =
-  "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.";
+  "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft engineer Peyt Spencer. Pay what you want.";
 const ogImage = "https://peytspencer.com/api/og/rsvp";
 
 export const metadata: Metadata = {

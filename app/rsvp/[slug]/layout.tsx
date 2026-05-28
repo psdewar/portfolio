@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!show) return {};
 
   const title = `RSVP - ${show.city}, ${show.region} | From The Ground Up`;
-  const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft engineer Peyt Spencer. Free admission.`;
+  const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft engineer Peyt Spencer. Pay what you want.`;
 
   return {
     alternates: { canonical: `/rsvp/${slug}` },
