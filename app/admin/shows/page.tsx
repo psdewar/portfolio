@@ -888,7 +888,7 @@ function PosterEditor({
       showDoors,
       showQr,
       pinTopRsvp,
-      tags: tags.trim() || null,
+      tags: tags.trim() || undefined,
       venueImg: venueImg.trim() || undefined,
       venueImgWidth: Number(venueImgWidth) || undefined,
       taglineAlign,
