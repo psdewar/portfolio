@@ -14,7 +14,7 @@ import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
-import { FREE_ADMISSION_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
 import {
   type PosterFormat,
@@ -530,7 +530,7 @@ function CustomPosterButton() {
   const [venueLabel, setVenueLabel] = useState("");
   const [doorLabel, setDoorLabel] = useState("");
   const [taglineSuffix, setTaglineSuffix] = useState(DEFAULT_TAGLINE);
-  const [tags, setTags] = useState(FREE_ADMISSION_TAG);
+  const [tags, setTags] = useState(PAY_WHAT_YOU_WANT_TAG);
   const [doorsOpen, setDoorsOpen] = useState("");
 
   const buildHref = () => {
@@ -767,8 +767,8 @@ function PosterEditor({
   const [pinTopRsvp, setPinTopRsvp] = useState(matchedPamphlet?.pinTopRsvp ?? true);
   const [tags, setTags] = useState(
     isSingle
-      ? (soloShow?.tags ?? FREE_ADMISSION_TAG)
-      : (matchedPamphlet?.tags ?? FREE_ADMISSION_TAG),
+      ? (soloShow?.tags ?? PAY_WHAT_YOU_WANT_TAG)
+      : (matchedPamphlet?.tags ?? PAY_WHAT_YOU_WANT_TAG),
   );
   const [venueImg, setVenueImg] = useState(
     isSingle ? (soloShow?.venueImg ?? "") : (matchedPamphlet?.venueImg ?? ""),
@@ -1033,7 +1033,7 @@ function PosterEditor({
 
   // Reset poster styling to defaults — auto-save then persists the cleared state.
   const handleReset = () => {
-    setTags(FREE_ADMISSION_TAG);
+    setTags(PAY_WHAT_YOU_WANT_TAG);
     setTagline("");
     setTaglineAlign("justify");
     setVenueImg("");

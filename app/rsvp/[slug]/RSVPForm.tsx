@@ -7,7 +7,7 @@ import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
-import { FREE_ADMISSION_TAG } from "../../lib/poster-defaults";
+import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
 
 interface RSVPFormProps {
   eventId: string;
@@ -19,6 +19,7 @@ interface RSVPFormProps {
   venue?: string | null;
   venueLabel?: string | null;
   address?: string | null;
+  tags?: string | null;
   onBack?: () => void;
 }
 
@@ -44,6 +45,7 @@ export default function RSVPForm({
   venue,
   venueLabel,
   address,
+  tags,
   onBack,
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
@@ -194,7 +196,7 @@ export default function RSVPForm({
       venue={venue}
       venueLabel={venueLabel}
       address={address}
-      tags={FREE_ADMISSION_TAG}
+      tags={tags ?? PAY_WHAT_YOU_WANT_TAG}
     />
   );
 
@@ -220,7 +222,7 @@ export default function RSVPForm({
     <>
       <div>
         <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
-          Help fund my next tour stop
+          Pay what you want
         </label>
         <div className="flex items-stretch h-14 lg:h-[4.5rem]">
           <button
@@ -265,7 +267,7 @@ export default function RSVPForm({
           onChange={(e) => setSupportCents(e.target.checked ? 0 : 2000)}
           className="w-4 h-4 lg:w-5 lg:h-5 rounded accent-[#d4a553]"
         />
-        <span>RSVP for free</span>
+        <span>Walk in for free</span>
       </label>
     </>
   );
