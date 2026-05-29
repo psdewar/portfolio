@@ -40,6 +40,8 @@ interface PosterProps {
   format?: PosterFormat;
   // Pamphlet mode — when provided, renders a multi-show list instead of single-date details.
   shows?: PamphletShowItem[];
+  // Single-show slug — when set, the QR points to that show's exact form (/rsvp/<slug>).
+  slug?: string;
 }
 
 export default function Poster({
@@ -64,6 +66,7 @@ export default function Poster({
   pinTopRsvp = true,
   format = "standard",
   shows,
+  slug,
 }: PosterProps) {
   const dims = POSTER_DIMS[format];
   const aspectRatio = `${dims.W} / ${dims.H}`;
@@ -600,7 +603,7 @@ export default function Poster({
                   </div>
                   {showQr && (
                     <img
-                      src="https://assets.peytspencer.com/images/rsvp-qr-s10.png"
+                      src={`/api/qr?d=${encodeURIComponent("/rsvp")}`}
                       alt="QR Code"
                       className="qr-code"
                       style={qrLabelW ? { width: qrLabelW, height: qrLabelW } : undefined}
@@ -637,7 +640,7 @@ export default function Poster({
                   <div className="qr-section">
                     <div className="qr-label">peytspencer.com/rsvp</div>
                     <img
-                      src="https://assets.peytspencer.com/images/rsvp-qr-s10.png"
+                      src={`/api/qr?d=${encodeURIComponent(slug ? `/rsvp/${slug}` : "/rsvp")}`}
                       alt="QR Code"
                       className="qr-code"
                     />

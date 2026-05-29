@@ -5,6 +5,7 @@ import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
 import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import { qrDataUrl } from "../../lib/qr";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
@@ -34,6 +35,7 @@ function pamphletHtml(
   doorsOpenOverride = "",
 ): string {
   const { W, H } = POSTER_DIMS[format];
+  const qrPath = "/rsvp";
   // Mirror preview's cqw units (percentage of container width) at this format's W.
   const pct = (v: number) => +((W * v) / 100).toFixed(3);
   const venueImgStyle = venueImgWidth
@@ -173,8 +175,8 @@ ${taglineDivs}
         <div class="pamphlet-rows">
           <div class="pamphlet-shows">${showsHtml}</div>
           <div class="qr-section">
-            <a class="qr-label" href="https://peytspencer.com/rsvp">peytspencer.com/rsvp</a>
-            ${showQr ? `<img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" class="qr-code" />` : ""}
+            <a class="qr-label" href="https://peytspencer.com${qrPath}">peytspencer.com/rsvp</a>
+            ${showQr ? `<img src="${qrDataUrl(qrPath)}" alt="QR Code" class="qr-code" />` : ""}
           </div>
         </div>
       </div>

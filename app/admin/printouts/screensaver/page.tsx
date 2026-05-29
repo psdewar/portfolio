@@ -39,7 +39,7 @@ export default async function ScreensaverPage() {
           style={{ aspectRatio: "1", height: "100%" }}
         >
           <Image
-            src="https://assets.peytspencer.com/images/support-qr-s10.png"
+            src="/api/qr?d=%2Fsupport"
             alt="Scan to support"
             width={400}
             height={400}

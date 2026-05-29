@@ -1431,6 +1431,7 @@ function PosterEditor({
             <div className="flex-1 flex justify-end overflow-hidden">
               {isSingle && soloShow ? (
                 <Poster
+                  slug={soloSlug}
                   date={soloShow.date}
                   city={soloShow.city}
                   region={soloShow.region}

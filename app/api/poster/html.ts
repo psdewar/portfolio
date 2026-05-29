@@ -2,6 +2,7 @@ import fs from "node:fs";
 import nodePath from "node:path";
 import { formatEventDate } from "../../lib/dates";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import { qrDataUrl } from "../../lib/qr";
 
 const dataUrlCache = new Map<string, string>();
 export function inlineAsset(publicRelativePath: string, mime: string): string {
@@ -62,6 +63,7 @@ export type PosterOptions = {
 
 export function posterHtml(
   show: {
+    slug?: string;
     date: string;
     venue: string | null;
     venueLabel?: string | null;
@@ -187,7 +189,7 @@ ${taglineDivs}
           </div>
           <div class="qr-section">
             <div class="qr-label">peytspencer.com/rsvp</div>
-            <img src="https://assets.peytspencer.com/images/rsvp-qr-s10.png" alt="QR Code" class="qr-code" />
+            <img src="${qrDataUrl(show.slug ? `/rsvp/${show.slug}` : "/rsvp")}" alt="QR Code" class="qr-code" />
           </div>
         </div>
       </div>

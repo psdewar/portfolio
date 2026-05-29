@@ -66,7 +66,7 @@ function DonationPage() {
           style={{ width: "4.125in" }}
         >
           <Image
-            src="https://assets.peytspencer.com/images/support-qr-s10.png"
+            src="/api/qr?d=%2Fsupport"
             alt="Scan to support"
             width={280}
             height={280}
@@ -111,7 +111,7 @@ function QrPage({ city }: { city: string | null }) {
       </div>
       <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
         <Image
-          src="https://assets.peytspencer.com/images/support-qr-s100.png"
+          src="/api/qr?d=%2Fsupport"
           alt="Scan to support"
           width={1120}
           height={1120}
@@ -151,7 +151,7 @@ function RsvpQrPage() {
       </div>
       <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
         <Image
-          src="https://assets.peytspencer.com/images/rsvp-qr-s100.png"
+          src="/api/qr?d=%2Frsvp"
           alt="Scan to RSVP"
           width={1120}
           height={1120}
