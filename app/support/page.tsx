@@ -54,7 +54,7 @@ export default async function SupportPage({
         </div>
       </section>
 
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-20">
         <div className="max-w-lg mx-auto">
           <SocialSection />
         </div>

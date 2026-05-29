@@ -141,7 +141,8 @@ export async function POST(request: NextRequest) {
       customSuccessPath?.startsWith("/") && !customSuccessPath.startsWith("//")
         ? customSuccessPath
         : product.successPath;
-    const separator = safeSuccessPath.includes("?") ? "&" : "?";
+    const [successBase, successHash] = safeSuccessPath.split("#");
+    const separator = successBase.includes("?") ? "&" : "?";
 
     // Validate cancelPath to prevent open redirects
     const safeCancelPath =
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     // Build Tiger request
     const tigerRequest: Parameters<typeof createCheckout>[0] = {
       mode: "payment",
-      successUrl: `${baseUrl}${safeSuccessPath}${separator}session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${baseUrl}${successBase}${separator}session_id={CHECKOUT_SESSION_ID}${successHash ? `#${successHash}` : ""}`,
       cancelUrl: `${baseUrl}${safeCancelPath}`,
       metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
       ...(customerEmail && { customerEmail }),

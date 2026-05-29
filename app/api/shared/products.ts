@@ -269,6 +269,36 @@ export const PRODUCTS: Record<string, Product> = {
     },
   },
 
+  // Pre-order: All I Need Is Patience tee (3 colorways, XS–XL)
+  "tee-patience": {
+    id: "tee-patience",
+    name: "All I Need Is Patience Tee",
+    description: "100% cotton tee",
+    type: "physical",
+    basePriceCents: 4000,
+    images: [
+      "https://peytspencer.com/images/merch/patience-navy.jpeg",
+      "https://peytspencer.com/images/merch/patience-forest.jpeg",
+      "https://peytspencer.com/images/merch/patience-maroon.jpeg",
+    ],
+    successPath: "/support#find-me",
+    cancelPath: "/shop?canceled=true",
+    requiresShipping: true,
+    shipping: {
+      amountCents: 0,
+      displayName: "Free shipping",
+      deliveryEstimate: {
+        minimum: { unit: "week", value: 2 },
+        maximum: { unit: "week", value: 5 },
+      },
+    },
+    allowedCountries: ["US"],
+    variants: {
+      sizes: ["XS", "S", "M", "L", "XL"],
+      colors: ["navy", "forest", "maroon"],
+    },
+  },
+
   // Digital download bundle (zip file)
   "singles-16s-pack-2025": {
     id: "singles-16s-pack-2025",
