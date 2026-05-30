@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminSessionToken } from "./app/api/shared/admin-auth";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   // Security headers for all requests
@@ -9,6 +10,25 @@ export function proxy(request: NextRequest) {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+
+  // Admin gate (printouts stay public). Cookie is set by /api/admin-login.
+  const { pathname } = request.nextUrl;
+  const needsAdmin =
+    (pathname.startsWith("/admin") && !pathname.startsWith("/admin/printouts")) ||
+    pathname.startsWith("/api/admin/") ||
+    pathname.startsWith("/api/ledger") ||
+    pathname.startsWith("/api/catalog");
+  if (needsAdmin) {
+    const cookie = request.cookies.get("admin-auth")?.value;
+    const expected = await adminSessionToken();
+    const authed = !!expected && cookie === expected;
+    if (!authed && pathname.startsWith("/api/")) {
+      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    }
+  }
 
   // Additional security for API routes
   if (request.nextUrl.pathname.startsWith("/api/")) {

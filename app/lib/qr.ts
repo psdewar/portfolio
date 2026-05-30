@@ -1,7 +1,7 @@
 import qrcode from "qrcode-generator";
 
 const SITE_URL = "https://peytspencer.com";
-const ALLOWED_PREFIXES = ["/rsvp", "/support"];
+const ALLOWED_PREFIXES = ["/rsvp", "/support", "/shop"];
 
 function sanitize(path: string): string {
   if (path.includes("..")) return "/rsvp";

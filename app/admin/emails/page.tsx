@@ -21,7 +21,6 @@ type SendStatus =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string };
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "peyt2024";
 const DRAFT_STORAGE_KEY = "peyt-admin-emails-draft";
 const IMAGE_STORAGE_KEY = "peyt-admin-emails-image";
 
@@ -64,9 +63,7 @@ export default function EmailsAdminPage() {
       fetch("/api/shows").then((r) =>
         r.ok ? r.json() : Promise.reject(new Error("shows")),
       ),
-      fetch("/api/admin/audience", {
-        headers: { "x-admin-password": ADMIN_PASSWORD },
-      }).then((r) =>
+      fetch("/api/admin/audience").then((r) =>
         r.ok ? r.json() : Promise.reject(new Error(`audience ${r.status}`)),
       ),
     ])
@@ -235,7 +232,6 @@ export default function EmailsAdminPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": ADMIN_PASSWORD,
         },
         body: JSON.stringify({
           showSlugs: Array.from(selected),

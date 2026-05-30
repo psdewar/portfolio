@@ -176,6 +176,132 @@ function DonationBoxLabel() {
   );
 }
 
+function SizeSign({ word }: { word: string }) {
+  return (
+    <div className="page" style={{ display: "grid", placeItems: "center" }}>
+      <span
+        className="tracking-wide text-black"
+        style={{
+          fontFamily: "var(--font-parkinsans), sans-serif",
+          fontSize: "1.5in",
+          fontWeight: 800,
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {word}
+      </span>
+    </div>
+  );
+}
+
+function FlyerPage({ headline, qrPath, url }: { headline: string; qrPath: string; url: string }) {
+  return (
+    <div
+      className="page"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.45in",
+      }}
+    >
+      <h2
+        className="font-bebas tracking-wide text-black"
+        style={{ fontSize: "0.95in", lineHeight: 0.95, textAlign: "center", maxWidth: "90%" }}
+      >
+        {headline}
+      </h2>
+      <Image
+        src={`/api/qr?d=${qrPath}`}
+        alt={url}
+        width={1120}
+        height={1120}
+        style={{ width: "5.5in", height: "5.5in" }}
+        unoptimized
+      />
+      <p
+        style={{
+          fontFamily: "var(--font-space-mono), monospace",
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "#0a0a0a",
+          fontSize: "0.3in",
+        }}
+      >
+        {url}
+      </p>
+    </div>
+  );
+}
+
+function PatienceTeePage() {
+  return (
+    <div
+      className="screen-only"
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        overflow: "hidden",
+        width: "100vw",
+        height: "100vh",
+        marginLeft: "-1.5rem",
+      }}
+    >
+      <div className="flex-1 min-w-0 relative flex">
+        {(
+          [
+            ["navy", "#1e2a47"],
+            ["forest", "#213d31"],
+            ["maroon", "#5a2730"],
+          ] as const
+        ).map(([color, hex]) => (
+          <div
+            key={color}
+            className="flex-1 min-w-0"
+            style={{
+              backgroundColor: hex,
+              backgroundImage: `url(/images/merch/patience-${color}.jpeg)`,
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "350%",
+              backgroundPosition: "center 43%",
+            }}
+          />
+        ))}
+        <p
+          style={{
+            position: "absolute",
+            top: "7%",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontFamily: "var(--font-space-mono), monospace",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "#0a0a0a",
+            fontSize: "1.6vw",
+          }}
+        >
+          peytspencer.com/shop
+        </p>
+      </div>
+      <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
+        <Image
+          src="/api/qr?d=%2Fshop"
+          alt="Scan to shop the Patience tee"
+          width={1120}
+          height={1120}
+          style={{ width: "88%", height: "auto", maxHeight: "90vh" }}
+          unoptimized
+        />
+      </div>
+    </div>
+  );
+}
+
 export default async function SignupSheetPage() {
   const shows = await getUpcomingShows();
   const currentCity = shows[0]?.city ?? null;
@@ -266,6 +392,12 @@ export default async function SignupSheetPage() {
         <SignupPage />
         <DonationPage />
         <DonationPage />
+        <SizeSign word="SMALL" />
+        <SizeSign word="MEDIUM" />
+        <SizeSign word="LARGE" />
+        <FlyerPage headline="Fund the Tour" qrPath="%2Fsupport" url="peytspencer.com/support" />
+        <FlyerPage headline="RSVP Now" qrPath="%2Frsvp" url="peytspencer.com/rsvp" />
+        <FlyerPage headline="Patience Tee" qrPath="%2Fshop" url="peytspencer.com/shop" />
         <QrPage city={currentCity} />
         <hr
           className="screen-only"
@@ -279,6 +411,18 @@ export default async function SignupSheetPage() {
           }}
         />
         <RsvpQrPage />
+        <hr
+          className="screen-only"
+          style={{
+            display: "block",
+            border: 0,
+            height: 1,
+            width: "100vw",
+            marginLeft: "-1.5rem",
+            backgroundColor: "#d4a553",
+          }}
+        />
+        <PatienceTeePage />
         <DonationBoxLabel />
       </div>
     </>

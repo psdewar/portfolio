@@ -12,8 +12,6 @@ const adminPages = [
   { segment: "sync", title: "Sync", href: "/admin/sync" },
 ];
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "peyt2024";
-
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -42,6 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
   const current = adminPages.find((p) => p.segment === segment);
+  const isPrintouts = segment === "printouts";
 
   return (
     <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950">
@@ -83,7 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </div>
             )}
           </div>
-          {isAuthenticated && segment === "printouts" && (
+          {isPrintouts && (
             <span className="text-xs text-neutral-400 dark:text-neutral-600">
               Print with Chrome, set margins to Default
             </span>
@@ -91,6 +90,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {isAuthenticated ? (
             <button
               onClick={() => {
+                fetch("/api/admin-login", { method: "DELETE" });
                 sessionStorage.removeItem("admin-auth");
                 setIsAuthenticated(false);
                 setPassword("");
@@ -99,11 +99,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             >
               Logout
             </button>
-          ) : !isChecking ? (
+          ) : !isChecking && !isPrintouts ? (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                if (password === ADMIN_PASSWORD) {
+                const res = await fetch("/api/admin-login", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ password }),
+                });
+                if (res.ok) {
                   sessionStorage.setItem("admin-auth", "true");
                   setIsAuthenticated(true);
                   setError("");
@@ -133,7 +138,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {isAuthenticated && children}
+      {(isAuthenticated || isPrintouts) && children}
     </div>
   );
 }

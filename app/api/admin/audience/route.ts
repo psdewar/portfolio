@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { isAdminAuthorized } from "../../shared/admin-auth";
 
 export async function GET(request: Request) {
-  if (!isAdminAuthorized(request)) {
+  if (!(await isAdminAuthorized(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
