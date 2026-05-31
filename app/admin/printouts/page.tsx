@@ -47,19 +47,44 @@ function DonationPage() {
     <div className="page" style={{ display: "grid", placeItems: "center" }}>
       <div
         className="border-2 border-dashed border-neutral-400 flex items-stretch overflow-hidden"
-        style={{ width: "6.25in", height: "4.25in" }}
+        style={{ width: "6.75in", height: "4.75in" }}
       >
-        <div
-          className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-black text-white"
-          style={{ paddingLeft: "0.125in", paddingRight: "0.125in" }}
-        >
-          <h2 className="font-bebas text-5xl leading-[0.95] tracking-wide">
-            Support
-            <br />
-            the Next
-            <br />
-            Tour Stop
-          </h2>
+        <div className="flex-1 min-w-0 flex flex-col bg-black text-white">
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <h2 className="font-bebas text-5xl leading-[0.95] tracking-wide">
+              Help Fund
+              <br />
+              My Tour
+            </h2>
+            <div className="flex flex-col w-full" style={{ marginTop: "0.55rem" }}>
+              <span className="flex items-center justify-center" style={{ backgroundColor: "#000000" }}>
+                <Image
+                  src="/Venmo_Logo_Blue.png"
+                  alt="Venmo"
+                  width={120}
+                  height={25}
+                  style={{ height: "0.3in", width: "auto" }}
+                  unoptimized
+                />
+              </span>
+              <span className="flex items-center justify-center" style={{ backgroundColor: "#000000" }}>
+                <Image
+                  src="/zelle_logo.svg"
+                  alt="Zelle"
+                  width={80}
+                  height={32}
+                  style={{ height: "0.62in", width: "auto" }}
+                  unoptimized
+                />
+              </span>
+            </div>
+            <p
+              className="font-bebas text-5xl leading-[0.95] tracking-wide"
+              style={{ color: "#ffffff", marginTop: "0.35rem" }}
+            >
+              or cash
+            </p>
+          </div>
         </div>
         <div
           className="shrink-0 bg-white flex items-center justify-center"
@@ -79,20 +104,25 @@ function DonationPage() {
   );
 }
 
-function QrPage({ city }: { city: string | null }) {
+function QrPage({ city, print }: { city: string | null; print?: boolean }) {
   return (
     <div
-      className="screen-only"
+      className={print ? "" : "screen-only"}
       style={{
         display: "flex",
         alignItems: "stretch",
         overflow: "hidden",
         width: "100vw",
         height: "100vh",
-        marginLeft: "-1.5rem",
+        marginLeft: print ? 0 : "-1.5rem",
       }}
     >
-      <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-black text-white">
+      <div
+        className={`flex-1 min-w-0 flex flex-col items-center justify-center text-center ${
+          print ? "text-black" : "bg-black text-white"
+        }`}
+        style={print ? { borderRight: "2px solid #0a0a0a" } : undefined}
+      >
         <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "10vw" }}>
           Thank You{city ? "" : "!"}
           {city && (
@@ -109,13 +139,26 @@ function QrPage({ city }: { city: string | null }) {
           Tour Stop
         </h2>
       </div>
-      <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
+      <div className="flex-1 min-w-0 bg-white flex flex-col items-center justify-center">
+        <p
+          style={{
+            fontFamily: "var(--font-space-mono), monospace",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "#0a0a0a",
+            fontSize: "1.6vw",
+            marginBottom: "0.6rem",
+          }}
+        >
+          peytspencer.com/support
+        </p>
         <Image
           src="/api/qr?d=%2Fsupport"
           alt="Scan to support"
           width={1120}
           height={1120}
-          style={{ width: "88%", height: "auto", maxHeight: "90vh" }}
+          style={{ width: "78%", height: "auto", maxHeight: "78vh" }}
           unoptimized
         />
       </div>
@@ -195,74 +238,25 @@ function SizeSign({ word }: { word: string }) {
   );
 }
 
-function FlyerPage({ headline, qrPath, url }: { headline: string; qrPath: string; url: string }) {
+function PatienceTeePage({ print }: { print?: boolean }) {
   return (
     <div
-      className="page"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "0.45in",
-      }}
-    >
-      <h2
-        className="font-bebas tracking-wide text-black"
-        style={{ fontSize: "0.95in", lineHeight: 0.95, textAlign: "center", maxWidth: "90%" }}
-      >
-        {headline}
-      </h2>
-      <Image
-        src={`/api/qr?d=${qrPath}`}
-        alt={url}
-        width={1120}
-        height={1120}
-        style={{ width: "5.5in", height: "5.5in" }}
-        unoptimized
-      />
-      <p
-        style={{
-          fontFamily: "var(--font-space-mono), monospace",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "#0a0a0a",
-          fontSize: "0.3in",
-        }}
-      >
-        {url}
-      </p>
-    </div>
-  );
-}
-
-function PatienceTeePage() {
-  return (
-    <div
-      className="screen-only"
+      className={print ? "" : "screen-only"}
       style={{
         display: "flex",
         alignItems: "stretch",
         overflow: "hidden",
         width: "100vw",
         height: "100vh",
-        marginLeft: "-1.5rem",
+        marginLeft: print ? 0 : "-1.5rem",
       }}
     >
-      <div className="flex-1 min-w-0 relative flex">
-        {(
-          [
-            ["navy", "#1e2a47"],
-            ["forest", "#213d31"],
-            ["maroon", "#5a2730"],
-          ] as const
-        ).map(([color, hex]) => (
+      <div className="flex-1 min-w-0 flex">
+        {["navy", "forest", "maroon"].map((color) => (
           <div
             key={color}
             className="flex-1 min-w-0"
             style={{
-              backgroundColor: hex,
               backgroundImage: `url(/images/merch/patience-${color}.jpeg)`,
               backgroundRepeat: "no-repeat",
               backgroundSize: "350%",
@@ -270,31 +264,27 @@ function PatienceTeePage() {
             }}
           />
         ))}
+      </div>
+      <div className="flex-1 min-w-0 bg-white flex flex-col items-center justify-center">
         <p
           style={{
-            position: "absolute",
-            top: "7%",
-            left: 0,
-            right: 0,
-            textAlign: "center",
             fontFamily: "var(--font-space-mono), monospace",
             fontWeight: 700,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             color: "#0a0a0a",
             fontSize: "1.6vw",
+            marginBottom: "0.6rem",
           }}
         >
           peytspencer.com/shop
         </p>
-      </div>
-      <div className="flex-1 min-w-0 bg-white flex items-center justify-center">
         <Image
           src="/api/qr?d=%2Fshop"
           alt="Scan to shop the Patience tee"
           width={1120}
           height={1120}
-          style={{ width: "88%", height: "auto", maxHeight: "90vh" }}
+          style={{ width: "78%", height: "auto", maxHeight: "78vh" }}
           unoptimized
         />
       </div>
@@ -302,9 +292,43 @@ function PatienceTeePage() {
   );
 }
 
-export default async function SignupSheetPage() {
+export default async function SignupSheetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ landscape?: string }>;
+}) {
+  const { landscape } = await searchParams;
   const shows = await getUpcomingShows();
   const currentCity = shows[0]?.city ?? null;
+
+  if (landscape !== undefined) {
+    return (
+      <>
+        <style>{`
+          @page { size: letter landscape; margin: 0; }
+          @media print {
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            header, nav, footer, [class*="fixed"], [class*="sticky"] { display: none !important; }
+            .land-sheet { break-after: page; page-break-after: always; }
+            .land-sheet:last-child { break-after: auto; page-break-after: auto; }
+          }
+        `}</style>
+        <div className="land-sheet">
+          <QrPage city={currentCity} print />
+        </div>
+        <div className="land-sheet">
+          <PatienceTeePage print />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -395,9 +419,6 @@ export default async function SignupSheetPage() {
         <SizeSign word="SMALL" />
         <SizeSign word="MEDIUM" />
         <SizeSign word="LARGE" />
-        <FlyerPage headline="Fund the Tour" qrPath="%2Fsupport" url="peytspencer.com/support" />
-        <FlyerPage headline="RSVP Now" qrPath="%2Frsvp" url="peytspencer.com/rsvp" />
-        <FlyerPage headline="Patience Tee" qrPath="%2Fshop" url="peytspencer.com/shop" />
         <QrPage city={currentCity} />
         <hr
           className="screen-only"
