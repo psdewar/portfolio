@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash } from "@phosphor-icons/react";
+import { Trash, Images } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
 import { uploadFile, type UploadMeta } from "./upload";
@@ -54,7 +54,6 @@ export default function MomentsClient() {
     prevJobCount.current = jobs.length;
   }, [jobs.length]);
 
-  const anySucceeded = jobs.some((j) => j.status === "done");
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
   const failedJobs = jobs.filter((j) => j.status === "error");
   const doneCount = jobs.filter((j) => j.status === "done").length;
@@ -245,31 +244,35 @@ export default function MomentsClient() {
           </form>
         ) : (
           <div className="space-y-8">
-            <div className="space-y-2">
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                Send your originals straight from your camera roll or gallery.
-                Longer videos take a minute or two, so keep this page open.
-              </p>
-              <DropZone onFiles={handleFiles} disabled={uploading} />
-            </div>
+            <DropZone onFiles={handleFiles} disabled={uploading} />
 
             {jobs.length > 0 && (
               <div className="space-y-3">
-                {uploading && (
-                  <Banner type="uploading">
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d4a553] opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d4a553]" />
-                    </span>
+                {(uploading || (doneCount > 0 && failedJobs.length === 0)) && (
+                  <Banner type="uploading" box>
+                    {uploading ? (
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d4a553] opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d4a553]" />
+                      </span>
+                    ) : (
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-500" />
+                    )}
                     <p className="flex-1 text-sm font-semibold">
-                      Wait here until uploading finishes.
+                      {uploading
+                        ? "Wait here until uploading finishes."
+                        : "All uploads finished. Drop another if you have one."}
                     </p>
-                    <span className="shrink-0 text-xs font-semibold tabular-nums text-[#d4a553]">
+                    <span
+                      className={`shrink-0 text-xs font-semibold tabular-nums ${
+                        uploading ? "text-[#d4a553]" : "text-green-400"
+                      }`}
+                    >
                       {doneCount}/{jobs.length}
                     </span>
                   </Banner>
                 )}
-                {failedJobs.length > 0 ? (
+                {failedJobs.length > 0 && (
                   <Banner
                     type="failed"
                     onClick={retryAllFailed}
@@ -283,11 +286,7 @@ export default function MomentsClient() {
                       Retry all
                     </span>
                   </Banner>
-                ) : anySucceeded ? (
-                  <p className="text-sm text-neutral-600 dark:text-neutral-300" aria-live="polite">
-                    Got it. Drop another if you have one.
-                  </p>
-                ) : null}
+                )}
                 <ul className="space-y-2">
                   {jobs.map((job) => (
                     <JobRow
@@ -315,16 +314,21 @@ const BANNER_STYLES = {
 
 function Banner({
   type,
+  box,
   onClick,
   ariaLabel,
   children,
 }: {
   type: keyof typeof BANNER_STYLES;
+  box?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   children: React.ReactNode;
 }) {
-  const cls = `sticky top-0 z-20 mx-[calc(50%-50vw)] w-screen flex min-h-[3rem] items-center gap-3 px-4 sm:px-6 lg:px-8 py-3 shadow-md ${BANNER_STYLES[type]}`;
+  const edge = box
+    ? "mx-[calc(50%-50vw)] w-screen sm:mx-0 sm:w-auto sm:rounded-xl"
+    : "mx-[calc(50%-50vw)] w-screen";
+  const cls = `sticky top-0 z-20 ${edge} flex min-h-[3rem] items-center gap-3 px-4 sm:px-6 lg:px-8 py-3 shadow-md ${BANNER_STYLES[type]}`;
   if (onClick) {
     return (
       <button
@@ -372,12 +376,12 @@ function DropZone({
       onDragLeave={() => setDragActive(false)}
       onDrop={onDrop}
       onClick={() => !disabled && inputRef.current?.click()}
-      className={`rounded-xl border-2 border-dashed p-10 md:p-12 text-center transition-colors ${
+      className={`group flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
         disabled
-          ? "border-neutral-200 dark:border-neutral-800 cursor-not-allowed"
+          ? "cursor-not-allowed border-neutral-200 opacity-60 dark:border-neutral-800"
           : dragActive
-            ? "border-[#d4a553] bg-black/5 dark:bg-white/5 cursor-pointer"
-            : "border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 cursor-pointer"
+            ? "cursor-pointer border-[#d4a553] bg-[#d4a553]/5"
+            : "cursor-pointer border-neutral-300 hover:border-[#d4a553] dark:border-neutral-700 dark:hover:border-[#d4a553]"
       }`}
     >
       <input
@@ -391,9 +395,17 @@ function DropZone({
           e.target.value = "";
         }}
       />
-      <p className="text-lg" style={parkinsans}>
-        Drop your highest-quality photos and videos here
-      </p>
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#d4a553]/15 text-[#d4a553] transition-transform duration-300 group-hover:scale-110">
+        <Images size={30} weight="regular" />
+      </span>
+      <div className="space-y-1.5">
+        <p className="text-xl md:text-2xl" style={parkinsans}>
+          Add your photos and videos
+        </p>
+        <p className="text-balance text-sm md:text-base text-neutral-600 dark:text-neutral-300">
+          Choose the best from your camera roll or gallery.
+        </p>
+      </div>
     </div>
   );
 }
