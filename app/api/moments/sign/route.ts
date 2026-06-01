@@ -38,10 +38,15 @@ export async function POST(request: Request) {
 
   const validHash =
     typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash) ? hash : "";
+  const capturedRaw = (body as Record<string, unknown>).captured;
+  const captured =
+    typeof capturedRaw === "number" && Number.isFinite(capturedRaw) && capturedRaw > 0
+      ? Math.floor(capturedRaw)
+      : undefined;
 
   try {
     if (validHash) {
-      const key = contentKey(filename, validHash);
+      const key = contentKey(filename, validHash, captured);
       if (await objectExists(key)) {
         return NextResponse.json({ key, exists: true });
       }

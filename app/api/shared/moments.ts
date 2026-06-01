@@ -12,11 +12,12 @@ export function sanitizeFilename(name: string) {
   return name.replace(/[^\w.-]/g, "_").slice(0, 200);
 }
 
-export function contentKey(filename: string, hash: string) {
+export function contentKey(filename: string, hash: string, captured?: number) {
   const dot = filename.lastIndexOf(".");
   const ext =
     dot > 0 ? filename.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-  return ext ? `drops/${hash}.${ext}` : `drops/${hash}`;
+  const body = captured ? `${hash}-${captured}` : hash;
+  return ext ? `drops/${body}.${ext}` : `drops/${body}`;
 }
 
 export async function objectExists(key: string): Promise<boolean> {

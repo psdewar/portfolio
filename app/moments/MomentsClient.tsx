@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
-import { uploadFile, pendingUploads, type UploadMeta } from "./upload";
+import { uploadFile, type UploadMeta } from "./upload";
 
 type JobStatus = "queued" | "uploading" | "done" | "error";
 
@@ -14,6 +14,7 @@ type FileJob = {
   status: JobStatus;
   error?: string;
   duplicate?: boolean;
+  key?: string;
 };
 
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
@@ -27,8 +28,11 @@ export default function MomentsClient() {
   const [unlockLoading, setUnlockLoading] = useState(false);
 
   const [jobs, setJobs] = useState<FileJob[]>([]);
-  const [pending, setPending] = useState<string[]>([]);
   const passcodeRef = useRef<HTMLInputElement>(null);
+  const listEndRef = useRef<HTMLDivElement>(null);
+  const controllers = useRef(new Map<string, AbortController>());
+  const removedIds = useRef(new Set<string>());
+  const prevJobCount = useRef(0);
 
   useEffect(() => {
     if (!unlocked) passcodeRef.current?.focus();
@@ -43,8 +47,11 @@ export default function MomentsClient() {
   }, []);
 
   useEffect(() => {
-    setPending(pendingUploads());
-  }, [unlocked, jobs]);
+    if (jobs.length > prevJobCount.current) {
+      listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    prevJobCount.current = jobs.length;
+  }, [jobs.length]);
 
   const anySucceeded = jobs.some((j) => j.status === "done");
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
@@ -146,32 +153,58 @@ export default function MomentsClient() {
   }
 
   async function runJob(job: FileJob) {
+    if (removedIds.current.has(job.id)) return;
     const meta: UploadMeta = { passcode };
+    const controller = new AbortController();
+    controllers.current.set(job.id, controller);
     updateJob(job.id, { status: "uploading", progress: 0, error: undefined });
     let lastPct = -1;
     try {
-      const result = await uploadFile(job.file, meta, (pct) => {
-        const rounded = Math.round(pct);
-        if (rounded !== lastPct) {
-          lastPct = rounded;
-          updateJob(job.id, { progress: rounded });
-        }
-      });
+      const result = await uploadFile(
+        job.file,
+        meta,
+        (pct) => {
+          const rounded = Math.round(pct);
+          if (rounded !== lastPct) {
+            lastPct = rounded;
+            updateJob(job.id, { progress: rounded });
+          }
+        },
+        controller.signal,
+      );
       updateJob(job.id, {
         status: "done",
         progress: 100,
         duplicate: result.duplicate,
+        key: result.key,
       });
     } catch (err) {
+      if (err instanceof Error && err.name === "CancelledError") return;
       updateJob(job.id, {
         status: "error",
         error: err instanceof Error ? err.message : "Upload failed",
       });
+    } finally {
+      controllers.current.delete(job.id);
     }
   }
 
+  function removeJob(job: FileJob) {
+    removedIds.current.add(job.id);
+    controllers.current.get(job.id)?.abort();
+    controllers.current.delete(job.id);
+    if (job.status === "done" && job.key && !job.duplicate) {
+      fetch("/api/moments/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode, key: job.key }),
+      }).catch(() => {});
+    }
+    setJobs((prev) => prev.filter((j) => j.id !== job.id));
+  }
+
   return (
-    <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white flex flex-col items-center px-6 py-10 md:py-16">
+    <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white flex flex-col items-center px-4 sm:px-6 lg:px-8 py-10 md:py-16">
       <div className="w-full max-w-xl space-y-8">
         <header className="space-y-3">
           <h1
@@ -211,17 +244,10 @@ export default function MomentsClient() {
           </form>
         ) : (
           <div className="space-y-8">
-            {pending.length > 0 && (
-              <p className="text-xs text-[#d4a553]" style={mono}>
-                Unfinished from before: {pending.join(", ")} — pick{" "}
-                {pending.length > 1 ? "them" : "it"} again to continue where you
-                left off.
-              </p>
-            )}
             <div className="space-y-2">
               <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                Pick from your camera roll or gallery. Anything forwarded through Messages,
-                WhatsApp, or Instagram gets compressed and loses quality.
+                Send your originals straight from your camera roll or gallery.
+                Longer videos take a minute or two, so keep this page open.
               </p>
               <DropZone onFiles={handleFiles} disabled={uploading} />
             </div>
@@ -229,33 +255,33 @@ export default function MomentsClient() {
             {jobs.length > 0 && (
               <div className="space-y-3">
                 {uploading && (
-                  <p
-                    className="text-xs text-neutral-500 dark:text-neutral-400"
-                    style={mono}
-                  >
-                    Keep this tab open and your screen on — large files keep
-                    uploading in the background.
-                  </p>
+                  <Banner type="uploading">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d4a553] opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d4a553]" />
+                    </span>
+                    <p className="flex-1 text-sm font-semibold">
+                      Wait here until uploading finishes.
+                    </p>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-[#d4a553]">
+                      {doneCount}/{jobs.length}
+                    </span>
+                  </Banner>
                 )}
                 {failedJobs.length > 0 ? (
-                  <button
-                    type="button"
+                  <Banner
+                    type="failed"
                     onClick={retryAllFailed}
-                    aria-live="polite"
-                    aria-label={`Retry ${failedJobs.length} failed uploads`}
-                    className="sticky top-0 z-10 w-full flex items-center justify-between gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
+                    ariaLabel={`Retry ${failedJobs.length} failed uploads`}
                   >
-                    <span className="text-sm text-red-700 dark:text-red-300" style={mono}>
+                    <span className="text-sm font-semibold">
                       {failedJobs.length} failed
                       {doneCount > 0 ? ` · ${doneCount} done` : ""}
                     </span>
-                    <span
-                      className="text-xs uppercase tracking-wider text-[#d4a553] whitespace-nowrap"
-                      style={mono}
-                    >
+                    <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-600">
                       Retry all
                     </span>
-                  </button>
+                  </Banner>
                 ) : anySucceeded ? (
                   <p className="text-sm text-neutral-600 dark:text-neutral-300" aria-live="polite">
                     Got it. Drop another if you have one.
@@ -263,15 +289,59 @@ export default function MomentsClient() {
                 ) : null}
                 <ul className="space-y-2">
                   {jobs.map((job) => (
-                    <JobRow key={job.id} job={job} onRetry={() => runJob(job)} />
+                    <JobRow
+                      key={job.id}
+                      job={job}
+                      onRetry={() => runJob(job)}
+                      onRemove={() => removeJob(job)}
+                    />
                   ))}
                 </ul>
+                <div ref={listEndRef} />
               </div>
             )}
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+const BANNER_STYLES = {
+  uploading: "bg-neutral-900 text-white dark:bg-neutral-800",
+  failed: "bg-red-600 text-white",
+} as const;
+
+function Banner({
+  type,
+  onClick,
+  ariaLabel,
+  children,
+}: {
+  type: keyof typeof BANNER_STYLES;
+  onClick?: () => void;
+  ariaLabel?: string;
+  children: React.ReactNode;
+}) {
+  const cls = `sticky top-0 z-20 mx-[calc(50%-50vw)] w-screen flex min-h-[3rem] items-center gap-3 px-4 sm:px-6 lg:px-8 py-3 shadow-md ${BANNER_STYLES[type]}`;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        aria-live="polite"
+        style={mono}
+        className={`${cls} text-left transition-all hover:brightness-95`}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <div className={cls} style={mono}>
+      {children}
+    </div>
   );
 }
 
@@ -327,65 +397,88 @@ function DropZone({
   );
 }
 
-function JobRow({ job, onRetry }: { job: FileJob; onRetry: () => void }) {
-  const statusText =
-    job.status === "done"
-      ? job.duplicate
-        ? "Already added"
-        : "Done"
-      : job.status === "error"
-        ? job.error || "Failed"
-        : job.status === "queued"
-          ? "Waiting"
-          : `${job.progress}%`;
+function JobRow({
+  job,
+  onRetry,
+  onRemove,
+}: {
+  job: FileJob;
+  onRetry: () => void;
+  onRemove: () => void;
+}) {
   const isError = job.status === "error";
+  const isDone = job.status === "done";
+  const pct = isDone ? 100 : job.progress;
+  const statusText = isDone
+    ? job.duplicate
+      ? "Already added"
+      : "Done"
+    : isError
+      ? job.error || "Failed"
+      : job.status === "queued"
+        ? "Waiting"
+        : `${job.progress}%`;
 
-  const rowClasses = `flex items-center gap-3 p-3 rounded-lg bg-neutral-100 dark:bg-white/5 ${
-    isError ? "cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors" : ""
-  }`;
-
-  const content = (
-    <>
-      <div className="flex-1 min-w-0">
-        <p className="truncate text-sm text-left">{job.file.name}</p>
-        <div className="mt-2 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-          <div
-            className="h-full transition-all"
-            style={{
-              width: `${job.status === "done" ? 100 : job.progress}%`,
-              background: isError ? "#ef4444" : gold,
-            }}
-          />
-        </div>
-      </div>
-      <span
-        className={`text-xs tabular-nums min-w-[3rem] text-right ${
-          isError ? "text-red-500 dark:text-red-400" : "text-neutral-500 dark:text-neutral-400"
+  return (
+    <li className="relative flex min-h-[56px] items-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-white/10 dark:bg-white/5">
+      <div
+        className={`absolute inset-y-0 left-0 transition-all duration-300 ${
+          isError ? "bg-red-500/15" : "bg-green-500/20"
         }`}
-        style={mono}
-      >
-        {statusText}
-      </span>
-      {isError && (
-        <span className="text-xs uppercase tracking-wider text-[#d4a553]" style={mono}>
-          Retry
-        </span>
-      )}
-    </>
-  );
-
-  return isError ? (
-    <li>
-      <button
-        type="button"
-        onClick={onRetry}
-        className={`${rowClasses} w-full text-left`}
-        aria-label={`Retry uploading ${job.file.name}`}
-      >
-        {content}
-      </button>
+        style={{ width: `${pct}%` }}
+      />
+      <div className="relative flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm">{job.file.name}</p>
+          <span
+            className={`text-xs tabular-nums ${
+              isError
+                ? "text-red-600 dark:text-red-400"
+                : "text-neutral-500 dark:text-neutral-400"
+            }`}
+            style={mono}
+          >
+            {statusText}
+          </span>
+        </div>
+        {isError && (
+          <button
+            type="button"
+            onClick={onRetry}
+            aria-label={`Retry ${job.file.name}`}
+            className="shrink-0 px-2 py-2 text-xs uppercase tracking-wider text-[#d4a553]"
+            style={mono}
+          >
+            Retry
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${job.file.name}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
+        >
+          <TrashIcon />
+        </button>
+      </div>
     </li>
-  ) : (
-    <li className={rowClasses}>{content}</li>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m1 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   );
 }

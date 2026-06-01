@@ -78,8 +78,14 @@ export async function POST(request: Request) {
       typeof body.hash === "string" && /^[a-f0-9]{64}$/.test(body.hash)
         ? body.hash
         : "";
+    const captured =
+      typeof body.captured === "number" &&
+      Number.isFinite(body.captured) &&
+      body.captured > 0
+        ? Math.floor(body.captured)
+        : undefined;
     const key = hash
-      ? contentKey(filename, hash)
+      ? contentKey(filename, hash, captured)
       : `drops/${Date.now()}-${sanitizeFilename(filename)}`;
     if (hash && (await objectExists(key))) {
       return NextResponse.json({ key, exists: true });

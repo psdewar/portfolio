@@ -37,6 +37,11 @@ function formatDate(iso: string | null) {
   });
 }
 
+function takenAt(key: string): number | null {
+  const m = key.match(/^drops\/[a-f0-9]{64}-(\d+)\./);
+  return m ? Number(m[1]) : null;
+}
+
 function formatBytes(bytes: number) {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
@@ -122,7 +127,8 @@ export default function MomentsAdminPage() {
               label="Photos"
               items={photos}
               index={photoIndex}
-              onKeep={() => setPhotoIndex((i) => i + 1)}
+              onPrev={() => setPhotoIndex((i) => i - 1)}
+              onNext={() => setPhotoIndex((i) => i + 1)}
               onRemove={removeItem}
               onUpdate={updateItem}
             />
@@ -130,7 +136,8 @@ export default function MomentsAdminPage() {
               label="Videos"
               items={videos}
               index={videoIndex}
-              onKeep={() => setVideoIndex((i) => i + 1)}
+              onPrev={() => setVideoIndex((i) => i - 1)}
+              onNext={() => setVideoIndex((i) => i + 1)}
               onRemove={removeItem}
               onUpdate={updateItem}
             />
@@ -145,19 +152,21 @@ function Lane({
   label,
   items,
   index,
-  onKeep,
+  onPrev,
+  onNext,
   onRemove,
   onUpdate,
 }: {
   label: string;
   items: MomentItem[];
   index: number;
-  onKeep: () => void;
+  onPrev: () => void;
+  onNext: () => void;
   onRemove: (key: string) => void;
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
 }) {
   const total = items.length;
-  const effectiveIndex = total ? index % total : 0;
+  const effectiveIndex = total ? ((index % total) + total) % total : 0;
   const item = items[effectiveIndex];
 
   return (
@@ -175,7 +184,8 @@ function Lane({
         <ReviewCard
           key={item.key}
           item={item}
-          onKeep={onKeep}
+          onPrev={onPrev}
+          onNext={onNext}
           onRemove={onRemove}
           onUpdate={onUpdate}
         />
@@ -190,12 +200,14 @@ function Lane({
 
 function ReviewCard({
   item,
-  onKeep,
+  onPrev,
+  onNext,
   onRemove,
   onUpdate,
 }: {
   item: MomentItem;
-  onKeep: () => void;
+  onPrev: () => void;
+  onNext: () => void;
   onRemove: (key: string) => void;
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
 }) {
@@ -205,6 +217,7 @@ function ReviewCard({
   const [busy, setBusy] = useState(false);
 
   const quality = isVideo && dims ? videoQuality(dims.w, dims.h) : null;
+  const taken = takenAt(item.key);
 
   const meta: string[] = [];
   if (dims) meta.push(`${dims.w}×${dims.h}`);
@@ -284,24 +297,31 @@ function ReviewCard({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrev}
+          aria-label="Previous"
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553] transition-all active:scale-95"
+        >
+          <ChevronLeftIcon />
+        </button>
         <button
           type="button"
           onClick={remove}
           disabled={busy}
-          className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border-2 border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all active:scale-95 disabled:opacity-50"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border-2 border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all active:scale-95 disabled:opacity-50"
         >
           <TrashIcon />
           Delete forever
         </button>
         <button
           type="button"
-          onClick={onKeep}
-          disabled={busy}
-          className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-[#0a0a0a] bg-gradient-to-r from-[#d4a553] to-[#e0b860] shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+          onClick={onNext}
+          aria-label="Next"
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553] transition-all active:scale-95"
         >
-          <CheckIcon />
-          Keep
+          <ChevronRightIcon />
         </button>
       </div>
 
@@ -335,7 +355,13 @@ function ReviewCard({
           {filename(item.key)}
         </p>
         <p className="text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">
-          {[formatDate(item.lastModified), ...meta].filter(Boolean).join(" · ")}
+          {[
+            taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : "",
+            `Uploaded ${formatDate(item.lastModified)}`,
+            ...meta,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
 
@@ -509,11 +535,11 @@ function TrashIcon() {
   );
 }
 
-function CheckIcon() {
+function ChevronLeftIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
@@ -521,7 +547,24 @@ function CheckIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M20 6L9 17l-5-5" />
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 18l6-6-6-6" />
     </svg>
   );
 }

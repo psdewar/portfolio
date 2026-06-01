@@ -14,6 +14,7 @@ const posterAssets = [
 const posterBundle = [...chromiumBin, ...posterAssets];
 
 const nextConfig = {
+  allowedDevOrigins: ["dev.peytspencer.com"],
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
   outputFileTracingIncludes: {
     "/api/og": chromiumBin,
