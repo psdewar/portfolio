@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Trash } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
 import { uploadFile, type UploadMeta } from "./upload";
@@ -419,13 +420,16 @@ function JobRow({
         ? "Waiting"
         : `${job.progress}%`;
 
+  const lerp = (from: number, to: number) => Math.round(from + ((to - from) * pct) / 100);
+  const fillColor = isError
+    ? "rgba(239, 68, 68, 0.15)"
+    : `rgb(${lerp(115, 22)}, ${lerp(115, 163)}, ${lerp(115, 74)})`;
+
   return (
     <li className="relative flex min-h-[56px] items-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-white/10 dark:bg-white/5">
       <div
-        className={`absolute inset-y-0 left-0 transition-all duration-300 ${
-          isError ? "bg-red-500/15" : "bg-green-500/20"
-        }`}
-        style={{ width: `${pct}%` }}
+        className="absolute inset-y-0 left-0 transition-all duration-300"
+        style={{ width: `${pct}%`, backgroundColor: fillColor }}
       />
       <div className="relative flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">
@@ -454,31 +458,34 @@ function JobRow({
         )}
         <button
           type="button"
-          onClick={onRemove}
+          onClick={() => {
+            if (window.confirm("Remove this upload?")) onRemove();
+          }}
           aria-label={`Remove ${job.file.name}`}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
         >
-          <TrashIcon />
+          <Trash size={20} weight="regular" />
         </button>
       </div>
+      {!isError && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 transition-all duration-300"
+          style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}
+        >
+          <div className="flex h-full w-full items-center gap-2 px-3 py-2 text-white">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">{job.file.name}</p>
+              <span className="text-xs tabular-nums" style={mono}>
+                {statusText}
+              </span>
+            </div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center">
+              <Trash size={20} weight="regular" />
+            </span>
+          </div>
+        </div>
+      )}
     </li>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m1 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
   );
 }
