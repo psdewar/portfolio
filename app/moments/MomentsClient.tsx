@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import FormInput from "../components/FormInput";
-import { uploadFile, type UploadMeta } from "./upload";
+import MomentsGallery from "./MomentsGallery";
+import { uploadFile, pendingUploads, type UploadMeta } from "./upload";
 
 type JobStatus = "queued" | "uploading" | "done" | "error";
 
@@ -12,6 +13,7 @@ type FileJob = {
   progress: number;
   status: JobStatus;
   error?: string;
+  duplicate?: boolean;
 };
 
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
@@ -25,16 +27,65 @@ export default function MomentsClient() {
   const [unlockLoading, setUnlockLoading] = useState(false);
 
   const [jobs, setJobs] = useState<FileJob[]>([]);
+  const [pending, setPending] = useState<string[]>([]);
   const passcodeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!unlocked) passcodeRef.current?.focus();
   }, [unlocked]);
 
+  useEffect(() => {
+    const saved = sessionStorage.getItem("momentsUnlock");
+    if (saved) {
+      setPasscode(saved);
+      setUnlocked(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    setPending(pendingUploads());
+  }, [unlocked, jobs]);
+
   const anySucceeded = jobs.some((j) => j.status === "done");
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
   const failedJobs = jobs.filter((j) => j.status === "error");
   const doneCount = jobs.filter((j) => j.status === "done").length;
+
+  useEffect(() => {
+    if (!uploading) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as unknown as {
+      wakeLock?: {
+        request: (type: "screen") => Promise<{ release: () => Promise<void> }>;
+      };
+    };
+    const request = async () => {
+      try {
+        lock = (await nav.wakeLock?.request("screen")) ?? null;
+      } catch {
+        lock = null;
+      }
+    };
+    request();
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && uploading) request();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      lock?.release().catch(() => {});
+    };
+  }, [uploading]);
+
+  useEffect(() => {
+    if (!uploading) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploading]);
 
   async function retryAllFailed() {
     for (const job of failedJobs) await runJob(job);
@@ -58,6 +109,7 @@ export default function MomentsClient() {
         return;
       }
       setUnlocked(true);
+      sessionStorage.setItem("momentsUnlock", code);
     } catch {
       setUnlockError("Something went wrong. Try again.");
     } finally {
@@ -72,7 +124,17 @@ export default function MomentsClient() {
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
 
-    const newJobs: FileJob[] = Array.from(fileList).map((file, i) => ({
+    const active = new Set(
+      jobs
+        .filter((j) => j.status === "uploading" || j.status === "queued")
+        .map((j) => `${j.file.name}:${j.file.size}:${j.file.lastModified}`),
+    );
+    const incoming = Array.from(fileList).filter(
+      (f) => !active.has(`${f.name}:${f.size}:${f.lastModified}`),
+    );
+    if (incoming.length === 0) return;
+
+    const newJobs: FileJob[] = incoming.map((file, i) => ({
       id: `${Date.now()}-${i}-${file.name}`,
       file,
       progress: 0,
@@ -86,9 +148,20 @@ export default function MomentsClient() {
   async function runJob(job: FileJob) {
     const meta: UploadMeta = { passcode };
     updateJob(job.id, { status: "uploading", progress: 0, error: undefined });
+    let lastPct = -1;
     try {
-      await uploadFile(job.file, meta, (pct) => updateJob(job.id, { progress: Math.round(pct) }));
-      updateJob(job.id, { status: "done", progress: 100 });
+      const result = await uploadFile(job.file, meta, (pct) => {
+        const rounded = Math.round(pct);
+        if (rounded !== lastPct) {
+          lastPct = rounded;
+          updateJob(job.id, { progress: rounded });
+        }
+      });
+      updateJob(job.id, {
+        status: "done",
+        progress: 100,
+        duplicate: result.duplicate,
+      });
     } catch (err) {
       updateJob(job.id, {
         status: "error",
@@ -102,16 +175,18 @@ export default function MomentsClient() {
       <div className="w-full max-w-xl space-y-8">
         <header className="space-y-3">
           <h1
-            className="text-4xl md:text-5xl font-extrabold uppercase leading-tight"
+            className="text-4xl md:text-5xl font-semibold uppercase leading-tight"
             style={parkinsans}
           >
             Send me your favorite moments from the concert
           </h1>
           <p className="text-sm md:text-base text-neutral-600 dark:text-neutral-300">
             Thanks for attending From The Ground Up: My Path of Growth and the Principles that
-            Connect Us
+            Connect Us!
           </p>
         </header>
+
+        <MomentsGallery />
 
         {!unlocked ? (
           <form onSubmit={tryUnlock} className="space-y-4">
@@ -136,6 +211,13 @@ export default function MomentsClient() {
           </form>
         ) : (
           <div className="space-y-8">
+            {pending.length > 0 && (
+              <p className="text-xs text-[#d4a553]" style={mono}>
+                Unfinished from before: {pending.join(", ")} — pick{" "}
+                {pending.length > 1 ? "them" : "it"} again to continue where you
+                left off.
+              </p>
+            )}
             <div className="space-y-2">
               <p className="text-sm text-neutral-600 dark:text-neutral-300">
                 Pick from your camera roll or gallery. Anything forwarded through Messages,
@@ -146,6 +228,15 @@ export default function MomentsClient() {
 
             {jobs.length > 0 && (
               <div className="space-y-3">
+                {uploading && (
+                  <p
+                    className="text-xs text-neutral-500 dark:text-neutral-400"
+                    style={mono}
+                  >
+                    Keep this tab open and your screen on — large files keep
+                    uploading in the background.
+                  </p>
+                )}
                 {failedJobs.length > 0 ? (
                   <button
                     type="button"
@@ -239,7 +330,9 @@ function DropZone({
 function JobRow({ job, onRetry }: { job: FileJob; onRetry: () => void }) {
   const statusText =
     job.status === "done"
-      ? "Done"
+      ? job.duplicate
+        ? "Already added"
+        : "Done"
       : job.status === "error"
         ? job.error || "Failed"
         : job.status === "queued"

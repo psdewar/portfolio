@@ -1,72 +1,370 @@
 // Client-side upload for the /moments page. Speaks the S3 API, so the same code
 // works against Cloudflare R2 (prod), MinIO (dev / NAS), or any S3-compatible
-// backend. Swapping backends = swapping env vars. See ADAPTERS.md for options.
+// backend. Files are uploaded untouched — large ones are sliced into parts via
+// S3/R2 multipart so multi-GB originals survive flaky mobile connections.
 //
-// Required server-side env vars (used by app/api/moments/sign/route.ts):
-//   S3_ENDPOINT              https://<account>.r2.cloudflarestorage.com (R2)
-//                            or http://localhost:9000 (local MinIO)
-//   S3_ACCESS_KEY_ID
-//   S3_SECRET_ACCESS_KEY
-//   S3_BUCKET                e.g. moments
-//   S3_FORCE_PATH_STYLE      "true" for MinIO, omit/false for R2
-//   MOMENTS_PASSCODE         the gate passcode
+// R2 CORS must allow PUT from the site origin AND expose the ETag header
+// (ExposeHeaders: ["ETag"]) — multipart completion reads each part's ETag.
+//
+// Required server-side env vars (see app/api/moments/sign + multipart routes):
+//   S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET,
+//   S3_FORCE_PATH_STYLE, MOMENTS_PASSCODE
 
 export type UploadMeta = {
   passcode: string;
 };
 
 export type UploadResult = {
-  url: string;
+  key: string;
+  duplicate?: boolean;
 };
 
-const MAX_ATTEMPTS = 3;
+const SINGLE_PART_MAX = 16 * 1024 * 1024;
+const PART_CONCURRENCY = 5;
+const MAX_ATTEMPTS = 4;
 
 class PermanentError extends Error {}
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function backoffMs(attempt: number) {
-  return Math.min(1000 * 2 ** attempt, 8000) + Math.floor(Math.random() * 500);
+  return Math.min(1000 * 2 ** attempt, 15000) + Math.floor(Math.random() * 500);
 }
 
 function isPermanent(status: number) {
   return status >= 400 && status < 500 && status !== 408 && status !== 429;
 }
 
-async function signUpload(file: File, meta: UploadMeta): Promise<string> {
-  const signRes = await fetch("/api/moments/sign", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      passcode: meta.passcode,
-      filename: file.name,
-      contentType: file.type,
-      size: file.size,
-    }),
-  });
-  if (!signRes.ok) {
-    const data = await signRes.json().catch(() => ({}));
-    const message = data.error || "Could not get upload URL";
-    throw isPermanent(signRes.status) ? new PermanentError(message) : new Error(message);
-  }
-  const { url } = (await signRes.json()) as { url: string; key: string };
-  return url;
+function httpError(status: number, message: string) {
+  return isPermanent(status) ? new PermanentError(message) : new Error(message);
 }
 
-function putFile(url: string, file: File, onProgress: (percent: number) => void): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+const HASH_FULL_MAX = 16 * 1024 * 1024;
+const FINGERPRINT_CHUNK = 8 * 1024 * 1024;
+
+async function fingerprint(file: File): Promise<string | undefined> {
+  try {
+    let bytes: Uint8Array;
+    if (file.size <= HASH_FULL_MAX) {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } else {
+      const head = new Uint8Array(
+        await file.slice(0, FINGERPRINT_CHUNK).arrayBuffer(),
+      );
+      const tail = new Uint8Array(
+        await file.slice(file.size - FINGERPRINT_CHUNK).arrayBuffer(),
+      );
+      const sizeTag = new TextEncoder().encode(`:${file.size}`);
+      bytes = new Uint8Array(head.length + tail.length + sizeTag.length);
+      bytes.set(head, 0);
+      bytes.set(tail, head.length);
+      bytes.set(sizeTag, head.length + tail.length);
+    }
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return undefined;
+  }
+}
+
+const STORE_KEY = "moments-uploads";
+const RECORD_TTL = 7 * 24 * 60 * 60 * 1000;
+
+type UploadRecord = {
+  key: string;
+  uploadId: string;
+  partSize: number;
+  name: string;
+  size: number;
+  lastModified: number;
+  createdAt: number;
+};
+
+function loadRecords(): UploadRecord[] {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(
+      (r) =>
+        r && typeof r.createdAt === "number" && Date.now() - r.createdAt < RECORD_TTL,
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveRecords(records: UploadRecord[]) {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(records));
+  } catch {
+    // storage unavailable; resume just won't persist across reloads
+  }
+}
+
+function putRecord(record: UploadRecord) {
+  saveRecords([...loadRecords().filter((r) => r.key !== record.key), record]);
+}
+
+function dropRecord(key: string) {
+  saveRecords(loadRecords().filter((r) => r.key !== key));
+}
+
+function matchRecord(file: File): UploadRecord | undefined {
+  return loadRecords().find(
+    (r) =>
+      r.name === file.name &&
+      r.size === file.size &&
+      r.lastModified === file.lastModified,
+  );
+}
+
+export function pendingUploads(): string[] {
+  return loadRecords().map((r) => r.name);
+}
+
+function putXhr(
+  url: string,
+  body: Blob,
+  contentType: string | undefined,
+  onProgress: (loaded: number) => void,
+): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    if (contentType) xhr.setRequestHeader("Content-Type", contentType);
     xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+      if (e.lengthComputable) onProgress(e.loaded);
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      const err = new Error(`Upload failed (${xhr.status})`);
-      reject(isPermanent(xhr.status) ? new PermanentError(err.message) : err);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.getResponseHeader("ETag") || undefined);
+      } else {
+        reject(httpError(xhr.status, `Upload failed (${xhr.status})`));
+      }
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
-    xhr.send(file);
+    xhr.send(body);
   });
+}
+
+async function postAction(payload: Record<string, unknown>, fallbackError: string) {
+  const res = await fetch("/api/moments/multipart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw httpError(res.status, data.error || fallbackError);
+  }
+  return res.json();
+}
+
+async function uploadSingle(
+  file: File,
+  meta: UploadMeta,
+  onProgress: (percent: number) => void,
+): Promise<UploadResult> {
+  const hash = await fingerprint(file);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      onProgress(0);
+      const contentType = file.type || "application/octet-stream";
+      const signRes = await fetch("/api/moments/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          passcode: meta.passcode,
+          filename: file.name,
+          contentType,
+          hash,
+          size: file.size,
+        }),
+      });
+      if (!signRes.ok) {
+        const data = await signRes.json().catch(() => ({}));
+        throw httpError(signRes.status, data.error || "Could not get upload URL");
+      }
+      const data = (await signRes.json()) as {
+        url?: string;
+        key: string;
+        exists?: boolean;
+      };
+      if (data.exists) {
+        onProgress(100);
+        return { key: data.key, duplicate: true };
+      }
+      if (!data.url) throw new Error("No upload URL returned");
+      await putXhr(data.url, file, contentType, (loaded) =>
+        onProgress((loaded / file.size) * 100),
+      );
+      onProgress(100);
+      return { key: data.key };
+    } catch (err) {
+      lastError = err;
+      if (err instanceof PermanentError) throw err;
+      if (attempt < MAX_ATTEMPTS - 1) await sleep(backoffMs(attempt));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Upload failed");
+}
+
+async function uploadMultipart(
+  file: File,
+  meta: UploadMeta,
+  onProgress: (percent: number) => void,
+): Promise<UploadResult> {
+  const existing = matchRecord(file);
+  let key: string;
+  let uploadId: string;
+  let partSize: number;
+  let partUrls: string[];
+  let uploadedParts: Array<{ partNumber: number; etag: string }> = [];
+
+  if (existing) {
+    const res = await fetch("/api/moments/multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "resume",
+        passcode: meta.passcode,
+        key: existing.key,
+        uploadId: existing.uploadId,
+        size: file.size,
+      }),
+    });
+    if (res.status === 410) {
+      dropRecord(existing.key);
+      return uploadMultipart(file, meta, onProgress);
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw httpError(res.status, data.error || "Could not resume upload");
+    }
+    const data = await res.json();
+    key = existing.key;
+    uploadId = existing.uploadId;
+    partSize = data.partSize;
+    partUrls = data.partUrls;
+    uploadedParts = Array.isArray(data.uploadedParts) ? data.uploadedParts : [];
+  } else {
+    const hash = await fingerprint(file);
+    const data = (await postAction(
+      {
+        action: "create",
+        passcode: meta.passcode,
+        filename: file.name,
+        contentType: file.type,
+        hash,
+        size: file.size,
+      },
+      "Could not start upload",
+    )) as {
+      key: string;
+      uploadId?: string;
+      partSize?: number;
+      partUrls?: string[];
+      exists?: boolean;
+    };
+    if (data.exists) {
+      onProgress(100);
+      return { key: data.key, duplicate: true };
+    }
+    key = data.key;
+    uploadId = data.uploadId!;
+    partSize = data.partSize!;
+    partUrls = data.partUrls!;
+    putRecord({
+      key,
+      uploadId,
+      partSize,
+      name: file.name,
+      size: file.size,
+      lastModified: file.lastModified,
+      createdAt: Date.now(),
+    });
+  }
+
+  const total = file.size;
+  const loaded = new Array(partUrls.length).fill(0);
+  const parts = new Array<{ partNumber: number; etag: string }>(partUrls.length);
+  const done = new Set<number>();
+  for (const p of uploadedParts) {
+    const idx = p.partNumber - 1;
+    if (idx >= 0 && idx < partUrls.length) {
+      parts[idx] = { partNumber: p.partNumber, etag: p.etag };
+      loaded[idx] = Math.min((idx + 1) * partSize, total) - idx * partSize;
+      done.add(idx);
+    }
+  }
+  const report = () =>
+    onProgress((loaded.reduce((a, b) => a + b, 0) / total) * 100);
+  report();
+
+  let next = 0;
+  async function worker() {
+    while (true) {
+      const i = next++;
+      if (i >= partUrls.length) return;
+      if (done.has(i)) continue;
+      const start = i * partSize;
+      const end = Math.min(start + partSize, total);
+      const blob = file.slice(start, end);
+
+      let etag: string | undefined;
+      let lastError: unknown;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        try {
+          etag = await putXhr(partUrls[i], blob, undefined, (l) => {
+            loaded[i] = l;
+            report();
+          });
+          break;
+        } catch (err) {
+          lastError = err;
+          loaded[i] = 0;
+          report();
+          if (err instanceof PermanentError) throw err;
+          if (attempt === MAX_ATTEMPTS - 1) throw lastError;
+          await sleep(backoffMs(attempt));
+        }
+      }
+      if (!etag) {
+        throw new Error("Missing ETag — R2 CORS must expose the ETag header");
+      }
+      loaded[i] = end - start;
+      report();
+      parts[i] = { partNumber: i + 1, etag };
+    }
+  }
+
+  try {
+    await Promise.all(
+      Array.from({ length: Math.min(PART_CONCURRENCY, partUrls.length) }, worker),
+    );
+    await postAction(
+      { action: "complete", passcode: meta.passcode, key, uploadId, parts },
+      "Could not finish upload",
+    );
+    dropRecord(key);
+    onProgress(100);
+    return { key };
+  } catch (err) {
+    if (err instanceof PermanentError) {
+      await postAction(
+        { action: "abort", passcode: meta.passcode, key, uploadId },
+        "abort failed",
+      ).catch(() => {});
+      dropRecord(key);
+    }
+    throw err;
+  }
 }
 
 export async function uploadFile(
@@ -74,20 +372,6 @@ export async function uploadFile(
   meta: UploadMeta,
   onProgress: (percent: number) => void,
 ): Promise<UploadResult> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    try {
-      onProgress(0);
-      const url = await signUpload(file, meta);
-      await putFile(url, file, onProgress);
-      return { url };
-    } catch (err) {
-      lastError = err;
-      if (err instanceof PermanentError) throw err;
-      if (attempt < MAX_ATTEMPTS - 1) {
-        await new Promise((r) => setTimeout(r, backoffMs(attempt)));
-      }
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("Upload failed");
+  if (file.size <= SINGLE_PART_MAX) return uploadSingle(file, meta, onProgress);
+  return uploadMultipart(file, meta, onProgress);
 }

@@ -1,27 +1,7 @@
 import { NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
-
-const endpoint = process.env.S3_ENDPOINT;
-const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-const bucket = process.env.S3_BUCKET;
-const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === "true";
-
-const s3 =
-  endpoint && accessKeyId && secretAccessKey
-    ? new S3Client({
-        region: "auto",
-        endpoint,
-        credentials: { accessKeyId, secretAccessKey },
-        forcePathStyle,
-      })
-    : null;
-
-function sanitizeFilename(name: string) {
-  return name.replace(/[^\w.-]/g, "_").slice(0, 200);
-}
+import { s3, s3Bucket } from "../../shared/s3";
+import { createUploadUrl, contentKey, objectExists } from "../../shared/moments";
 
 export async function POST(request: Request) {
   const ip = getClientIP(request);
@@ -39,7 +19,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!s3 || !bucket) {
+  if (!s3 || !s3Bucket) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
   if (!process.env.MOMENTS_PASSCODE) {
@@ -47,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { passcode, filename, contentType } = body as Record<string, string>;
+  const { passcode, filename, contentType, hash } = body as Record<string, string>;
 
   if (passcode !== process.env.MOMENTS_PASSCODE) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -56,18 +36,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing filename" }, { status: 400 });
   }
 
-  const key = `drops/${Date.now()}-${sanitizeFilename(filename)}`;
+  const validHash =
+    typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash) ? hash : "";
 
   try {
-    const url = await getSignedUrl(
-      s3,
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        ContentType: contentType || "application/octet-stream",
-      }),
-      { expiresIn: 900 },
-    );
+    if (validHash) {
+      const key = contentKey(filename, validHash);
+      if (await objectExists(key)) {
+        return NextResponse.json({ key, exists: true });
+      }
+      const { url } = await createUploadUrl(filename, contentType, key);
+      return NextResponse.json({ url, key, exists: false });
+    }
+    const { url, key } = await createUploadUrl(filename, contentType);
     return NextResponse.json({ url, key });
   } catch (err) {
     console.error("[moments/sign] error", err);

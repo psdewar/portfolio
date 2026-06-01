@@ -44,3 +44,39 @@ export async function GET(request: Request) {
 
   return NextResponse.json(grouped);
 }
+
+export async function POST(request: Request) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const attended = Array.isArray(body.attended)
+    ? (body.attended as unknown[])
+        .filter((s): s is string => typeof s === "string" && s.trim() !== "")
+        .map((s) => s.trim())
+    : [];
+
+  if (!name && !email) {
+    return NextResponse.json({ error: "Enter a name or an email." }, { status: 400 });
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "That email looks invalid." }, { status: 400 });
+  }
+
+  const { error } = await supabaseAdmin.from("stay-connected").insert({
+    name: name || null,
+    email: email || null,
+    phone: phone || null,
+    attended: attended.length ? attended : null,
+  });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
