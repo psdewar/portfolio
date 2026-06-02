@@ -22,6 +22,8 @@ export interface Show {
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
   standalone?: boolean | null;
+  // Eventbrite event id, set when the show is auto-published to Eventbrite.
+  eventbriteId?: string | null;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

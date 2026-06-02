@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getShowBySlug } from "../../../lib/shows";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
+import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const sp = request.nextUrl.searchParams;
-  const rawFormat = sp.get("format") ?? "standard";
+  const square = sp.has("square");
+  const rawFormat = square ? "yt" : (sp.get("format") ?? "standard");
   const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "standard";
   const { W, H } = POSTER_DIMS[format];
   // venueLabel/doorLabel params let a download reflect unsaved editor state.
@@ -28,14 +30,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   };
   const html = posterHtml(effShow, {
     format,
-    label: request.nextUrl.searchParams.get("label") || undefined,
-    tags: request.nextUrl.searchParams.get("tags") ?? "",
-    doorsOpenOverride: request.nextUrl.searchParams.get("doorsOpen") ?? "",
-    venueImgSrc: inlineVenueImg(request.nextUrl.searchParams.get("venueImg") ?? ""),
-    venueImgWidth: Number(request.nextUrl.searchParams.get("venueImgW")) || undefined,
-    taglineAlign: request.nextUrl.searchParams.get("align") || undefined,
+    label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
+    tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
+    doorsOpenOverride: sp.get("doorsOpen") ?? "",
+    venueImgSrc: inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
+    venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
+    taglineAlign: sp.get("align") || show.taglineAlign || "justify",
   });
-  const asJpg = request.nextUrl.searchParams.get("jpg") === "true";
+  const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
 
   try {
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return new Response(screenshot, {
         headers: {
           "Content-Type": "image/jpeg",
-          "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.jpg"`,
+          "Content-Disposition": `${square ? "inline" : "attachment"}; filename="poster-${slug}${suffix}.jpg"`,
           "Cache-Control": "no-store",
         },
       });

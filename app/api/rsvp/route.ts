@@ -4,6 +4,7 @@ import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
+import { upsertRsvp } from "../../lib/rsvp";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -80,54 +81,14 @@ export async function POST(request: Request) {
     }
 
     const guestCount = Math.max(1, Math.min(10, parseInt(guests, 10) || 1));
-    const rsvpEntry = `${eventId}:${guestCount}`;
-    const emailLower = email.trim().toLowerCase();
-
-    // Check if contact already exists in stay-connected
-    const { data: contact } = await supabaseAdmin
-      .from("stay-connected")
-      .select("id, rsvp")
-      .eq("email", emailLower)
-      .single();
-
-    if (contact) {
-      const current: string[] = contact.rsvp || [];
-      // Replace any existing entry for this event (handles guest-count changes
-      // and second-pass support payments) by filtering, then appending fresh.
-      const filtered = current.filter((r) => !r.startsWith(`${eventId}:`));
-      const next = [...filtered, rsvpEntry];
-      const { error: updateError } = await supabaseAdmin
-        .from("stay-connected")
-        .update({ rsvp: next })
-        .eq("id", contact.id);
-      if (updateError) {
-        console.error("[RSVP] Update error:", updateError);
-        return NextResponse.json(
-          { error: "Failed to save RSVP. Please try again." },
-          { status: 500 },
-        );
-      }
-      console.log(
-        "[RSVP API] Upserted",
-        rsvpEntry,
-        "in stay-connected for",
-        emailLower,
-        filtered.length === current.length ? "(new)" : "(updated)",
+    try {
+      await upsertRsvp({ email, name, slug: eventId, guests: guestCount });
+    } catch (saveError) {
+      console.error("[RSVP] Save error:", saveError);
+      return NextResponse.json(
+        { error: "Failed to save RSVP. Please try again." },
+        { status: 500 },
       );
-    } else {
-      const { error: insertError } = await supabaseAdmin.from("stay-connected").insert({
-        email: emailLower,
-        ...(name?.trim() && { name: name.trim() }),
-        rsvp: [rsvpEntry],
-      });
-      if (insertError) {
-        console.error("[RSVP] Insert error:", insertError);
-        return NextResponse.json(
-          { error: "Failed to save RSVP. Please try again." },
-          { status: 500 },
-        );
-      }
-      console.log("[RSVP API] Created stay-connected entry for", emailLower);
     }
 
     const eventDate = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {

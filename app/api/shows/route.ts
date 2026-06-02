@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cloneEventForShow } from "../../lib/eventbrite";
+
+export const maxDuration = 30;
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
@@ -46,11 +49,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let created: Record<string, unknown>;
     try {
-      return NextResponse.json(JSON.parse(responseText));
+      created = JSON.parse(responseText);
     } catch {
-      return NextResponse.json({ ok: true });
+      created = body;
     }
+
+    const show = { ...body, ...created };
+    let eventbrite: { eventbriteId?: string; error?: string } | undefined;
+    if (!show.eventbriteId && show.slug && show.date) {
+      try {
+        const eventbriteId = await cloneEventForShow(show);
+        await fetch(`${SHOWS_API}/chorus/shows`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SHOWS_TOKEN}`,
+          },
+          body: JSON.stringify({ slug: show.slug, eventbriteId }),
+        });
+        eventbrite = { eventbriteId };
+      } catch (e) {
+        console.error("[shows] Eventbrite create failed:", e);
+        eventbrite = { error: e instanceof Error ? e.message : "Eventbrite create failed" };
+      }
+    }
+
+    return NextResponse.json({ ...created, eventbrite });
   } catch (error) {
     console.error("[shows] POST error:", error);
     return NextResponse.json(
