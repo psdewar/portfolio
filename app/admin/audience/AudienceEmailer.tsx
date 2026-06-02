@@ -24,7 +24,7 @@ type SendStatus =
 const DRAFT_STORAGE_KEY = "peyt-admin-emails-draft";
 const IMAGE_STORAGE_KEY = "peyt-admin-emails-image";
 
-export default function EmailsAdminPage() {
+export function AudienceEmailer() {
   const [shows, setShows] = useState<Show[]>([]);
   const [audience, setAudience] = useState<AudienceDetail>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());

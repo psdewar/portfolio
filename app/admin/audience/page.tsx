@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Show } from "../../lib/shows";
 import { isDatePast, formatMonthDay } from "../../lib/dates";
+import { AudienceEmailer } from "./AudienceEmailer";
 
 interface AddedContact {
   name: string;
@@ -107,6 +108,7 @@ export default function AudienceAdminPage() {
   }
 
   return (
+    <>
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
       <header>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
@@ -242,5 +244,7 @@ export default function AudienceAdminPage() {
         </section>
       )}
     </div>
+      <AudienceEmailer />
+    </>
   );
 }

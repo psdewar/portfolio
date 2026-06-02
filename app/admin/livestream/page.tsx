@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-export default function SchedulePage() {
+export default function LivestreamPage() {
   const [nextStream, setNextStream] = useState("");
   const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -10,7 +10,7 @@ export default function SchedulePage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/schedule")
+    fetch("/api/livestream")
       .then((res) => res.json())
       .then((data) => {
         if (data.nextStream) {
@@ -33,7 +33,7 @@ export default function SchedulePage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/schedule", {
+      const res = await fetch("/api/livestream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nextStream: new Date(nextStream).toISOString() }),

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows } from "../../lib/shows";
+import { isEmailValid } from "../../lib/email";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
     console.log("[RSVP API] Received:", { name, email, guests, eventId });
 
-    if (!email?.trim() || !email.includes("@")) {
+    if (!email?.trim() || !isEmailValid(email.trim())) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
     }
 

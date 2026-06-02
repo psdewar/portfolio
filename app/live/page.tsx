@@ -124,7 +124,7 @@ export default function LivePage() {
   }, [searchParams, posthog, status.online, isLoading, router]);
 
   useEffect(() => {
-    fetch("/api/schedule")
+    fetch("/api/livestream")
       .then((res) => res.json())
       .then((data) => {
         if (data.nextStream) {

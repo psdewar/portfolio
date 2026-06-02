@@ -19,7 +19,7 @@ This is a free, self-hosted Polotno SDK alternative built with **Konva.js + reac
 1. **Fully isolated, easy to rip out.** All editor code lives under `app/admin/editor/`. To remove: `rm -rf app/admin/editor` + `npm uninstall konva react-konva`. Do not touch any other file in the project except:
    - **(a)** one new optional field on the `Pamphlet` type in `app/lib/pamphlets.ts`,
    - **(b)** one optional consumer block in `app/api/pamphlet/route.ts` to read that field if present (with hardcoded HTML as fallback for backward compat),
-   - **(c)** one button in `app/admin/shows/page.tsx` that links to the editor.
+   - **(c)** one button in `app/admin/hosts/page.tsx` that links to the editor.
    
    Tag all three additions with the comment `// EDITOR_INTEGRATION` so they're greppable for clean removal later.
 
@@ -50,7 +50,7 @@ This is a free, self-hosted Polotno SDK alternative built with **Konva.js + reac
 Personal site for Peyt Spencer (rapper, Microsoft engineer, founder of Lyrist Records). The pamphlet endpoint generates promotional images for shows. Existing pipeline:
 
 ```
-admin/shows
+admin/hosts
   → PamphletGroupButton modal
   → PATCH /api/pamphlets {id, shows, label, ...}
   → download pamphlet image via /api/pamphlet?id=X&format=ig
@@ -324,7 +324,7 @@ npm uninstall konva react-konva
 #    (search for "EDITOR_INTEGRATION" and remove the conditional block;
 #    pamphletHtml fallback already handles non-layout pamphlets)
 
-# 4. Remove the editor link button in app/admin/shows/page.tsx
+# 4. Remove the editor link button in app/admin/hosts/page.tsx
 #    (search for "EDITOR_INTEGRATION")
 
 # 5. Optionally remove `layout?: PamphletLayout` from app/lib/pamphlets.ts
@@ -351,7 +351,7 @@ npm uninstall konva react-konva
 - **Konva selection rectangle (marquee):** https://konvajs.org/docs/select_and_transform/Basic_demo.html
 - **Konva snapping demo:** https://konvajs.org/docs/sandbox/Objects_Snapping.html
 - **Existing pamphlet template (REQUIRED reading):** `app/api/pamphlet/route.ts`
-- **Existing admin pamphlet flow:** `app/admin/shows/page.tsx` — find `PamphletGroupButton` for the data flow.
+- **Existing admin pamphlet flow:** `app/admin/hosts/page.tsx` — find `PamphletGroupButton` for the data flow.
 - **Next.js 16 docs (current version):** https://nextjs.org/docs
 
 ---
@@ -363,7 +363,7 @@ npm uninstall konva react-konva
 - No emojis in UI copy.
 - Prefer Phosphor icons (`@phosphor-icons/react`) — already in the project.
 - File header comments are sparse in this codebase; keep new files clean too.
-- For destructive actions (delete element, clear canvas), use a typed-confirm pattern (matching `handleDeleteShow` in `app/admin/shows/page.tsx`).
+- For destructive actions (delete element, clear canvas), use a typed-confirm pattern (matching `handleDeleteShow` in `app/admin/hosts/page.tsx`).
 
 ---
 

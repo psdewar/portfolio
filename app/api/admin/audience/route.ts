@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { isAdminAuthorized } from "../../shared/admin-auth";
+import { isEmailValid } from "../../../lib/email";
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthorized(request))) {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   if (!name && !email) {
     return NextResponse.json({ error: "Enter a name or an email." }, { status: 400 });
   }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (email && !isEmailValid(email)) {
     return NextResponse.json({ error: "That email looks invalid." }, { status: 400 });
   }
 

@@ -159,7 +159,7 @@ interface ShowGroup {
   supporters: Sponsor[];
 }
 
-export default function ShowsAdminPage() {
+export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [pamphlets, setPamphlets] = useState<Pamphlet[]>([]);

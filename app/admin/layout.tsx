@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const adminPages = [
-  { segment: "shows", title: "Shows", href: "/admin/shows" },
-  { segment: "schedule", title: "Schedule", href: "/admin/schedule" },
-  { segment: "emails", title: "Emails", href: "/admin/emails" },
+  { segment: "hosts", title: "Hosts", href: "/admin/hosts" },
+  { segment: "livestream", title: "Livestream", href: "/admin/livestream" },
   { segment: "audience", title: "Stay connected", href: "/admin/audience" },
   { segment: "moments", title: "Moments", href: "/admin/moments" },
   { segment: "printouts", title: "Printouts", href: "/admin/printouts" },
-  { segment: "sync", title: "Sync", href: "/admin/sync" },
+  { segment: "sync", title: "Sync lyrics", href: "/admin/sync" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

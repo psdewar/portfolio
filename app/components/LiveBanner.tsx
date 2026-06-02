@@ -35,7 +35,7 @@ export default function LiveBanner() {
   const { online } = useLiveStatus();
 
   useEffect(() => {
-    fetch("/api/schedule")
+    fetch("/api/livestream")
       .then((res) => res.json())
       .then((data) => setNextStream(data.nextStream || null))
       .catch(() => {});

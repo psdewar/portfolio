@@ -24,7 +24,7 @@ async function gotoWithMock(page: Page, path: string) {
     });
   });
 
-  await page.route("**/api/schedule", (route) => {
+  await page.route("**/api/livestream", (route) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(19, 0, 0, 0);
