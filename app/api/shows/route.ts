@@ -11,15 +11,19 @@ export async function GET() {
     const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
 
     if (!res.ok) {
-      console.error("[shows] GET failed:", res.status, await res.text());
-      return NextResponse.json([], { status: 200 });
+      const text = await res.text();
+      console.error("[shows] GET failed:", res.status, text);
+      return NextResponse.json({ error: `Upstream ${res.status}` }, { status: 502 });
     }
 
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error("[shows] GET error:", error);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Upstream unreachable" },
+      { status: 502 },
+    );
   }
 }
 

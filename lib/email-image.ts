@@ -12,4 +12,5 @@ export type EmailImage = {
   type: string;
   filename: string;
   alt?: string;
+  link?: string;
 };

@@ -273,9 +273,14 @@ export async function sendShowBlast(params: {
       .join("");
 
   const cid = "hero-image";
-  const imgTag = image
+  const heroImg = image
     ? `<img src="cid:${cid}" alt="${escapeAttr(image.alt || "")}" width="432" style="display:block;width:100%;max-width:432px;height:auto;margin:0 auto 24px;border-radius:6px;" />`
     : "";
+  const heroLink = image?.link?.trim();
+  const imgTag =
+    heroImg && heroLink
+      ? `<a href="${escapeAttr(heroLink.startsWith("http") ? heroLink : `https://${heroLink}`)}" target="_blank" style="display:block;text-decoration:none;">${heroImg}</a>`
+      : heroImg;
 
   const IMAGE_MARKER = "[image]";
   let htmlBody: string;

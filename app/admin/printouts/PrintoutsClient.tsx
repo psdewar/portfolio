@@ -101,7 +101,7 @@ function DonationPage({ interac }: { interac?: boolean }) {
             )}
             <p
               className="font-bebas text-5xl leading-[0.95] tracking-wide"
-              style={{ color: "#000000", marginTop: "0.35rem" }}
+              style={{ color: "#000000", marginTop: "0.55rem" }}
             >
               or cash
             </p>
@@ -236,6 +236,47 @@ function DonationBoxLabel() {
           <br />
           in my concert-conversation
         </p>
+      </div>
+    </div>
+  );
+}
+
+function ThankYouCard() {
+  return (
+    <div className="page" style={{ display: "grid", placeItems: "center" }}>
+      <div
+        className="border-2 border-dashed border-neutral-400 flex items-stretch overflow-hidden"
+        style={{ width: "6.5in", height: "4.5in" }}
+      >
+        <div
+          className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-white text-black"
+          style={{ borderRight: "2px solid #0a0a0a" }}
+        >
+          <h2 className="font-bebas text-5xl leading-[0.95] tracking-wide">
+            Thanks For
+            <br />
+            Being Here
+            <br />
+            <span style={{ color: "#d4a553" }}>Help Fund</span>
+            <br />
+            my Next
+            <br />
+            Tour Stop
+          </h2>
+        </div>
+        <div
+          className="shrink-0 bg-white flex items-center justify-center"
+          style={{ width: "4.125in" }}
+        >
+          <Image
+            src="/api/qr?d=%2Fsupport"
+            alt="Scan to support"
+            width={280}
+            height={280}
+            style={{ width: "3.625in", height: "3.625in" }}
+            unoptimized
+          />
+        </div>
       </div>
     </div>
   );
@@ -411,15 +452,15 @@ const LANDSCAPE_CSS = `
 `;
 
 export default function PrintoutsClient({ currentCity }: { currentCity: string | null }) {
-  const [tab, setTab] = useState<"portrait" | "landscape">("portrait");
+  const [tab, setTab] = useState<"general" | "screensavers">("general");
 
   return (
     <>
-      <style>{tab === "landscape" ? LANDSCAPE_CSS : PORTRAIT_CSS}</style>
+      <style>{tab === "screensavers" ? LANDSCAPE_CSS : PORTRAIT_CSS}</style>
 
       <div className="print:hidden sticky top-0 z-40 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1">
-          {(["portrait", "landscape"] as const).map((t) => (
+          {(["general", "screensavers"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -437,7 +478,7 @@ export default function PrintoutsClient({ currentCity }: { currentCity: string |
         </div>
       </div>
 
-      {tab === "portrait" ? (
+      {tab === "general" ? (
         <div className="print-root">
           <SignupPage />
           <SignupPage />
@@ -445,6 +486,7 @@ export default function PrintoutsClient({ currentCity }: { currentCity: string |
           <DonationPage />
           <DonationPage interac />
           <DonationPage interac />
+          <ThankYouCard />
           <SizeSign word="SMALL" />
           <SizeSign word="MEDIUM" />
           <SizeSign word="LARGE" />

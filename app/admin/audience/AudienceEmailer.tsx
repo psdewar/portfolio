@@ -23,6 +23,41 @@ type SendStatus =
 
 const DRAFT_STORAGE_KEY = "peyt-admin-emails-draft";
 const IMAGE_STORAGE_KEY = "peyt-admin-emails-image";
+const TEMPLATES_STORAGE_KEY = "peyt-admin-emails-templates";
+
+const SITE = "https://peytspencer.com";
+
+type EmailTemplate = {
+  id: string;
+  label: string;
+  subject: string;
+  body: string;
+  heroLink: string;
+};
+
+const DEFAULT_TEMPLATES: EmailTemplate[] = [
+  {
+    id: "colby",
+    label: "Colby in your city",
+    subject: "Colby Jeffers brings Better World to the Lower Mainland",
+    body: `He's taking his Better World Concert Series across the Lower Mainland in four cities and four nights, Monday, May 18th to Thursday May 21st in Coquitlam, Richmond, Vancouver, and North Shore:
+[image]
+RSVP today at https://colbyjeffers.com!`,
+    heroLink: "https://colbyjeffers.com",
+  },
+  {
+    id: "thanks",
+    label: "Thanks for coming",
+    subject: "Thank you for coming out",
+    body: `Thank you for coming out. That night only happened because you showed up.
+
+I want you to upload your photos and videos so we can share what you experienced with others: ${SITE}/moments
+
+More soon,
+Peyt`,
+    heroLink: `${SITE}/moments`,
+  },
+];
 
 export function AudienceEmailer() {
   const [shows, setShows] = useState<Show[]>([]);
@@ -33,6 +68,7 @@ export function AudienceEmailer() {
   const [testEmail, setTestEmail] = useState("");
   const [scheduleAt, setScheduleAt] = useState("");
   const [image, setImage] = useState<EmailImage | null>(null);
+  const [heroLink, setHeroLink] = useState("");
   const [uploading, setUploading] = useState(false);
   const imagePreviewUrl = useMemo(
     () => (image ? `data:${image.type};base64,${image.base64}` : null),
@@ -40,25 +76,12 @@ export function AudienceEmailer() {
   );
   const [status, setStatus] = useState<SendStatus>({ kind: "idle" });
   const [loading, setLoading] = useState(true);
+  const [showsLoadFailed, setShowsLoadFailed] = useState(false);
+  const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_TEMPLATES);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (raw) {
-        const draft = JSON.parse(raw);
-        if (typeof draft.subject === "string") setSubject(draft.subject);
-        if (typeof draft.body === "string") setBody(draft.body);
-        if (typeof draft.testEmail === "string") setTestEmail(draft.testEmail);
-        if (typeof draft.scheduleAt === "string")
-          setScheduleAt(draft.scheduleAt);
-        if (Array.isArray(draft.selected)) setSelected(new Set(draft.selected));
-      }
-      const rawImage = localStorage.getItem(IMAGE_STORAGE_KEY);
-      if (rawImage) setImage(JSON.parse(rawImage));
-    } catch {
-      // corrupted draft; start fresh
-    }
-
+  function loadData() {
+    setLoading(true);
+    setShowsLoadFailed(false);
     Promise.all([
       fetch("/api/shows").then((r) =>
         r.ok ? r.json() : Promise.reject(new Error("shows")),
@@ -74,14 +97,44 @@ export function AudienceEmailer() {
         );
       })
       .catch((err) => {
-        setShows([]);
-        setAudience({});
-        setStatus({
-          kind: "error",
-          message: `Failed to load: ${err instanceof Error ? err.message : "unknown"}`,
-        });
+        if (err instanceof Error && err.message === "shows") {
+          setShowsLoadFailed(true);
+        } else {
+          setStatus({
+            kind: "error",
+            message: `Failed to load: ${err instanceof Error ? err.message : "unknown"}`,
+          });
+        }
       })
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (typeof draft.subject === "string") setSubject(draft.subject);
+        if (typeof draft.body === "string") setBody(draft.body);
+        if (typeof draft.testEmail === "string") setTestEmail(draft.testEmail);
+        if (typeof draft.scheduleAt === "string")
+          setScheduleAt(draft.scheduleAt);
+        if (typeof draft.heroLink === "string") setHeroLink(draft.heroLink);
+        if (Array.isArray(draft.selected)) setSelected(new Set(draft.selected));
+      }
+      const rawImage = localStorage.getItem(IMAGE_STORAGE_KEY);
+      if (rawImage) setImage(JSON.parse(rawImage));
+      const rawTemplates = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      if (rawTemplates) {
+        const parsed = JSON.parse(rawTemplates);
+        if (Array.isArray(parsed)) setTemplates(parsed);
+      }
+    } catch {
+      // corrupted draft; start fresh
+    }
+
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -92,6 +145,7 @@ export function AudienceEmailer() {
         body,
         testEmail,
         scheduleAt,
+        heroLink,
         selected: Array.from(selected),
       };
       try {
@@ -101,7 +155,7 @@ export function AudienceEmailer() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [loading, subject, body, testEmail, scheduleAt, selected]);
+  }, [loading, subject, body, testEmail, scheduleAt, heroLink, selected]);
 
   useEffect(() => {
     if (loading) return;
@@ -112,6 +166,15 @@ export function AudienceEmailer() {
       // image too large for localStorage; in-memory only
     }
   }, [loading, image]);
+
+  useEffect(() => {
+    if (loading) return;
+    try {
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+    } catch {
+      // skip
+    }
+  }, [loading, templates]);
 
   const pastShows = useMemo(
     () =>
@@ -196,6 +259,70 @@ export function AudienceEmailer() {
     setSelected(new Set());
   }
 
+  function applyTemplate(t: EmailTemplate) {
+    if (
+      (subject.trim() || body.trim()) &&
+      !window.confirm("Replace the current subject and body with this template?")
+    ) {
+      return;
+    }
+    setSubject(t.subject);
+    setBody(t.body);
+    setHeroLink(t.heroLink);
+    setStatus({ kind: "idle" });
+  }
+
+  function saveAsTemplate() {
+    if (!subject.trim() && !body.trim()) {
+      setStatus({
+        kind: "error",
+        message: "Add a subject or body before saving a template.",
+      });
+      return;
+    }
+    const label = window.prompt("Template name?")?.trim();
+    if (!label) return;
+    setTemplates((prev) => {
+      const existing = prev.find(
+        (t) => t.label.toLowerCase() === label.toLowerCase(),
+      );
+      const next: EmailTemplate = {
+        id: existing?.id ?? crypto.randomUUID(),
+        label,
+        subject,
+        body,
+        heroLink,
+      };
+      return existing
+        ? prev.map((t) => (t.id === existing.id ? next : t))
+        : [...prev, next];
+    });
+    setStatus({ kind: "success", message: `Saved template "${label}".` });
+  }
+
+  function deleteTemplate(id: string) {
+    const t = templates.find((x) => x.id === id);
+    if (t && !window.confirm(`Delete template "${t.label}"?`)) return;
+    setTemplates((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function overwriteTemplate(id: string) {
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    if (!subject.trim() && !body.trim()) {
+      setStatus({
+        kind: "error",
+        message: "Add a subject or body before overwriting a template.",
+      });
+      return;
+    }
+    if (!window.confirm(`Overwrite "${t.label}" with the current email?`)) return;
+    setTemplates((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, subject, body, heroLink } : x)),
+    );
+    setStatus({ kind: "success", message: `Updated "${t.label}".` });
+  }
+
   async function send(opts: { testOnly: boolean }) {
     if (!subject.trim() || !body.trim()) {
       setStatus({ kind: "error", message: "Subject and body are required." });
@@ -241,7 +368,11 @@ export function AudienceEmailer() {
           testEmail: testEmail.trim() || undefined,
           sendAt: sendAtUnix,
           image: image
-            ? { ...image, alt: image.alt?.trim() || undefined }
+            ? {
+                ...image,
+                alt: image.alt?.trim() || undefined,
+                link: heroLink.trim() || undefined,
+              }
             : undefined,
         }),
       });
@@ -346,7 +477,17 @@ export function AudienceEmailer() {
           </div>
         </div>
 
-        {locationGroups.length === 0 ? (
+        {showsLoadFailed ? (
+          <p className="text-sm text-neutral-500">
+            Couldn&apos;t load shows.{" "}
+            <button
+              onClick={loadData}
+              className="text-[#d4a553] hover:underline"
+            >
+              Retry
+            </button>
+          </p>
+        ) : locationGroups.length === 0 ? (
           <p className="text-sm text-neutral-500">No past shows yet.</p>
         ) : (
           <ul className="divide-y divide-neutral-200 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
@@ -386,6 +527,55 @@ export function AudienceEmailer() {
             ? "No locations selected."
             : `${pluralize(uniqueRecipients, "unique recipient")} across ${pluralize(selectedLocationCount, "location")}.`}
         </p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            Templates
+          </h2>
+          <button
+            onClick={saveAsTemplate}
+            className="text-xs text-[#d4a553] hover:underline"
+          >
+            Save current
+          </button>
+        </div>
+        {templates.length === 0 ? (
+          <p className="text-sm text-neutral-500">No templates saved yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700"
+              >
+                <button
+                  onClick={() => applyTemplate(t)}
+                  title="Load into the composer"
+                  className="px-3 py-2 text-sm hover:text-[#d4a553]"
+                >
+                  {t.label}
+                </button>
+                <button
+                  onClick={() => overwriteTemplate(t.id)}
+                  aria-label={`Overwrite ${t.label} with the current email`}
+                  title="Overwrite with current email"
+                  className="border-l border-neutral-300 px-3 py-2 text-xs font-medium uppercase tracking-wide text-neutral-400 hover:text-[#d4a553] dark:border-neutral-700"
+                >
+                  Update
+                </button>
+                <button
+                  onClick={() => deleteTemplate(t.id)}
+                  aria-label={`Delete ${t.label}`}
+                  className="border-l border-neutral-300 px-2 py-2 text-neutral-400 hover:text-red-500 dark:border-neutral-700"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -465,6 +655,18 @@ export function AudienceEmailer() {
             </span>
           </label>
         )}
+
+        <input
+          type="url"
+          value={heroLink}
+          onChange={(e) => setHeroLink(e.target.value)}
+          placeholder="Link URL (optional) — makes the hero image clickable"
+          className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:border-[#d4a553] text-sm"
+        />
+        <p className="text-xs text-neutral-500">
+          Wraps the hero image in this link. Upload an image above for it to take
+          effect.
+        </p>
       </section>
 
       <section className="space-y-3">

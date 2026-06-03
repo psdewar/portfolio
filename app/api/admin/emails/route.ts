@@ -116,6 +116,7 @@ export async function POST(request: Request) {
       type: imageInput.type,
       filename: imageInput.filename?.trim() || "image",
       alt: imageInput.alt?.trim() || undefined,
+      link: imageInput.link?.trim() || undefined,
     };
   }
 
