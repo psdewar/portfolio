@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface MomentItem {
   key: string;
@@ -67,6 +67,7 @@ function videoQuality(w: number, h: number) {
 
 export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
+  const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [photoIndex, setPhotoIndex] = useState(0);
   const [videoIndex, setVideoIndex] = useState(0);
@@ -77,6 +78,7 @@ export default function MomentsAdminPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || `Failed (${r.status})`);
       setItems(Array.isArray(data.items) ? data.items : []);
+      setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
       if (initial) setState({ kind: "ready" });
     } catch (err) {
       if (initial) {
@@ -94,9 +96,57 @@ export default function MomentsAdminPage() {
 
   function updateItem(key: string, patch: Partial<MomentItem>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+    if (patch.key && patch.key !== key) {
+      setFeaturedKeys((prev) => prev.map((k) => (k === key ? patch.key! : k)));
+    }
   }
   function removeItem(key: string) {
     setItems((prev) => prev.filter((it) => it.key !== key));
+    setFeaturedKeys((prev) => prev.filter((k) => k !== key));
+  }
+
+  const featuredSet = useMemo(() => new Set(featuredKeys), [featuredKeys]);
+  const itemByKey = useMemo(
+    () => new Map(items.map((it) => [it.key, it] as const)),
+    [items],
+  );
+  const featuredItems = featuredKeys
+    .map((k) => itemByKey.get(k))
+    .filter((it): it is MomentItem => Boolean(it));
+
+  async function toggleFeatured(key: string, next: boolean) {
+    const r = await fetch("/api/admin/moments/feature", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, featured: next }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || "Failed");
+    }
+    setFeaturedKeys((prev) =>
+      next
+        ? prev.includes(key)
+          ? prev
+          : [...prev, key]
+        : prev.filter((k) => k !== key),
+    );
+  }
+
+  async function persistOrder(nextKeys: string[]) {
+    const prevKeys = featuredKeys;
+    setFeaturedKeys(nextKeys);
+    try {
+      const r = await fetch("/api/admin/moments/feature", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys: nextKeys }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      setFeaturedKeys(prevKeys);
+      window.alert("Could not save the new order.");
+    }
   }
 
   const photos = items.filter((it) => !VIDEO_EXT.test(it.key));
@@ -122,24 +172,39 @@ export default function MomentsAdminPage() {
       {state.kind === "ready" && (
         <div className="space-y-6">
           <AdminUpload onDone={() => load(false)} />
+          {featuredItems.length > 0 && (
+            <SlideshowReorder
+              items={featuredItems}
+              onReorder={persistOrder}
+              onRemove={(key) =>
+                toggleFeatured(key, false).catch(() =>
+                  window.alert("Could not remove from slideshow."),
+                )
+              }
+            />
+          )}
           <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
             <Lane
               label="Photos"
               items={photos}
               index={photoIndex}
+              featuredSet={featuredSet}
               onPrev={() => setPhotoIndex((i) => i - 1)}
               onNext={() => setPhotoIndex((i) => i + 1)}
               onRemove={removeItem}
               onUpdate={updateItem}
+              onToggleFeatured={toggleFeatured}
             />
             <Lane
               label="Videos"
               items={videos}
               index={videoIndex}
+              featuredSet={featuredSet}
               onPrev={() => setVideoIndex((i) => i - 1)}
               onNext={() => setVideoIndex((i) => i + 1)}
               onRemove={removeItem}
               onUpdate={updateItem}
+              onToggleFeatured={toggleFeatured}
             />
           </div>
         </div>
@@ -152,18 +217,22 @@ function Lane({
   label,
   items,
   index,
+  featuredSet,
   onPrev,
   onNext,
   onRemove,
   onUpdate,
+  onToggleFeatured,
 }: {
   label: string;
   items: MomentItem[];
   index: number;
+  featuredSet: Set<string>;
   onPrev: () => void;
   onNext: () => void;
   onRemove: (key: string) => void;
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
+  onToggleFeatured: (key: string, next: boolean) => Promise<void>;
 }) {
   const total = items.length;
   const effectiveIndex = total ? ((index % total) + total) % total : 0;
@@ -184,10 +253,12 @@ function Lane({
         <ReviewCard
           key={item.key}
           item={item}
+          featured={featuredSet.has(item.key)}
           onPrev={onPrev}
           onNext={onNext}
           onRemove={onRemove}
           onUpdate={onUpdate}
+          onToggleFeatured={onToggleFeatured}
         />
       ) : (
         <div className="aspect-square flex items-center justify-center rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-sm text-neutral-400 dark:text-neutral-500">
@@ -200,16 +271,20 @@ function Lane({
 
 function ReviewCard({
   item,
+  featured,
   onPrev,
   onNext,
   onRemove,
   onUpdate,
+  onToggleFeatured,
 }: {
   item: MomentItem;
+  featured: boolean;
   onPrev: () => void;
   onNext: () => void;
   onRemove: (key: string) => void;
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
+  onToggleFeatured: (key: string, next: boolean) => Promise<void>;
 }) {
   const isVideo = VIDEO_EXT.test(item.key);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -273,23 +348,11 @@ function ReviewCard({
   }
 
   async function toggleFeatured() {
-    const next = !item.featured;
     setBusy(true);
     try {
-      const r = await fetch("/api/admin/moments/feature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: item.key, featured: next }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        window.alert(d.error || "Failed");
-        setBusy(false);
-        return;
-      }
-      onUpdate(item.key, { featured: next });
-    } catch {
-      window.alert("Failed");
+      await onToggleFeatured(item.key, !featured);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
     }
@@ -330,15 +393,15 @@ function ReviewCard({
           type="button"
           onClick={toggleFeatured}
           disabled={busy}
-          aria-pressed={item.featured}
+          aria-pressed={featured}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
-            item.featured
+            featured
               ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-sm hover:shadow"
               : "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
           }`}
         >
-          <StarIcon filled={item.featured} />
-          {item.featured ? "In slideshow" : "Add to slideshow"}
+          <StarIcon filled={featured} />
+          {featured ? "In slideshow" : "Add to slideshow"}
         </button>
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton href={item.downloadUrl} label="Download">
@@ -400,7 +463,7 @@ function ReviewCard({
           )}
         </div>
 
-        {item.featured && (
+        {featured && (
           <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider bg-[#d4a553] text-[#0a0a0a]">
             Slideshow
           </span>
@@ -419,6 +482,161 @@ function ReviewCard({
         )}
       </div>
     </div>
+  );
+}
+
+function SlideshowReorder({
+  items,
+  onReorder,
+  onRemove,
+}: {
+  items: MomentItem[];
+  onReorder: (keys: string[]) => void;
+  onRemove: (key: string) => void;
+}) {
+  const keys = items.map((it) => it.key);
+  const byKey = useMemo(
+    () => new Map(items.map((it) => [it.key, it] as const)),
+    [items],
+  );
+  const [drag, setDrag] = useState<{ key: string; order: string[] } | null>(null);
+  const order = drag ? drag.order : keys;
+
+  function startDrag(e: React.PointerEvent, key: string) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ key, order: keys });
+  }
+  function dragOver(e: React.PointerEvent) {
+    if (!drag) return;
+    const overKey = document
+      .elementFromPoint(e.clientX, e.clientY)
+      ?.closest<HTMLElement>("[data-key]")?.dataset.key;
+    if (!overKey || overKey === drag.key) return;
+    const next = [...drag.order];
+    next.splice(next.indexOf(drag.key), 1);
+    next.splice(next.indexOf(overKey), 0, drag.key);
+    if (next.join("|") !== drag.order.join("|")) setDrag({ key: drag.key, order: next });
+  }
+  function endDrag() {
+    if (!drag) return;
+    if (drag.order.join("|") !== keys.join("|")) onReorder(drag.order);
+    setDrag(null);
+  }
+  function step(key: string, delta: number) {
+    const from = keys.indexOf(key);
+    const to = from + delta;
+    if (to < 0 || to >= keys.length) return;
+    const next = [...keys];
+    next.splice(from, 1);
+    next.splice(to, 0, key);
+    onReorder(next);
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          Slideshow order
+        </h2>
+        <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+          {items.length}
+        </span>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {order.map((key, i) => {
+          const item = byKey.get(key);
+          if (!item) return null;
+          const dragging = drag?.key === key;
+          return (
+            <div
+              key={key}
+              data-key={key}
+              onPointerDown={(e) => startDrag(e, key)}
+              onPointerMove={dragOver}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              style={{ touchAction: "pan-y" }}
+              className={`relative shrink-0 w-28 cursor-grab select-none overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 transition-shadow ${
+                dragging ? "cursor-grabbing opacity-60 shadow-lg ring-2 ring-[#d4a553]" : ""
+              }`}
+            >
+              <div className="pointer-events-none aspect-square">
+                {VIDEO_EXT.test(item.key) ? (
+                  <video
+                    src={item.url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={item.url}
+                    alt=""
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </div>
+              <span className="absolute top-1 left-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#d4a553] px-1 text-[10px] font-bold text-[#0a0a0a]">
+                {i + 1}
+              </span>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => onRemove(item.key)}
+                aria-label="Remove from slideshow"
+                title="Remove from slideshow"
+                className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
+              >
+                <CloseIcon />
+              </button>
+              <div className="absolute inset-x-0 bottom-0 flex">
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => step(key, -1)}
+                  disabled={i === 0}
+                  aria-label="Move earlier"
+                  className="flex flex-1 items-center justify-center bg-black/55 py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
+                >
+                  <ChevronLeftIcon />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => step(key, 1)}
+                  disabled={i === order.length - 1}
+                  aria-label="Move later"
+                  className="flex flex-1 items-center justify-center border-l border-white/15 bg-black/55 py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
+                >
+                  <ChevronRightIcon />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-neutral-400 dark:text-neutral-500">
+        Drag a tile to reorder the slideshow, or nudge with the arrows. ✕ removes it.
+      </p>
+    </section>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   );
 }
 
@@ -578,7 +796,8 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setError("");
     try {
-      for (const file of Array.from(files)) {
+      const queue = Array.from(files);
+      const uploadOne = async (file: File) => {
         const signRes = await fetch("/api/admin/moments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -592,10 +811,25 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
           body: file,
         });
         if (!put.ok) throw new Error(`Upload failed (${put.status})`);
-      }
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      };
+
+      const FILE_CONCURRENCY = 3;
+      let nextIndex = 0;
+      let firstError = "";
+      await Promise.all(
+        Array.from({ length: Math.min(FILE_CONCURRENCY, queue.length) }, async () => {
+          while (nextIndex < queue.length) {
+            const file = queue[nextIndex++];
+            try {
+              await uploadOne(file);
+            } catch (err) {
+              if (!firstError) firstError = err instanceof Error ? err.message : "Upload failed";
+            }
+          }
+        }),
+      );
+      if (firstError) setError(firstError);
+      else onDone();
     } finally {
       setBusy(false);
     }

@@ -52,7 +52,8 @@ export async function GET(request: Request) {
   const list = await s3.send(
     new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 }),
   );
-  const featured = new Set(await getFeatured());
+  const featuredKeys = await getFeatured();
+  const featured = new Set(featuredKeys);
 
   const objects = (list.Contents || [])
     .filter((o) => o.Key && o.Key !== "drops/")
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
     })),
   );
 
-  return NextResponse.json({ items, truncated: list.IsTruncated || false });
+  return NextResponse.json({ items, featuredKeys, truncated: list.IsTruncated || false });
 }
 
 export async function POST(request: Request) {

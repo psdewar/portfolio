@@ -30,3 +30,23 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ featured: Boolean(featured) });
 }
+
+export async function PUT(request: Request) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!s3 || !s3Bucket) {
+    return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
+  }
+
+  const { keys } = (await request.json().catch(() => ({}))) as { keys?: unknown };
+  if (
+    !Array.isArray(keys) ||
+    !keys.every((k) => typeof k === "string" && k.startsWith("drops/"))
+  ) {
+    return NextResponse.json({ error: "Invalid keys." }, { status: 400 });
+  }
+
+  await setFeatured(keys as string[]);
+  return NextResponse.json({ featured: keys });
+}
