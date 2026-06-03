@@ -6,6 +6,7 @@ import { ClientLayout } from "./ClientLayout";
 
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.ttf",
+  variable: "--font-epunda",
 });
 
 const bebasNeue = Bebas_Neue({
@@ -150,7 +151,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${myFont.className} ${bebasNeue.variable} ${parkinsans.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
+      className={`${myFont.className} ${myFont.variable} ${bebasNeue.variable} ${parkinsans.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
     >
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />

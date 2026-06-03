@@ -138,7 +138,7 @@ export default function RSVPForm({
           window.location.href = checkoutData.url;
           return;
         }
-        setErrors({ email: checkoutData.error || "Couldn't start checkout — try again." });
+        setErrors({ email: checkoutData.error || "Couldn't start checkout. Try again." });
         return;
       }
 

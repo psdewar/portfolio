@@ -401,7 +401,7 @@ async function uploadMultipart(
         }
       }
       if (!etag) {
-        throw new Error("Missing ETag — R2 CORS must expose the ETag header");
+        throw new Error("Missing ETag: R2 CORS must expose the ETag header");
       }
       loaded[i] = end - start;
       report();

@@ -179,7 +179,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isHomePage) {
+  if (isHomePage || pathname === "/moments") {
     return (
       <>
         <div className="h-[100dvh] overflow-hidden">

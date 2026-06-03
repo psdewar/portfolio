@@ -288,7 +288,7 @@ export default function SponsorForm({
           setSubmitResult({
             ok: false,
             msg: typed
-              ? "Add city and state — like 'Bwe Kafe, West Palm Beach, FL'."
+              ? "Add city and state, like 'Bwe Kafe, West Palm Beach, FL'."
               : "Add a venue or address.",
           });
           return;

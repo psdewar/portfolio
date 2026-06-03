@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash, Images } from "@phosphor-icons/react";
+import { Trash, Images, CheckCircle } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
 import { uploadFile, type UploadMeta } from "./upload";
@@ -20,6 +20,7 @@ type FileJob = {
 
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
 const mono = { fontFamily: '"Space Mono", monospace' } as const;
+const epunda = { fontFamily: "var(--font-epunda)" } as const;
 const gold = "linear-gradient(to right, #d4a553, #e0b860)";
 
 export default function MomentsClient() {
@@ -149,7 +150,15 @@ export default function MomentsClient() {
     }));
     setJobs((prev) => [...prev, ...newJobs]);
 
-    for (const job of newJobs) await runJob(job);
+    const FILE_CONCURRENCY = 3;
+    let nextIndex = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(FILE_CONCURRENCY, newJobs.length) }, async () => {
+        while (nextIndex < newJobs.length) {
+          await runJob(newJobs[nextIndex++]);
+        }
+      }),
+    );
   }
 
   async function runJob(job: FileJob) {
@@ -204,25 +213,12 @@ export default function MomentsClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white flex flex-col items-center px-4 sm:px-6 lg:px-8 py-10 md:py-16">
-      <div className="w-full max-w-xl space-y-8">
-        <header className="space-y-3">
-          <h1
-            className="text-4xl md:text-5xl font-semibold uppercase leading-tight"
-            style={parkinsans}
-          >
-            Send me your favorite moments from the concert
-          </h1>
-          <p className="text-sm md:text-base text-neutral-600 dark:text-neutral-300">
-            Thanks for attending From The Ground Up: My Path of Growth and the Principles that
-            Connect Us!
-          </p>
-        </header>
+    <main className="flex h-full flex-col overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-white">
+      <MomentsGallery />
 
-        <MomentsGallery />
-
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
         {!unlocked ? (
-          <form onSubmit={tryUnlock} className="space-y-4">
+          <form onSubmit={tryUnlock} className="mx-auto w-full max-w-xl space-y-4 sm:my-auto">
             <FormInput
               ref={passcodeRef}
               type="text"
@@ -232,6 +228,9 @@ export default function MomentsClient() {
               error={unlockError}
               variant="gold"
               autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
             <button
               type="submit"
@@ -243,92 +242,111 @@ export default function MomentsClient() {
             </button>
           </form>
         ) : (
-          <div className="space-y-8">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6">
             <DropZone onFiles={handleFiles} disabled={uploading} />
 
             {jobs.length > 0 && (
-              <div className="space-y-3">
+              <>
+                <div className="shrink-0 mx-[calc(50%-50vw)] w-screen overflow-hidden border-y border-black/10 divide-y divide-black/10 sm:mx-0 sm:w-auto sm:rounded-2xl sm:border dark:border-white/10 dark:divide-white/10">
                 {(uploading || (doneCount > 0 && failedJobs.length === 0)) && (
-                  <Banner type="uploading" box>
-                    {uploading ? (
+                  <Banner type="uploading" flat>
+                    {uploading && (
                       <span className="relative flex h-2.5 w-2.5 shrink-0">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d4a553] opacity-75" />
                         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#d4a553]" />
                       </span>
-                    ) : (
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-500" />
                     )}
-                    <p className="flex-1 text-sm font-semibold">
+                    <p className="flex-1 text-sm md:text-base font-medium tabular-nums" style={epunda}>
                       {uploading
                         ? "Wait here until uploading finishes."
-                        : "All uploads finished. Drop another if you have one."}
+                        : `${doneCount}/${jobs.length} received`}
                     </p>
-                    <span
-                      className={`shrink-0 text-xs font-semibold tabular-nums ${
-                        uploading ? "text-[#d4a553]" : "text-green-400"
-                      }`}
-                    >
-                      {doneCount}/{jobs.length}
-                    </span>
+                    {uploading ? (
+                      <span className="shrink-0 text-xs font-normal tabular-nums text-[#d4a553]">
+                        {doneCount}/{jobs.length}
+                      </span>
+                    ) : (
+                      <span className="ml-auto flex shrink-0 items-center gap-2 text-sm md:text-base font-normal" style={epunda}>
+                        Send more or
+                        <a
+                          href="/support"
+                          className="-my-2 whitespace-nowrap rounded-full px-3 py-2.5 text-xs font-normal uppercase tracking-wide text-[#0a0a0a]"
+                          style={{ background: gold }}
+                        >
+                          Help fund my tour
+                        </a>
+                      </span>
+                    )}
                   </Banner>
                 )}
                 {failedJobs.length > 0 && (
                   <Banner
                     type="failed"
+                    flat
                     onClick={retryAllFailed}
                     ariaLabel={`Retry ${failedJobs.length} failed uploads`}
                   >
-                    <span className="text-sm font-semibold">
+                    <span className="text-sm font-normal">
                       {failedJobs.length} failed
                       {doneCount > 0 ? ` · ${doneCount} done` : ""}
                     </span>
-                    <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-600">
+                    <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-normal uppercase tracking-wide text-red-600">
                       Retry all
                     </span>
                   </Banner>
                 )}
-                <ul className="space-y-2">
-                  {jobs.map((job) => (
-                    <JobRow
-                      key={job.id}
-                      job={job}
-                      onRetry={() => runJob(job)}
-                      onRemove={() => removeJob(job)}
-                    />
-                  ))}
-                </ul>
+                {jobs.map((job) => (
+                  <JobRow
+                    key={job.id}
+                    job={job}
+                    onRetry={() => runJob(job)}
+                    onRemove={() => removeJob(job)}
+                  />
+                ))}
+                </div>
                 <div ref={listEndRef} />
-              </div>
+              </>
             )}
           </div>
         )}
       </div>
+
+      {unlocked && (
+        <p
+          className="shrink-0 px-4 pb-[max(0.875rem,env(safe-area-inset-bottom))] pt-3 text-center text-sm md:text-base"
+          style={{ ...mono, backgroundColor: "#262b3f", color: "#d4a553" }}
+        >
+          Thanks for your participation
+          <br />
+          in my concert-conversation
+        </p>
+      )}
     </main>
   );
 }
 
 const BANNER_STYLES = {
-  uploading: "bg-neutral-900 text-white dark:bg-neutral-800",
+  uploading: "bg-[#262b3f] text-white",
   failed: "bg-red-600 text-white",
 } as const;
 
 function Banner({
   type,
-  box,
+  flat,
   onClick,
   ariaLabel,
   children,
 }: {
   type: keyof typeof BANNER_STYLES;
-  box?: boolean;
+  flat?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   children: React.ReactNode;
 }) {
-  const edge = box
-    ? "mx-[calc(50%-50vw)] w-screen sm:mx-0 sm:w-auto sm:rounded-xl"
-    : "mx-[calc(50%-50vw)] w-screen";
-  const cls = `sticky top-0 z-20 ${edge} flex min-h-[3rem] items-center gap-3 px-4 sm:px-6 lg:px-8 py-3 shadow-md ${BANNER_STYLES[type]}`;
+  const layout = flat
+    ? "px-6"
+    : "sticky top-0 z-20 mx-[calc(50%-50vw)] w-screen px-4 sm:px-6 lg:px-8 shadow-md";
+  const cls = `${layout} flex min-h-[56px] items-center gap-3 py-3 ${BANNER_STYLES[type]}`;
   if (onClick) {
     return (
       <button
@@ -337,7 +355,7 @@ function Banner({
         aria-label={ariaLabel}
         aria-live="polite"
         style={mono}
-        className={`${cls} text-left transition-all hover:brightness-95`}
+        className={`${cls} w-full text-left transition-all hover:brightness-95`}
       >
         {children}
       </button>
@@ -376,7 +394,7 @@ function DropZone({
       onDragLeave={() => setDragActive(false)}
       onDrop={onDrop}
       onClick={() => !disabled && inputRef.current?.click()}
-      className={`group flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
+      className={`group flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
         disabled
           ? "cursor-not-allowed border-neutral-200 opacity-60 dark:border-neutral-800"
           : dragActive
@@ -400,10 +418,10 @@ function DropZone({
       </span>
       <div className="space-y-1.5">
         <p className="text-xl md:text-2xl" style={parkinsans}>
-          Add your photos and videos
+          Send me your favorite moments
         </p>
         <p className="text-balance text-sm md:text-base text-neutral-600 dark:text-neutral-300">
-          Choose the best from your camera roll or gallery.
+          Share your longer videos too! They'll need some time to load.
         </p>
       </div>
     </div>
@@ -421,6 +439,10 @@ function JobRow({
 }) {
   const isError = job.status === "error";
   const isDone = job.status === "done";
+  const showCheck = isDone && !job.duplicate;
+  const dotIndex = job.file.name.lastIndexOf(".");
+  const base = dotIndex > 0 ? job.file.name.slice(0, dotIndex) : job.file.name;
+  const ext = dotIndex > 0 ? job.file.name.slice(dotIndex) : "";
   const pct = isDone ? 100 : job.progress;
   const statusText = isDone
     ? job.duplicate
@@ -438,24 +460,29 @@ function JobRow({
     : `rgb(${lerp(115, 22)}, ${lerp(115, 163)}, ${lerp(115, 74)})`;
 
   return (
-    <li className="relative flex min-h-[56px] items-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-white/10 dark:bg-white/5">
+    <div className="relative flex min-h-[56px] items-center overflow-hidden bg-neutral-100 dark:bg-white/5">
       <div
         className="absolute inset-y-0 left-0 transition-all duration-300"
         style={{ width: `${pct}%`, backgroundColor: fillColor }}
       />
-      <div className="relative flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+      <div className="relative flex min-w-0 flex-1 items-center gap-3 px-6 py-2">
+        {showCheck && (
+          <CheckCircle size={20} weight="fill" className="shrink-0 text-green-600 dark:text-green-500" />
+        )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm">{job.file.name}</p>
-          <span
-            className={`text-xs tabular-nums ${
-              isError
-                ? "text-red-600 dark:text-red-400"
-                : "text-neutral-500 dark:text-neutral-400"
-            }`}
-            style={mono}
-          >
-            {statusText}
-          </span>
+          <p className="flex min-w-0 items-baseline text-sm md:text-base"><span className="min-w-0 truncate" style={epunda}>{base}</span>{ext && <span className="shrink-0" style={epunda}>{ext}</span>}</p>
+          {!showCheck && (
+            <span
+              className={`text-xs tabular-nums ${
+                isError
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-neutral-500 dark:text-neutral-400"
+              }`}
+              style={mono}
+            >
+              {statusText}
+            </span>
+          )}
         </div>
         {isError && (
           <button
@@ -474,7 +501,7 @@ function JobRow({
             if (window.confirm("Remove this upload?")) onRemove();
           }}
           aria-label={`Remove ${job.file.name}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
+          className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
         >
           <Trash size={20} weight="regular" />
         </button>
@@ -485,19 +512,22 @@ function JobRow({
           className="pointer-events-none absolute inset-0 transition-all duration-300"
           style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}
         >
-          <div className="flex h-full w-full items-center gap-2 px-3 py-2 text-white">
+          <div className="flex h-full w-full items-center gap-3 px-6 py-2 text-white">
+            {showCheck && <CheckCircle size={20} weight="fill" className="shrink-0" />}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{job.file.name}</p>
-              <span className="text-xs tabular-nums" style={mono}>
-                {statusText}
-              </span>
+              <p className="flex min-w-0 items-baseline text-sm md:text-base"><span className="min-w-0 truncate" style={epunda}>{base}</span>{ext && <span className="shrink-0" style={epunda}>{ext}</span>}</p>
+              {!showCheck && (
+                <span className="text-xs tabular-nums" style={mono}>
+                  {statusText}
+                </span>
+              )}
             </div>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center">
+            <span className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center">
               <Trash size={20} weight="regular" />
             </span>
           </div>
         </div>
       )}
-    </li>
+    </div>
   );
 }
