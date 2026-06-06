@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
-import { getShows } from "../../lib/shows";
+import { getShows, isShowUpcoming } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp } from "../../lib/rsvp";
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     const shows = await getShows();
     const show = shows.find((s) => s.slug === eventId.trim());
-    if (!show || show.status !== "upcoming") {
+    if (!show || !isShowUpcoming(show)) {
       return NextResponse.json({ error: "Invalid event" }, { status: 400 });
     }
 

@@ -189,7 +189,7 @@ export default function SponsorForm({
           setPickerShows(
             Array.isArray(showsData)
               ? showsData
-                  .filter((s) => s.status === "upcoming" && !isDatePast(s.date))
+                  .filter((s) => s.status !== "cancelled" && !isDatePast(s.date))
                   .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               : [],
           );

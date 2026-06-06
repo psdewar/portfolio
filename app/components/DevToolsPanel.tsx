@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDevTools } from "../contexts/DevToolsContext";
+import { isShowUpcoming } from "../lib/shows";
 
 export function DevToolsPanel() {
   const [simulatedNow, setSimulatedNow] = useState("");
@@ -27,10 +28,10 @@ export function DevToolsPanel() {
     if (!isDevMode || simulatedNow) return;
     fetch("/api/shows")
       .then((r) => r.json())
-      .then((shows: { country?: string; date: string; status?: string }[]) => {
+      .then((shows: { country?: string; date: string; status?: "cancelled" }[]) => {
         if (!Array.isArray(shows)) return;
         const nextCa = shows
-          .filter((s) => s.country === "CA" && s.status === "upcoming")
+          .filter((s) => s.country === "CA" && isShowUpcoming(s))
           .sort((a, b) => a.date.localeCompare(b.date))[0];
         if (nextCa?.date) setSimulatedNow(nextCa.date);
       })

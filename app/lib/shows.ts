@@ -10,7 +10,7 @@ export interface Show {
   venueLabel: string | null;
   doorLabel: string | null;
   address: string | null;
-  status: "upcoming" | "past" | "cancelled";
+  status?: "cancelled";
   planStatus?: "intent" | "booked" | "complete";
   access?: "public" | "private";
   tags?: string | null;
@@ -36,11 +36,15 @@ export async function getShows(): Promise<Show[]> {
 
 const GRACE_MS = 36 * 60 * 60 * 1000;
 
+// Past/upcoming is derived from the date; only `cancelled` is stored.
+export function isShowUpcoming(show: Pick<Show, "date" | "status">): boolean {
+  return show.status !== "cancelled" && new Date(show.date).getTime() + GRACE_MS > Date.now();
+}
+
 export async function getUpcomingShows(): Promise<Show[]> {
   const shows = await getShows();
-  const nowMs = Date.now();
   return shows
-    .filter((s) => s.status === "upcoming" && new Date(s.date).getTime() + GRACE_MS > nowMs)
+    .filter(isShowUpcoming)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
