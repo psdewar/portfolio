@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
 import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
@@ -13,6 +13,8 @@ export interface PamphletShowItem {
   region: string;
   venue?: string | null;
   venueLabel?: string | null;
+  dateLabel?: string | null;
+  doorsOpen?: string | null;
   doorTime?: string | null;
   doorLabel?: string | null;
 }
@@ -38,6 +40,7 @@ interface PosterProps {
   centerLogo?: boolean;
   pinTopRsvp?: boolean;
   format?: PosterFormat;
+  scale?: number;
   // Pamphlet mode — when provided, renders a multi-show list instead of single-date details.
   shows?: PamphletShowItem[];
   // Single-show slug — when set, the QR points to that show's exact form (/rsvp/<slug>).
@@ -65,6 +68,7 @@ export default function Poster({
   centerLogo = false,
   pinTopRsvp = true,
   format = "standard",
+  scale = 1,
   shows,
   slug,
 }: PosterProps) {
@@ -114,20 +118,23 @@ export default function Poster({
     .filter(Boolean)
     .slice(0, 3);
 
-  const locationLabelFor = (s: PamphletShowItem) =>
-    s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
-  const firstLoc = shows?.[0] ? locationLabelFor(shows[0]) : "";
+  const computedLoc = (s: PamphletShowItem) =>
+    `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const resolveLoc = (s: PamphletShowItem) => s.venueLabel ?? computedLoc(s);
+  const resolveDate = (s: PamphletShowItem) => s.dateLabel ?? formatEventDateShort(s.date);
+  const resolveDoors = (s: PamphletShowItem) =>
+    s.doorsOpen ?? (s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : ""));
+  const firstLoc = shows?.[0] ? resolveLoc(shows[0]) : "";
   const allSameLocation =
-    !!shows && shows.length > 1 && shows.every((s) => locationLabelFor(s) === firstLoc);
+    !!shows && shows.length > 1 && !!firstLoc && shows.every((s) => resolveLoc(s) === firstLoc);
   const sharedLocation = allSameLocation ? firstLoc : "";
-  const isCompact = !!sharedLocation;
+  const sameDoors =
+    !showDoors || !shows || shows.every((s) => resolveDoors(s) === resolveDoors(shows[0]));
+  const isCompact = !!sharedLocation && sameDoors;
   const topRowParts = [...tagsList, ...(sharedLocation ? [sharedLocation] : [])];
   const compactDateStr = isCompact ? formatCombinedDates(shows?.map((s) => s.date) ?? []) : "";
-  const compactDoorsStr = (() => {
-    if (!isCompact || !showDoors) return "";
-    const s = shows?.[0];
-    return doorsOpen || s?.doorLabel || (s?.doorTime ? `Doors open at ${s.doorTime}` : "");
-  })();
+  const compactDoorsStr =
+    isCompact && showDoors && shows?.[0] ? resolveDoors(shows[0]) || doorsOpen : "";
 
   return (
     <>
@@ -402,8 +409,10 @@ export default function Poster({
         }
         .pamphlet-show {
           display: flex;
+          flex: 1;
           flex-direction: column;
-          gap: 1.667cqw;
+          justify-content: center;
+          gap: calc(1.667cqw * var(--pamphlet-scale, 1));
         }
         .pamphlet-debug-line {
           position: absolute;
@@ -429,7 +438,7 @@ export default function Poster({
           z-index: 10;
         }
         .pamphlet-date {
-          font-size: 4.167cqw;
+          font-size: calc(4.167cqw * var(--pamphlet-scale, 1));
           font-weight: 700;
           color: #f0ede6;
           letter-spacing: 0;
@@ -437,7 +446,7 @@ export default function Poster({
           flex-shrink: 0;
         }
         .pamphlet-detail {
-          font-size: 2.917cqw;
+          font-size: calc(2.917cqw * var(--pamphlet-scale, 1));
           font-weight: 500;
           color: #f0ede6;
           letter-spacing: 0.02em;
@@ -449,8 +458,8 @@ export default function Poster({
         .poster[data-format="yt"] .title-from { font-size: 3.611cqw; }
         .poster[data-format="yt"] .title-big { font-size: 10cqw; }
         .poster[data-format="yt"] .venue-img { height: 16cqw; max-width: 32cqw; margin: 2cqw 0 1.5cqw; }
-        .poster[data-format="yt"] .pamphlet-date { font-size: 3.2cqw; }
-        .poster[data-format="yt"] .pamphlet-detail { font-size: 2.2cqw; }
+        .poster[data-format="yt"] .pamphlet-date { font-size: calc(3.2cqw * var(--pamphlet-scale, 1)); }
+        .poster[data-format="yt"] .pamphlet-detail { font-size: calc(2.2cqw * var(--pamphlet-scale, 1)); }
         .poster[data-format="yt"] .qr-label { font-size: 1.8cqw; }
         .poster[data-format="eb"] .bottom-overlay,
         .poster[data-format="fb"] .bottom-overlay,
@@ -483,7 +492,7 @@ export default function Poster({
       <div
         className="poster"
         data-format={format}
-        style={{ aspectRatio }}
+        style={{ aspectRatio, "--pamphlet-scale": scale } as CSSProperties}
       >
         <Image
           src="/Jan23OpenMicNight-08_Original.jpg"
@@ -577,16 +586,15 @@ export default function Poster({
                     </div>
                   ) : (
                     shows.map((s, i) => {
-                      const doorsStr =
-                        showDoors && (s.doorLabel || s.doorTime)
-                          ? s.doorLabel || `Doors open ${s.doorTime}`
-                          : "";
+                      const dateStr = resolveDate(s);
+                      const locStr = resolveLoc(s);
+                      const doorsStr = showDoors ? resolveDoors(s) : "";
                       return (
                         <Fragment key={i}>
                           {i > 0 && <div className="pamphlet-divider" />}
                           <div className="pamphlet-show">
-                            <div className="pamphlet-date">{formatEventDateShort(s.date)}</div>
-                            <div className="pamphlet-detail">{locationLabelFor(s)}</div>
+                            {dateStr && <div className="pamphlet-date">{dateStr}</div>}
+                            {locStr && <div className="pamphlet-detail">{locStr}</div>}
                             {doorsStr && <div className="pamphlet-detail">{doorsStr}</div>}
                           </div>
                         </Fragment>

@@ -1,6 +1,8 @@
 export interface PamphletShow {
   slug: string;
   venueLabel?: string;
+  dateLabel?: string;
+  doorsOpen?: string;
 }
 
 export interface Pamphlet {
@@ -16,6 +18,7 @@ export interface Pamphlet {
   taglineAlign?: string;
   address?: string;
   doorsOpen?: string;
+  scale?: number;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

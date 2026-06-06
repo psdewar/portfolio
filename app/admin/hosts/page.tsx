@@ -6,12 +6,20 @@ import {
   CheckCircleIcon,
   TextAlignLeftIcon,
   TextAlignJustifyIcon,
+  DownloadSimpleIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
-import { formatEventDate, formatMonthDay, formatDayMonthDay, isDatePast } from "../../lib/dates";
+import {
+  formatEventDate,
+  formatEventDateShort,
+  formatMonthDay,
+  formatDayMonthDay,
+  isDatePast,
+} from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
@@ -21,6 +29,43 @@ import {
   PAMPHLET_PREVIEW_FORMATS,
   POSTER_PREVIEW_FORMATS,
 } from "../../lib/poster-formats";
+
+const WEEKDAY_PREFIXES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const MONTH_PREFIXES = [
+  "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+];
+const WEEKDAY_RE = /\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/i;
+const MONTH_DAY_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(\s+)(\d{1,2})\b/i;
+const MONTH_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i;
+
+function dateMisaligned(input: string, iso: string): boolean {
+  const text = input.trim().toLowerCase();
+  if (!text || !iso) return false;
+  const d = new Date(`${iso}T00:00:00`);
+  if (isNaN(d.getTime())) return false;
+  const wd = text.match(WEEKDAY_RE);
+  if (wd && WEEKDAY_PREFIXES.indexOf(wd[1].slice(0, 3)) !== d.getDay()) return true;
+  const md = text.match(MONTH_DAY_RE);
+  if (md) {
+    if (MONTH_PREFIXES.indexOf(md[1].slice(0, 3)) !== d.getMonth()) return true;
+    if (parseInt(md[3], 10) !== d.getDate()) return true;
+  } else {
+    const mo = text.match(MONTH_RE);
+    if (mo && MONTH_PREFIXES.indexOf(mo[1].slice(0, 3)) !== d.getMonth()) return true;
+  }
+  return false;
+}
+
+function realignDate(input: string, iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (isNaN(d.getTime())) return input;
+  const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+  const month = d.toLocaleDateString("en-US", { month: "long" });
+  const day = String(d.getDate());
+  return input
+    .replace(WEEKDAY_RE, weekday)
+    .replace(MONTH_DAY_RE, `${month}$2${day}`);
+}
 
 function Modal({
   onClose,
@@ -757,6 +802,17 @@ function PosterEditor({
   const isSingle = group.length === 1;
   const soloShow = group[0].show;
 
+  const defaultLoc = (s: Show) =>
+    s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const defaultDoorsText = (s: Show) =>
+    s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : "");
+  const defaultDateText = (s: Show) => formatEventDateShort(s.date);
+  // "" = explicitly cleared (drop the line); undefined = unchanged (fall back to default).
+  const normOverride = (val: string, def: string): string | undefined => {
+    const t = val.trim();
+    return t === "" ? "" : t === def ? undefined : t;
+  };
+
   const [open, setOpen] = useState(false);
   const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
   const [tagline, setTagline] = useState(
@@ -785,19 +841,28 @@ function PosterEditor({
     const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
     return a === "left" ? "left" : "justify";
   });
-  const [address, setAddress] = useState(matchedPamphlet?.address ?? "");
-  const [doorsOpen, setDoorsOpen] = useState(matchedPamphlet?.doorsOpen ?? "");
-  const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() => {
-    if (matchedPamphlet) {
-      return Object.fromEntries(
-        group.map((g) => {
-          const ps = matchedPamphlet.shows.find((s) => s.slug === g.show!.slug);
-          return [g.show!.slug, ps?.venueLabel ?? g.show!.venueLabel ?? ""];
-        }),
-      );
-    }
-    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.venueLabel ?? ""]));
-  });
+  const [scale, setScale] = useState(matchedPamphlet?.scale ?? 1);
+  const perShow = (
+    read: (ps: PamphletShow | undefined, show: Show) => string,
+  ): Record<string, string> =>
+    Object.fromEntries(
+      group.map((g) => [
+        g.show!.slug,
+        read(
+          matchedPamphlet?.shows.find((s) => s.slug === g.show!.slug),
+          g.show!,
+        ),
+      ]),
+    );
+  const [dateLabels, setDateLabels] = useState<Record<string, string>>(() =>
+    perShow((ps, s) => ps?.dateLabel ?? (isSingle ? "" : defaultDateText(s))),
+  );
+  const [doorsByShow, setDoorsByShow] = useState<Record<string, string>>(() =>
+    perShow((ps, s) => ps?.doorsOpen ?? (isSingle ? "" : defaultDoorsText(s))),
+  );
+  const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() =>
+    perShow((ps, s) => ps?.venueLabel ?? (isSingle ? (s.venueLabel ?? "") : defaultLoc(s))),
+  );
   const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
     Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
   );
@@ -810,6 +875,7 @@ function PosterEditor({
   });
   const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [dateFocus, setDateFocus] = useState<string | null>(null);
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState("");
   const [standalone, setStandalone] = useState(soloShow?.standalone ?? false);
@@ -826,9 +892,16 @@ function PosterEditor({
 
   const buildPamphletShows = (): PamphletShow[] =>
     activeGroup.map((g) => {
-      const slug = g.show!.slug;
-      const vl = venueLabels[slug]?.trim();
-      return vl ? { slug, venueLabel: vl } : { slug };
+      const s = g.show!;
+      const slug = s.slug;
+      const entry: PamphletShow = { slug };
+      const vl = normOverride(venueLabels[slug] ?? "", defaultLoc(s));
+      const dl = normOverride(dateLabels[slug] ?? "", defaultDateText(s));
+      const dr = normOverride(doorsByShow[slug] ?? "", defaultDoorsText(s));
+      if (vl !== undefined) entry.venueLabel = vl;
+      if (dl !== undefined) entry.dateLabel = dl;
+      if (dr !== undefined) entry.doorsOpen = dr;
+      return entry;
     });
 
   const appendPlaceholders = (params: URLSearchParams) => {
@@ -856,7 +929,7 @@ function PosterEditor({
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
       if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
       params.set("align", taglineAlign);
-      if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
+      if (scale !== 1) params.set("scale", String(scale));
       if (asPdf) params.set("pdf", "true");
     };
     if (legId.trim() && !forceSlugs) {
@@ -869,8 +942,14 @@ function PosterEditor({
     const params = new URLSearchParams({ slugs: slugsParam, format });
     applyExtras(params);
     for (const g of activeGroup) {
-      const slug = g.show!.slug;
-      if (venueLabels[slug]) params.set(`vl_${slug}`, venueLabels[slug]);
+      const s = g.show!;
+      const slug = s.slug;
+      const vl = normOverride(venueLabels[slug] ?? "", defaultLoc(s));
+      const dl = normOverride(dateLabels[slug] ?? "", defaultDateText(s));
+      const dr = normOverride(doorsByShow[slug] ?? "", defaultDoorsText(s));
+      if (vl !== undefined) params.set(`vl_${slug}`, vl);
+      if (dl !== undefined) params.set(`dt_${slug}`, dl);
+      if (dr !== undefined) params.set(`do_${slug}`, dr);
     }
     appendPlaceholders(params);
     return `/api/pamphlet?${params.toString()}`;
@@ -892,8 +971,7 @@ function PosterEditor({
       venueImg: venueImg.trim() || undefined,
       venueImgWidth: Number(venueImgWidth) || undefined,
       taglineAlign,
-      address: address.trim() || undefined,
-      doorsOpen: doorsOpen.trim() || undefined,
+      scale: scale !== 1 ? scale : undefined,
     };
     const isUpdate = matchedPamphlet?.id === id;
     const res = await fetch("/api/pamphlets", {
@@ -916,8 +994,7 @@ function PosterEditor({
       venueImg: payload.venueImg,
       venueImgWidth: payload.venueImgWidth,
       taglineAlign: payload.taglineAlign,
-      address: payload.address,
-      doorsOpen: payload.doorsOpen,
+      scale: payload.scale,
     });
     return true;
   };
@@ -931,6 +1008,15 @@ function PosterEditor({
     const link = document.createElement("a");
     link.href = url;
     link.download = zipName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadBlob = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1031,6 +1117,27 @@ function PosterEditor({
     }
   };
 
+  // Download just the format currently shown in the preview.
+  const downloadOne = async (fmt: PosterFormat) => {
+    setDownloading(true);
+    try {
+      const jpg = fmt === "fb" || fmt === "fbe";
+      const ext = jpg ? "jpg" : "pdf";
+      if (isSingle) {
+        const slug = soloShow!.slug;
+        const res = await fetch(buildPosterHref(fmt, jpg));
+        const suffix = fmt === "standard" ? "" : `-${fmt}`;
+        downloadBlob(await res.blob(), `poster-${slug}${suffix}.${ext}`);
+      } else {
+        const name = legId.trim() || first.date;
+        const res = await fetch(buildPamphletHref(fmt, !jpg, true));
+        downloadBlob(await res.blob(), `pamphlet-${name}-${fmt}.${ext}`);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Reset poster styling to defaults — auto-save then persists the cleared state.
   const handleReset = () => {
     setTags(PAY_WHAT_YOU_WANT_TAG);
@@ -1038,11 +1145,16 @@ function PosterEditor({
     setTaglineAlign("justify");
     setVenueImg("");
     setVenueImgWidth("");
-    setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
-    if (!isSingle) {
-      setAddress("");
-      setDoorsOpen("");
+    if (isSingle) {
+      setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+    } else {
+      setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultLoc(g.show!)])));
+      setDateLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultDateText(g.show!)])));
+      setDoorsByShow(
+        Object.fromEntries(group.map((g) => [g.show!.slug, defaultDoorsText(g.show!)])),
+      );
+      setScale(1);
       setShowDoors(false);
       setShowQr(false);
       setPinTopRsvp(true);
@@ -1109,13 +1221,14 @@ function PosterEditor({
     taglineAlign,
     venueImg,
     venueImgWidth,
-    address,
-    doorsOpen,
+    scale,
     showDoors,
     showQr,
     pinTopRsvp,
     legId,
     JSON.stringify(venueLabels),
+    JSON.stringify(dateLabels),
+    JSON.stringify(doorsByShow),
     JSON.stringify(doorLabels),
     JSON.stringify(included),
     JSON.stringify(placeholders),
@@ -1127,6 +1240,8 @@ function PosterEditor({
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
   const tagsCls =
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 focus-within:ring-1 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 flex flex-wrap items-center gap-1.5 min-h-[34px]";
+  const subInputCls =
+    "w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30";
   const soloSlug = soloShow?.slug ?? "";
 
   return (
@@ -1258,20 +1373,6 @@ function PosterEditor({
                 </>
               ) : (
                 <>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Address override (overrides show address line on pamphlet)"
-                    className={`${inputCls} mb-2`}
-                  />
-                  <input
-                    type="text"
-                    value={doorsOpen}
-                    onChange={(e) => setDoorsOpen(e.target.value)}
-                    placeholder="Doors open override (e.g. Doors open at 7:30PM both nights)"
-                    className={`${inputCls} mb-3`}
-                  />
                   <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
                     <input
                       type="checkbox"
@@ -1299,13 +1400,42 @@ function PosterEditor({
                     />
                     <span>Pin RSVP link to top</span>
                   </label>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-xs text-neutral-500 shrink-0">Schedule size</span>
+                    <input
+                      type="range"
+                      min={0.6}
+                      max={1.5}
+                      step={0.05}
+                      value={scale}
+                      onChange={(e) => setScale(Number(e.target.value))}
+                      className="flex-1 accent-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setScale(1)}
+                      className="text-xs tabular-nums text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 w-10 text-right transition-colors"
+                      title="Reset to 100%"
+                    >
+                      {Math.round(scale * 100)}%
+                    </button>
+                  </div>
                   <div className="space-y-3 mb-4">
                     {group.map((g) => {
                       const slug = g.show!.slug;
                       const isIncluded = included[slug];
+                      const dateBad =
+                        isIncluded &&
+                        dateFocus !== slug &&
+                        dateMisaligned(dateLabels[slug] ?? "", g.show!.date);
                       return (
-                        <div key={slug} className={isIncluded ? "" : "opacity-40"}>
-                          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                        <div
+                          key={slug}
+                          className={`rounded-md border border-neutral-200 dark:border-neutral-700 p-2.5 space-y-1.5 ${
+                            isIncluded ? "" : "opacity-40"
+                          }`}
+                        >
+                          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={isIncluded}
@@ -1321,13 +1451,51 @@ function PosterEditor({
                           </label>
                           <input
                             type="text"
+                            value={dateLabels[slug] ?? ""}
+                            onChange={(e) =>
+                              setDateLabels((prev) => ({ ...prev, [slug]: e.target.value }))
+                            }
+                            onFocus={() => setDateFocus(slug)}
+                            onBlur={() => setDateFocus(null)}
+                            disabled={!isIncluded}
+                            placeholder={formatEventDateShort(g.show!.date)}
+                            className={`${subInputCls} ${dateBad ? "ring-1 ring-amber-500 border-amber-500" : ""}`}
+                          />
+                          {dateBad && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDateLabels((prev) => ({
+                                  ...prev,
+                                  [slug]: realignDate(prev[slug] ?? "", g.show!.date),
+                                }))
+                              }
+                              title="Fix to match the real date"
+                              className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-500 hover:underline"
+                            >
+                              <WarningIcon size={12} weight="fill" />
+                              Should be {formatEventDateShort(g.show!.date)}. Fix
+                            </button>
+                          )}
+                          <input
+                            type="text"
                             value={venueLabels[slug] ?? ""}
                             onChange={(e) =>
                               setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
                             }
                             disabled={!isIncluded}
                             placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
-                            className="w-full px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600 disabled:opacity-30"
+                            className={subInputCls}
+                          />
+                          <input
+                            type="text"
+                            value={doorsByShow[slug] ?? ""}
+                            onChange={(e) =>
+                              setDoorsByShow((prev) => ({ ...prev, [slug]: e.target.value }))
+                            }
+                            disabled={!isIncluded}
+                            placeholder={g.show!.doorLabel || `Doors open at ${g.show!.doorTime || "7PM"}`}
+                            className={subInputCls}
                           />
                         </div>
                       );
@@ -1427,6 +1595,15 @@ function PosterEditor({
                   {f}
                 </button>
               ))}
+              <button
+                onClick={() => downloadOne(previewFormat)}
+                disabled={downloading}
+                title={`Download ${previewFormat.toUpperCase()} only`}
+                className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs uppercase tracking-wider rounded text-neutral-300 hover:text-white hover:bg-neutral-800/60 transition-colors disabled:opacity-50"
+              >
+                <DownloadSimpleIcon size={14} />
+                {previewFormat}
+              </button>
             </div>
             <div className="flex-1 flex justify-end overflow-hidden">
               {isSingle && soloShow ? (
@@ -1460,7 +1637,7 @@ function PosterEditor({
                   showDoors={showDoors}
                   showQr={showQr}
                   pinTopRsvp={pinTopRsvp}
-                  doorsOpen={doorsOpen}
+                  scale={scale}
                   debug
                   centerLogo={centerLogo}
                   format={previewFormat}
@@ -1470,7 +1647,9 @@ function PosterEditor({
                       city: g.show!.city,
                       region: g.show!.region,
                       venue: g.show!.venue,
-                      venueLabel: venueLabels[g.show!.slug] || g.show!.venueLabel,
+                      venueLabel: venueLabels[g.show!.slug] ?? "",
+                      dateLabel: dateLabels[g.show!.slug] ?? "",
+                      doorsOpen: doorsByShow[g.show!.slug] ?? "",
                       doorTime: g.show!.doorTime,
                       doorLabel: g.show!.doorLabel,
                     }),
