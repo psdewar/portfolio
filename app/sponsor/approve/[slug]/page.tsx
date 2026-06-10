@@ -1,0 +1,195 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
+import Poster from "../../../components/Poster";
+import { getShowBySlug } from "../../../lib/shows";
+import { verifySlug } from "../../../lib/approve";
+import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
+import { formatEventDate } from "../../../lib/dates";
+import ApproveForm from "./ApproveForm";
+import SingleCard from "./SingleCard";
+import ScrollToApprove from "./ScrollToApprove";
+
+export const metadata = { robots: { index: false, follow: false } };
+
+const SPONSORS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+
+async function getHost(
+  slug: string,
+): Promise<{ name: string; email: string; phone: string; items: string[] }> {
+  try {
+    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, { cache: "no-store" });
+    if (!res.ok) return { name: "", email: "", phone: "", items: [] };
+    const sponsors: {
+      showSlug?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      role?: string;
+      items?: string[];
+    }[] = await res.json();
+    const host = sponsors.find((s) => s.showSlug === slug && s.role === "host");
+    return {
+      name: host?.name || "",
+      email: host?.email || "",
+      phone: host?.phone || "",
+      items: host?.items || [],
+    };
+  } catch {
+    return { name: "", email: "", phone: "", items: [] };
+  }
+}
+
+export default async function ApprovePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ sig?: string }>;
+}) {
+  const { slug } = await params;
+  const { sig } = await searchParams;
+
+  if (!verifySlug(slug, sig)) notFound();
+
+  const show = await getShowBySlug(slug);
+  if (!show) notFound();
+
+  if (show.visibility !== "draft") {
+    return (
+      <div className="text-center py-10">
+        <h2 className="text-2xl font-medium">This concert is already live</h2>
+        <p className="text-neutral-500 dark:text-neutral-400 mt-2">
+          It&apos;s published and open for RSVPs — thank you.
+        </p>
+        <Link
+          href={`/rsvp/${slug}`}
+          className="inline-block mt-5 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold hover:opacity-90 transition-opacity"
+        >
+          View it on /rsvp
+        </Link>
+      </div>
+    );
+  }
+
+  const host = await getHost(slug);
+  const location = show.venue || `${show.city}, ${show.region}`;
+  const splitItem = "50/50 donation split";
+  const contributeItems = host.items.filter((i) => i !== splitItem);
+  const hasSplit = host.items.includes(splitItem);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
+          I&apos;d love to present my live rap concert-conversation for all ages at {location}
+        </h2>
+        <p className="text-neutral-500 dark:text-neutral-400 mt-2">
+          You opened this from my email. If {formatEventDate(show.date)} works, add your contact and
+          approve to publish the shareable RSVP page. Scroll further down for more information.
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-8 lg:items-start">
+        <div className="lg:w-1/2 lg:shrink-0 space-y-6">
+          <div
+            className="-mx-5 w-[calc(100%+2.5rem)] max-w-none sm:mx-auto sm:w-full sm:max-w-[320px] lg:mx-0 lg:max-w-none"
+            style={{ aspectRatio: "480 / 720" }}
+          >
+            <Poster
+              date={show.date}
+              city={show.city}
+              region={show.region}
+              venue={show.venue}
+              venueLabel={show.venueLabel}
+              doorTime={show.doorTime}
+              doorLabel={show.doorLabel}
+              address={show.address}
+              taglineSuffix={show.taglineSuffix ?? undefined}
+              tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
+              venueImg={show.venueImg ?? undefined}
+              venueImgWidth={show.venueImgWidth ?? undefined}
+              taglineAlign={show.taglineAlign ?? undefined}
+              slug={slug}
+              showQr
+            />
+          </div>
+
+          {contributeItems.length > 0 && (
+            <div>
+              <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
+                What you contribute
+              </h3>
+              <ul className="space-y-1.5">
+                {contributeItems.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-2 text-neutral-700 dark:text-neutral-300"
+                  >
+                    <CheckIcon size={16} weight="bold" className="mt-0.5 shrink-0 text-neutral-400" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div id="approve-form" className="scroll-mt-6">
+            <ApproveForm slug={slug} sig={sig!} host={host} />
+            <div className="mt-4 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
+              Approving lists the concert publicly on my /rsvp page and creates its Eventbrite event.
+              Until then, it stays hidden.
+              {hasSplit && " I'll split all donations received after the show 50/50."}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0 w-full space-y-8">
+          <section>
+            <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">My Energy</h3>
+            <div className="max-w-[400px]">
+              <iframe
+                src="https://www.instagram.com/p/DW9Jl9moGdK/embed"
+                title="The energy I bring"
+                loading="lazy"
+                scrolling="no"
+                allow="encrypted-media; clipboard-write"
+                className="w-full"
+                style={{ height: 560, border: 0 }}
+              />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
+              A single from my set
+            </h3>
+            <SingleCard />
+          </section>
+
+          <section>
+            <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">My story</h3>
+            <div className="space-y-3 text-base leading-relaxed text-neutral-700 dark:text-neutral-300 max-w-prose">
+              <p>
+                {"Peyt Spencer (peyt rhymes with heat) is a rapper and software engineer from Bellevue, Washington, often praised for his East Coast cadence reminiscent of Jay-Z. Raised on 2000s hip-hop from Ja Rule and LL Cool J to Ludacris and T.I., he mastered the craft while changing the subject. He's now taking his From The Ground Up tour across North America: part concert, part conversation about his path of growth, applying universal principles for a well-rounded life."}
+              </p>
+              <p>
+                {"Much of his songwriting is inspired by the Baha'i Faith, the same Faith that guided him on a year of service in Veraguas, Panama, after high school. He lived alongside families in Santiago, teaching virtues to children, animating peer-led groups of early adolescents, facilitating study circles for youth and adults, and tutoring reading and math. During his downtime, he recorded raps on his laptop over mainstream beats. His first performed rap ever was in Spanish, at a community gathering."}
+              </p>
+              <p>
+                {"After completing his year of service, he attended the University of Florida, where he immersed himself in Gainesville's local scene, handing out mixtape CDs, selling shirts, and performing solo, with a live band, and as a member of both UF's Hip-Hop Collective and the theater troupe Signs of Life."}
+              </p>
+              <p>
+                {"During his senior year, he became a regular participant in NBA star Damian Lillard's weekly #4BarFriday Instagram rap challenge. After graduation, he landed a software testing job in Gainesville and stayed another year before moving to the West Coast to join Microsoft, where he's spent the last decade as a software engineer. His bars eventually caught the attention of Dame D.O.L.L.A., who reposted his videos and featured him live on the #4BarFriday IG Cypher during Covid. Soon after, he released one last single before stepping away from music to focus on family and his tech career."}
+              </p>
+              <p>
+                {"Four years later, he returned with the maturity to wear every hat his independence demands. Music and code are his life's work. He founded Lyrist to help other songwriters find beats and beat writer's block, and is the entire team behind his own catalog, tour, merch, and live streams."}
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+      <ScrollToApprove />
+    </div>
+  );
+}

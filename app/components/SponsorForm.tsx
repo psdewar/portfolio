@@ -14,9 +14,9 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { SUPPORT_MENU, SUPPORTER_ITEMS } from "../lib/sponsor";
+import { SUPPORT_MENU, SUPPORTER_ITEMS, SPECIAL_ITEMS } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
-import { type Show, getVenueLabel, getDoorLabel } from "../lib/shows";
+import { type Show, getVenueLabel, getDoorLabel, isShowListed } from "../lib/shows";
 import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
 
 // 11:30AM → 9:30PM, 30-min increments
@@ -89,6 +89,7 @@ interface SponsorFormProps {
   isPdfMode?: boolean;
   editMode?: boolean;
   readOnly?: boolean;
+  pending?: boolean;
   mode?: "host" | "supporter";
   initialItems?: string[];
   initialDates?: string[];
@@ -113,6 +114,7 @@ export default function SponsorForm({
   isPdfMode,
   editMode,
   readOnly,
+  pending,
   mode,
   initialItems,
   initialDates,
@@ -131,8 +133,9 @@ export default function SponsorForm({
 
   const defaultSupporterItems =
     mode === "supporter" && !editMode && !compact && !initialItems ? [SUPPORTER_ITEMS[0]] : [];
+  const defaultPendingItems = pending && !initialItems ? SPECIAL_ITEMS : [];
   const [checked, setChecked] = useState<Set<string>>(
-    new Set(initialItems || defaultSupporterItems),
+    new Set(initialItems || [...defaultSupporterItems, ...defaultPendingItems]),
   );
   const [eventVenue, setEventVenue] = useState(venue || "");
   const [eventAddress, setEventAddress] = useState(address || "");
@@ -189,7 +192,7 @@ export default function SponsorForm({
           setPickerShows(
             Array.isArray(showsData)
               ? showsData
-                  .filter((s) => s.status !== "cancelled" && !isDatePast(s.date))
+                  .filter((s) => s.status !== "cancelled" && !isDatePast(s.date) && isShowListed(s))
                   .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               : [],
           );
@@ -390,6 +393,7 @@ export default function SponsorForm({
                 venue: resolvedVenue || null,
                 address: eventAddress || null,
                 planStatus: "intent",
+                ...(pending ? { visibility: "draft" } : {}),
               }),
             }).then(async (r) => {
               if (!r.ok) throw new Error(await r.text());
@@ -432,7 +436,12 @@ export default function SponsorForm({
         }
 
         onSuccess?.(fields);
-        router.push(`/rsvp?submitted=${booked.map((b) => b.slug).join(",")}`);
+        const bookedSlugs = booked.map((b) => b.slug).join(",");
+        router.push(
+          pending
+            ? `/admin/pending?created=${bookedSlugs}`
+            : `/rsvp?submitted=${bookedSlugs}`,
+        );
         return;
       }
 
@@ -983,6 +992,17 @@ export default function SponsorForm({
                 ))}
               </div>
             )}
+
+            {pending && (
+              <div className="mt-5 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3">
+                  Private deal
+                </p>
+                <div className="space-y-4">
+                  {SPECIAL_ITEMS.map((item) => renderCheckItem(item, iconSize))}
+                </div>
+              </div>
+            )}
           </section>
         </>
       )}
@@ -1000,7 +1020,9 @@ export default function SponsorForm({
           )}
           {wizardMode === "host" && hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Submitting books the date.
+              {pending
+                ? "Creates a hidden show and a one-click approval link to send."
+                : "Submitting books the date."}
             </p>
           )}
           <button

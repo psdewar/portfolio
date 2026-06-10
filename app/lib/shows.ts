@@ -12,7 +12,7 @@ export interface Show {
   address: string | null;
   status?: "cancelled";
   planStatus?: "intent" | "booked" | "complete";
-  access?: "public" | "private";
+  visibility?: "public" | "private" | "draft";
   tags?: string | null;
   taglineSuffix?: string | null;
   venueImg?: string | null;
@@ -41,10 +41,23 @@ export function isShowUpcoming(show: Pick<Show, "date" | "status">): boolean {
   return show.status !== "cancelled" && new Date(show.date).getTime() + GRACE_MS > Date.now();
 }
 
+// chorus stores `visibility`; absent means public. `draft` shows are pending
+// sponsor approval and never surface on any public listing. `private` still
+// shows (as "By invitation"); `draft` does not.
+export function isShowListed(show: Pick<Show, "visibility">): boolean {
+  return show.visibility !== "draft";
+}
+
+// A show the public can see on a listing: live (not cancelled) and not a draft.
+export function isShowListable(show: Pick<Show, "status" | "visibility">): boolean {
+  return show.status !== "cancelled" && isShowListed(show);
+}
+
 export async function getUpcomingShows(): Promise<Show[]> {
   const shows = await getShows();
   return shows
     .filter(isShowUpcoming)
+    .filter(isShowListed)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 

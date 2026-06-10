@@ -11,7 +11,7 @@ export default async function ShowRSVPPage({ params }: Props) {
   const shows = await getUpcomingShows();
   const show = shows.find((s) => s.slug === slug);
 
-  if (!show || show.access === "private") redirect("/rsvp");
+  if (!show || show.visibility === "private") redirect("/rsvp");
 
   return <RSVPShell shows={shows} initialSlug={slug} />;
 }

@@ -5,6 +5,10 @@ const TOKEN = process.env.EVENTBRITE_TOKEN;
 const TEMPLATE_EVENT_ID = process.env.EVENTBRITE_TEMPLATE_EVENT_ID || "1988986651617";
 const ORG_ID = process.env.EVENTBRITE_ORG_ID || "2580670542961";
 
+// Same env the show/sponsor routes use (SHOWS_API/SHOWS_TOKEN there) — not new vars.
+const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
+
 const REGION_TZ: Record<string, string> = {
   // Pacific
   WA: "America/Los_Angeles", OR: "America/Los_Angeles", CA: "America/Los_Angeles", NV: "America/Los_Angeles",
@@ -193,6 +197,24 @@ export async function cloneEventForShow(show: Show): Promise<string> {
   await eb(`/events/${eventId}/publish/`, { method: "POST" });
 
   return eventId;
+}
+
+export async function publishEventbrite(
+  show: Show,
+): Promise<{ eventbriteId?: string; error?: string }> {
+  if (show.eventbriteId || !show.slug || !show.date) return {};
+  try {
+    const eventbriteId = await cloneEventForShow(show);
+    await fetch(`${SHOWS_API}/chorus/shows`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` },
+      body: JSON.stringify({ slug: show.slug, eventbriteId }),
+    });
+    return { eventbriteId };
+  } catch (e) {
+    console.error("[eventbrite] publish failed:", e);
+    return { error: e instanceof Error ? e.message : "Eventbrite create failed" };
+  }
 }
 
 export async function getAttendees(eventId: string): Promise<{ email: string; name: string }[]> {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cloneEventForShow } from "../../lib/eventbrite";
+import { publishEventbrite } from "../../lib/eventbrite";
 
 export const maxDuration = 30;
 
@@ -61,24 +61,9 @@ export async function POST(request: NextRequest) {
     }
 
     const show = { ...body, ...created };
-    let eventbrite: { eventbriteId?: string; error?: string } | undefined;
-    if (!show.eventbriteId && show.slug && show.date) {
-      try {
-        const eventbriteId = await cloneEventForShow(show);
-        await fetch(`${SHOWS_API}/chorus/shows`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SHOWS_TOKEN}`,
-          },
-          body: JSON.stringify({ slug: show.slug, eventbriteId }),
-        });
-        eventbrite = { eventbriteId };
-      } catch (e) {
-        console.error("[shows] Eventbrite create failed:", e);
-        eventbrite = { error: e instanceof Error ? e.message : "Eventbrite create failed" };
-      }
-    }
+    // Draft shows are pending sponsor approval — defer the public Eventbrite
+    // event to the approval step so it never leaks before they say yes.
+    const eventbrite = show.visibility === "draft" ? undefined : await publishEventbrite(show);
 
     return NextResponse.json({ ...created, eventbrite });
   } catch (error) {

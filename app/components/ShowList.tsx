@@ -32,7 +32,7 @@ export default function ShowList({
     <>
       <ul className="show-list">
         {shows.map((show, i) => {
-          const isPrivate = show.access === "private";
+          const isPrivate = show.visibility === "private";
           const venueName = show.venue || show.address || "";
           const cityRegion = `${show.city}, ${show.region}`;
           const meta = isPrivate

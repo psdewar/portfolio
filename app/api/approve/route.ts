@@ -1,0 +1,111 @@
+import { NextRequest, NextResponse } from "next/server";
+import { publishEventbrite } from "../../lib/eventbrite";
+import { getShowBySlug } from "../../lib/shows";
+import { verifySlug } from "../../lib/approve";
+import { isEmailValid } from "../../lib/email";
+
+export const maxDuration = 30;
+
+const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
+
+const authJson = { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` };
+
+interface Sponsor {
+  showSlug?: string;
+  submittedAt?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+}
+
+// Write the sponsor's contact onto the show's host record: PATCH the existing
+// host (matched by showSlug + submittedAt) if it exists, else POST a fresh one.
+async function upsertHost(
+  slug: string,
+  contact: { name: string; email: string; phone: string },
+  show: { city: string; region: string; country?: string | null; date: string },
+) {
+  let host: Sponsor | undefined;
+  try {
+    const res = await fetch(`${SHOWS_API}/chorus/sponsors`, { cache: "no-store" });
+    if (res.ok) {
+      const sponsors: Sponsor[] = await res.json();
+      host = sponsors.find((s) => s.showSlug === slug && s.role === "host");
+    }
+  } catch {
+    // fall through to POST
+  }
+
+  if (host?.submittedAt) {
+    await fetch(`${SHOWS_API}/chorus/sponsors`, {
+      method: "PATCH",
+      headers: authJson,
+      body: JSON.stringify({ showSlug: slug, submittedAt: host.submittedAt, ...contact }),
+    });
+    return;
+  }
+
+  await fetch(`${SHOWS_API}/chorus/sponsors`, {
+    method: "POST",
+    headers: authJson,
+    body: JSON.stringify({
+      showSlug: slug,
+      role: "host",
+      ...contact,
+      city: show.city,
+      region: show.region,
+      country: show.country || "US",
+      date: show.date,
+      items: [],
+    }),
+  });
+}
+
+export async function POST(request: NextRequest) {
+  if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+
+  try {
+    const { slug, sig, name, email, phone } = await request.json();
+    if (!slug || !verifySlug(slug, sig)) {
+      return NextResponse.json({ error: "Invalid or expired link" }, { status: 403 });
+    }
+    if (!name?.trim() || !isEmailValid(email || "")) {
+      return NextResponse.json({ error: "Add your name and a valid email." }, { status: 400 });
+    }
+
+    const show = await getShowBySlug(slug);
+    if (!show) return NextResponse.json({ error: "Show not found" }, { status: 404 });
+
+    await upsertHost(
+      slug,
+      { name: name.trim(), email: email.trim(), phone: (phone || "").trim() },
+      show,
+    );
+
+    // Publish: flip draft -> public so it appears on /rsvp.
+    const patch = await fetch(`${SHOWS_API}/chorus/shows`, {
+      method: "PATCH",
+      headers: authJson,
+      body: JSON.stringify({ slug, visibility: "public" }),
+    });
+    if (!patch.ok) {
+      return NextResponse.json(
+        { error: (await patch.text()) || "Failed to publish" },
+        { status: patch.status },
+      );
+    }
+
+    // Eventbrite was deferred at creation — create it now that it's approved.
+    const eventbrite = await publishEventbrite({ ...show, visibility: "public" });
+
+    return NextResponse.json({ ok: true, slug, eventbrite });
+  } catch (error) {
+    console.error("[approve] POST error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}

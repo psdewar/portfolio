@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import SponsorAvatar from "./SponsorAvatar";
-import HostFAQ from "../components/HostFAQ";
+import SponsorFAQ from "./SponsorFAQ";
+import SponsorContainer from "./SponsorContainer";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -36,7 +37,7 @@ export default function SponsorLayout({ children }: { children: React.ReactNode 
   return (
     <div className={`${instrumentSans.variable} font-[family-name:var(--font-instrument)]`}>
       <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
-        <div className="max-w-[900px] mx-auto px-5 py-6 sm:px-10 sm:py-8 lg:py-7">
+        <SponsorContainer>
           <div className="flex items-center gap-4 sm:gap-6 mb-5 sm:mb-6 lg:mb-6">
             <SponsorAvatar />
             <div>
@@ -49,8 +50,8 @@ export default function SponsorLayout({ children }: { children: React.ReactNode 
             </div>
           </div>
           {children}
-          <HostFAQ />
-        </div>
+          <SponsorFAQ />
+        </SponsorContainer>
       </div>
     </div>
   );

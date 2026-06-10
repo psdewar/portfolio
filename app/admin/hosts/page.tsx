@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import Link from "next/link";
 import {
   CircleNotchIcon,
   CheckCircleIcon,
@@ -383,6 +384,12 @@ export default function HostsAdminPage() {
                     Upcoming
                   </h2>
                   <div className="flex items-center gap-2">
+                    <Link
+                      href="/admin/pending"
+                      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
+                    >
+                      Invite host
+                    </Link>
                     <CustomPosterButton />
                     <BlankPamphletButton />
                   </div>
@@ -871,7 +878,7 @@ function PosterEditor({
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
       return Object.fromEntries(group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]));
     }
-    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.access !== "private"]));
+    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.visibility !== "private"]));
   });
   const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -2068,22 +2075,29 @@ function ShowGroupCard({
               PDF
             </button>
             {show?.slug &&
-              (confirmAccess ? (
+              (show.visibility === "draft" ? (
+                <Link
+                  href={`/admin/pending?created=${show.slug}`}
+                  className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-sky-600 dark:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
+                >
+                  Draft
+                </Link>
+              ) : confirmAccess ? (
                 <div className="flex items-center justify-center gap-1 text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800">
                   <button
                     onClick={async () => {
-                      const next = show.access === "private" ? "public" : "private";
-                      onShowUpdate(show.slug, { access: next });
+                      const next = show.visibility === "private" ? "public" : "private";
+                      onShowUpdate(show.slug, { visibility: next });
                       setConfirmAccess(false);
                       await fetch("/api/shows", {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ slug: show.slug, access: next }),
+                        body: JSON.stringify({ slug: show.slug, visibility: next }),
                       });
                     }}
                     className="text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
                   >
-                    {show.access === "private" ? "Make Public" : "Make Private"}
+                    {show.visibility === "private" ? "Make Public" : "Make Private"}
                   </button>
                   <span className="text-neutral-300 dark:text-neutral-700">/</span>
                   <button
@@ -2097,12 +2111,12 @@ function ShowGroupCard({
                 <button
                   onClick={() => setConfirmAccess(true)}
                   className={`flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
-                    show.access === "private"
+                    show.visibility === "private"
                       ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                       : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   }`}
                 >
-                  {show.access === "private" ? "Private" : "Public"}
+                  {show.visibility === "private" ? "Private" : "Public"}
                 </button>
               ))}
             {supporters.length > 0 && (

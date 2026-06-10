@@ -1,5 +1,7 @@
 export const SUPPORTER_ITEMS = ["Spread the word via concert poster", "Artist honorarium"];
 
+export const SPECIAL_ITEMS = ["Sandwich board outside your venue", "50/50 donation split"];
+
 export const SUPPORT_MENU: { category: string; items: string[] }[] = [
   {
     category: "General",
