@@ -119,7 +119,7 @@ export default function SponsorAvatar() {
         className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors cursor-pointer"
       >
         {playing ? <PauseIcon size={12} weight="fill" /> : <PlayIcon size={12} weight="fill" />}
-        {playing ? "Close" : "Watch intro"}
+        {playing ? "Close" : '"Unify" Live'}
       </button>
 
       {playing && <IntroVideoModal onClose={handleClose} />}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
-import SponsorAvatar from "./SponsorAvatar";
+import SponsorHeader from "./SponsorHeader";
 import SponsorFAQ from "./SponsorFAQ";
 import SponsorContainer from "./SponsorContainer";
 
@@ -38,17 +38,7 @@ export default function SponsorLayout({ children }: { children: React.ReactNode 
     <div className={`${instrumentSans.variable} font-[family-name:var(--font-instrument)]`}>
       <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
         <SponsorContainer>
-          <div className="flex items-center gap-4 sm:gap-6 mb-5 sm:mb-6 lg:mb-6">
-            <SponsorAvatar />
-            <div>
-              <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
-                Concert Sponsor Application
-              </h1>
-              <p className="text-sm sm:text-lg text-neutral-500 dark:text-neutral-400 mt-1 sm:mt-2">
-                Peyt Spencer / Rapper, Software Engineer at Microsoft
-              </p>
-            </div>
-          </div>
+          <SponsorHeader />
           {children}
           <SponsorFAQ />
         </SponsorContainer>

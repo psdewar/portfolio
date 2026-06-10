@@ -190,6 +190,21 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (pathname?.startsWith("/sponsor/confirm")) {
+    return (
+      <>
+        <main
+          className="flex-auto min-w-0 flex flex-col"
+          style={{ paddingBottom: "var(--player-h, 0px)" }}
+        >
+          <Suspense>{children}</Suspense>
+        </main>
+        <GlobalAudioPlayer />
+        <SiteTools />
+      </>
+    );
+  }
+
   if (pathname === "/support") {
     return <SiteShell bare>{children}</SiteShell>;
   }

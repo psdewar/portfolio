@@ -9,6 +9,7 @@ import { formatEventDate } from "../../../lib/dates";
 import ConfirmForm from "./ConfirmForm";
 import SingleCard from "./SingleCard";
 import ScrollToConfirm from "./ScrollToConfirm";
+import SponsorAvatar from "../../SponsorAvatar";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -80,14 +81,25 @@ export default async function ConfirmPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
-          I&apos;d love to present my live rap concert-conversation for all ages at {location}
-        </h2>
-        <p className="text-neutral-500 dark:text-neutral-400 mt-2">
-          You opened this from my email. If {formatEventDate(show.date)} works, add your contact and
-          confirm to publish the shareable RSVP page. Scroll further down for more information.
-        </p>
+      <div className="mb-6 lg:flex lg:items-center lg:gap-6">
+        <div className="hidden lg:block shrink-0">
+          <SponsorAvatar />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
+            I&apos;d love to present my live rap concert-conversation for all ages at {location}
+          </h2>
+          <div className="flex items-center gap-4 mt-3 lg:mt-2">
+            <div className="lg:hidden shrink-0">
+              <SponsorAvatar />
+            </div>
+            <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
+              You opened this from my email. If {formatEventDate(show.date)} works, add your contact
+              and confirm to publish the shareable RSVP page. Scroll further down for more
+              information.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8 lg:items-start">
