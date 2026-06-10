@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
-import { getShowBySlug } from "../../../lib/shows";
+import { getShowBySlug, getShows, isShowListable } from "../../../lib/shows";
+import TourStops from "../../../components/TourStops";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
 import { formatEventDate } from "../../../lib/dates";
@@ -74,6 +75,9 @@ export default async function ConfirmPage({
   }
 
   const host = await getHost(slug);
+  const tourShows = (await getShows())
+    .filter(isShowListable)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const location = show.venue || `${show.city}, ${show.region}`;
   const splitItem = "50/50 donation split";
   const contributeItems = host.items.filter((i) => i !== splitItem);
@@ -199,6 +203,12 @@ export default async function ConfirmPage({
               </p>
             </div>
           </section>
+
+          {tourShows.length > 0 && (
+            <section>
+              <TourStops shows={tourShows} variant="label" />
+            </section>
+          )}
         </div>
       </div>
       <ScrollToConfirm />
