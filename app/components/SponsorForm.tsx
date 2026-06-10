@@ -1021,7 +1021,7 @@ export default function SponsorForm({
           {wizardMode === "host" && hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
               {pending
-                ? "Creates a hidden show and a one-click approval link to send."
+                ? "Creates a hidden show and a one-click confirmation link to send."
                 : "Submitting books the date."}
             </p>
           )}

@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
     }
 
     const show = { ...body, ...created };
-    // Draft shows are pending sponsor approval — defer the public Eventbrite
-    // event to the approval step so it never leaks before they say yes.
+    // Draft shows are pending sponsor confirmation — defer the public Eventbrite
+    // event to the confirmation step so it never leaks before they say yes.
     const eventbrite = show.visibility === "draft" ? undefined : await publishEventbrite(show);
 
     return NextResponse.json({ ...created, eventbrite });

@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { ArrowUpIcon } from "@phosphor-icons/react";
 
-export default function ScrollToApprove() {
+export default function ScrollToConfirm() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const form = document.getElementById("approve-form");
+    const form = document.getElementById("confirm-form");
     if (!form) return;
     const io = new IntersectionObserver(([entry]) =>
       setShow(!entry.isIntersecting && entry.boundingClientRect.top < 0),
@@ -17,7 +17,7 @@ export default function ScrollToApprove() {
   }, []);
 
   const back = () => {
-    document.getElementById("approve-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("confirm-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
@@ -35,7 +35,7 @@ export default function ScrollToApprove() {
         className="inline-flex items-center gap-2 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold text-sm px-5 py-3 shadow-lg hover:opacity-90 transition-opacity"
       >
         <ArrowUpIcon size={16} weight="bold" />
-        Scroll up to approve
+        Scroll up to confirm
       </button>
       </div>
     </>

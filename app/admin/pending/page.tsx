@@ -1,7 +1,7 @@
 import { getShowBySlug } from "../../lib/shows";
-import { approvePath } from "../../lib/approve";
+import { confirmPath } from "../../lib/confirm";
 import PendingCreator from "./PendingCreator";
-import ApprovalLinks from "./ApprovalLinks";
+import ConfirmLinks from "./ConfirmLinks";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -19,14 +19,14 @@ export default async function AdminPendingPage({
         const show = await getShowBySlug(slug);
         return {
           slug,
-          path: approvePath(slug),
+          path: confirmPath(slug),
           label: show
             ? `${show.venue ? `${show.venue}, ` : ""}${show.city}, ${show.region}`
             : slug,
         };
       }),
     );
-    return <ApprovalLinks links={links} />;
+    return <ConfirmLinks links={links} />;
   }
 
   return <PendingCreator />;

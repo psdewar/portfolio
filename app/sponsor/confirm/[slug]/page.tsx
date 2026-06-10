@@ -3,12 +3,12 @@ import Link from "next/link";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
 import { getShowBySlug } from "../../../lib/shows";
-import { verifySlug } from "../../../lib/approve";
+import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
 import { formatEventDate } from "../../../lib/dates";
-import ApproveForm from "./ApproveForm";
+import ConfirmForm from "./ConfirmForm";
 import SingleCard from "./SingleCard";
-import ScrollToApprove from "./ScrollToApprove";
+import ScrollToConfirm from "./ScrollToConfirm";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -40,7 +40,7 @@ async function getHost(
   }
 }
 
-export default async function ApprovePage({
+export default async function ConfirmPage({
   params,
   searchParams,
 }: {
@@ -86,7 +86,7 @@ export default async function ApprovePage({
         </h2>
         <p className="text-neutral-500 dark:text-neutral-400 mt-2">
           You opened this from my email. If {formatEventDate(show.date)} works, add your contact and
-          approve to publish the shareable RSVP page. Scroll further down for more information.
+          confirm to publish the shareable RSVP page. Scroll further down for more information.
         </p>
       </div>
 
@@ -134,13 +134,13 @@ export default async function ApprovePage({
             </div>
           )}
 
-          <div id="approve-form" className="scroll-mt-6">
-            <ApproveForm slug={slug} sig={sig!} host={host} />
-            <div className="mt-4 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
-              Approving lists the concert publicly on my /rsvp page and creates its Eventbrite event.
-              Until then, it stays hidden.
-              {hasSplit && " I'll split all donations received after the show 50/50."}
-            </div>
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
+            {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
+              "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden."}
+          </div>
+
+          <div id="confirm-form" className="scroll-mt-6">
+            <ConfirmForm slug={slug} sig={sig!} host={host} />
           </div>
         </div>
 
@@ -189,7 +189,7 @@ export default async function ApprovePage({
           </section>
         </div>
       </div>
-      <ScrollToApprove />
+      <ScrollToConfirm />
     </div>
   );
 }

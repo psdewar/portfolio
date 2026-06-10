@@ -42,7 +42,7 @@ export function isShowUpcoming(show: Pick<Show, "date" | "status">): boolean {
 }
 
 // chorus stores `visibility`; absent means public. `draft` shows are pending
-// sponsor approval and never surface on any public listing. `private` still
+// sponsor confirmation and never surface on any public listing. `private` still
 // shows (as "By invitation"); `draft` does not.
 export function isShowListed(show: Pick<Show, "visibility">): boolean {
   return show.visibility !== "draft";

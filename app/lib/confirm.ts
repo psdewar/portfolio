@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-// Signs a show slug so a sponsor can approve it via a link without any login or
+// Signs a show slug so a sponsor can confirm it via a link without any login or
 // stored token. The secret never leaves the server; the sponsor only ever holds
 // slug + signature. Falls back to the chorus token so no new env is required.
-const SECRET = process.env.APPROVE_SECRET || process.env.SCHEDULE_API_TOKEN || "";
+const SECRET = process.env.CONFIRM_SECRET || process.env.SCHEDULE_API_TOKEN || "";
 
 export function signSlug(slug: string): string {
   return createHmac("sha256", SECRET).update(slug).digest("hex").slice(0, 32);
@@ -16,6 +16,6 @@ export function verifySlug(slug: string, sig: string | undefined): boolean {
   return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
 }
 
-export function approvePath(slug: string): string {
-  return `/sponsor/approve/${slug}?sig=${signSlug(slug)}`;
+export function confirmPath(slug: string): string {
+  return `/sponsor/confirm/${slug}?sig=${signSlug(slug)}`;
 }

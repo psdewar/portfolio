@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-export default function ApprovalLinks({
+export default function ConfirmLinks({
   links,
 }: {
   links: { slug: string; path: string; label: string }[];
@@ -20,11 +20,11 @@ export default function ApprovalLinks({
   return (
     <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white mb-1">
-        Approval link ready
+        Confirmation link ready
       </h1>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
         Send this to the sponsor. The show stays hidden from{" "}
-        <span className="font-mono">/rsvp</span> until they open it and approve.
+        <span className="font-mono">/rsvp</span> until they open it and confirm.
       </p>
 
       <div className="space-y-3">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite } from "../../lib/eventbrite";
 import { getShowBySlug } from "../../lib/shows";
-import { verifySlug } from "../../lib/approve";
+import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 
 export const maxDuration = 30;
@@ -97,12 +97,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Eventbrite was deferred at creation — create it now that it's approved.
+    // Eventbrite was deferred at creation — create it now that it's confirmed.
     const eventbrite = await publishEventbrite({ ...show, visibility: "public" });
 
     return NextResponse.json({ ok: true, slug, eventbrite });
   } catch (error) {
-    console.error("[approve] POST error:", error);
+    console.error("[confirm] POST error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 },

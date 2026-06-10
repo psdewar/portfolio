@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isEmailValid } from "../../../lib/email";
 
-export default function ApproveForm({
+export default function ConfirmForm({
   slug,
   sig,
   host,
@@ -20,7 +20,7 @@ export default function ApproveForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const approve = async () => {
+  const handleConfirm = async () => {
     if (!name.trim() || !isEmailValid(email)) {
       setError("Add your name and a valid email.");
       return;
@@ -28,7 +28,7 @@ export default function ApproveForm({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/approve", {
+      const res = await fetch("/api/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, sig, name, email, phone }),
@@ -86,11 +86,11 @@ export default function ApproveForm({
         </div>
       </div>
       <button
-        onClick={approve}
+        onClick={handleConfirm}
         disabled={loading}
         className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg py-3 lg:py-4 text-sm lg:text-base hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
       >
-        {loading ? "Publishing…" : "Approve and publish to /rsvp"}
+        {loading ? "Publishing…" : "Confirm and publish to /rsvp"}
       </button>
       {error && <p className="text-sm text-red-500 dark:text-red-400 mt-2">{error}</p>}
     </div>
