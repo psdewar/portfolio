@@ -846,7 +846,7 @@ function PosterEditor({
   });
   const [taglineAlign, setTaglineAlign] = useState<"justify" | "left">(() => {
     const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
-    return a === "left" ? "left" : "justify";
+    return a === "justify" ? "justify" : "left";
   });
   const [scale, setScale] = useState(matchedPamphlet?.scale ?? 1);
   const perShow = (
@@ -1149,7 +1149,7 @@ function PosterEditor({
   const handleReset = () => {
     setTags(PAY_WHAT_YOU_WANT_TAG);
     setTagline("");
-    setTaglineAlign("justify");
+    setTaglineAlign("left");
     setVenueImg("");
     setVenueImgWidth("");
     setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));

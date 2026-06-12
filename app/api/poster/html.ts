@@ -82,7 +82,7 @@ export function posterHtml(
     doorsOpenOverride = "",
     venueImgSrc = "",
     venueImgWidth,
-    taglineAlign = "justify",
+    taglineAlign = "left",
   } = opts;
   const { W, H } = POSTER_DIMS[format];
   const isWideBanner = format === "fb" || format === "fbe";

@@ -18,7 +18,7 @@ export interface Show {
   venueImg?: string | null;
   // Venue logo display width in px; blank/null uses the default CSS sizing.
   venueImgWidth?: number | null;
-  // Tagline alignment: "justify" (default) or "left".
+  // Tagline alignment: "left" (default) or "justify".
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
   standalone?: boolean | null;

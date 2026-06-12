@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     doorsOpenOverride: sp.get("doorsOpen") ?? "",
     venueImgSrc: inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
     venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
-    taglineAlign: sp.get("align") || show.taglineAlign || "justify",
+    taglineAlign: sp.get("align") || show.taglineAlign || "left",
   });
   const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";
