@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
 import { getShowBySlug, getShows, isShowListable } from "../../../lib/shows";
+import { getHostForShow } from "../../../lib/sponsors";
 import TourStops from "../../../components/TourStops";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
@@ -12,8 +13,6 @@ import ConfirmForm from "./ConfirmForm";
 import SingleCard from "./SingleCard";
 import ScrollToConfirm from "./ScrollToConfirm";
 import SponsorAvatar from "../../SponsorAvatar";
-
-const SPONSORS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 export async function generateMetadata({
   params,
@@ -37,32 +36,6 @@ export async function generateMetadata({
     openGraph: { title, description, images: [{ url: image, width: 960, height: 1440 }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
-}
-
-async function getHost(
-  slug: string,
-): Promise<{ name: string; email: string; phone: string; items: string[] }> {
-  try {
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, { cache: "no-store" });
-    if (!res.ok) return { name: "", email: "", phone: "", items: [] };
-    const sponsors: {
-      showSlug?: string;
-      name?: string;
-      email?: string;
-      phone?: string;
-      role?: string;
-      items?: string[];
-    }[] = await res.json();
-    const host = sponsors.find((s) => s.showSlug === slug && s.role === "host");
-    return {
-      name: host?.name || "",
-      email: host?.email || "",
-      phone: host?.phone || "",
-      items: host?.items || [],
-    };
-  } catch {
-    return { name: "", email: "", phone: "", items: [] };
-  }
 }
 
 export default async function ConfirmPage({
@@ -97,11 +70,19 @@ export default async function ConfirmPage({
     );
   }
 
-  const host = await getHost(slug);
+  const hostRecord = await getHostForShow(slug);
+  const host = {
+    name: hostRecord?.name || "",
+    email: hostRecord?.email || "",
+    phone: hostRecord?.phone || "",
+    items: hostRecord?.items || [],
+  };
   const tourShows = (await getShows())
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const location = show.venue || `${show.city}, ${show.region}`;
+  const streetNumber = (show.venue ?? "").trim().match(/^\d+/)?.[0];
+  const isResidence = !!streetNumber && (show.address ?? "").trim().startsWith(streetNumber);
+  const location = isResidence ? "your home" : show.venue || `${show.city}, ${show.region}`;
   const splitItem = "50/50 donation split";
   const contributeItems = host.items.filter((i) => i !== splitItem);
   const hasSplit = host.items.includes(splitItem);
@@ -121,7 +102,7 @@ export default async function ConfirmPage({
               <SponsorAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
-              You opened this from my email. If {formatEventDate(show.date)} works, add your contact
+              You opened this from my email or text. If {formatEventDate(show.date)} works, add your contact
               and confirm to publish the shareable RSVP page. Scroll further down for more
               information.
             </p>

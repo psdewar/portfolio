@@ -1812,6 +1812,7 @@ function ShowGroupCard({
             initialItems={host.items}
             compact
             editMode
+            pending={show?.visibility === "draft"}
             onSuccess={(data) => {
               setEditingHost(false);
               onUpdateSponsor({ ...host, ...data });

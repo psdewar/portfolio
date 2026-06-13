@@ -2,13 +2,33 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import SponsorForm from "../../components/SponsorForm";
 
-export default function ConfirmLinks({
-  links,
-}: {
-  links: { slug: string; path: string; label: string }[];
-}) {
+export interface ConfirmLink {
+  slug: string;
+  path: string;
+  label: string;
+  host: {
+    submittedAt: string;
+    name: string;
+    email: string;
+    phone: string;
+    venue: string;
+    address: string;
+    city: string;
+    region: string;
+    country: string;
+    date: string;
+    doorTime: string;
+    items: string[];
+  } | null;
+}
+
+export default function ConfirmLinks({ links }: { links: ConfirmLink[] }) {
+  const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
+  const [amending, setAmending] = useState<ConfirmLink | null>(null);
 
   const copy = async (path: string) => {
     const url = `${window.location.origin}${path}`;
@@ -44,6 +64,14 @@ export default function ConfirmLinks({
               >
                 {copied === l.path ? "Copied" : "Copy link"}
               </button>
+              {l.host && (
+                <button
+                  onClick={() => setAmending(l)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
+                >
+                  Amend
+                </button>
+              )}
               <Link
                 href={l.path}
                 target="_blank"
@@ -62,6 +90,52 @@ export default function ConfirmLinks({
       >
         + Create another
       </Link>
+
+      {amending?.host && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setAmending(null)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                AMEND &middot; {amending.slug}
+              </h4>
+              <button
+                onClick={() => setAmending(null)}
+                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <SponsorForm
+              showSlug={amending.slug}
+              submittedAt={amending.host.submittedAt}
+              venue={amending.host.venue}
+              address={amending.host.address}
+              city={amending.host.city}
+              region={amending.host.region}
+              country={amending.host.country}
+              date={amending.host.date}
+              doorTime={amending.host.doorTime}
+              initialName={amending.host.name}
+              initialPhone={amending.host.phone}
+              initialEmail={amending.host.email}
+              initialItems={amending.host.items}
+              compact
+              editMode
+              pending
+              onSuccess={() => {
+                setAmending(null);
+                router.refresh();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
