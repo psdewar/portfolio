@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
@@ -12,9 +13,31 @@ import SingleCard from "./SingleCard";
 import ScrollToConfirm from "./ScrollToConfirm";
 import SponsorAvatar from "../../SponsorAvatar";
 
-export const metadata = { robots: { index: false, follow: false } };
-
 const SPONSORS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const robots = { index: false, follow: false };
+  const { slug } = await params;
+  const show = await getShowBySlug(slug);
+  if (!show) return { robots };
+
+  const title = `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`;
+  const description =
+    "Tap to hear my energy, play a single from my set, and confirm your interest.";
+  const image = `https://peytspencer.com/api/og/rsvp/${slug}`;
+
+  return {
+    title,
+    description,
+    robots,
+    openGraph: { title, description, images: [{ url: image, width: 960, height: 1440 }] },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
+  };
+}
 
 async function getHost(
   slug: string,
