@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
 import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
@@ -35,6 +35,7 @@ interface PosterProps {
   showDoors?: boolean;
   venueImg?: string;
   venueImgWidth?: number;
+  venueImgOffsetY?: number;
   taglineAlign?: string;
   debug?: boolean;
   centerLogo?: boolean;
@@ -47,7 +48,7 @@ interface PosterProps {
   slug?: string;
 }
 
-export default function Poster({
+function Poster({
   date,
   city,
   region,
@@ -63,6 +64,7 @@ export default function Poster({
   showDoors = false,
   venueImg = "",
   venueImgWidth,
+  venueImgOffsetY,
   taglineAlign = "left",
   debug = false,
   centerLogo = false,
@@ -100,7 +102,7 @@ export default function Poster({
     return () => ro.disconnect();
   }, []);
   useEffect(() => {
-    if (!debug) return;
+    if (!debug && !centerLogo) return;
     const measure = () => {
       if (taglineRef.current) setTaglineW(taglineRef.current.offsetWidth);
       if (logoRef.current) setLogoW(logoRef.current.offsetWidth);
@@ -110,7 +112,7 @@ export default function Poster({
     if (taglineRef.current) ro.observe(taglineRef.current);
     if (logoRef.current) ro.observe(logoRef.current);
     return () => ro.disconnect();
-  }, [debug, venueImgSrc, venueImgWidth, taglineSuffix]);
+  }, [debug, centerLogo, venueImgSrc, venueImgWidth, taglineSuffix]);
   const reached = logoW > 0 && taglineW > 0 && logoW >= taglineW - 1;
   const tagsList = tags
     .split(",")
@@ -537,22 +539,22 @@ export default function Poster({
             {venueImgSrc && (
               <div
                 className="venue-wrap"
-                style={debug && centerLogo && taglineW > 0 ? { width: taglineW, display: "flex", justifyContent: "center" } : undefined}
+                style={centerLogo && taglineW > 0 ? { width: taglineW, display: "flex", justifyContent: "center" } : undefined}
               >
                 <img
                   ref={logoRef}
                   src={venueImgSrc}
                   alt=""
                   className="venue-img"
-                  style={
-                    venueImgWidth
-                      ? {
-                          width: `${(venueImgWidth * 100) / 480}cqw`,
-                          height: "auto",
-                          maxWidth: "none",
-                        }
-                      : undefined
-                  }
+                  data-logo
+                  style={{
+                    ...(venueImgWidth
+                      ? { width: `${(venueImgWidth * 100) / 480}cqw`, height: "auto", maxWidth: "none" }
+                      : {}),
+                    ...(venueImgOffsetY
+                      ? { transform: `translateY(${(venueImgOffsetY * 100) / 480}cqw)` }
+                      : {}),
+                  }}
                 />
                 {debug && taglineW > 0 && (
                   <div
@@ -662,3 +664,5 @@ export default function Poster({
     </>
   );
 }
+
+export default memo(Poster);

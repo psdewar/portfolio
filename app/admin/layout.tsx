@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { CheckCircleIcon, CircleNotchIcon } from "@phosphor-icons/react";
 
 const adminPages = [
   { segment: "hosts", title: "Hosts", href: "/admin/hosts" },
@@ -19,6 +20,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showSignedIn, setShowSignedIn] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
@@ -38,6 +41,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [dropdownOpen]);
+
+  useEffect(() => {
+    if (!showSignedIn) return;
+    const t = setTimeout(() => setShowSignedIn(false), 2500);
+    return () => clearTimeout(t);
+  }, [showSignedIn]);
 
   const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
   const current = adminPages.find((p) => p.segment === segment);
@@ -104,40 +113,62 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const res = await fetch("/api/admin-login", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ password }),
-                });
-                if (res.ok) {
-                  sessionStorage.setItem("admin-auth", "true");
-                  setIsAuthenticated(true);
-                  setError("");
-                } else {
-                  setError("Incorrect password");
-                  setPassword("");
+                setSigningIn(true);
+                try {
+                  const res = await fetch("/api/admin-login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password }),
+                  });
+                  if (res.ok) {
+                    sessionStorage.setItem("admin-auth", "true");
+                    setIsAuthenticated(true);
+                    setError("");
+                    setShowSignedIn(true);
+                  } else {
+                    setError("Incorrect password");
+                    setPassword("");
+                  }
+                } finally {
+                  setSigningIn(false);
                 }
               }}
             >
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                placeholder={error || "Password"}
-                className={`w-40 px-3 py-1.5 text-sm rounded-lg border bg-neutral-100 dark:bg-neutral-900/50 text-neutral-900 dark:text-white focus:outline-none transition-colors ${
-                  error
-                    ? "border-red-300 dark:border-red-800 placeholder-red-400/70"
-                    : "border-neutral-300 dark:border-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-600 focus:border-neutral-400 dark:focus:border-neutral-600"
-                }`}
-                autoFocus
-              />
+              <div className="relative">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  disabled={signingIn}
+                  placeholder={signingIn ? "Signing in..." : error || "Password"}
+                  className={`w-40 px-3 py-1.5 text-sm rounded-lg border bg-neutral-100 dark:bg-neutral-900/50 text-neutral-900 dark:text-white focus:outline-none transition-colors disabled:opacity-70 ${
+                    error
+                      ? "border-red-300 dark:border-red-800 placeholder-red-400/70"
+                      : "border-neutral-300 dark:border-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-600 focus:border-neutral-400 dark:focus:border-neutral-600"
+                  }`}
+                  autoFocus
+                />
+                {signingIn && (
+                  <CircleNotchIcon
+                    size={16}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-neutral-400"
+                  />
+                )}
+              </div>
             </form>
           ) : null}
         </div>
       </div>
+
+      {showSignedIn && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium shadow-lg print:hidden">
+          <CheckCircleIcon size={16} weight="fill" />
+          Signed in
+        </div>
+      )}
 
       {(isAuthenticated || isPrintouts) && children}
     </div>

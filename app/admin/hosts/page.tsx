@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CircleNotchIcon,
@@ -232,6 +232,12 @@ export default function HostsAdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (message?.type !== "success") return;
+    const t = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(t);
+  }, [message]);
+
   const groups: ShowGroup[] = [];
   const seen = new Map<string, ShowGroup>();
   for (const sp of sponsors) {
@@ -314,6 +320,7 @@ export default function HostsAdminPage() {
 
   const cardProps = {
     pamphlets,
+    onMessage: (text: string) => setMessage({ type: "success", text }),
     onUpdateSponsor: (updated: Sponsor) =>
       setSponsors((prev) =>
         prev.map((s) =>
@@ -356,7 +363,7 @@ export default function HostsAdminPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {message && (
           <div
-            className={`p-4 rounded-xl text-sm mb-8 border ${
+            className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm border shadow-lg ${
               message.type === "success"
                 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
                 : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800"
@@ -844,6 +851,9 @@ function PosterEditor({
     const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
     return w ? String(w) : "";
   });
+  const initOffsetY = isSingle ? soloShow?.venueImgOffsetY : matchedPamphlet?.venueImgOffsetY;
+  const [venueImgOffsetY, setVenueImgOffsetY] = useState(initOffsetY ? String(initOffsetY) : "");
+  const [committedOffsetY, setCommittedOffsetY] = useState(initOffsetY ? String(initOffsetY) : "");
   const [taglineAlign, setTaglineAlign] = useState<"justify" | "left">(() => {
     const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
     return a === "justify" ? "justify" : "left";
@@ -886,8 +896,24 @@ function PosterEditor({
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState("");
   const [standalone, setStandalone] = useState(soloShow?.standalone ?? false);
-  const [centerLogo, setCenterLogo] = useState(false);
+  const [centerLogo, setCenterLogo] = useState(
+    isSingle ? (soloShow?.centerLogo ?? false) : (matchedPamphlet?.centerLogo ?? false),
+  );
   const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Live logo nudge — write width/offset straight to the logo node so a drag
+  // moves only the logo, not a full Poster re-render. State commits on release.
+  const liveLogo = (widthStr: string, offsetStr: string) => {
+    const w = Number(widthStr);
+    const o = Number(offsetStr);
+    previewRef.current?.querySelectorAll<HTMLElement>("[data-logo]").forEach((el) => {
+      el.style.width = widthStr.trim() && w ? `${(w * 100) / 480}cqw` : "";
+      el.style.height = widthStr.trim() && w ? "auto" : "";
+      el.style.maxWidth = widthStr.trim() && w ? "none" : "";
+      el.style.transform = offsetStr.trim() && o ? `translateY(${(o * 100) / 480}cqw)` : "";
+    });
+  };
 
   const first = group[0].show!;
   const last = group[group.length - 1].show!;
@@ -895,7 +921,27 @@ function PosterEditor({
     ? formatMonthDay(first.date)
     : `${formatMonthDay(first.date)} – ${formatMonthDay(last.date)}`;
 
-  const activeGroup = group.filter((g) => included[g.show!.slug]);
+  const activeGroup = useMemo(
+    () => group.filter((g) => included[g.show!.slug]),
+    [group, included],
+  );
+  const previewShows = useMemo(
+    () =>
+      activeGroup.map(
+        (g): PamphletShowItem => ({
+          date: g.show!.date,
+          city: g.show!.city,
+          region: g.show!.region,
+          venue: g.show!.venue,
+          venueLabel: venueLabels[g.show!.slug] ?? "",
+          dateLabel: dateLabels[g.show!.slug] ?? "",
+          doorsOpen: doorsByShow[g.show!.slug] ?? "",
+          doorTime: g.show!.doorTime,
+          doorLabel: g.show!.doorLabel,
+        }),
+      ),
+    [activeGroup, venueLabels, dateLabels, doorsByShow],
+  );
 
   const buildPamphletShows = (): PamphletShow[] =>
     activeGroup.map((g) => {
@@ -930,11 +976,12 @@ function PosterEditor({
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
       if (!pinTopRsvp) params.set("pinTopRsvp", "0");
-      if (centerLogo) params.set("centerLogo", "1");
+      params.set("centerLogo", centerLogo ? "1" : "0");
       if (tags.trim()) params.set("tags", tags);
       if (tagline.trim()) params.set("label", tagline.trim());
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
       if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
+      if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
       params.set("align", taglineAlign);
       if (scale !== 1) params.set("scale", String(scale));
       if (asPdf) params.set("pdf", "true");
@@ -977,6 +1024,8 @@ function PosterEditor({
       tags: tags.trim() || undefined,
       venueImg: venueImg.trim() || undefined,
       venueImgWidth: Number(venueImgWidth) || undefined,
+      venueImgOffsetY: Number(venueImgOffsetY) || undefined,
+      centerLogo,
       taglineAlign,
       scale: scale !== 1 ? scale : undefined,
     };
@@ -1000,6 +1049,8 @@ function PosterEditor({
       tags: payload.tags,
       venueImg: payload.venueImg,
       venueImgWidth: payload.venueImgWidth,
+      venueImgOffsetY: payload.venueImgOffsetY,
+      centerLogo,
       taglineAlign: payload.taglineAlign,
       scale: payload.scale,
     });
@@ -1038,6 +1089,8 @@ function PosterEditor({
     if (tagline.trim()) params.set("label", tagline.trim());
     if (venueImg.trim()) params.set("venueImg", venueImg.trim());
     if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
+    if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
+    params.set("centerLogo", centerLogo ? "1" : "0");
     params.set("align", taglineAlign);
     // Always sent so a download reflects the editor exactly, even unsaved.
     params.set("venueLabel", venueLabels[soloShow!.slug] ?? "");
@@ -1067,6 +1120,8 @@ function PosterEditor({
       taglineSuffix: tagline.trim() || null,
       venueImg: venueImg.trim() || null,
       venueImgWidth: Number(venueImgWidth) || null,
+      venueImgOffsetY: Number(venueImgOffsetY) || null,
+      centerLogo,
       taglineAlign,
     };
     await fetch("/api/shows", {
@@ -1152,6 +1207,11 @@ function PosterEditor({
     setTaglineAlign("left");
     setVenueImg("");
     setVenueImgWidth("");
+    setCommittedImgWidth("");
+    setVenueImgOffsetY("");
+    setCommittedOffsetY("");
+    setCenterLogo(false);
+    liveLogo("", "");
     setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     if (isSingle) {
       setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
@@ -1228,6 +1288,8 @@ function PosterEditor({
     taglineAlign,
     venueImg,
     venueImgWidth,
+    venueImgOffsetY,
+    centerLogo,
     scale,
     showDoors,
     showQr,
@@ -1330,12 +1392,28 @@ function PosterEditor({
                 <input
                   type="number"
                   value={venueImgWidth}
-                  onChange={(e) => setVenueImgWidth(e.target.value)}
+                  onChange={(e) => {
+                    setVenueImgWidth(e.target.value);
+                    liveLogo(e.target.value, venueImgOffsetY);
+                  }}
                   onBlur={() => setCommittedImgWidth(venueImgWidth)}
                   min={0}
                   step={1}
-                  placeholder="Venue logo width in px (blank = default)"
-                  className={inputCls}
+                  placeholder="Logo width px"
+                  className={`${inputCls} min-w-0`}
+                />
+                <input
+                  type="number"
+                  value={venueImgOffsetY}
+                  onChange={(e) => {
+                    setVenueImgOffsetY(e.target.value);
+                    liveLogo(venueImgWidth, e.target.value);
+                  }}
+                  onBlur={() => setCommittedOffsetY(venueImgOffsetY)}
+                  step={1}
+                  placeholder="Y offset px"
+                  title="Logo vertical offset — negative moves up, positive down"
+                  className={`${inputCls} min-w-0`}
                 />
                 <label className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer shrink-0">
                   <input
@@ -1612,7 +1690,7 @@ function PosterEditor({
                 {previewFormat}
               </button>
             </div>
-            <div className="flex-1 flex justify-end overflow-hidden">
+            <div ref={previewRef} className="flex-1 flex justify-end overflow-hidden">
               {isSingle && soloShow ? (
                 <Poster
                   slug={soloSlug}
@@ -1628,6 +1706,7 @@ function PosterEditor({
                   tags={tags}
                   venueImg={venueImg}
                   venueImgWidth={Number(committedImgWidth) || undefined}
+                  venueImgOffsetY={Number(committedOffsetY) || undefined}
                   taglineAlign={taglineAlign}
                   showQr
                   debug
@@ -1640,6 +1719,7 @@ function PosterEditor({
                   tags={tags}
                   venueImg={venueImg}
                   venueImgWidth={Number(committedImgWidth) || undefined}
+                  venueImgOffsetY={Number(committedOffsetY) || undefined}
                   taglineAlign={taglineAlign}
                   showDoors={showDoors}
                   showQr={showQr}
@@ -1648,19 +1728,7 @@ function PosterEditor({
                   debug
                   centerLogo={centerLogo}
                   format={previewFormat}
-                  shows={activeGroup.map(
-                    (g): PamphletShowItem => ({
-                      date: g.show!.date,
-                      city: g.show!.city,
-                      region: g.show!.region,
-                      venue: g.show!.venue,
-                      venueLabel: venueLabels[g.show!.slug] ?? "",
-                      dateLabel: dateLabels[g.show!.slug] ?? "",
-                      doorsOpen: doorsByShow[g.show!.slug] ?? "",
-                      doorTime: g.show!.doorTime,
-                      doorLabel: g.show!.doorLabel,
-                    }),
-                  )}
+                  shows={previewShows}
                 />
               )}
             </div>
@@ -1695,6 +1763,7 @@ function PosterEditor({
 function ShowGroupCard({
   group,
   pamphlets,
+  onMessage,
   onUpdateSponsor,
   onRemoveSponsor,
   onShowUpdate,
@@ -1702,6 +1771,7 @@ function ShowGroupCard({
 }: {
   group: ShowGroup;
   pamphlets: Pamphlet[];
+  onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
@@ -1713,6 +1783,7 @@ function ShowGroupCard({
   const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [confirmAccess, setConfirmAccess] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
@@ -1747,47 +1818,53 @@ function ShowGroupCard({
     dateSave.save({ date: newDate });
   };
 
+  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+
   const handleDeleteShow = async () => {
-    if (group.showSlug) {
-      const deleteSponsor = (submittedAt: string) =>
-        fetch("/api/sponsors", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ showSlug: group.showSlug, submittedAt }),
-        });
-      await Promise.all([
-        deleteSponsor(host.submittedAt),
-        ...supporters.map((s) => deleteSponsor(s.submittedAt)),
-        fetch("/api/rsvp", {
+    setDeleting(true);
+    try {
+      if (group.showSlug) {
+        const deleteSponsor = (submittedAt: string) =>
+          fetch("/api/sponsors", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ showSlug: group.showSlug, submittedAt }),
+          });
+        await Promise.all([
+          deleteSponsor(host.submittedAt),
+          ...supporters.map((s) => deleteSponsor(s.submittedAt)),
+          fetch("/api/rsvp", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: group.showSlug }),
+          }),
+        ]);
+        await fetch("/api/shows", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug: group.showSlug }),
-        }),
-      ]);
-      await fetch("/api/shows", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: group.showSlug }),
-      });
-      const orphaned = pamphlets.filter(
-        (p) => p.shows.length === 1 && p.shows[0].slug === group.showSlug,
-      );
-      await Promise.all(
-        orphaned.map((p) =>
-          fetch("/api/pamphlets", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: p.id }),
-          }),
-        ),
-      );
-      onPamphletCascade(group.showSlug);
+        });
+        const orphaned = pamphlets.filter(
+          (p) => p.shows.length === 1 && p.shows[0].slug === group.showSlug,
+        );
+        await Promise.all(
+          orphaned.map((p) =>
+            fetch("/api/pamphlets", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: p.id }),
+            }),
+          ),
+        );
+        onPamphletCascade(group.showSlug);
+      }
+      onRemoveSponsor(host.submittedAt, host.showSlug);
+      for (const s of supporters) onRemoveSponsor(s.submittedAt, s.showSlug);
+      onMessage(`Removed ${location || host.name || host.email}`);
+    } finally {
+      setDeleting(false);
     }
-    onRemoveSponsor(host.submittedAt, host.showSlug);
-    for (const s of supporters) onRemoveSponsor(s.submittedAt, s.showSlug);
   };
-
-  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
 
   return (
     <>
@@ -2196,10 +2273,10 @@ function ShowGroupCard({
               />
               <button
                 onClick={handleDeleteShow}
-                disabled={deleteInput !== "delete"}
+                disabled={deleteInput !== "delete" || deleting}
                 className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
               >
-                Confirm
+                {deleting ? "Deleting..." : "Confirm"}
               </button>
               <button
                 onClick={() => {

@@ -15,6 +15,8 @@ export interface Pamphlet {
   tags?: string;
   venueImg?: string;
   venueImgWidth?: number;
+  venueImgOffsetY?: number;
+  centerLogo?: boolean;
   taglineAlign?: string;
   address?: string;
   doorsOpen?: string;

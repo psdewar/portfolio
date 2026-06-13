@@ -36,14 +36,19 @@ function pamphletHtml(
   centerLogo = false,
   doorsOpenOverride = "",
   scale = 1,
+  venueImgOffsetY = 0,
 ): string {
   const { W, H } = POSTER_DIMS[format];
   const qrPath = "/rsvp";
   // Mirror preview's cqw units (percentage of container width) at this format's W.
   const pct = (v: number) => +((W * v) / 100).toFixed(3);
-  const venueImgStyle = venueImgWidth
-    ? ` style="width:${venueImgWidth}px;height:auto;max-width:none"`
-    : "";
+  const venueImgRules = [
+    venueImgWidth ? `width:${venueImgWidth}px;height:auto;max-width:none` : "",
+    venueImgOffsetY ? `transform:translateY(${venueImgOffsetY}px)` : "",
+  ]
+    .filter(Boolean)
+    .join(";");
+  const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
   const locationLabelFor = (s: (typeof shows)[number]) =>
     s.venueLabel ?? `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
   const dateFor = (s: (typeof shows)[number]) => s.dateLabel ?? formatEventDateShort(s.date);
@@ -280,6 +285,8 @@ export async function GET(request: NextRequest) {
   let pamphletTags = "";
   let pamphletVenueImg = "";
   let pamphletVenueImgWidth = 0;
+  let pamphletVenueImgOffsetY = 0;
+  let pamphletCenterLogo = false;
   let pamphletTaglineAlign = "";
   let pamphletDoorsOpen = "";
   let pamphletScale = 1;
@@ -299,6 +306,8 @@ export async function GET(request: NextRequest) {
       pamphletTags = pamphlet.tags ?? "";
       pamphletVenueImg = pamphlet.venueImg ?? "";
       pamphletVenueImgWidth = pamphlet.venueImgWidth ?? 0;
+      pamphletVenueImgOffsetY = pamphlet.venueImgOffsetY ?? 0;
+      pamphletCenterLogo = pamphlet.centerLogo ?? false;
       pamphletTaglineAlign = pamphlet.taglineAlign ?? "";
       pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
       pamphletScale = pamphlet.scale ?? 1;
@@ -351,9 +360,10 @@ export async function GET(request: NextRequest) {
   const showDoors = flag("doors", pamphletShowDoors);
   const showQr = flag("qr", pamphletShowQr);
   const pinTopRsvp = flag("pinTopRsvp", pamphletPinTopRsvp);
-  const centerLogo = flag("centerLogo", false);
+  const centerLogo = flag("centerLogo", pamphletCenterLogo);
   const tags = searchParams.get("tags") ?? pamphletTags;
   const venueImgSrc = inlineVenueImg(searchParams.get("venueImg")?.trim() || pamphletVenueImg);
+  const venueImgOffsetY = Number(searchParams.get("venueImgOffsetY")) || pamphletVenueImgOffsetY || 0;
   const doorsOpenOverride = (searchParams.get("doorsOpen") ?? pamphletDoorsOpen).trim();
   const scale = Math.min(2, Math.max(0.5, Number(searchParams.get("scale")) || pamphletScale || 1));
   const html = pamphletHtml(
@@ -370,6 +380,7 @@ export async function GET(request: NextRequest) {
     centerLogo,
     doorsOpenOverride,
     scale,
+    venueImgOffsetY,
   );
   // Raw HTML for in-app previews — skips Puppeteer entirely.
   if (searchParams.get("html") === "true") {

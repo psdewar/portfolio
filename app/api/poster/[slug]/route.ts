@@ -35,6 +35,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     doorsOpenOverride: sp.get("doorsOpen") ?? "",
     venueImgSrc: inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
     venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
+    venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
+    centerLogo: sp.has("centerLogo") ? sp.get("centerLogo") === "1" : !!show.centerLogo,
     taglineAlign: sp.get("align") || show.taglineAlign || "left",
   });
   const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";

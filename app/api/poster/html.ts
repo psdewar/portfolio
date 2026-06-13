@@ -58,6 +58,8 @@ export type PosterOptions = {
   doorsOpenOverride?: string;
   venueImgSrc?: string;
   venueImgWidth?: number;
+  venueImgOffsetY?: number;
+  centerLogo?: boolean;
   taglineAlign?: string;
 };
 
@@ -82,15 +84,21 @@ export function posterHtml(
     doorsOpenOverride = "",
     venueImgSrc = "",
     venueImgWidth,
+    venueImgOffsetY,
+    centerLogo = false,
     taglineAlign = "left",
   } = opts;
   const { W, H } = POSTER_DIMS[format];
   const isWideBanner = format === "fb" || format === "fbe";
   // Venue logo replaces the tagline suffix when both are present (matches the pamphlet).
   const showVenueImg = !!venueImgSrc && !isWideBanner && format !== "eb";
-  const venueImgStyle = venueImgWidth
-    ? ` style="width:${venueImgWidth}px;height:auto;max-width:none"`
-    : "";
+  const venueImgRules = [
+    venueImgWidth ? `width:${venueImgWidth}px;height:auto;max-width:none` : "",
+    venueImgOffsetY ? `transform:translateY(${venueImgOffsetY}px)` : "",
+  ]
+    .filter(Boolean)
+    .join(";");
+  const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
   const bgSrc = isWideBanner
     ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
     : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
@@ -175,9 +183,15 @@ export function posterHtml(
         <div class="title-big">Ground</div>
         <div class="title-big" style="margin-bottom:0">Up</div>
         <div class="title-accent"></div>
-        <div class="tagline-block">
+        <div class="tagline-block" id="tagline-block">
 ${taglineDivs}
-        </div>${showVenueImg ? `\n        <img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />` : ""}
+        </div>${
+          showVenueImg
+            ? centerLogo
+              ? `\n        <div class="venue-wrap" id="venue-wrap"><img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} /></div>`
+              : `\n        <img src="${venueImgSrc}" alt="" class="venue-img"${venueImgStyle} />`
+            : ""
+        }
       </div>
       <div class="details">
         <div class="bottom-row">
@@ -195,6 +209,17 @@ ${taglineDivs}
       </div>
     </div>
   </div>
-</body>
+${
+  centerLogo && showVenueImg
+    ? `  <script>
+    window.addEventListener('load', function () {
+      var t = document.getElementById('tagline-block');
+      var w = document.getElementById('venue-wrap');
+      if (t && w) { w.style.width = t.offsetWidth + 'px'; w.style.display = 'flex'; w.style.justifyContent = 'center'; }
+    });
+  </script>
+`
+    : ""
+}</body>
 </html>`;
 }

@@ -129,6 +129,8 @@ export default async function ConfirmPage({
               tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
               venueImg={show.venueImg ?? undefined}
               venueImgWidth={show.venueImgWidth ?? undefined}
+              venueImgOffsetY={show.venueImgOffsetY ?? undefined}
+              centerLogo={show.centerLogo ?? undefined}
               taglineAlign={show.taglineAlign ?? undefined}
               slug={slug}
               showQr

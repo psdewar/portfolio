@@ -18,6 +18,10 @@ export interface Show {
   venueImg?: string | null;
   // Venue logo display width in px; blank/null uses the default CSS sizing.
   venueImgWidth?: number | null;
+  // Venue logo vertical offset in design px; negative moves up, positive down.
+  venueImgOffsetY?: number | null;
+  // Center the venue logo over the tagline block.
+  centerLogo?: boolean | null;
   // Tagline alignment: "left" (default) or "justify".
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
