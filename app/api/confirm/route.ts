@@ -84,11 +84,13 @@ export async function POST(request: NextRequest) {
       show,
     );
 
-    // Publish: flip draft -> public so it appears on /rsvp.
+    // Publish: advance the lifecycle to booked. Keep access (private stays private);
+    // a legacy "draft" visibility becomes public.
+    const visibility = show.visibility === "draft" ? "public" : show.visibility;
     const patch = await fetch(`${SHOWS_API}/chorus/shows`, {
       method: "PATCH",
       headers: authJson,
-      body: JSON.stringify({ slug, visibility: "public" }),
+      body: JSON.stringify({ slug, stage: "booked", visibility }),
     });
     if (!patch.ok) {
       return NextResponse.json(
@@ -97,8 +99,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Eventbrite was deferred at creation — create it now that it's confirmed.
-    const eventbrite = await publishEventbrite({ ...show, visibility: "public" });
+    // Eventbrite was deferred at creation — create it now, unless this is invite-only.
+    const eventbrite =
+      visibility === "private"
+        ? undefined
+        : await publishEventbrite({ ...show, stage: "booked", visibility });
 
     return NextResponse.json({ ok: true, slug, eventbrite });
   } catch (error) {

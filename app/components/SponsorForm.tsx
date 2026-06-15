@@ -392,8 +392,8 @@ export default function SponsorForm({
                 country: resolvedCountry,
                 venue: resolvedVenue || null,
                 address: eventAddress || null,
-                planStatus: "intent",
-                ...(pending ? { visibility: "draft" } : {}),
+                // pending = admin-created draft awaiting host confirmation; public self-booking is live on submit.
+                stage: pending ? "intent" : "booked",
               }),
             }).then(async (r) => {
               if (!r.ok) throw new Error(await r.text());

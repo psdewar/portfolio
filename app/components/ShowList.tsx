@@ -36,7 +36,7 @@ export default function ShowList({
           const venueName = show.venue || show.address || "";
           const cityRegion = `${show.city}, ${show.region}`;
           const meta = isPrivate
-            ? "By invitation"
+            ? show.privateNote || "No public RSVP"
             : show.doorLabel || `Doors open at ${show.doorTime}`;
 
           const inner = (

@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
-import { getShowBySlug, getShows, isShowListable } from "../../../lib/shows";
+import { getShowBySlug, getShows, isShowListable, isShowDraft } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import TourStops from "../../../components/TourStops";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { formatEventDate } from "../../../lib/dates";
+import { formatEventDate, formatEventDateShort } from "../../../lib/dates";
 import ConfirmForm from "./ConfirmForm";
 import SingleCard from "./SingleCard";
 import ScrollToConfirm from "./ScrollToConfirm";
@@ -53,21 +52,33 @@ export default async function ConfirmPage({
   const show = await getShowBySlug(slug);
   if (!show) notFound();
 
-  if (show.visibility !== "draft") {
-    return (
-      <div className="text-center py-10">
-        <h2 className="text-2xl font-medium">This concert is already live</h2>
-        <p className="text-neutral-500 dark:text-neutral-400 mt-2">
-          It&apos;s published and open for RSVPs — thank you.
-        </p>
-        <Link
-          href={`/rsvp/${slug}`}
-          className="inline-block mt-5 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold hover:opacity-90 transition-opacity"
-        >
-          View it on /rsvp
-        </Link>
-      </div>
-    );
+  const posterEl = (
+    <Poster
+      date={show.date}
+      city={show.city}
+      region={show.region}
+      venue={show.venue}
+      venueLabel={show.venueLabel}
+      doorTime={show.doorTime}
+      doorLabel={show.doorLabel}
+      address={show.address}
+      taglineSuffix={show.taglineSuffix ?? undefined}
+      tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
+      venueImg={show.venueImg ?? undefined}
+      venueImgWidth={show.venueImgWidth ?? undefined}
+      venueImgOffsetY={show.venueImgOffsetY ?? undefined}
+      centerLogo={show.centerLogo ?? undefined}
+      taglineAlign={show.taglineAlign ?? undefined}
+      slug={slug}
+      showQr
+      hideDetails={show.visibility === "private"}
+    />
+  );
+
+  // Already confirmed — send them to the live show (public) or the tour list (private),
+  // where the show speaks for itself; no replayed "thank you".
+  if (!isShowDraft(show)) {
+    redirect(show.visibility === "private" ? "/rsvp" : `/rsvp/${slug}`);
   }
 
   const hostRecord = await getHostForShow(slug);
@@ -102,9 +113,12 @@ export default async function ConfirmPage({
               <SponsorAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
-              You opened this from my email or text. If {formatEventDate(show.date)} works, add your contact
-              and confirm to publish the shareable RSVP page. Scroll further down for more
-              information.
+              You opened this from my email or text. If {formatEventDate(show.date)} works, add your
+              contact and{" "}
+              {show.visibility === "private"
+                ? "confirm to lock in the date."
+                : "confirm to publish the shareable RSVP page."}{" "}
+              Scroll further down for more information.
             </p>
           </div>
         </div>
@@ -113,28 +127,22 @@ export default async function ConfirmPage({
       <div className="flex flex-col lg:flex-row gap-8 lg:items-start">
         <div className="lg:w-1/2 lg:shrink-0 space-y-6">
           <div
-            className="-mx-5 w-[calc(100%+2.5rem)] max-w-none sm:mx-auto sm:w-full sm:max-w-[320px] lg:mx-0 lg:max-w-none"
+            className="relative -mx-5 w-[calc(100%+2.5rem)] max-w-none sm:mx-auto sm:w-full sm:max-w-[320px] lg:mx-0 lg:max-w-none"
             style={{ aspectRatio: "480 / 720" }}
           >
-            <Poster
-              date={show.date}
-              city={show.city}
-              region={show.region}
-              venue={show.venue}
-              venueLabel={show.venueLabel}
-              doorTime={show.doorTime}
-              doorLabel={show.doorLabel}
-              address={show.address}
-              taglineSuffix={show.taglineSuffix ?? undefined}
-              tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
-              venueImg={show.venueImg ?? undefined}
-              venueImgWidth={show.venueImgWidth ?? undefined}
-              venueImgOffsetY={show.venueImgOffsetY ?? undefined}
-              centerLogo={show.centerLogo ?? undefined}
-              taglineAlign={show.taglineAlign ?? undefined}
-              slug={slug}
-              showQr
-            />
+            {posterEl}
+            {show.visibility === "private" && (
+              <div className="absolute inset-0 z-10 flex items-end bg-black/60 p-6">
+                <div>
+                  <p className="text-white text-base leading-relaxed font-medium">
+                    No RSVPs{show.privateNote ? `: ${show.privateNote}` : ""}
+                  </p>
+                  <p className="text-white/80 text-base leading-relaxed mt-1">
+                    Date and location still included in promotional materials
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {contributeItems.length > 0 && (
@@ -156,13 +164,23 @@ export default async function ConfirmPage({
             </div>
           )}
 
-          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
-            {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
-              "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden."}
-          </div>
+          {(show.visibility !== "private" || hasSplit) && (
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
+              {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
+                (show.visibility === "private"
+                  ? ""
+                  : "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden.")}
+            </div>
+          )}
 
           <div id="confirm-form" className="scroll-mt-6">
-            <ConfirmForm slug={slug} sig={sig!} host={host} />
+            <ConfirmForm
+              slug={slug}
+              sig={sig!}
+              host={host}
+              isPrivate={show.visibility === "private"}
+              dateLabel={formatEventDateShort(show.date)}
+            />
           </div>
         </div>
 

@@ -40,6 +40,8 @@ interface PosterProps {
   debug?: boolean;
   centerLogo?: boolean;
   pinTopRsvp?: boolean;
+  // Hide the bottom details block (date/location/doors/QR) — used for private concerts.
+  hideDetails?: boolean;
   format?: PosterFormat;
   scale?: number;
   // Pamphlet mode — when provided, renders a multi-show list instead of single-date details.
@@ -69,6 +71,7 @@ function Poster({
   debug = false,
   centerLogo = false,
   pinTopRsvp = true,
+  hideDetails = false,
   format = "standard",
   scale = 1,
   shows,
@@ -568,7 +571,7 @@ function Poster({
               </div>
             )}
           </div>
-          {shows ? (
+          {hideDetails ? null : shows ? (
             <div className="details">
               {topRowParts.length > 0 && (
                 <div className="pamphlet-top">

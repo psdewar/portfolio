@@ -11,7 +11,9 @@ export interface Show {
   doorLabel: string | null;
   address: string | null;
   status?: "cancelled";
-  planStatus?: "intent" | "booked" | "complete";
+  // Booking lifecycle: "intent" = draft (awaiting host confirmation) → "booked" = confirmed → "complete".
+  stage?: "intent" | "booked" | "complete";
+  // Access: "public" (default) or "private". ("draft" is legacy — pre-`stage` drafts.)
   visibility?: "public" | "private" | "draft";
   tags?: string | null;
   taglineSuffix?: string | null;
@@ -22,6 +24,8 @@ export interface Show {
   venueImgOffsetY?: number | null;
   // Center the venue logo over the tagline block.
   centerLogo?: boolean | null;
+  // Optional reason shown on the private-concert overlay (e.g. "Youth camp", "Private house concert").
+  privateNote?: string | null;
   // Tagline alignment: "left" (default) or "justify".
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
@@ -45,15 +49,20 @@ export function isShowUpcoming(show: Pick<Show, "date" | "status">): boolean {
   return show.status !== "cancelled" && new Date(show.date).getTime() + GRACE_MS > Date.now();
 }
 
-// chorus stores `visibility`; absent means public. `draft` shows are pending
-// sponsor confirmation and never surface on any public listing. `private` still
-// shows (as "By invitation"); `draft` does not.
-export function isShowListed(show: Pick<Show, "visibility">): boolean {
-  return show.visibility !== "draft";
+// A draft is an unconfirmed show: stage "intent", awaiting host confirmation.
+// `visibility === "draft"` is the legacy signal for shows created before `stage`.
+export function isShowDraft(show: Pick<Show, "stage" | "visibility">): boolean {
+  return show.stage === "intent" || show.visibility === "draft";
+}
+
+// Drafts (unconfirmed) are hidden. Confirmed shows surface — public ones open for
+// RSVP, private ones as locked (no-RSVP) tour stops.
+export function isShowListed(show: Pick<Show, "stage" | "visibility">): boolean {
+  return !isShowDraft(show);
 }
 
 // A show the public can see on a listing: live (not cancelled) and not a draft.
-export function isShowListable(show: Pick<Show, "status" | "visibility">): boolean {
+export function isShowListable(show: Pick<Show, "status" | "stage" | "visibility">): boolean {
   return show.status !== "cancelled" && isShowListed(show);
 }
 

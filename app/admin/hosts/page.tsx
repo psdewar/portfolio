@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
-import { type Show } from "../../lib/shows";
+import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import {
   formatEventDate,
@@ -212,24 +212,38 @@ export default function HostsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   useEffect(() => {
-    Promise.all([
-      fetch("/api/shows")
-        .then((r) => r.json())
-        .catch(() => []),
-      fetch("/api/sponsors")
-        .then((r) => r.json())
-        .catch(() => []),
-      fetch("/api/pamphlets")
-        .then((r) => r.json())
-        .catch(() => []),
-    ])
-      .then(([showsData, sponsorsData, pamphletData]) => {
-        setShows(Array.isArray(showsData) ? showsData : []);
-        setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
-        setPamphlets(Array.isArray(pamphletData) ? pamphletData : []);
-      })
-      .catch(() => setMessage({ type: "error", text: "Failed to load data" }))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    const load = (withSpinner: boolean) => {
+      Promise.all([
+        fetch("/api/shows")
+          .then((r) => r.json())
+          .catch(() => []),
+        fetch("/api/sponsors")
+          .then((r) => r.json())
+          .catch(() => []),
+        fetch("/api/pamphlets")
+          .then((r) => r.json())
+          .catch(() => []),
+      ])
+        .then(([showsData, sponsorsData, pamphletData]) => {
+          if (cancelled) return;
+          setShows(Array.isArray(showsData) ? showsData : []);
+          setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
+          setPamphlets(Array.isArray(pamphletData) ? pamphletData : []);
+        })
+        .catch(() => !cancelled && setMessage({ type: "error", text: "Failed to load data" }))
+        .finally(() => !cancelled && withSpinner && setLoading(false));
+    };
+    load(true);
+    // Re-fetch when the tab regains focus so host confirmations show up without a manual reload.
+    const refresh = () => document.visibilityState === "visible" && load(false);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -888,7 +902,7 @@ function PosterEditor({
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
       return Object.fromEntries(group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]));
     }
-    return Object.fromEntries(group.map((g) => [g.show!.slug, g.show?.visibility !== "private"]));
+    return Object.fromEntries(group.map((g) => [g.show!.slug, isShowListed(g.show!)]));
   });
   const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -899,6 +913,7 @@ function PosterEditor({
   const [centerLogo, setCenterLogo] = useState(
     isSingle ? (soloShow?.centerLogo ?? false) : (matchedPamphlet?.centerLogo ?? false),
   );
+  const [privateNote, setPrivateNote] = useState(soloShow?.privateNote ?? "");
   const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -1122,6 +1137,7 @@ function PosterEditor({
       venueImgWidth: Number(venueImgWidth) || null,
       venueImgOffsetY: Number(venueImgOffsetY) || null,
       centerLogo,
+      privateNote: privateNote.trim() || null,
       taglineAlign,
     };
     await fetch("/api/shows", {
@@ -1290,6 +1306,7 @@ function PosterEditor({
     venueImgWidth,
     venueImgOffsetY,
     centerLogo,
+    privateNote,
     scale,
     showDoors,
     showQr,
@@ -1425,6 +1442,15 @@ function PosterEditor({
                   <span className="text-xs">Center</span>
                 </label>
               </div>
+              {isSingle && soloShow?.visibility === "private" && (
+                <input
+                  type="text"
+                  value={privateNote}
+                  onChange={(e) => setPrivateNote(e.target.value)}
+                  placeholder="Private reason (e.g. Youth camp, private house concert)"
+                  className={`${inputCls} mb-2`}
+                />
+              )}
 
               {isSingle ? (
                 <>
@@ -1889,7 +1915,7 @@ function ShowGroupCard({
             initialItems={host.items}
             compact
             editMode
-            pending={show?.visibility === "draft"}
+            pending={!!show && isShowDraft(show)}
             onSuccess={(data) => {
               setEditingHost(false);
               onUpdateSponsor({ ...host, ...data });
@@ -2152,15 +2178,16 @@ function ShowGroupCard({
             >
               PDF
             </button>
+            {show?.slug && isShowDraft(show) && (
+              <Link
+                href={`/admin/pending?created=${show.slug}`}
+                className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-sky-600 dark:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
+              >
+                Draft
+              </Link>
+            )}
             {show?.slug &&
-              (show.visibility === "draft" ? (
-                <Link
-                  href={`/admin/pending?created=${show.slug}`}
-                  className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-sky-600 dark:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
-                >
-                  Draft
-                </Link>
-              ) : confirmAccess ? (
+              (confirmAccess ? (
                 <div className="flex items-center justify-center gap-1 text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800">
                   <button
                     onClick={async () => {

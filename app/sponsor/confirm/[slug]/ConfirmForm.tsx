@@ -8,10 +8,14 @@ export default function ConfirmForm({
   slug,
   sig,
   host,
+  isPrivate = false,
+  dateLabel,
 }: {
   slug: string;
   sig: string;
   host: { name: string; email: string; phone: string };
+  isPrivate?: boolean;
+  dateLabel: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(host.name);
@@ -35,13 +39,13 @@ export default function ConfirmForm({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Couldn't publish. Try again in a moment.");
+        setError(data.error || "Couldn't save. Try again in a moment.");
         setLoading(false);
         return;
       }
-      router.push(`/rsvp?submitted=${slug}`);
+      router.push(isPrivate ? "/rsvp" : `/rsvp?submitted=${slug}`);
     } catch {
-      setError("Couldn't publish. Try again in a moment.");
+      setError("Couldn't save. Try again in a moment.");
       setLoading(false);
     }
   };
@@ -90,7 +94,13 @@ export default function ConfirmForm({
         disabled={loading}
         className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg py-3 lg:py-4 text-sm lg:text-base hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
       >
-        {loading ? "Publishing…" : "Confirm and publish to /rsvp"}
+        {loading
+          ? isPrivate
+            ? "Confirming…"
+            : "Publishing…"
+          : isPrivate
+            ? `Confirm ${dateLabel}`
+            : "Confirm and publish to /rsvp"}
       </button>
       {error && <p className="text-sm text-red-500 dark:text-red-400 mt-2">{error}</p>}
     </div>
