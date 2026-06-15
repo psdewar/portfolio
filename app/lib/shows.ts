@@ -30,6 +30,8 @@ export interface Show {
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
   standalone?: boolean | null;
+  // Active client-side A/B flight keys for this show (e.g. "payment-model").
+  flights?: string[] | null;
   // Eventbrite event id, set when the show is auto-published to Eventbrite.
   eventbriteId?: string | null;
 }

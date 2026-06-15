@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import ContactFields from "../../components/ContactFields";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
+import { PAYMENT_MODEL, flightProp } from "../../lib/flights";
 
 interface RSVPFormProps {
   eventId: string;
@@ -20,6 +22,7 @@ interface RSVPFormProps {
   venueLabel?: string | null;
   address?: string | null;
   tags?: string | null;
+  flights?: string[] | null;
   onBack?: () => void;
 }
 
@@ -46,6 +49,7 @@ export default function RSVPForm({
   venueLabel,
   address,
   tags,
+  flights,
   onBack,
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
@@ -62,7 +66,9 @@ export default function RSVPForm({
   const [submitted, setSubmitted] = useState(
     searchParams.get("test") === "success" || !!searchParams.get("session_id"),
   );
-  const [supportCents, setSupportCents] = useState(2000);
+  const optIn = !!flights?.includes(PAYMENT_MODEL);
+  const flightLabel = optIn ? "opt-in" : "opt-out";
+  const [supportCents, setSupportCents] = useState(optIn ? 0 : 2000);
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
   const formatCents = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
@@ -81,6 +87,16 @@ export default function RSVPForm({
       emailInputRef.current?.focus();
     }
   }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      posthog.capture("rsvp_viewed", {
+        event_id: eventId,
+        [flightProp(PAYMENT_MODEL)]: flightLabel,
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [eventId, flightLabel]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -120,6 +136,14 @@ export default function RSVPForm({
 
       sessionStorage.setItem("stayConnectedCompleted", "true");
 
+      posthog.capture("rsvp_submitted", {
+        event_id: eventId,
+        guests: formData.guests,
+        paid: supportCents > 0,
+        amount_cents: supportCents,
+        [flightProp(PAYMENT_MODEL)]: flightLabel,
+      });
+
       if (supportCents > 0) {
         const checkoutRes = await fetch("/api/create-checkout-session", {
           method: "POST",
@@ -130,7 +154,12 @@ export default function RSVPForm({
             customerEmail: formData.email,
             successPath: `/rsvp/${eventId}`,
             cancelPath: `/rsvp/${eventId}`,
-            metadata: { eventId, name: formData.name },
+            metadata: {
+              eventId,
+              name: formData.name,
+              flightPaymentModel: flightLabel,
+              phDistinctId: posthog.get_distinct_id?.() ?? "",
+            },
           }),
         });
         const checkoutData = await checkoutRes.json();
@@ -222,7 +251,7 @@ export default function RSVPForm({
     <>
       <div>
         <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
-          Pay what this experience is worth to you
+          What&apos;s this experience worth to you?
         </label>
         <div className="flex items-stretch h-14 lg:h-[4.5rem]">
           <button
@@ -369,7 +398,7 @@ export default function RSVPForm({
 
                 <div>
                   <label className="block text-neutral-600 dark:text-neutral-300 text-sm mb-2">
-                    How many people?
+                    How many people? *
                   </label>
                   <div className="flex items-stretch h-14">
                     <button
@@ -467,7 +496,7 @@ export default function RSVPForm({
 
                 <div>
                   <label className="block text-neutral-600 dark:text-neutral-300 text-lg mb-2">
-                    How many people?
+                    How many people? *
                   </label>
                   <div className="flex items-stretch h-[4.5rem]">
                     <button

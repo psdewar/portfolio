@@ -12,6 +12,7 @@ import {
 import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "../../../../lib/supabase-admin";
 import { sendDownloadEmail } from "../../../../lib/sendgrid";
 import PostHogClient from "../../../../lib/posthog";
+import { PAYMENT_MODEL, flightProp } from "../../../lib/flights";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -148,6 +149,29 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     if (metadata.trackId) {
       await handleLegacyTrackPurchase(session);
     }
+  }
+
+  if (productId === "support-next-concert") {
+    await trackRsvpSupportPaid(session);
+  }
+}
+
+async function trackRsvpSupportPaid(session: Stripe.Checkout.Session) {
+  try {
+    const metadata = session.metadata || {};
+    const posthog = PostHogClient();
+    posthog.capture({
+      distinctId: metadata.phDistinctId || session.customer_details?.email || session.id,
+      event: "rsvp_support_paid",
+      properties: {
+        amount: (session.amount_total || 0) / 100,
+        event_id: metadata.eventId,
+        [flightProp(PAYMENT_MODEL)]: metadata.flightPaymentModel || "opt-out",
+      },
+    });
+    await posthog.shutdown();
+  } catch (error) {
+    console.error("Error tracking rsvp support payment:", error);
   }
 }
 

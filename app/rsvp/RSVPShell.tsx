@@ -59,6 +59,7 @@ export default function RSVPShell({
           venueLabel={selected.venueLabel}
           address={selected.address}
           tags={selected.tags}
+          flights={selected.flights}
           onBack={handleBack}
         />
       </>

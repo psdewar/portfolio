@@ -13,6 +13,7 @@ import {
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
+import { PAYMENT_MODEL } from "../../lib/flights";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import {
   formatEventDate,
@@ -825,7 +826,7 @@ function PosterEditor({
   matchedPamphlet: Pamphlet | null;
   onPamphletSaved: (p: Pamphlet) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
-  variant: "card" | "leg";
+  variant: "card" | "leg" | "drawer";
 }) {
   const isSingle = group.length === 1;
   const soloShow = group[0].show;
@@ -909,7 +910,6 @@ function PosterEditor({
   const [dateFocus, setDateFocus] = useState<string | null>(null);
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState("");
-  const [standalone, setStandalone] = useState(soloShow?.standalone ?? false);
   const [centerLogo, setCenterLogo] = useState(
     isSingle ? (soloShow?.centerLogo ?? false) : (matchedPamphlet?.centerLogo ?? false),
   );
@@ -1112,18 +1112,6 @@ function PosterEditor({
     params.set("doorLabel", doorLabels[soloShow!.slug] ?? "");
     if (asJpg) params.set("jpg", "true");
     return `/api/poster/${soloShow!.slug}?${params.toString()}`;
-  };
-
-  // Persists immediately so the page regroups without waiting for download.
-  const toggleStandalone = async (val: boolean) => {
-    if (!soloShow) return;
-    setStandalone(val);
-    await fetch("/api/shows", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: soloShow.slug, standalone: val }),
-    });
-    onShowUpdate(soloShow.slug, { standalone: val });
   };
 
   const persistShow = async () => {
@@ -1472,15 +1460,6 @@ function PosterEditor({
                     placeholder={`Doors open at ${soloShow?.doorTime || "7PM"}`}
                     className={`${inputCls} mb-3`}
                   />
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
-                    <input
-                      type="checkbox"
-                      checked={standalone}
-                      onChange={(e) => toggleStandalone(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>Keep separate — never group into a pamphlet leg</span>
-                  </label>
                 </>
               ) : (
                 <>
@@ -1768,6 +1747,14 @@ function PosterEditor({
         >
           Poster
         </button>
+      ) : variant === "drawer" ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        >
+          <span>Poster</span>
+          <span className="text-neutral-400">Edit</span>
+        </button>
       ) : (
         <button
           onClick={() => setOpen(true)}
@@ -1810,7 +1797,6 @@ function ShowGroupCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const [confirmAccess, setConfirmAccess] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1827,6 +1813,43 @@ function ShowGroupCard({
   const [editingDate, setEditingDate] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const dateSave = useDebouncedSave(show, onShowUpdate);
+  const [managing, setManaging] = useState(false);
+
+  const patchShow = async (fields: Partial<Show>) => {
+    if (!show?.slug) return;
+    onShowUpdate(show.slug, fields);
+    await fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: show.slug, ...fields }),
+    });
+  };
+
+  const flightOn = !!show?.flights?.includes(PAYMENT_MODEL);
+  const toggleFlight = (on: boolean) => {
+    const others = (show?.flights ?? []).filter((f) => f !== PAYMENT_MODEL);
+    patchShow({ flights: on ? [...others, PAYMENT_MODEL] : others });
+  };
+
+  const openEmail = () => {
+    setEmailOpen(true);
+    setEmailResult(null);
+    setEmailConfirming(false);
+    fetch("/api/rsvp")
+      .then((r) => r.json())
+      .then((counts) => {
+        const c = counts[group.showSlug];
+        setEmailRecipientCount(c?.responses || 0);
+        setRsvpCounts(c || null);
+      })
+      .catch(() => {
+        setEmailRecipientCount(null);
+        setRsvpCounts(null);
+      });
+  };
+
+  const drawerRow =
+    "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors";
 
   useEffect(() => {
     if (!group.showSlug) return;
@@ -2115,9 +2138,165 @@ function ShowGroupCard({
           {emailResult && <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>}
         </Modal>
       )}
+      {managing && (
+        <Modal
+          onClose={() => setManaging(false)}
+          title={`MANAGE${show?.slug ? ` · ${show.slug}` : ""}`}
+        >
+          <div className="space-y-5">
+            {show?.slug && (
+              <section className="space-y-1">
+                <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Show</h5>
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                    Visibility · {show.visibility === "private" ? "Private" : "Public"}
+                  </span>
+                  <button
+                    onClick={() =>
+                      patchShow({
+                        visibility: show.visibility === "private" ? "public" : "private",
+                      })
+                    }
+                    className="text-sm font-medium text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+                  >
+                    {show.visibility === "private" ? "Make public" : "Make private"}
+                  </button>
+                </div>
+                <label className={`${drawerRow} cursor-pointer`}>
+                  <span>Keep separate · never group into a pamphlet leg</span>
+                  <input
+                    type="checkbox"
+                    checked={!!show.standalone}
+                    onChange={(e) => patchShow({ standalone: e.target.checked })}
+                    className="rounded shrink-0 ml-3"
+                  />
+                </label>
+                <label className={`${drawerRow} cursor-pointer`}>
+                  <span>Opt-in payments · start at $0 instead of $20</span>
+                  <input
+                    type="checkbox"
+                    checked={flightOn}
+                    onChange={(e) => toggleFlight(e.target.checked)}
+                    className="rounded shrink-0 ml-3"
+                  />
+                </label>
+              </section>
+            )}
+
+            <section className="space-y-1">
+              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">People</h5>
+              <button
+                className={drawerRow}
+                onClick={() => {
+                  setManaging(false);
+                  setEditingHost(true);
+                }}
+              >
+                <span>Amend host</span>
+                <span className="text-neutral-400 truncate ml-3">{host.name || host.email}</span>
+              </button>
+              {supporters.length > 0 && (
+                <button
+                  className={drawerRow}
+                  onClick={() => {
+                    setManaging(false);
+                    setViewingSupporters(true);
+                  }}
+                >
+                  <span>Supporters</span>
+                  <span className="text-neutral-400">+{supporters.length}</span>
+                </button>
+              )}
+            </section>
+
+            <section className="space-y-1">
+              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Promote</h5>
+              <button
+                className={drawerRow}
+                onClick={() => {
+                  setManaging(false);
+                  openEmail();
+                }}
+              >
+                <span>Email RSVPs</span>
+                {rsvpCounts && <span className="text-neutral-400">{rsvpCounts.responses}</span>}
+              </button>
+              {show?.slug && (
+                <PosterEditor
+                  group={[group]}
+                  matchedPamphlet={null}
+                  onPamphletSaved={() => {}}
+                  onShowUpdate={onShowUpdate}
+                  variant="drawer"
+                />
+              )}
+              <button
+                disabled
+                title="PDF renovating"
+                className={`${drawerRow} opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent`}
+              >
+                <span>PDF</span>
+                <span className="text-neutral-400">soon</span>
+              </button>
+            </section>
+
+            <section className="space-y-1">
+              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Danger</h5>
+              {!confirmDelete ? (
+                <button
+                  className={`${drawerRow} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20`}
+                  onClick={() => {
+                    setConfirmDelete(true);
+                    setDeleteInput("");
+                  }}
+                >
+                  <span>Delete show</span>
+                </button>
+              ) : (
+                <div className="px-3 py-2 space-y-2">
+                  {rsvpCounts &&
+                    rsvpCounts.responses > 0 &&
+                    !emailSentSlugs.has(group.showSlug) && (
+                      <p className="text-xs text-amber-600 dark:text-amber-500">
+                        ⚠ {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
+                        notified. Send a cancel email first.
+                      </p>
+                    )}
+                  <div className="flex gap-2 items-center">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={deleteInput}
+                      onChange={(e) => setDeleteInput(e.target.value)}
+                      placeholder='type "delete"'
+                      className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                    />
+                    <button
+                      onClick={handleDeleteShow}
+                      disabled={deleteInput !== "delete" || deleting}
+                      className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+                    >
+                      {deleting ? "Deleting..." : "Confirm"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setConfirmDelete(false);
+                        setDeleteInput("");
+                      }}
+                      className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        </Modal>
+      )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
-        <div className="flex flex-1">
-          <div className="flex-1 min-w-0 p-5 flex flex-col justify-center gap-3">
+        <div className="flex-1 p-5 flex flex-col gap-3">
+          <div className="min-w-0">
             <div>
               {show?.slug ? (
                 <div className="flex items-center gap-2 relative">
@@ -2170,153 +2349,40 @@ function ShowGroupCard({
 
           </div>
 
-          <div className="shrink-0 flex flex-col border-l border-neutral-200 dark:border-neutral-800 w-28">
-            <button
-              disabled
-              title="PDF renovating"
-              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-300 dark:text-neutral-700 cursor-not-allowed"
-            >
-              PDF
-            </button>
-            {show?.slug && isShowDraft(show) && (
+          <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+            {show?.slug && isShowDraft(show) ? (
               <Link
                 href={`/admin/pending?created=${show.slug}`}
-                className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-sky-600 dark:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-950/50 transition-colors"
               >
                 Draft
               </Link>
-            )}
-            {show?.slug &&
-              (confirmAccess ? (
-                <div className="flex items-center justify-center gap-1 text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800">
-                  <button
-                    onClick={async () => {
-                      const next = show.visibility === "private" ? "public" : "private";
-                      onShowUpdate(show.slug, { visibility: next });
-                      setConfirmAccess(false);
-                      await fetch("/api/shows", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ slug: show.slug, visibility: next }),
-                      });
-                    }}
-                    className="text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
-                  >
-                    {show.visibility === "private" ? "Make Public" : "Make Private"}
-                  </button>
-                  <span className="text-neutral-300 dark:text-neutral-700">/</span>
-                  <button
-                    onClick={() => setConfirmAccess(false)}
-                    className="text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmAccess(true)}
-                  className={`flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 transition-colors ${
-                    show.visibility === "private"
-                      ? "text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  }`}
-                >
-                  {show.visibility === "private" ? "Private" : "Public"}
-                </button>
-              ))}
-            {supporters.length > 0 && (
-              <button
-                onClick={() => setViewingSupporters(true)}
-                className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            ) : show?.slug ? (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                  show.visibility === "private"
+                    ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
+                    : "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400"
+                }`}
               >
-                +{supporters.length}
-              </button>
-            )}
-            <button
-              onClick={() => setEditingHost(true)}
-              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              Amend
-            </button>
-            <button
-              onClick={() => {
-                setEmailOpen(true);
-                setEmailResult(null);
-                setEmailConfirming(false);
-                fetch("/api/rsvp")
-                  .then((r) => r.json())
-                  .then((counts) => {
-                    const c = counts[group.showSlug];
-                    setEmailRecipientCount(c?.responses || 0);
-                    setRsvpCounts(c || null);
-                  })
-                  .catch(() => {
-                    setEmailRecipientCount(null);
-                    setRsvpCounts(null);
-                  });
-              }}
-              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              Email
-            </button>
-            <button
-              onClick={() => {
-                setConfirmDelete(true);
-                setDeleteInput("");
-              }}
-              className="flex items-center justify-center text-sm px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-            >
-              Delete
-            </button>
-            {show?.slug ? (
-              <PosterEditor
-                group={[group]}
-                matchedPamphlet={null}
-                onPamphletSaved={() => {}}
-                onShowUpdate={onShowUpdate}
-                variant="card"
-              />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    show.visibility === "private" ? "bg-amber-500" : "bg-green-500"
+                  }`}
+                />
+                {show.visibility === "private" ? "Private" : "Public"}
+              </span>
             ) : (
-              <div className="flex-1" />
+              <span className="text-xs text-neutral-400">No show</span>
             )}
+            <button
+              onClick={() => setManaging(true)}
+              className="text-sm font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              Manage
+            </button>
           </div>
         </div>
-        {confirmDelete && (
-          <div className="border-t border-neutral-200 dark:border-neutral-800">
-            {rsvpCounts && rsvpCounts.responses > 0 && !emailSentSlugs.has(group.showSlug) && (
-              <div className="px-5 pt-3 text-xs text-amber-600 dark:text-amber-500">
-                ⚠ {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
-                notified. Send a cancel email first.
-              </div>
-            )}
-            <div className="flex gap-2 items-center px-5 py-3">
-              <input
-                autoFocus
-                type="text"
-                value={deleteInput}
-                onChange={(e) => setDeleteInput(e.target.value)}
-                placeholder='type "delete"'
-                className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
-              />
-              <button
-                onClick={handleDeleteShow}
-                disabled={deleteInput !== "delete" || deleting}
-                className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-              >
-                {deleting ? "Deleting..." : "Confirm"}
-              </button>
-              <button
-                onClick={() => {
-                  setConfirmDelete(false);
-                  setDeleteInput("");
-                }}
-                className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
