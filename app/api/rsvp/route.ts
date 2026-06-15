@@ -62,9 +62,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, email, guests, eventId } = body;
+    const { name, email, phone, guests, eventId } = body;
 
-    console.log("[RSVP API] Received:", { name, email, guests, eventId });
+    console.log("[RSVP API] Received:", { name, email, phone, guests, eventId });
 
     if (!email?.trim() || !isEmailValid(email.trim())) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const guestCount = Math.max(1, Math.min(10, parseInt(guests, 10) || 1));
     try {
-      await upsertRsvp({ email, name, slug: eventId, guests: guestCount });
+      await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount });
     } catch (saveError) {
       console.error("[RSVP] Save error:", saveError);
       return NextResponse.json(

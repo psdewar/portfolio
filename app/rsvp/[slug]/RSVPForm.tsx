@@ -123,6 +123,7 @@ export default function RSVPForm({
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
+          phone: formData.phone,
           guests: formData.guests,
           eventId,
         }),
