@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import TourStops from "../components/TourStops";
 import TipsAndSocials, { SocialSection } from "./TipsAndSocials";
 import { SupporterSection } from "../components/SupporterSection";
+import { ShopContent } from "../components/ShopContent";
 import { getShows, isShowListable } from "../lib/shows";
 
 const REGION_TZ: Record<string, string> = {
@@ -42,6 +43,10 @@ export default async function SupportPage({
       <Suspense>
         <TipsAndSocials interacFirst={!!todayShow} />
       </Suspense>
+
+      <section id="preorder" className="scroll-mt-16 lg:mb-12">
+        <ShopContent embedded />
+      </section>
 
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
         <div className="flex flex-col gap-4 max-w-lg mx-auto">

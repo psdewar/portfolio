@@ -7,7 +7,7 @@ import { TRACK_DATA } from "../data/tracks";
 
 const PRODUCT_ID = "tee-patience";
 const GOLD = "#c59d57";
-const PRICE = "40";
+const PRICE = "45";
 const PATIENCE_COVER = TRACK_DATA.find((t) => t.id === "patience")?.thumbnail ?? "";
 
 const COLORS = [
@@ -36,7 +36,7 @@ const FINE_PRINT = [
 const mono = { fontFamily: "var(--font-space-mono)" } as const;
 const parkinsans = { fontFamily: "var(--font-parkinsans)" } as const;
 
-export function ShopContent() {
+export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [colorId, setColorId] = useState<string>(COLORS[0].id);
   const [prevColorId, setPrevColorId] = useState<string>(COLORS[0].id);
   const [size, setSize] = useState<string>("M");
@@ -80,7 +80,11 @@ export function ShopContent() {
   });
 
   return (
-    <div className="flex min-w-0 flex-col bg-stone-50 dark:bg-neutral-950 lg:min-h-[calc(100svh-4rem-var(--player-h,0px))] lg:flex-row">
+    <div
+      className={`flex min-w-0 flex-col bg-stone-50 dark:bg-neutral-950 lg:flex-row ${
+        embedded ? "" : "lg:min-h-[calc(100svh-4rem-var(--player-h,0px))]"
+      }`}
+    >
       <div className="relative aspect-square w-full bg-white lg:aspect-auto lg:w-1/2">
         {COLORS.map((c) => {
           const active = c.id === colorId;

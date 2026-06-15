@@ -275,7 +275,7 @@ export const PRODUCTS: Record<string, Product> = {
     name: "All I Need Is Patience Tee",
     description: "100% cotton tee",
     type: "physical",
-    basePriceCents: 4000,
+    basePriceCents: 4500,
     images: [
       "https://peytspencer.com/images/merch/patience-navy.jpeg",
       "https://peytspencer.com/images/merch/patience-forest.jpeg",
