@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { sendShowBlast } from "../../../../lib/sendgrid";
+import { namesByEmail } from "../../../lib/rsvp";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 import { isAdminAuthorized } from "../../shared/admin-auth";
 import {
@@ -14,44 +15,20 @@ const TEST_FALLBACK = "psd@lyrist.app";
 async function fetchRecipientsForSlugs(
   slugs: string[],
 ): Promise<Array<{ email: string; name: string }>> {
-  const slugSet = new Set(slugs);
-  const overlapsList = slugs.join(",");
+  const [attRes, rsvpRes] = await Promise.all([
+    supabaseAdmin.from("attendances").select("email").in("show_slug", slugs),
+    supabaseAdmin.from("rsvps").select("email").in("show_slug", slugs),
+  ]);
+  if (attRes.error) throw new Error(attRes.error.message);
+  if (rsvpRes.error) throw new Error(rsvpRes.error.message);
 
-  const { data, error } = await supabaseAdmin
-    .from("stay-connected")
-    .select("name, email, rsvp, attended")
-    .or(`rsvp.not.is.null,attended.ov.{${overlapsList}}`);
-  if (error) throw new Error(error.message);
+  const emails = new Set<string>();
+  for (const row of attRes.data || []) emails.add(row.email);
+  for (const row of rsvpRes.data || []) emails.add(row.email);
+  if (emails.size === 0) return [];
 
-  const seen = new Set<string>();
-  const recipients: Array<{ email: string; name: string }> = [];
-
-  for (const row of data || []) {
-    if (seen.has(row.email)) continue;
-
-    let match = false;
-    for (const entry of row.rsvp || []) {
-      if (slugSet.has(entry.split(":")[0])) {
-        match = true;
-        break;
-      }
-    }
-    if (!match) {
-      for (const slug of row.attended || []) {
-        if (slugSet.has(slug)) {
-          match = true;
-          break;
-        }
-      }
-    }
-
-    if (match) {
-      seen.add(row.email);
-      recipients.push({ email: row.email, name: row.name || "" });
-    }
-  }
-
-  return recipients;
+  const names = await namesByEmail([...emails]);
+  return [...emails].map((email) => ({ email, name: names.get(email) || "" }));
 }
 
 export async function POST(request: Request) {

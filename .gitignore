@@ -51,3 +51,5 @@ node_modules/
 .claude/
 
 .env.local
+_db*.mjs
+supabase/prod-ca-2021.crt

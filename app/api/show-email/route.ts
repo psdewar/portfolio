@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendShowBlast } from "../../../lib/sendgrid";
+import { namesByEmail } from "../../lib/rsvp";
 
 const SELF_EMAIL = "psd@lyrist.app";
 
@@ -20,23 +21,19 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("stay-connected")
-    .select("name, email, rsvp")
-    .not("rsvp", "is", null);
+  const { data: rows, error } = await supabaseAdmin
+    .from("rsvps")
+    .select("email")
+    .eq("show_slug", slug);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const recipients: { email: string; name: string }[] = [];
-  for (const row of data || []) {
-    if ((row.rsvp || []).some((r: string) => r.startsWith(slug))) {
-      recipients.push({ email: row.email, name: row.name || "" });
-    }
-  }
-
-  if (recipients.length === 0) {
+  if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "No RSVPs found for this show" }, { status: 404 });
   }
+
+  const names = await namesByEmail(rows.map((r) => r.email));
+  const recipients = rows.map((r) => ({ email: r.email, name: names.get(r.email) || "" }));
 
   const result = await sendShowBlast({ recipients, subject, body, sendAt });
   return NextResponse.json({ ...result, total: recipients.length });

@@ -2,24 +2,34 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { isAdminAuthorized } from "../../shared/admin-auth";
 import { isEmailValid } from "../../../lib/email";
+import { namesByEmail } from "../../../lib/rsvp";
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthorized(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("stay-connected")
-    .select("name, email, rsvp, attended");
-
+  const [attRes, rsvpRes] = await Promise.all([
+    supabaseAdmin.from("attendances").select("show_slug, email"),
+    supabaseAdmin.from("rsvps").select("show_slug, email"),
+  ]);
+  const error = attRes.error || rsvpRes.error;
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const names = await namesByEmail([
+    ...new Set([
+      ...(attRes.data || []).map((r) => r.email),
+      ...(rsvpRes.data || []).map((r) => r.email),
+    ]),
+  ]);
+
   const grouped: Record<string, Array<{ name: string; email: string }>> = {};
   const seenPerSlug = new Map<string, Set<string>>();
 
-  function add(slug: string, name: string, email: string) {
+  function add(slug: string, email: string) {
+    if (!slug || !email) return;
     if (!grouped[slug]) {
       grouped[slug] = [];
       seenPerSlug.set(slug, new Set());
@@ -27,21 +37,12 @@ export async function GET(request: Request) {
     const seen = seenPerSlug.get(slug)!;
     if (!seen.has(email)) {
       seen.add(email);
-      grouped[slug].push({ name, email });
+      grouped[slug].push({ name: names.get(email) || "", email });
     }
   }
 
-  for (const row of data || []) {
-    const name = row.name || "";
-    const email = row.email;
-    for (const entry of row.rsvp || []) {
-      const slug = entry.split(":")[0];
-      if (slug) add(slug, name, email);
-    }
-    for (const slug of row.attended || []) {
-      if (slug) add(slug, name, email);
-    }
-  }
+  for (const row of rsvpRes.data || []) add(row.show_slug, row.email);
+  for (const row of attRes.data || []) add(row.show_slug, row.email);
 
   return NextResponse.json(grouped);
 }
@@ -68,15 +69,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That email looks invalid." }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin.from("stay-connected").insert({
-    name: name || null,
-    email: email || null,
-    phone: phone || null,
-    attended: attended.length ? attended : null,
-  });
+  if (email) {
+    const { data: existing } = await supabaseAdmin
+      .from("stay-connected")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (existing) {
+      if (name || phone) {
+        const { error } = await supabaseAdmin
+          .from("stay-connected")
+          .update({ ...(name && { name }), ...(phone && { phone }) })
+          .eq("id", existing.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    } else {
+      const { error } = await supabaseAdmin
+        .from("stay-connected")
+        .insert({ name: name || null, email, phone: phone || null });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (attended.length) {
+      const rows = attended.map((slug) => ({ show_slug: slug, email }));
+      const { error } = await supabaseAdmin
+        .from("attendances")
+        .upsert(rows, { onConflict: "show_slug,email", ignoreDuplicates: true });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  } else {
+    const { error } = await supabaseAdmin.from("stay-connected").insert({ name: name || null });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

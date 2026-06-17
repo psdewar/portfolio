@@ -4,43 +4,37 @@ import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows, isShowUpcoming } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
-import { upsertRsvp } from "../../lib/rsvp";
+import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const detail = searchParams.get("detail");
 
   const { data, error } = await supabaseAdmin
-    .from("stay-connected")
-    .select("name, email, rsvp")
-    .not("rsvp", "is", null);
+    .from("rsvps")
+    .select("show_slug, email, guests");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (detail === "emails") {
+    const names = await namesByEmail([...new Set((data || []).map((r) => r.email))]);
     const grouped: Record<string, { name: string; email: string; guests: number }[]> = {};
     for (const row of data || []) {
-      for (const entry of row.rsvp || []) {
-        const parts = entry.split(":");
-        const slug = parts[0];
-        const guests = parseInt(parts[1] || "1", 10);
-        if (!grouped[slug]) grouped[slug] = [];
-        grouped[slug].push({ name: row.name || "", email: row.email, guests });
-      }
+      if (!grouped[row.show_slug]) grouped[row.show_slug] = [];
+      grouped[row.show_slug].push({
+        name: names.get(row.email) || "",
+        email: row.email,
+        guests: row.guests ?? 1,
+      });
     }
     return NextResponse.json(grouped);
   }
 
   const counts: Record<string, { responses: number; attending: number }> = {};
   for (const row of data || []) {
-    for (const entry of row.rsvp || []) {
-      const parts = entry.split(":");
-      const slug = parts[0];
-      const guests = parseInt(parts[1] || "1", 10);
-      if (!counts[slug]) counts[slug] = { responses: 0, attending: 0 };
-      counts[slug].responses += 1;
-      counts[slug].attending += guests;
-    }
+    if (!counts[row.show_slug]) counts[row.show_slug] = { responses: 0, attending: 0 };
+    counts[row.show_slug].responses += 1;
+    counts[row.show_slug].attending += row.guests ?? 1;
   }
   return NextResponse.json(counts);
 }
@@ -128,30 +122,14 @@ export async function DELETE(request: Request) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("stay-connected")
-      .select("id, rsvp")
-      .not("rsvp", "is", null);
+      .from("rsvps")
+      .delete()
+      .eq("show_slug", slug)
+      .select("id");
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const prefix = `${slug}:`;
-    let affected = 0;
-    for (const row of data || []) {
-      const original: string[] = row.rsvp || [];
-      const filtered = original.filter((e) => !e.startsWith(prefix));
-      if (filtered.length === original.length) continue;
-      const { error: updateError } = await supabaseAdmin
-        .from("stay-connected")
-        .update({ rsvp: filtered.length > 0 ? filtered : null })
-        .eq("id", row.id);
-      if (updateError) {
-        console.error("[RSVP DELETE] Update error for row", row.id, updateError);
-        continue;
-      }
-      affected += 1;
-    }
-
-    return NextResponse.json({ ok: true, affected });
+    return NextResponse.json({ ok: true, affected: (data || []).length });
   } catch (error) {
     console.error("[RSVP DELETE] Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
