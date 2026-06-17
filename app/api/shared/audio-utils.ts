@@ -6,6 +6,7 @@ import { isValidAsset, isTestAsset, DIGITAL_ASSETS } from "./products";
 export const ALLOWED_ORIGINS = [
   "https://peytspencer.com",
   "https://www.peytspencer.com",
+  "https://dev.peytspencer.com",
   "http://localhost:3000",
   "https://peytspencer.vercel.app",
 ];

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
-import ContactFields from "../../components/ContactFields";
+import FormInput from "../../components/FormInput";
 import Poster from "../../components/Poster";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
@@ -29,12 +29,10 @@ interface RSVPFormProps {
 interface FormData {
   name: string;
   email: string;
-  phone: string;
   guests: number;
 }
 
 interface FormErrors {
-  name?: string;
   email?: string;
 }
 
@@ -58,7 +56,6 @@ export default function RSVPForm({
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
-    phone: "",
     guests: 1,
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -123,7 +120,6 @@ export default function RSVPForm({
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          phone: formData.phone,
           guests: formData.guests,
           eventId,
         }),
@@ -136,6 +132,9 @@ export default function RSVPForm({
       }
 
       sessionStorage.setItem("stayConnectedCompleted", "true");
+      const emailLower = formData.email.trim().toLowerCase();
+      posthog.identify(emailLower);
+      localStorage.setItem("attendeeEmail", emailLower);
 
       posthog.capture("rsvp_submitted", {
         event_id: eventId,
@@ -385,16 +384,25 @@ export default function RSVPForm({
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <ContactFields
+                <FormInput
                   ref={emailInputRef}
-                  email={formData.email}
-                  name={formData.name}
-                  phone={formData.phone}
-                  onEmailChange={(v) => updateField("email", v)}
-                  onNameChange={(v) => updateField("name", v)}
-                  onPhoneChange={(v) => updateField("phone", v)}
-                  errors={errors}
+                  type="email"
+                  placeholder="Email address *"
+                  value={formData.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  error={errors.email}
                   variant="gold"
+                  enterKeyHint="next"
+                  autoComplete="email"
+                />
+                <FormInput
+                  type="text"
+                  placeholder="Name"
+                  value={formData.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  variant="gold"
+                  enterKeyHint="done"
+                  autoComplete="name"
                 />
 
                 <div>
@@ -483,16 +491,25 @@ export default function RSVPForm({
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                <ContactFields
+                <FormInput
                   ref={emailInputRef}
-                  email={formData.email}
-                  name={formData.name}
-                  phone={formData.phone}
-                  onEmailChange={(v) => updateField("email", v)}
-                  onNameChange={(v) => updateField("name", v)}
-                  onPhoneChange={(v) => updateField("phone", v)}
-                  errors={errors}
+                  type="email"
+                  placeholder="Email address *"
+                  value={formData.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  error={errors.email}
                   variant="gold"
+                  enterKeyHint="next"
+                  autoComplete="email"
+                />
+                <FormInput
+                  type="text"
+                  placeholder="Name"
+                  value={formData.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  variant="gold"
+                  enterKeyHint="done"
+                  autoComplete="name"
                 />
 
                 <div>

@@ -81,6 +81,32 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   return shows.find((s) => s.slug === slug) || null;
 }
 
+const CHECKIN_TZ: Record<string, string> = {
+  WA: "America/Los_Angeles",
+  OR: "America/Los_Angeles",
+  CA: "America/Los_Angeles",
+  BC: "America/Vancouver",
+  NY: "America/New_York",
+  NJ: "America/New_York",
+  PA: "America/New_York",
+  MA: "America/New_York",
+  MD: "America/New_York",
+  FL: "America/New_York",
+  ON: "America/Toronto",
+  QC: "America/Toronto",
+};
+
+// Self check-in is open only on the show's local calendar day.
+export function isCheckinLive(
+  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "region">,
+): boolean {
+  if (show.status === "cancelled" || isShowDraft(show) || show.visibility === "private") {
+    return false;
+  }
+  const tz = CHECKIN_TZ[show.region] ?? "America/New_York";
+  return new Date().toLocaleDateString("en-CA", { timeZone: tz }) === show.date;
+}
+
 export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue">): string | null {
   return show.venueLabel || show.venue || null;
 }
