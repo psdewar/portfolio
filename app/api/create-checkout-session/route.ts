@@ -29,11 +29,14 @@ function buildLineItem(
     ).toLowerCase()} ${description}`;
   }
 
+  const color = metadata?.color?.toLowerCase();
+  const colorImage = color ? product.images?.find((u) => u.toLowerCase().includes(color)) : undefined;
+
   return {
     name: product.name,
     amountCents: amount,
     description,
-    images: product.images,
+    images: colorImage ? [colorImage] : product.images,
     quantity: 1,
   };
 }
@@ -149,6 +152,40 @@ export async function POST(request: NextRequest) {
       customCancelPath?.startsWith("/") && !customCancelPath.startsWith("//")
         ? customCancelPath
         : product.cancelPath;
+
+    // Embedded checkout via Tiger — stays on our page, inline success (no returnUrl)
+    if (body.embedded) {
+      const embeddedRequest: Parameters<typeof createCheckout>[0] = {
+        mode: "payment",
+        uiMode: "embedded",
+        successUrl: `${baseUrl}/support`,
+        cancelUrl: `${baseUrl}/support`,
+        metadata: buildSessionMetadata(product, finalAmount, ip, metadata),
+        ...(customerEmail && { customerEmail }),
+      };
+
+      if (product.stripePriceId) {
+        embeddedRequest.priceId = product.stripePriceId;
+      } else {
+        embeddedRequest.lineItems = [buildLineItem(product, finalAmount, metadata)];
+      }
+
+      if (requiresShipping(product) && !skipShipping) {
+        const countries = getAllowedCountries(product);
+        const shippingConfig = getShippingConfig(product);
+        embeddedRequest.shipping = { allowedCountries: countries };
+        if (shippingConfig && typeof shippingConfig !== "string") {
+          embeddedRequest.shipping.options = [shippingConfig];
+        }
+      }
+
+      if (shouldCollectPhone(product) && !skipShipping) {
+        embeddedRequest.collectPhone = true;
+      }
+
+      const { clientSecret } = await createCheckout(embeddedRequest);
+      return NextResponse.json({ clientSecret });
+    }
 
     // Build Tiger request
     const tigerRequest: Parameters<typeof createCheckout>[0] = {

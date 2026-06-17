@@ -11,6 +11,7 @@ import { formatEventDate, formatEventDateShort } from "../../../lib/dates";
 import ConfirmForm from "./ConfirmForm";
 import SingleCard from "./SingleCard";
 import ScrollToConfirm from "./ScrollToConfirm";
+import PosterScrollOverlay from "./PosterScrollOverlay";
 import SponsorAvatar from "../../SponsorAvatar";
 
 export async function generateMetadata({
@@ -132,16 +133,7 @@ export default async function ConfirmPage({
           >
             {posterEl}
             {show.visibility === "private" && (
-              <div className="absolute inset-0 z-10 flex items-end bg-black/60 p-6">
-                <div>
-                  <p className="text-white text-base leading-relaxed font-medium">
-                    No RSVPs{show.privateNote ? `: ${show.privateNote}` : ""}
-                  </p>
-                  <p className="text-white/80 text-base leading-relaxed mt-1">
-                    Date and location still included in promotional materials
-                  </p>
-                </div>
-              </div>
+              <PosterScrollOverlay note={show.privateNote ?? undefined} />
             )}
           </div>
 

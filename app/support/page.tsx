@@ -44,8 +44,10 @@ export default async function SupportPage({
         <TipsAndSocials interacFirst={!!todayShow} />
       </Suspense>
 
-      <section id="preorder" className="scroll-mt-16 lg:mb-12">
-        <ShopContent embedded />
+      <section id="preorder" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-16">
+        <div className="max-w-lg mx-auto">
+          <ShopContent embedded />
+        </div>
       </section>
 
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">

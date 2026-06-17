@@ -10,7 +10,10 @@ export type {
   ShippingOption,
 } from "tiger-client";
 
-const tiger = createTigerClient({ appKey: getSecureEnv("TIGER_APP_KEY") });
+const tiger = createTigerClient({
+  appKey: getSecureEnv("TIGER_APP_KEY"),
+  baseUrl: process.env.TIGER_BASE_URL,
+});
 
 export const createCheckout = tiger.checkout;
 export const getSession = tiger.getSession;

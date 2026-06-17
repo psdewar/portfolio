@@ -15,5 +15,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <ShopContent />;
+  return (
+    <div className="mx-auto w-full max-w-lg px-4 py-8 sm:px-6">
+      <ShopContent embedded />
+    </div>
+  );
 }

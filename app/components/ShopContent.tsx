@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 import { TRACK_DATA } from "../data/tracks";
+
+const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), { ssr: false });
 
 const PRODUCT_ID = "tee-patience";
 const GOLD = "#c59d57";
@@ -42,8 +45,19 @@ export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [size, setSize] = useState<string>("M");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const color = COLORS.find((c) => c.id === colorId) ?? COLORS[0];
+
+  useEffect(() => {
+    const c = sessionStorage.getItem("preorderColor");
+    const s = sessionStorage.getItem("preorderSize");
+    if (c && COLORS.some((x) => x.id === c)) {
+      setColorId(c);
+      setPrevColorId(c);
+    }
+    if (s && (SIZES as readonly string[]).includes(s)) setSize(s);
+  }, []);
 
   const selectColor = (id: string) => {
     if (id === colorId) return;
@@ -53,9 +67,15 @@ export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
 
   const reserve = async () => {
     if (!size || loading) return;
+    sessionStorage.setItem("preorderColor", colorId);
+    sessionStorage.setItem("preorderSize", size);
+    posthog.capture("preorder_initiated", { product: PRODUCT_ID, color: colorId, size });
+    if (embedded) {
+      setShowCheckout(true);
+      return;
+    }
     setLoading(true);
     setError("");
-    posthog.capture("preorder_initiated", { product: PRODUCT_ID, color: colorId, size });
     try {
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
@@ -79,13 +99,52 @@ export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
     animationFillMode: "both",
   });
 
+  const header = (
+    <div className="animate-slide-up-fade flex items-start gap-4" style={rise(0)}>
+      <img
+        src={PATIENCE_COVER}
+        alt="Patience single cover art"
+        className="h-[82px] w-[82px] shrink-0 object-cover shadow-md ring-1 ring-black/10 sm:h-[94px] sm:w-[94px]"
+      />
+      <h1 className="flex flex-col gap-2.5">
+        <span
+          className="text-base uppercase tracking-[0.32em] text-stone-500 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both] dark:text-neutral-400 sm:text-lg"
+          style={parkinsans}
+        >
+          All I Need Is
+        </span>
+        <span className="font-bebas text-5xl text-stone-900 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both] dark:text-white sm:text-6xl">
+          Patience
+        </span>
+        <span
+          className="mt-[0.22em] text-base uppercase tracking-[0.32em] text-stone-500 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both] dark:text-neutral-400 sm:text-lg"
+          style={parkinsans}
+        >
+          Tee (Pre-Order)
+        </span>
+      </h1>
+    </div>
+  );
+
   return (
     <div
-      className={`flex min-w-0 flex-col bg-stone-50 dark:bg-neutral-950 lg:flex-row ${
-        embedded ? "" : "lg:min-h-[calc(100svh-4rem-var(--player-h,0px))]"
+      className={`flex min-w-0 flex-col ${
+        embedded
+          ? ""
+          : "bg-stone-50 dark:bg-neutral-950 lg:min-h-[calc(100svh-4rem-var(--player-h,0px))] lg:flex-row"
       }`}
     >
-      <div className="relative aspect-square w-full bg-white lg:aspect-auto lg:w-1/2">
+      {embedded && showCheckout && (
+        <EmbeddedTeeCheckout
+          productId={PRODUCT_ID}
+          color={colorId}
+          size={SIZE_LABELS[size] ?? size}
+          onClose={() => setShowCheckout(false)}
+        />
+      )}
+      {embedded && <div className="pb-6">{header}</div>}
+
+      <div className={`relative aspect-square bg-white ${embedded ? "-mx-4 overflow-hidden sm:mx-0 sm:w-full sm:rounded-2xl" : "w-full lg:aspect-auto lg:w-1/2"}`}>
         {COLORS.map((c) => {
           const active = c.id === colorId;
           const beneath = c.id === prevColorId && !active;
@@ -98,7 +157,7 @@ export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
               fill
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
-              className={`object-cover transition-opacity duration-300 ease-out ${
+              className={`object-cover transition-opacity duration-300 ease-out ${embedded ? "scale-[1.15] sm:scale-100" : ""} ${
                 active ? "z-20 opacity-100" : beneath ? "z-10 opacity-100" : "z-0 opacity-0"
               }`}
             />
@@ -106,32 +165,9 @@ export function ShopContent({ embedded = false }: { embedded?: boolean } = {}) {
         })}
       </div>
 
-      <div className="flex w-full flex-col justify-center border-stone-200 px-4 py-10 dark:border-neutral-800 sm:px-10 lg:w-1/2 lg:border-l lg:px-14 lg:py-12">
-        <div className="mx-auto w-full max-w-md">
-          <div className="animate-slide-up-fade flex items-center gap-4" style={rise(0)}>
-            <img
-              src={PATIENCE_COVER}
-              alt="Patience single cover art"
-              className="h-20 w-20 shrink-0 rounded-lg object-cover shadow-md ring-1 ring-black/10 sm:h-24 sm:w-24"
-            />
-            <h1>
-              <span
-                className="block text-base uppercase tracking-[0.32em] text-stone-500 dark:text-neutral-400 sm:text-lg"
-                style={parkinsans}
-              >
-                All I Need Is
-              </span>
-              <span className="mt-1 block font-bebas text-7xl leading-[0.82] text-stone-900 dark:text-white sm:text-8xl">
-                Patience
-              </span>
-              <span
-                className="mt-2 block text-base uppercase tracking-[0.32em] text-stone-500 dark:text-neutral-400 sm:text-lg"
-                style={parkinsans}
-              >
-                Tee
-              </span>
-            </h1>
-          </div>
+      <div className={`flex w-full flex-col justify-center border-stone-200 pb-10 dark:border-neutral-800 ${embedded ? "pt-6" : "pt-10 px-4 sm:px-10 lg:w-1/2 lg:border-l lg:px-14 lg:py-12"}`}>
+        <div className={embedded ? "w-full [&>*:first-child]:mt-0" : "mx-auto w-full max-w-md"}>
+          {!embedded && header}
 
           <div className="animate-slide-up-fade mt-9" style={rise(70)}>
             <h2 className="font-bebas text-4xl leading-none text-stone-900 dark:text-white sm:text-5xl">

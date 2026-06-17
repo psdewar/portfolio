@@ -28,6 +28,33 @@ const isPast = (dateStr: string): boolean => {
 
 export const TIMELINE: TimelineEvent[] = [
   {
+    id: 2026060900,
+    date: "2026-06-09",
+    title: "From The Ground Up Live Concert",
+    location: "New York, NY",
+    description: "New York City Baha'i Center",
+    type: "show",
+    url: "/rsvp/new-york-ny-0",
+  },
+  {
+    id: 2026060700,
+    date: "2026-06-07",
+    title: "From The Ground Up Live Concert",
+    location: "Wayne, NJ",
+    description: "Wayne Township Community Center",
+    type: "show",
+    url: "/rsvp/wayne-nj-0",
+  },
+  {
+    id: 2026060500,
+    date: "2026-06-05",
+    title: "From The Ground Up Live Concert",
+    location: "Hoboken, NJ",
+    description: "Bwe Kafe",
+    type: "show",
+    url: "/rsvp/hoboken-nj-0",
+  },
+  {
     id: 2026053000,
     date: "2026-05-30",
     title: "From The Ground Up Live Concert",
@@ -59,6 +86,7 @@ export const TIMELINE: TimelineEvent[] = [
     date: "2026-04-10",
     title: "From The Ground Up Live Concert",
     location: "Richmond, BC",
+    description: "House concert",
     type: "show",
     url: "/rsvp/richmond-bc-0",
   },
@@ -92,6 +120,7 @@ export const TIMELINE: TimelineEvent[] = [
     date: "2026-03-20",
     title: "From The Ground Up Live Concert",
     location: "Coral Springs, FL",
+    description: "House concert",
     type: "show",
   },
   {
