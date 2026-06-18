@@ -19,8 +19,8 @@ export async function generateMetadata({
 
   const leg = getFundLeg(slug);
   if (leg) {
-    const title = `Go in with me · ${leg.destination} · From the Ground Up`;
-    const description = `A Microsoft engineer who raps, bringing a live concert-conversation to ${leg.destination}. Here is what I am putting in, and the pieces still open.`;
+    const title = `Help fund my concert-conversation in ${leg.destination}`;
+    const description = `From The Ground Up: My Path of Growth and the Principles that Connect Us by Microsoft engineer Peyt Spencer`;
     const url = `https://peytspencer.com/fund/${leg.slug}`;
     return {
       title,
