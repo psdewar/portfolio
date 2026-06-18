@@ -10,6 +10,7 @@ export function Navbar() {
   const pathname = usePathname() ?? "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
+  const isFundPage = pathname === "/fund" || pathname.startsWith("/fund/");
 
   const navItems = [
     { href: "/support", label: "Support" },
@@ -26,7 +27,9 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50">
+    <header
+      className={`${isFundPage ? "" : "sticky top-0"} w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-16">
           {/* Left: Logo + CTA */}

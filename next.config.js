@@ -67,7 +67,6 @@ const nextConfig = {
       { source: "/songs", destination: "/listen", permanent: true },
       { source: "/tracks", destination: "/listen", permanent: true },
       { source: "/patron", destination: "/support", permanent: true },
-      { source: "/fund", destination: "/support", permanent: true },
       { source: "/journey", destination: "/support", permanent: true },
       { source: "/join", destination: "/support", permanent: true },
       { source: "/subscribe", destination: "/support", permanent: true },

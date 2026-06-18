@@ -5,7 +5,7 @@ import { extractIpAddress } from "../shared/audio-utils";
 
 // Map project slug -> Stripe product (or price) id
 const PROJECT_PRODUCT_MAP: Record<string, string> = {
-  "flight-to-boise": "prod_TBTntrJOXSQahO",
+  boise: "prod_TBTntrJOXSQahO",
   "monthly-support": "monthly-support",
   "annual-support": "annual-support",
 };

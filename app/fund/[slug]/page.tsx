@@ -1,6 +1,9 @@
 import projectsData from "../../../data/projects.json";
 import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
+import { FundFunnel } from "../FundFunnel";
+import ArtistIntro from "../../components/ArtistIntro";
+import { getFundLeg, FUND_LEGS } from "../legs";
 import { getFundingStats } from "../../lib/funding";
 import type { Metadata } from "next";
 
@@ -13,6 +16,37 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+
+  const leg = getFundLeg(slug);
+  if (leg) {
+    const title = `Go in with me · ${leg.destination} · From the Ground Up`;
+    const description = `A Microsoft engineer who raps, bringing a live concert-conversation to ${leg.destination}. Here is what I am putting in, and the pieces still open.`;
+    const url = `https://peytspencer.com/fund/${leg.slug}`;
+    return {
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        type: "website",
+        url,
+        title,
+        description,
+        images: [
+          {
+            url: `https://peytspencer.com/api/og/fund/${leg.slug}`,
+            width: 900,
+            height: 1600,
+            alt: title,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        images: [`https://peytspencer.com/api/og/fund/${leg.slug}`],
+      },
+    };
+  }
+
   const projects = projectsData as Record<string, any>;
   const project = projects[slug];
 
@@ -50,6 +84,12 @@ export default async function Page({
   searchParams: Promise<{ success?: string }>;
 }) {
   const { slug } = await params;
+
+  const leg = getFundLeg(slug);
+  if (leg) {
+    return <FundFunnel leg={leg} intro={<ArtistIntro />} />;
+  }
+
   const resolvedSearchParams = await searchParams;
   const projects = projectsData as Record<string, any>;
   const project = projects[slug];
@@ -62,7 +102,9 @@ export default async function Page({
   return <ProjectView project={project} stats={stats} success={success} />;
 }
 
-// Pre-generate all project slugs (SSG) so future additions are simple.
+// Pre-generate tour-leg and project slugs (SSG) so future additions are simple.
 export function generateStaticParams() {
-  return Object.values(projectsData).map((p: any) => ({ slug: p.slug }));
+  const legParams = Object.keys(FUND_LEGS).map((slug) => ({ slug }));
+  const projectParams = Object.values(projectsData).map((p: any) => ({ slug: p.slug }));
+  return [...legParams, ...projectParams];
 }

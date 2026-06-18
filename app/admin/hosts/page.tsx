@@ -1430,16 +1430,6 @@ function PosterEditor({
                   <span className="text-xs">Center</span>
                 </label>
               </div>
-              {isSingle && soloShow?.visibility === "private" && (
-                <input
-                  type="text"
-                  value={privateNote}
-                  onChange={(e) => setPrivateNote(e.target.value)}
-                  placeholder="Private reason (e.g. Youth camp, private house concert)"
-                  className={`${inputCls} mb-2`}
-                />
-              )}
-
               {isSingle ? (
                 <>
                   <input
@@ -1814,6 +1804,8 @@ function ShowGroupCard({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const dateSave = useDebouncedSave(show, onShowUpdate);
   const [managing, setManaging] = useState(false);
+  const [askingPrivate, setAskingPrivate] = useState(false);
+  const [privateDraft, setPrivateDraft] = useState("");
 
   const patchShow = async (fields: Partial<Show>) => {
     if (!show?.slug) return;
@@ -1850,6 +1842,8 @@ function ShowGroupCard({
 
   const drawerRow =
     "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors";
+  const inputCls =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
 
   useEffect(() => {
     if (!group.showSlug) return;
@@ -2147,21 +2141,74 @@ function ShowGroupCard({
             {show?.slug && (
               <section className="space-y-1">
                 <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Show</h5>
-                <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                    Visibility · {show.visibility === "private" ? "Private" : "Public"}
-                  </span>
-                  <button
-                    onClick={() =>
-                      patchShow({
-                        visibility: show.visibility === "private" ? "public" : "private",
-                      })
-                    }
-                    className="text-sm font-medium text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
-                  >
-                    {show.visibility === "private" ? "Make public" : "Make private"}
-                  </button>
-                </div>
+                {show.visibility !== "private" ? (
+                  askingPrivate ? (
+                    <div className="px-3 py-2.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-amber-600 dark:text-amber-500">
+                          Visibility · Making private
+                        </span>
+                        <button
+                          onClick={() => { setAskingPrivate(false); setPrivateDraft(""); }}
+                          className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        autoFocus
+                        value={privateDraft}
+                        onChange={(e) => setPrivateDraft(e.target.value)}
+                        placeholder="Private reason (e.g. Youth camp, private house concert)"
+                        className={inputCls}
+                      />
+                      <button
+                        onClick={() => {
+                          patchShow({ visibility: "private", privateNote: privateDraft.trim() || null });
+                          setAskingPrivate(false);
+                          setPrivateDraft("");
+                        }}
+                        className="w-full py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                      >
+                        Confirm — Make private
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between px-3 py-2.5 min-h-[44px]">
+                      <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                        Visibility · Public
+                      </span>
+                      <button
+                        onClick={() => { setAskingPrivate(true); setPrivateDraft(""); }}
+                        className="text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-500 transition-colors"
+                      >
+                        Make private
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div className="px-3 py-2.5 space-y-2">
+                    <div className="flex items-center justify-between min-h-[44px]">
+                      <span className="text-sm font-medium text-amber-600 dark:text-amber-500">
+                        Visibility · Private
+                      </span>
+                      <button
+                        onClick={() => patchShow({ visibility: "public" })}
+                        className="text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+                      >
+                        Make public
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      defaultValue={show.privateNote ?? ""}
+                      onBlur={(e) => patchShow({ privateNote: e.target.value.trim() || null })}
+                      placeholder="Private reason (e.g. Youth camp, private house concert)"
+                      className={inputCls}
+                    />
+                  </div>
+                )}
                 <label className={`${drawerRow} cursor-pointer`}>
                   <span>Keep separate · never group into a pamphlet leg</span>
                   <input

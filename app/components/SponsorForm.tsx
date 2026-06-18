@@ -91,6 +91,7 @@ interface SponsorFormProps {
   readOnly?: boolean;
   pending?: boolean;
   mode?: "host" | "supporter";
+  hideBack?: boolean;
   initialItems?: string[];
   initialDates?: string[];
   initialDoorTimes?: string[];
@@ -116,6 +117,7 @@ export default function SponsorForm({
   readOnly,
   pending,
   mode,
+  hideBack,
   initialItems,
   initialDates,
   initialDoorTimes,
@@ -643,7 +645,7 @@ export default function SponsorForm({
   }
 
   // ── Main form (wizard step 1 host, wizard step 2, or flat/edit/compact/pdf) ─
-  const showBackButton = isWizard && wizardStep > 0;
+  const showBackButton = isWizard && wizardStep > 0 && !hideBack;
   const backHref =
     wizardMode === "host"
       ? "/sponsor"

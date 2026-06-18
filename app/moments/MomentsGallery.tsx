@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
+import posthog from "posthog-js";
 
 interface FeaturedItem {
   key: string;
@@ -15,6 +16,7 @@ const RESUME_DELAY_MS = 5000;
 const FADE_MS = 700;
 const START_PAUSE_MS = 1000;
 const READY_FALLBACK_MS = 4000;
+const SLOW_LOAD_MS = 2500;
 
 function wrap(x: number, half: number) {
   if (half <= 0) return x;
@@ -27,6 +29,7 @@ function wrap(x: number, half: number) {
 function MomentsGallery() {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [open, setOpen] = useState<FeaturedItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
@@ -54,7 +57,10 @@ function MomentsGallery() {
       .then((data) => {
         if (active) setItems(Array.isArray(data.items) ? data.items : []);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -94,7 +100,7 @@ function MomentsGallery() {
     }, READY_FALLBACK_MS);
 
     const step = (ts: number) => {
-      const delta = lastTs.current ? ts - lastTs.current : 16;
+      const delta = lastTs.current ? Math.min(ts - lastTs.current, 16) : 16;
       lastTs.current = ts;
 
       const el = scrollRef.current;
@@ -184,6 +190,17 @@ function MomentsGallery() {
     scheduleResume();
   };
 
+  if (loading) {
+    return (
+      <div
+        className="flex h-[40svh] items-center justify-center gap-3 text-sm text-neutral-400"
+        aria-live="polite"
+      >
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-600 border-t-neutral-300" />
+        loading images...
+      </div>
+    );
+  }
   if (items.length === 0) return null;
 
   return (
@@ -192,7 +209,7 @@ function MomentsGallery() {
 
       <div
         ref={scrollRef}
-        className="moments-strip flex h-[40dvh] overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        className="moments-strip flex h-[40svh] overflow-x-auto overflow-y-hidden overscroll-x-contain"
         style={{ scrollbarWidth: "none" }}
         onPointerDown={pause}
         onPointerUp={scheduleResume}
@@ -210,6 +227,7 @@ function MomentsGallery() {
                 key={`${copy}-${it.key}`}
                 item={it}
                 decorative={copy !== 0}
+                priority={copy === 0 && i === 0}
                 onMeasure={copy === 0 ? reportDims : undefined}
                 onReady={copy === 0 && i === 0 ? markReady : undefined}
                 onOpen={setOpen}
@@ -230,24 +248,50 @@ export default memo(MomentsGallery);
 function Tile({
   item,
   decorative,
+  priority,
   onMeasure,
   onReady,
   onOpen,
 }: {
   item: FeaturedItem;
   decorative?: boolean;
+  priority?: boolean;
   onMeasure?: (key: string, w: number, h: number) => void;
   onReady?: () => void;
   onOpen: (item: FeaturedItem) => void;
 }) {
   const isVideo = VIDEO_EXT.test(item.key);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const startedAt = useRef(0);
   const hasDims = !!(item.w && item.h);
   const [loaded, setLoaded] = useState(false);
   const mediaClass = `transition ease-out group-hover:scale-[1.04] ${
     hasDims ? "h-full w-full object-cover" : "h-full w-auto"
   } ${loaded ? "opacity-100" : "opacity-0"}`;
   const fadeStyle = { transitionDuration: `${FADE_MS}ms` };
+
+  const reveal = (w?: number, h?: number) => {
+    setLoaded(true);
+    onReady?.();
+    if (!hasDims && w && h) onMeasure?.(item.key, w, h);
+  };
+
+  useEffect(() => {
+    startedAt.current = performance.now();
+    if (isVideo) return;
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) reveal(el.naturalWidth, el.naturalHeight);
+  }, []);
+
+  const trackLoad = () => {
+    if (decorative) return;
+    const ms = performance.now() - startedAt.current;
+    if (ms > SLOW_LOAD_MS) posthog.capture("moment_media_slow", { key: item.key, ms: Math.round(ms) });
+  };
+  const trackError = () => {
+    if (!decorative) posthog.capture("moment_media_error", { key: item.key });
+  };
 
   function playHover() {
     videoRef.current?.play().catch(() => {});
@@ -279,26 +323,25 @@ function Tile({
           className={mediaClass}
           style={fadeStyle}
           onLoadedMetadata={(e) => {
-            setLoaded(true);
-            onReady?.();
-            if (!hasDims)
-              onMeasure?.(item.key, e.currentTarget.videoWidth, e.currentTarget.videoHeight);
+            trackLoad();
+            reveal(e.currentTarget.videoWidth, e.currentTarget.videoHeight);
           }}
+          onError={trackError}
         />
       ) : (
         <img
+          ref={imgRef}
           src={item.url}
           alt=""
-          loading="eager"
+          loading={priority ? "eager" : "lazy"}
           decoding="async"
           className={mediaClass}
           style={fadeStyle}
           onLoad={(e) => {
-            setLoaded(true);
-            onReady?.();
-            if (!hasDims)
-              onMeasure?.(item.key, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+            trackLoad();
+            reveal(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
           }}
+          onError={trackError}
         />
       )}
 
@@ -315,6 +358,10 @@ function Tile({
 
 function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }) {
   const isVideo = VIDEO_EXT.test(item.key);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startY = useRef<number | null>(null);
+  const startT = useRef(0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -329,33 +376,68 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
     };
   }, [onClose]);
 
+  const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    startY.current = e.touches[0].clientY;
+    startT.current = Date.now();
+    setDragging(true);
+  };
+  const onTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
+    if (startY.current === null) return;
+    setDragY(e.touches[0].clientY - startY.current);
+  };
+  const onTouchEnd = () => {
+    if (startY.current === null) return;
+    const dy = dragY;
+    const velocity = Math.abs(dy) / Math.max(Date.now() - startT.current, 1);
+    startY.current = null;
+    setDragging(false);
+    if (Math.abs(dy) > 110 || velocity > 0.6) onClose();
+    else setDragY(0);
+  };
+
+  const fade = Math.min(Math.abs(dragY) / 600, 0.9);
+
   return (
     <div
       onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-      style={{ animation: "momentFade .2s ease both" }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+      style={{
+        backgroundColor: `rgba(0,0,0,${(0.92 * (1 - fade)).toFixed(3)})`,
+        animation: "momentFade .2s ease both",
+      }}
     >
-      {isVideo ? (
-        <video
-          src={item.url}
-          controls
-          autoPlay
-          playsInline
-          onClick={(e) => e.stopPropagation()}
-          className="max-h-[90vh] max-w-[92vw] rounded-lg shadow-2xl"
-          style={{ animation: "momentRise .25s ease both" }}
-        />
-      ) : (
-        <img
-          src={item.url}
-          alt=""
-          onClick={(e) => e.stopPropagation()}
-          className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
-          style={{ animation: "momentRise .25s ease both" }}
-        />
-      )}
+      <div
+        className="flex items-center justify-center"
+        style={{
+          transform: `translateY(${dragY}px)`,
+          transition: dragging ? "none" : "transform 0.25s ease",
+        }}
+      >
+        {isVideo ? (
+          <video
+            src={item.url}
+            controls
+            autoPlay
+            playsInline
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[92vw] rounded-lg shadow-2xl"
+            style={{ animation: "momentRise .25s ease both" }}
+          />
+        ) : (
+          <img
+            src={item.url}
+            alt=""
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+            style={{ animation: "momentRise .25s ease both" }}
+          />
+        )}
+      </div>
       <button
         type="button"
         onClick={onClose}

@@ -27,6 +27,13 @@ type Offsets = {
 
 const manualOffsets: Record<string, Offsets> = {};
 
+// The Boise project's funding page was originally slugged "flight-to-boise".
+// Completed Stripe sessions from before the rename are tagged with that projectId,
+// so we count them under the new "boise" id to keep historical totals intact.
+const LEGACY_PROJECT_IDS: Record<string, string[]> = {
+  boise: ["flight-to-boise"],
+};
+
 export function setFundingOffsets(projectId: string, offsets: Offsets) {
   manualOffsets[projectId] = {
     ...(manualOffsets[projectId] ?? {}),
@@ -99,7 +106,11 @@ export async function getFundingStats(projectId: string): Promise<{
       limit: 100,
       status: "complete",
     })) {
-      if (session.metadata?.projectId === projectId) {
+      const sessionProjectId = session.metadata?.projectId;
+      if (
+        sessionProjectId === projectId ||
+        (sessionProjectId && (LEGACY_PROJECT_IDS[projectId] ?? []).includes(sessionProjectId))
+      ) {
         relevant.push(session);
       }
     }

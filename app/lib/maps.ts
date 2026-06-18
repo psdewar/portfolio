@@ -49,6 +49,19 @@ export function useGoogleMaps(): boolean {
   return ready;
 }
 
+export function preloadGoogleMaps(): void {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  if (w.google?.maps?.places?.AutocompleteSuggestion) return;
+  if (document.querySelector('script[src*="maps.googleapis.com"]')) return;
+  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+  if (!key) return;
+  const script = document.createElement("script");
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&libraries=places&loading=async`;
+  script.async = true;
+  document.head.appendChild(script);
+}
+
 export function createAutocomplete(
   container: HTMLElement,
   onSelect: (place: PlaceResult) => void,
