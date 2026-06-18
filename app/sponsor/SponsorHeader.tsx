@@ -10,7 +10,7 @@ export default function SponsorHeader() {
       <SponsorAvatar />
       <div>
         <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
-          Concert Sponsor Application
+          Become a Concert Host
         </h1>
         <p className="text-sm sm:text-lg text-neutral-500 dark:text-neutral-400 mt-1 sm:mt-2">
           Peyt Spencer / Rapper, Software Engineer at Microsoft

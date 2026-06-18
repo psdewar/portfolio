@@ -54,7 +54,7 @@ export default async function ShowRSVPLayout({ params, children }: Props) {
     region: show.region,
     country: show.country,
     description:
-      "A rap concert and a conversation on my path of growth and the principles that connect us. A free event by Microsoft engineer Peyt Spencer.",
+      "A rap concert and a conversation on my path of growth and the principles that connect us. An event for all ages by Microsoft engineer Peyt Spencer.",
     url: `https://peytspencer.com/rsvp/${slug}`,
     isAccessibleForFree: true,
   });

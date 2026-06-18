@@ -440,9 +440,7 @@ export default function SponsorForm({
         onSuccess?.(fields);
         const bookedSlugs = booked.map((b) => b.slug).join(",");
         router.push(
-          pending
-            ? `/admin/pending?created=${bookedSlugs}`
-            : `/rsvp?submitted=${bookedSlugs}`,
+          pending ? `/admin/pending?created=${bookedSlugs}` : `/rsvp?submitted=${bookedSlugs}`,
         );
         return;
       }
@@ -1013,11 +1011,7 @@ export default function SponsorForm({
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Pick a suggestion, or type{" "}
-              <span className="text-neutral-500 dark:text-neutral-300">
-                Venue, City, ST
-              </span>
-              .
+              Pick a suggestion, or type the entire address
             </p>
           )}
           {wizardMode === "host" && hasLocation && (

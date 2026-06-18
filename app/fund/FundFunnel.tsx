@@ -7,6 +7,7 @@ import SponsorForm from "../components/SponsorForm";
 import MomentsGallery from "../moments/MomentsGallery";
 import { preloadGoogleMaps } from "../lib/maps";
 import type { FundLeg, FundLine } from "./legs";
+import SponsorHeader from "app/sponsor/SponsorHeader";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
@@ -769,7 +770,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
                       setHostOpen(true);
                     }}
                   >
-                    Become a host
+                    Become a concert host
                   </a>
                 ) : (
                   <a
@@ -837,10 +838,13 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
             className="relative my-auto w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-neutral-900"
             role="dialog"
             aria-modal="true"
-            aria-label="Become a host"
+            aria-label="Become a concert host"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 flex justify-end">
+            <div className="mb-2 flex justify-between items-center">
+              <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
+                Become a Concert Host
+              </h1>
               <button
                 onClick={() => setHostOpen(false)}
                 aria-label="Close"

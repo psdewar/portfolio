@@ -12,7 +12,7 @@ export default function SponsorPage() {
           <div>
             <p className="font-medium text-base sm:text-lg">Host a new concert</p>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Book a date and location for a free concert in your community.
+              Book a date and location for my all-ages concert in your community.
             </p>
           </div>
           <ArrowRightIcon
