@@ -10,7 +10,6 @@ import type { FundLeg, FundLine } from "./legs";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
-const PHONE = "+19417378620";
 const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
 
 const STEPS = [
@@ -718,7 +717,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
                 {line.key === "lodging" && (
                   <a
                     className="lodging-or"
-                    href={`sms:${PHONE}?&body=${encodeURIComponent(
+                    href={`sms:${process.env.PHONE}?&body=${encodeURIComponent(
                       `Hi Peyt, I've got a place you could stay for your trip!`,
                     )}`}
                   >
@@ -769,7 +768,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
                 ) : (
                   <a
                     className="other-action"
-                    href={`sms:${PHONE}?&body=${encodeURIComponent(item.smsBody)}`}
+                    href={`sms:${process.env.PHONE}?&body=${encodeURIComponent(item.smsBody)}`}
                   >
                     Text me
                   </a>
