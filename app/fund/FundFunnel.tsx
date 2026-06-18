@@ -10,6 +10,7 @@ import type { FundLeg, FundLine } from "./legs";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
+const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
 
 const STEPS = [
@@ -57,18 +58,6 @@ function LineMatchControl({
   return (
     <div className="match-ctrl">
       <div className="match-input-row">
-        {presets.map((p) => (
-          <button
-            key={p}
-            className="match-btn match-chip"
-            onClick={() => onChange(String((parseFloat(value) || 0) + p))}
-          >
-            {p}
-          </button>
-        ))}
-        <button className="match-btn" onClick={() => onChange(String(line.amount))}>
-          Full
-        </button>
         <div className="match-field">
           <span className="match-prefix">$</span>
           <input
@@ -80,6 +69,18 @@ function LineMatchControl({
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
+        <button className="match-btn match-full" onClick={() => onChange(String(line.amount))}>
+          Full
+        </button>
+        {presets.map((p) => (
+          <button
+            key={p}
+            className="match-btn match-chip"
+            onClick={() => onChange(String((parseFloat(value) || 0) + p))}
+          >
+            {p}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -445,11 +446,13 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
 .match-btn {
   cursor: pointer; background: var(--surface-2); border: 1px solid var(--rule-strong);
   border-radius: 8px; color: var(--ink); font: inherit; font-size: 16px; font-weight: 600;
-  flex: 1 1 90px; height: 44px; padding: 7px 11px; white-space: nowrap; text-decoration: none;
+  flex: 0 0 auto; height: 44px; padding: 7px 11px; white-space: nowrap; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 .match-btn:hover { color: var(--paper); border-color: var(--rule-strong); }
+.match-full { margin-left: auto; background: transparent; border-color: transparent; color: var(--ink-dim); }
+.match-full:hover { color: var(--paper); border-color: transparent; }
 .match-chip { flex: 0 0 auto; padding: 7px 8px; }
 .match-chip::before { content: '+$'; color: var(--ink-dim); }
 .match-btn-text { background: var(--scarlet); color: #fff; border-color: transparent; }
@@ -676,7 +679,10 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
             where you can:
           </p>
 
-          <div className="section-head">Cover the trip</div>
+          <div className="section-head">Cover my trip</div>
+          <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
+            Contribute any amount
+          </p>
           <ul className="pieces">
             {LINES.map((line) => (
               <li key={line.key} className="piece">
@@ -717,7 +723,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
                 {line.key === "lodging" && (
                   <a
                     className="lodging-or"
-                    href={`sms:${process.env.PHONE}?&body=${encodeURIComponent(
+                    href={`sms:${PHONE}?&body=${encodeURIComponent(
                       `Hi Peyt, I've got a place you could stay for your trip!`,
                     )}`}
                   >
@@ -731,14 +737,14 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
             <div className="total-label">Total</div>
             <div className="total-amount">~{money(tripTotal)}</div>
           </div>
-          <p className="bf-footer" style={{ marginTop: 16 }}>
+          <p className="bf-footer" style={{ marginTop: 8 }}>
             These figures are estimates based on trips to Florida, British Columbia, NJ/NYC, and
             DC/Maryland/Virginia, subject to change due to need and circumstances. At every stop, I
             bring merch and a donation box to earn it all back.
           </p>
 
           <div className="section-head">Honorarium</div>
-          <p className="p-note" style={{ marginTop: -10, marginBottom: 24 }}>
+          <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
             A gift that recognizes the artistic performance itself, separate from the trip.
           </p>
           <HonorariumControl value={honorarium} onChange={setHonorariumVal} />
@@ -768,7 +774,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
                 ) : (
                   <a
                     className="other-action"
-                    href={`sms:${process.env.PHONE}?&body=${encodeURIComponent(item.smsBody)}`}
+                    href={`sms:${PHONE}?&body=${encodeURIComponent(item.smsBody)}`}
                   >
                     Text me
                   </a>
