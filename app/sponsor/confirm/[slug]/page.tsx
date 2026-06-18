@@ -6,7 +6,7 @@ import { getShowBySlug, isShowDraft } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { formatEventDate, formatEventDateShort } from "../../../lib/dates";
+import { formatEventDate } from "../../../lib/dates";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
@@ -167,7 +167,8 @@ export default async function ConfirmPage({
               sig={sig!}
               host={host}
               isPrivate={show.visibility === "private"}
-              dateLabel={formatEventDateShort(show.date)}
+              date={show.date}
+              doorTime={show.doorTime}
             />
           </div>
         </div>

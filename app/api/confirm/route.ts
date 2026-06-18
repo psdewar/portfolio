@@ -25,7 +25,7 @@ interface Sponsor {
 async function upsertHost(
   slug: string,
   contact: { name: string; email: string; phone: string },
-  show: { city: string; region: string; country?: string | null; date: string },
+  show: { city: string; region: string; country?: string | null; date: string; doorTime: string },
 ) {
   let host: Sponsor | undefined;
   try {
@@ -42,7 +42,13 @@ async function upsertHost(
     await fetch(`${SHOWS_API}/chorus/sponsors`, {
       method: "PATCH",
       headers: authJson,
-      body: JSON.stringify({ showSlug: slug, submittedAt: host.submittedAt, ...contact }),
+      body: JSON.stringify({
+        showSlug: slug,
+        submittedAt: host.submittedAt,
+        ...contact,
+        date: show.date,
+        doorTime: show.doorTime,
+      }),
     });
     return;
   }
@@ -58,6 +64,7 @@ async function upsertHost(
       region: show.region,
       country: show.country || "US",
       date: show.date,
+      doorTime: show.doorTime,
       items: [],
     }),
   });
@@ -67,7 +74,7 @@ export async function POST(request: NextRequest) {
   if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
-    const { slug, sig, name, email, phone } = await request.json();
+    const { slug, sig, name, email, phone, date, doorTime } = await request.json();
     if (!slug || !verifySlug(slug, sig)) {
       return NextResponse.json({ error: "Invalid or expired link" }, { status: 403 });
     }
@@ -78,10 +85,17 @@ export async function POST(request: NextRequest) {
     const show = await getShowBySlug(slug);
     if (!show) return NextResponse.json({ error: "Show not found" }, { status: 404 });
 
+    // Date/time can change at confirmation ("in case we change our minds"); fall
+    // back to the draft's values when the form omits them.
+    const nextDate = typeof date === "string" && date.trim() ? date.trim() : show.date;
+    const nextDoorTime =
+      typeof doorTime === "string" && doorTime.trim() ? doorTime.trim() : show.doorTime;
+    const booked = { ...show, date: nextDate, doorTime: nextDoorTime };
+
     await upsertHost(
       slug,
       { name: name.trim(), email: email.trim(), phone: (phone || "").trim() },
-      show,
+      booked,
     );
 
     // Publish: advance the lifecycle to booked. Keep access (private stays private);
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest) {
     const patch = await fetch(`${SHOWS_API}/chorus/shows`, {
       method: "PATCH",
       headers: authJson,
-      body: JSON.stringify({ slug, stage: "booked", visibility }),
+      body: JSON.stringify({ slug, stage: "booked", visibility, date: nextDate, doorTime: nextDoorTime }),
     });
     if (!patch.ok) {
       return NextResponse.json(
@@ -103,7 +117,7 @@ export async function POST(request: NextRequest) {
     const eventbrite =
       visibility === "private"
         ? undefined
-        : await publishEventbrite({ ...show, stage: "booked", visibility });
+        : await publishEventbrite({ ...booked, stage: "booked", visibility });
 
     return NextResponse.json({ ok: true, slug, eventbrite });
   } catch (error) {
