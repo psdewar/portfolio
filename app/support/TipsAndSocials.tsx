@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { activatePatronStatus } from "../lib/patron";
 import { SOCIAL_LINKS } from "../components/Social";
-import { CopySimpleIcon, CheckIcon } from "@phosphor-icons/react";
 import { useToast } from "../contexts/ToastContext";
-
-const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
-const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
+import PaymentOptions from "../components/PaymentOptions";
+import ContributeCardModal from "./ContributeCardModal";
 
 function TipsSection({
   interacFirst = false,
@@ -18,53 +15,7 @@ function TipsSection({
   interacFirst?: boolean;
   isOg?: boolean;
 }) {
-  const [copied, setCopied] = useState<string | null>(null);
-  const toast = useToast();
-
-  const handleCopy = (text: string, key: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    toast.show(label);
-    setTimeout(() => setCopied((prev) => (prev === key ? null : prev)), 2000);
-  };
-
-  const interacButton = INTERAC_EMAIL && (
-    <button
-      onClick={() =>
-        handleCopy(
-          INTERAC_EMAIL,
-          "interac",
-          "Email copied, open your bank app to send an e-Transfer",
-        )
-      }
-      className="w-full flex items-center justify-between px-5 py-1 rounded-xl text-left transition-colors hover:opacity-90 overflow-hidden"
-      style={{ backgroundColor: "#FFBE00" }}
-    >
-      <Image
-        src="/interac_logo.svg"
-        alt="Interac e-Transfer"
-        width={56}
-        height={56}
-        className="shrink-0"
-      />
-      <span
-        className="flex items-center gap-1.5 text-base font-medium shrink-0"
-        style={{ color: "#333" }}
-      >
-        {copied === "interac" ? (
-          <>
-            <CheckIcon size={14} weight="bold" />
-            Copied
-          </>
-        ) : (
-          <>
-            <CopySimpleIcon size={14} weight="bold" />
-            Copy my email for e-Transfer
-          </>
-        )}
-      </span>
-    </button>
-  );
+  const [cardOpen, setCardOpen] = useState(false);
 
   return (
     <div className="flex-1 min-w-0">
@@ -72,60 +23,16 @@ function TipsSection({
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
         {isOg
           ? "Your contribution helps me remain independent while funding my next tour stop."
-          : interacFirst
-            ? "Tap to copy my email for an Interac e-Transfer, or use Venmo/Zelle if you prefer."
-            : "Tap Venmo to send directly, or copy my email for Zelle or Interac."}
+          : "Tap Venmo to send directly, copy my email for Zelle, or pay by card."}
       </p>
       {!isOg && (
-        <div className="space-y-3">
-          {interacFirst && interacButton}
-          <a
-            href="https://venmo.com/u/psdewar"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center px-5 py-4 rounded-xl transition-colors hover:opacity-90"
-            style={{ backgroundColor: "#008CFF" }}
-          >
-            <Image
-              src="/Venmo_Logo_Blue.png"
-              alt="Venmo"
-              width={120}
-              height={25}
-              priority
-              className="brightness-0 invert"
-            />
-          </a>
-          {ZELLE_EMAIL && (
-            <button
-              onClick={() => handleCopy(ZELLE_EMAIL, "zelle", "Email copied, open Zelle to send")}
-              className="w-full flex items-center justify-between px-5 py-1 rounded-xl border-2 text-left transition-colors hover:opacity-90"
-              style={{ borderColor: "#6D1ED4" }}
-            >
-              <Image
-                src="/zelle_logo.svg"
-                alt="Zelle"
-                width={80}
-                height={32}
-                className="shrink-0"
-              />
-              <span className="flex items-center gap-1.5 text-base text-neutral-500 dark:text-neutral-400 shrink-0">
-                {copied === "zelle" ? (
-                  <>
-                    <CheckIcon size={14} weight="bold" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <CopySimpleIcon size={14} weight="bold" />
-                    Copy my email for Zelle
-                  </>
-                )}
-              </span>
-            </button>
-          )}
-          {!interacFirst && interacButton}
-        </div>
+        <PaymentOptions
+          venmoUrl="https://venmo.com/u/psdewar"
+          onCard={() => setCardOpen(true)}
+          interacFirst={interacFirst}
+        />
       )}
+      {cardOpen && <ContributeCardModal onClose={() => setCardOpen(false)} />}
     </div>
   );
 }

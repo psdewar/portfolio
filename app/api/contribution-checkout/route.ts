@@ -10,6 +10,7 @@ const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   food: { name: "Food", description: "breakfast, lunch, and dinner on the road" },
   buffer: { name: "Just in case", description: "life happens, like cancellations out of my control" },
   honorarium: { name: "Honorarium", description: "recognizes the artistic performance itself" },
+  tour: { name: "Tour contribution", description: "helps fund the next tour stop" },
 };
 
 export async function POST(request: NextRequest) {
