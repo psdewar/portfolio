@@ -381,10 +381,12 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
 .dateline { font-size: 16px; color: var(--ink-dim); margin-top: 16px; }
 .dateline b { color: var(--paper); font-weight: 600; }
 
+html { scroll-behavior: smooth; }
 .section-head {
   font-size: clamp(30px, 6vw, 46px); letter-spacing: -0.01em; text-transform: none;
   color: var(--paper); margin: 52px 0 16px; font-weight: 500;
   display: flex; align-items: baseline; gap: 12px;
+  scroll-margin-top: 24px;
 }
 .section-head .sh-note { letter-spacing: 0.01em; text-transform: none; font-weight: 400; color: var(--ink-dim); font-size: 16px; }
 
@@ -684,7 +686,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
               ))}
             </p>
           )}
-          <div className="section-head">Cover my trip</div>
+          <div className="section-head" id="cover">Cover my trip</div>
           <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
             Contribute any amount
           </p>
@@ -754,7 +756,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
           </p>
           <HonorariumControl value={honorarium} onChange={setHonorariumVal} />
 
-          <div className="section-head">Other ways to help</div>
+          <div className="section-head" id="help">Other ways to help</div>
           <ul className="other-ways">
             {otherWays.map((item) => (
               <li key={item.key} className="other-item">
