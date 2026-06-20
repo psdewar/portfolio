@@ -28,7 +28,6 @@ import {
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
-import { areRegionsAdjacent } from "../../lib/region-adjacency";
 import {
   type PosterFormat,
   PAMPHLET_PREVIEW_FORMATS,
@@ -281,44 +280,19 @@ export default function HostsAdminPage() {
     }
   }
 
+  // Group shows by their explicit leg (Show.leg). Shows without a leg are left
+  // out here and surface in the ungrouped buckets below.
   const groupIntoLegs = (items: ShowGroup[]): ShowGroup[][] => {
-    const withSlug = items.filter((g) => g.show?.slug && g.show?.date);
-    if (!withSlug.length) return [];
-    const chainable = withSlug.filter((g) => !g.show!.standalone);
-    const solo = withSlug.filter((g) => g.show!.standalone);
-
-    const n = chainable.length;
-    const parent = Array.from({ length: n }, (_, i) => i);
-    const find = (x: number): number => {
-      if (parent[x] !== x) parent[x] = find(parent[x]);
-      return parent[x];
-    };
-
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const a = chainable[i].show!;
-        const b = chainable[j].show!;
-        const diffDays =
-          Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000;
-        const sameRegion = a.region === b.region;
-        const adjacent = sameRegion || areRegionsAdjacent(a.region, b.region);
-        if (adjacent && diffDays <= (sameRegion ? 21 : 7)) {
-          parent[find(i)] = find(j);
-        }
-      }
+    const byLeg = new Map<string, ShowGroup[]>();
+    for (const g of items) {
+      const leg = g.show?.leg;
+      if (!g.show?.date || !leg) continue;
+      if (!byLeg.has(leg)) byLeg.set(leg, []);
+      byLeg.get(leg)!.push(g);
     }
-
-    const buckets = new Map<number, ShowGroup[]>();
-    for (let i = 0; i < n; i++) {
-      const root = find(i);
-      if (!buckets.has(root)) buckets.set(root, []);
-      buckets.get(root)!.push(chainable[i]);
-    }
-
-    const legs: ShowGroup[][] = [...buckets.values()].map((leg) =>
+    const legs: ShowGroup[][] = [...byLeg.values()].map((leg) =>
       leg.sort((a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime()),
     );
-    for (const s of solo) legs.push([s]);
     legs.sort(
       (a, b) => new Date(a[0].show!.date).getTime() - new Date(b[0].show!.date).getTime(),
     );
