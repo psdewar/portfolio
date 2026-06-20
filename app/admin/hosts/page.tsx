@@ -414,7 +414,10 @@ export default function HostsAdminPage() {
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
-  const suggested = suggestLegs(ungrouped);
+  // Solo = confirmed shows with no leg (own poster). Unscheduled = drafts.
+  const solo = ungrouped.filter((g) => g.show && !isShowDraft(g.show));
+  const unscheduled = ungrouped.filter((g) => !g.show || isShowDraft(g.show));
+  const suggested = suggestLegs(solo);
 
   const handlePamphletSaved = (slug: string, pamphlet: PamphletFacet) => {
     setLegs((prev) =>
@@ -519,11 +522,11 @@ export default function HostsAdminPage() {
                       </div>
                     );
                   })}
-                  {ungrouped.length > 0 && (
+                  {solo.length > 0 && (
                     <div>
                       <div className="flex items-center gap-4 mb-4">
                         <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
-                          Unscheduled
+                          Solo
                         </span>
                         <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
                       </div>
@@ -550,7 +553,22 @@ export default function HostsAdminPage() {
                         </div>
                       )}
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
-                        {ungrouped.map((g) => (
+                        {solo.map((g) => (
+                          <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {unscheduled.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
+                          Unscheduled
+                        </span>
+                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                        {unscheduled.map((g) => (
                           <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
                         ))}
                       </div>
