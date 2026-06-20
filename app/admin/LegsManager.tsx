@@ -217,7 +217,28 @@ export default function LegsManager({
                       />
                     </div>
 
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                      <span className="shrink-0">Buy flights by</span>
+                      <input
+                        className={input}
+                        type="date"
+                        value={fund.flightBy ?? ""}
+                        onChange={(e) => setFund(leg.slug, { flightBy: e.target.value })}
+                      />
+                    </label>
+
                     <div className="space-y-1.5">
+                      <div className="text-xs uppercase tracking-wider text-neutral-400">
+                        Budget lines
+                      </div>
+                      {(fund.lines ?? []).length > 0 && (
+                        <div className="flex gap-2 px-0.5 text-[10px] uppercase tracking-wider text-neutral-400">
+                          <span className="flex-[2]">Label</span>
+                          <span className="flex-[3]">Note</span>
+                          <span className="w-24">Amount</span>
+                          <span className="w-4" />
+                        </div>
+                      )}
                       {(fund.lines ?? []).map((line, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
                           <input

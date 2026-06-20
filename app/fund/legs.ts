@@ -7,6 +7,7 @@ export type FundFacet = {
   destination: string;
   shortName: string;
   nights: number;
+  flightBy?: string;
   lines: FundLine[];
   coveredInKind?: string[];
   booked?: FundBooked[];

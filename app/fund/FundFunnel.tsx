@@ -18,7 +18,6 @@ const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 const STEPS = [
   "I write original songs, record, rehearse, and sequence them into an hour-long presentation.",
   "I work with people in your community to book concert dates.",
-  "I purchase flights by June 30th to arrive in",
 ];
 
 function money(n: number): string {
@@ -169,6 +168,12 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
   const LINES = leg.lines;
   const booked = leg.booked ?? [];
   const hasBooked = booked.length > 0;
+  const flightBy = leg.flightBy
+    ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+      })
+    : "";
   const tripTotal = LINES.reduce((sum, line) => sum + line.amount, 0);
   const otherWays = [
     {
@@ -657,6 +662,7 @@ html { scroll-behavior: smooth; }
             {STEPS.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
+            <li>I purchase flights{flightBy ? ` by ${flightBy}` : ""} to arrive in</li>
           </ol>
           <h1 className="bf-h1">
             <em>{leg.destination}</em>
