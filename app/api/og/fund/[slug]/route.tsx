@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getFundLeg } from "../../../../fund/legs";
+import { getLeg } from "../../../../fund/legs";
 import { takeScreenshot } from "../../../../lib/screenshot";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const leg = getFundLeg(slug);
+  const leg = await getLeg(slug);
   if (!leg) return Response.redirect(PROJECT_FALLBACK);
 
   const base = process.env.OG_BASE_URL || new URL(request.url).origin;

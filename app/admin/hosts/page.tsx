@@ -15,6 +15,9 @@ import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
+import { type Leg } from "../../fund/legs";
+import LegsManager from "../LegsManager";
+import BookingLoop from "../BookingLoop";
 import {
   formatEventDate,
   formatEventDateShort,
@@ -210,6 +213,7 @@ export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [pamphlets, setPamphlets] = useState<Pamphlet[]>([]);
+  const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   useEffect(() => {
@@ -225,12 +229,16 @@ export default function HostsAdminPage() {
         fetch("/api/pamphlets")
           .then((r) => r.json())
           .catch(() => []),
+        fetch("/api/legs")
+          .then((r) => r.json())
+          .catch(() => []),
       ])
-        .then(([showsData, sponsorsData, pamphletData]) => {
+        .then(([showsData, sponsorsData, pamphletData, legsData]) => {
           if (cancelled) return;
           setShows(Array.isArray(showsData) ? showsData : []);
           setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
           setPamphlets(Array.isArray(pamphletData) ? pamphletData : []);
+          setLegs(Array.isArray(legsData) ? legsData : []);
         })
         .catch(() => !cancelled && setMessage({ type: "error", text: "Failed to load data" }))
         .finally(() => !cancelled && withSpinner && setLoading(false));
@@ -333,8 +341,28 @@ export default function HostsAdminPage() {
   const pastGrouped = new Set(pastLegs.flat().map((g) => g.showSlug));
   const pastUngrouped = past.filter((g) => !pastGrouped.has(g.showSlug));
 
+  const assignShow = (slug: string, leg: string | null) => {
+    setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, leg } : s)));
+    fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, leg }),
+    });
+  };
+
+  const createLeg = async (slug: string) => {
+    setLegs((prev) => (prev.some((l) => l.slug === slug) ? prev : [...prev, { slug }]));
+    await fetch("/api/legs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+    });
+  };
+
   const cardProps = {
     pamphlets,
+    legs,
+    onCreateLeg: createLeg,
     onMessage: (text: string) => setMessage({ type: "success", text }),
     onUpdateSponsor: (updated: Sponsor) =>
       setSponsors((prev) =>
@@ -399,6 +427,14 @@ export default function HostsAdminPage() {
           </div>
         ) : (
           <>
+            <BookingLoop />
+            <LegsManager
+              legs={legs}
+              shows={shows}
+              setLegs={setLegs}
+              assignShow={assignShow}
+              onMessage={(type, text) => setMessage({ type, text })}
+            />
             {upcoming.length > 0 && (
               <div className="mb-16">
                 <div className="flex items-baseline justify-between mb-8">
@@ -1766,6 +1802,8 @@ function PosterEditor({
 function ShowGroupCard({
   group,
   pamphlets,
+  legs,
+  onCreateLeg,
   onMessage,
   onUpdateSponsor,
   onRemoveSponsor,
@@ -1774,6 +1812,8 @@ function ShowGroupCard({
 }: {
   group: ShowGroup;
   pamphlets: Pamphlet[];
+  legs: Leg[];
+  onCreateLeg: (slug: string) => Promise<void>;
   onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
@@ -2226,6 +2266,33 @@ function ShowGroupCard({
                     onChange={(e) => toggleFlight(e.target.checked)}
                     className="rounded shrink-0 ml-3"
                   />
+                </label>
+                <label className={`${drawerRow} cursor-pointer`}>
+                  <span>Trip · fund leg</span>
+                  <select
+                    value={show.leg ?? ""}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      if (v === "__new__") {
+                        const raw = window.prompt("New leg slug (e.g. socal)") ?? "";
+                        const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                        if (!slug) return;
+                        if (!legs.some((l) => l.slug === slug)) await onCreateLeg(slug);
+                        patchShow({ leg: slug });
+                      } else {
+                        patchShow({ leg: v || null });
+                      }
+                    }}
+                    className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 ml-3 shrink-0"
+                  >
+                    <option value="">— none —</option>
+                    {legs.map((l) => (
+                      <option key={l.slug} value={l.slug}>
+                        {l.slug}
+                      </option>
+                    ))}
+                    <option value="__new__">+ New leg…</option>
+                  </select>
                 </label>
               </section>
             )}

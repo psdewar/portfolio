@@ -7,6 +7,7 @@ import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
 import MomentsGallery from "../moments/MomentsGallery";
 import { preloadGoogleMaps } from "../lib/maps";
+import { formatEventDateShort } from "../lib/dates";
 import type { FundLeg, FundLine } from "./legs";
 import SponsorHeader from "app/sponsor/SponsorHeader";
 
@@ -166,12 +167,14 @@ function ContributeOverlay({
 export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) {
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = leg.lines;
+  const booked = leg.booked ?? [];
+  const hasBooked = booked.length > 0;
   const tripTotal = LINES.reduce((sum, line) => sum + line.amount, 0);
   const otherWays = [
     {
       key: "host",
-      label: "Host a concert in your living room",
-      note: "or a bigger venue",
+      label: hasBooked ? "Host another concert for this trip" : "Host a concert in your living room",
+      note: hasBooked ? "your living room or a bigger venue" : "or a bigger venue",
       smsBody: `Hi Peyt, I'd love to host a concert for your trip!`,
     },
   ];
@@ -183,6 +186,7 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
   const [hostOpen, setHostOpen] = useState(false);
+  const [posterLoading, setPosterLoading] = useState(false);
 
   const mastheadRef = useRef<HTMLDivElement>(null);
   const kickerRef = useRef<HTMLDivElement>(null);
@@ -244,6 +248,34 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
   }
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
   const venmoUrl = `https://venmo.com/psdewar?txn=pay&audience=private&amount=${total}&note=${encodeURIComponent(venmoNote)}`;
+
+  const posterSlugs = booked.map((b) => b.slug).filter((s): s is string => Boolean(s));
+  const sharePoster = async (slug: string) => {
+    setPosterLoading(true);
+    try {
+      const res = await fetch(`/api/poster/${slug}?format=ig&jpg=true`);
+      const blob = await res.blob();
+      const file = new File([blob], `poster-${slug}.jpg`, { type: "image/jpeg" });
+      // Mobile: native share sheet (text it, post it) with the image attached.
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+        } catch {
+          // share sheet dismissed — do nothing
+        }
+        return;
+      }
+      // Desktop / unsupported: download the image directly.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `poster-${slug}.jpg`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPosterLoading(false);
+    }
+  };
 
   return (
     <>
@@ -629,9 +661,29 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
           </h1>
           <p className="step-ask">
             for a {leg.nights} night stay. I bring my energy and pay for the trip myself. Chip in
-            where you can:
+            where you can{hasBooked ? " for" : ":"}
           </p>
 
+          {booked.length > 0 && (
+            <p className="dateline">
+              {booked.map((b, i) => (
+                <span key={i}>
+                  {i > 0 && <br />}
+                  {b.date ? (
+                    <>
+                      <b>
+                        {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
+                        {formatEventDateShort(b.date)}
+                      </b>{" "}
+                      {b.venue}
+                    </>
+                  ) : (
+                    <b>{b.venue}</b>
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
           <div className="section-head">Cover my trip</div>
           <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
             Contribute any amount
@@ -741,12 +793,51 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
               <div className="other-body">
                 <div className="other-label">Spread the word</div>
                 <div className="other-note">
-                  download my concert poster to share with friends
-                  <br />
-                  (personal text &gt; group chat)
+                  personal text &gt; group chat
+                  {posterSlugs.length === 1 && (
+                    <>
+                      {" · "}
+                      <a
+                        href={`/api/poster/${posterSlugs[0]}?format=print`}
+                        className="inkind-cta"
+                      >
+                        print version
+                      </a>
+                    </>
+                  )}
                 </div>
               </div>
-              <span className="other-soon">Coming soon</span>
+              {posterSlugs.length === 0 ? (
+                <span className="other-soon">Coming soon</span>
+              ) : posterSlugs.length === 1 ? (
+                <button
+                  className="other-action"
+                  onClick={() => sharePoster(posterSlugs[0])}
+                  disabled={posterLoading}
+                  style={{ opacity: posterLoading ? 0.6 : 1 }}
+                >
+                  {posterLoading ? "Preparing…" : "Download my concert poster"}
+                </button>
+              ) : (
+                <select
+                  className="other-action"
+                  value=""
+                  disabled={posterLoading}
+                  onChange={(e) => e.target.value && sharePoster(e.target.value)}
+                  style={{ opacity: posterLoading ? 0.6 : 1 }}
+                >
+                  <option value="">
+                    {posterLoading ? "Preparing…" : "Download my concert poster"}
+                  </option>
+                  {booked
+                    .filter((b) => b.slug)
+                    .map((b) => (
+                      <option key={b.slug} value={b.slug}>
+                        {b.venue}
+                      </option>
+                    ))}
+                </select>
+              )}
             </li>
           </ul>
 

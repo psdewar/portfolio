@@ -34,6 +34,8 @@ export interface Show {
   flights?: string[] | null;
   // Eventbrite event id, set when the show is auto-published to Eventbrite.
   eventbriteId?: string | null;
+  // The leg (trip grouping) this show belongs to; matches a Leg.slug.
+  leg?: string | null;
 }
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";

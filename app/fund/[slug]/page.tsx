@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
 import { FundFunnel } from "../FundFunnel";
 import ArtistIntro from "../../components/ArtistIntro";
-import { getFundLeg, FUND_LEGS } from "../legs";
+import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
+import { getShows, isShowListable, getVenueLabel } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
 import type { Metadata } from "next";
 
@@ -17,11 +18,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
-  const leg = getFundLeg(slug);
-  if (leg) {
-    const title = `Help fund my concert-conversation in ${leg.destination}`;
+  const fund = toFundView(await getLeg(slug));
+  if (fund) {
+    const title = `Help fund my concert-conversation in ${fund.destination}`;
     const description = `From The Ground Up: My Path of Growth and the Principles that Connect Us by Microsoft engineer Peyt Spencer`;
-    const url = `https://peytspencer.com/fund/${leg.slug}`;
+    const url = `https://peytspencer.com/fund/${fund.slug}`;
     return {
       title,
       description,
@@ -33,7 +34,7 @@ export async function generateMetadata({
         description,
         images: [
           {
-            url: `https://peytspencer.com/api/og/fund/${leg.slug}`,
+            url: `https://peytspencer.com/api/og/fund/${fund.slug}`,
             width: 900,
             height: 1600,
             alt: title,
@@ -42,7 +43,7 @@ export async function generateMetadata({
       },
       twitter: {
         card: "summary_large_image",
-        images: [`https://peytspencer.com/api/og/fund/${leg.slug}`],
+        images: [`https://peytspencer.com/api/og/fund/${fund.slug}`],
       },
     };
   }
@@ -85,9 +86,23 @@ export default async function Page({
 }) {
   const { slug } = await params;
 
-  const leg = getFundLeg(slug);
-  if (leg) {
-    return <FundFunnel leg={leg} intro={<ArtistIntro />} />;
+  const fund = toFundView(await getLeg(slug));
+  if (fund) {
+    // Date and venue come from the real shows tagged into this leg; the leg's
+    // authored `booked` is only a fallback until shows are linked. Private
+    // shows are fine here (the page is unlisted) — listable excludes drafts.
+    const shows = await getShows();
+    const legShows = shows
+      .filter((s) => s.leg === slug && isShowListable(s))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const derived: FundBooked[] = legShows.map((s) => ({
+      slug: s.slug,
+      venue: getVenueLabel(s) ?? s.city,
+      date: s.date,
+      doorTime: s.doorTime,
+    }));
+    const booked = derived.length ? derived : fund.booked;
+    return <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} />;
   }
 
   const resolvedSearchParams = await searchParams;
@@ -102,7 +117,8 @@ export default async function Page({
   return <ProjectView project={project} stats={stats} success={success} />;
 }
 
-// Pre-generate tour-leg and project slugs (SSG) so future additions are simple.
+// Pre-generate seed leg and project slugs (SSG); chorus-created legs render
+// on demand via dynamicParams (Next default).
 export function generateStaticParams() {
   const legParams = Object.keys(FUND_LEGS).map((slug) => ({ slug }));
   const projectParams = Object.values(projectsData).map((p: any) => ({ slug: p.slug }));
