@@ -19,6 +19,7 @@ function keyFromLabel(label: string): string {
 
 const input =
   "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
+const lineInput = input.replace("w-full", "min-w-0");
 
 export default function LegsManager({
   legs,
@@ -242,19 +243,19 @@ export default function LegsManager({
                       {(fund.lines ?? []).map((line, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
                           <input
-                            className={`${input} flex-[2]`}
+                            className={`${lineInput} flex-[2]`}
                             placeholder="Label"
                             value={line.label}
                             onChange={(e) => setLine(leg.slug, idx, { label: e.target.value })}
                           />
                           <input
-                            className={`${input} flex-[3]`}
+                            className={`${lineInput} flex-[3]`}
                             placeholder="Note"
                             value={line.note}
                             onChange={(e) => setLine(leg.slug, idx, { note: e.target.value })}
                           />
                           <input
-                            className={`${input} w-24`}
+                            className={`${lineInput} w-24 shrink-0`}
                             type="number"
                             min="0"
                             placeholder="$"
