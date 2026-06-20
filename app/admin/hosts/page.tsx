@@ -2268,7 +2268,7 @@ function ShowGroupCard({
                   />
                 </label>
                 <label className={`${drawerRow} cursor-pointer`}>
-                  <span>Trip · fund leg</span>
+                  <span>Leg</span>
                   <select
                     value={show.leg ?? ""}
                     onChange={async (e) => {
