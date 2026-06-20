@@ -18,6 +18,7 @@ import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { type Leg } from "../../fund/legs";
 import LegsManager from "../LegsManager";
 import BookingLoop from "../BookingLoop";
+import { areRegionsAdjacent } from "../../lib/region-adjacency";
 import {
   formatEventDate,
   formatEventDateShort,
@@ -299,6 +300,44 @@ export default function HostsAdminPage() {
     return legs;
   };
 
+  // Adjacency + date heuristic, kept only as a *suggestion* for ungrouped shows.
+  // Standalone shows opt out. Returns clusters of 2+ worth proposing as a leg.
+  const suggestLegs = (items: ShowGroup[]): ShowGroup[][] => {
+    const chainable = items.filter((g) => g.show?.slug && g.show?.date && !g.show!.standalone);
+    const n = chainable.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const find = (x: number): number => {
+      if (parent[x] !== x) parent[x] = find(parent[x]);
+      return parent[x];
+    };
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = chainable[i].show!;
+        const b = chainable[j].show!;
+        const diffDays =
+          Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000;
+        const sameRegion = a.region === b.region;
+        if (
+          (sameRegion || areRegionsAdjacent(a.region, b.region)) &&
+          diffDays <= (sameRegion ? 21 : 7)
+        ) {
+          parent[find(i)] = find(j);
+        }
+      }
+    }
+    const buckets = new Map<number, ShowGroup[]>();
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      if (!buckets.has(root)) buckets.set(root, []);
+      buckets.get(root)!.push(chainable[i]);
+    }
+    return [...buckets.values()]
+      .filter((c) => c.length >= 2)
+      .map((c) =>
+        c.sort((a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime()),
+      );
+  };
+
   const upcoming = groups
     .filter((g) => g.host.date && !isDatePast(g.host.date))
     .sort((a, b) => new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime());
@@ -331,6 +370,14 @@ export default function HostsAdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug }),
     });
+  };
+
+  const acceptSuggestion = async (cluster: ShowGroup[]) => {
+    const raw = window.prompt("New leg slug for these shows (e.g. socal)") ?? "";
+    const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    if (!slug) return;
+    if (!legs.some((l) => l.slug === slug)) await createLeg(slug);
+    cluster.forEach((g) => g.show?.slug && assignShow(g.show.slug, slug));
   };
 
   const cardProps = {
@@ -367,6 +414,7 @@ export default function HostsAdminPage() {
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
+  const suggested = suggestLegs(ungrouped);
 
   const handlePamphletSaved = (p: Pamphlet) => {
     setPamphlets((prev) => {
@@ -459,6 +507,28 @@ export default function HostsAdminPage() {
                         </span>
                         <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
                       </div>
+                      {suggested.length > 0 && (
+                        <div className="mb-4 rounded-lg border border-dashed border-[#d4a553]/40 p-3 space-y-2">
+                          <div className="text-xs uppercase tracking-wider text-[#d4a553]">
+                            Suggested legs
+                          </div>
+                          {suggested.map((cluster, i) => (
+                            <div key={i} className="flex items-center justify-between gap-3">
+                              <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-300">
+                                {cluster
+                                  .map((g) => `${formatMonthDay(g.show!.date)} ${g.show!.city}`)
+                                  .join(" · ")}
+                              </span>
+                              <button
+                                onClick={() => acceptSuggestion(cluster)}
+                                className="shrink-0 rounded-lg border border-[#d4a553]/50 px-3 py-1.5 text-xs text-[#d4a553] transition-colors hover:bg-[#d4a553]/10"
+                              >
+                                Group into a leg
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                         {ungrouped.map((g) => (
                           <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
@@ -2224,7 +2294,7 @@ function ShowGroupCard({
                   </div>
                 )}
                 <label className={`${drawerRow} cursor-pointer`}>
-                  <span>Keep separate · never group into a pamphlet leg</span>
+                  <span>Keep separate · never auto-suggest into a leg</span>
                   <input
                     type="checkbox"
                     checked={!!show.standalone}
