@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { type Show, getShows } from "../../lib/shows";
 import { getPamphlets } from "../../lib/pamphlets";
+import { getLegs } from "../../fund/legs";
 import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
 import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
@@ -294,36 +295,60 @@ export async function GET(request: NextRequest) {
 
   if (!blank) {
     if (pamphletId) {
-      const [allShows, pamphlets] = await Promise.all([getShows(), getPamphlets()]);
-      const pamphlet = pamphlets.find((p) => p.id === pamphletId);
-      if (!pamphlet) {
-        return new Response("Pamphlet not found", { status: 404 });
+      const [allShows, legs] = await Promise.all([getShows(), getLegs()]);
+      const leg = legs.find((l) => l.slug === pamphletId);
+      if (leg?.pamphlet) {
+        // Leg-native poster: styling from the facet, shows derived from Show.leg.
+        const pf = leg.pamphlet;
+        pamphletLabel = pf.label;
+        pamphletShowDoors = pf.showDoors ?? false;
+        pamphletShowQr = pf.showQr ?? false;
+        pamphletPinTopRsvp = pf.pinTopRsvp ?? true;
+        pamphletTags = pf.tags ?? "";
+        pamphletVenueImg = pf.venueImg ?? "";
+        pamphletVenueImgWidth = pf.venueImgWidth ?? 0;
+        pamphletVenueImgOffsetY = pf.venueImgOffsetY ?? 0;
+        pamphletCenterLogo = pf.centerLogo ?? false;
+        pamphletTaglineAlign = pf.taglineAlign ?? "";
+        pamphletDoorsOpen = pf.doorsOpen ?? "";
+        pamphletScale = pf.scale ?? 1;
+        const overlay = pf.shows ?? {};
+        const legSlugs = allShows.filter((s) => s.leg === pamphletId).map((s) => s.slug);
+        const included = Object.keys(overlay).filter((s) => legSlugs.includes(s));
+        const slugs = included.length ? included : legSlugs;
+        selected = resolveShows(allShows, slugs, (slug) => overlay[slug] ?? {});
+      } else {
+        // Fallback: legacy pamphlet store (un-migrated).
+        const pamphlet = (await getPamphlets()).find((p) => p.id === pamphletId);
+        if (!pamphlet) {
+          return new Response("Pamphlet not found", { status: 404 });
+        }
+        pamphletLabel = pamphlet.label;
+        pamphletShowDoors = pamphlet.showDoors ?? false;
+        pamphletShowQr = pamphlet.showQr ?? false;
+        pamphletPinTopRsvp = pamphlet.pinTopRsvp ?? true;
+        pamphletTags = pamphlet.tags ?? "";
+        pamphletVenueImg = pamphlet.venueImg ?? "";
+        pamphletVenueImgWidth = pamphlet.venueImgWidth ?? 0;
+        pamphletVenueImgOffsetY = pamphlet.venueImgOffsetY ?? 0;
+        pamphletCenterLogo = pamphlet.centerLogo ?? false;
+        pamphletTaglineAlign = pamphlet.taglineAlign ?? "";
+        pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
+        pamphletScale = pamphlet.scale ?? 1;
+        const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps]));
+        selected = resolveShows(
+          allShows,
+          pamphlet.shows.map((ps) => ps.slug),
+          (slug) => {
+            const ps = overrides.get(slug);
+            return {
+              venueLabel: ps?.venueLabel,
+              dateLabel: ps?.dateLabel,
+              doorsOpen: ps?.doorsOpen,
+            };
+          },
+        );
       }
-      pamphletLabel = pamphlet.label;
-      pamphletShowDoors = pamphlet.showDoors ?? false;
-      pamphletShowQr = pamphlet.showQr ?? false;
-      pamphletPinTopRsvp = pamphlet.pinTopRsvp ?? true;
-      pamphletTags = pamphlet.tags ?? "";
-      pamphletVenueImg = pamphlet.venueImg ?? "";
-      pamphletVenueImgWidth = pamphlet.venueImgWidth ?? 0;
-      pamphletVenueImgOffsetY = pamphlet.venueImgOffsetY ?? 0;
-      pamphletCenterLogo = pamphlet.centerLogo ?? false;
-      pamphletTaglineAlign = pamphlet.taglineAlign ?? "";
-      pamphletDoorsOpen = pamphlet.doorsOpen ?? "";
-      pamphletScale = pamphlet.scale ?? 1;
-      const overrides = new Map(pamphlet.shows.map((ps) => [ps.slug, ps]));
-      selected = resolveShows(
-        allShows,
-        pamphlet.shows.map((ps) => ps.slug),
-        (slug) => {
-          const ps = overrides.get(slug);
-          return {
-            venueLabel: ps?.venueLabel,
-            dateLabel: ps?.dateLabel,
-            doorsOpen: ps?.doorsOpen,
-          };
-        },
-      );
     } else {
       const slugs = searchParams
         .get("slugs")

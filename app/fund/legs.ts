@@ -12,11 +12,31 @@ export type FundFacet = {
   booked?: FundBooked[];
 };
 
-// A leg is a trip grouping. Funding is one facet; the ledger and pamphlets
-// reference the same slug, and shows point at a leg via Show.leg.
+// The pamphlet (poster) facet of a leg. Its shows derive from Show.leg; the
+// `shows` map is the print overlay — keys are the included shows, values their
+// per-show label overrides.
+export type PamphletFacet = {
+  label?: string;
+  showDoors?: boolean;
+  showQr?: boolean;
+  pinTopRsvp?: boolean;
+  tags?: string;
+  venueImg?: string;
+  venueImgWidth?: number;
+  venueImgOffsetY?: number;
+  centerLogo?: boolean;
+  taglineAlign?: string;
+  doorsOpen?: string;
+  scale?: number;
+  shows?: Record<string, { venueLabel?: string; dateLabel?: string; doorsOpen?: string }>;
+};
+
+// A leg is a trip grouping. Funding and the poster are facets; the ledger
+// references the same slug, and shows point at a leg via Show.leg.
 export type Leg = {
   slug: string;
   fund?: FundFacet;
+  pamphlet?: PamphletFacet;
 };
 
 // Flat view consumed by FundFunnel: the fund facet plus the leg slug.

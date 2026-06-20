@@ -15,7 +15,7 @@ import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
-import { type Leg } from "../../fund/legs";
+import { type Leg, type PamphletFacet } from "../../fund/legs";
 import LegsManager from "../LegsManager";
 import BookingLoop from "../BookingLoop";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
@@ -416,11 +416,34 @@ export default function HostsAdminPage() {
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
   const suggested = suggestLegs(ungrouped);
 
-  const handlePamphletSaved = (p: Pamphlet) => {
-    setPamphlets((prev) => {
-      const idx = prev.findIndex((x) => x.id === p.id);
-      return idx >= 0 ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p];
-    });
+  const handlePamphletSaved = (slug: string, pamphlet: PamphletFacet) => {
+    setLegs((prev) =>
+      prev.some((l) => l.slug === slug)
+        ? prev.map((l) => (l.slug === slug ? { ...l, pamphlet } : l))
+        : [...prev, { slug, pamphlet }],
+    );
+  };
+
+  // Adapt a leg's pamphlet facet to the Pamphlet shape the editor reads.
+  const legPamphlet = (slug: string): Pamphlet | null => {
+    const pf = legs.find((l) => l.slug === slug)?.pamphlet;
+    if (!pf) return null;
+    return {
+      id: slug,
+      label: pf.label,
+      showDoors: pf.showDoors,
+      showQr: pf.showQr,
+      pinTopRsvp: pf.pinTopRsvp,
+      tags: pf.tags,
+      venueImg: pf.venueImg,
+      venueImgWidth: pf.venueImgWidth,
+      venueImgOffsetY: pf.venueImgOffsetY,
+      centerLogo: pf.centerLogo,
+      taglineAlign: pf.taglineAlign,
+      doorsOpen: pf.doorsOpen,
+      scale: pf.scale,
+      shows: Object.entries(pf.shows ?? {}).map(([s, o]) => ({ slug: s, ...o })),
+    };
   };
 
   return (
@@ -476,10 +499,7 @@ export default function HostsAdminPage() {
                 </div>
                 <div className="space-y-10">
                   {pamphletGroups.map((cluster, i) => {
-                    const clusterSlugs = cluster.map((g) => g.show!.slug);
-                    const matched = pamphlets.find((p) =>
-                      p.shows.some((ps) => clusterSlugs.includes(ps.slug)),
-                    );
+                    const matched = legPamphlet(cluster[0]?.show?.leg ?? "");
                     return (
                       <div key={i}>
                         <div className="flex items-center gap-4 mb-4">
@@ -541,7 +561,7 @@ export default function HostsAdminPage() {
             )}
 
             {past.length > 0 && (
-              <CompletedSection legs={pastLegs} ungrouped={pastUngrouped} pamphlets={pamphlets} />
+              <CompletedSection legs={pastLegs} ungrouped={pastUngrouped} />
             )}
 
             {groups.length === 0 && (
@@ -562,11 +582,9 @@ export default function HostsAdminPage() {
 function CompletedSection({
   legs,
   ungrouped,
-  pamphlets,
 }: {
   legs: ShowGroup[][];
   ungrouped: ShowGroup[];
-  pamphlets: Pamphlet[];
 }) {
   const [viewing, setViewing] = useState<ShowGroup | null>(null);
 
@@ -624,9 +642,7 @@ function CompletedSection({
           const sorted = [...leg].sort(
             (a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime(),
           );
-          const slugs = new Set(sorted.map((g) => g.show!.slug));
-          const matched = pamphlets.find((p) => p.shows.some((s) => slugs.has(s.slug)));
-          const legName = matched?.id?.replace(/-/g, " ");
+          const legName = sorted[0].show!.leg?.replace(/-/g, " ");
 
           return (
             <div key={i}>
@@ -904,7 +920,7 @@ function PosterEditor({
 }: {
   group: ShowGroup[];
   matchedPamphlet: Pamphlet | null;
-  onPamphletSaved: (p: Pamphlet) => void;
+  onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
   variant: "card" | "leg" | "drawer";
 }) {
@@ -923,7 +939,7 @@ function PosterEditor({
   };
 
   const [open, setOpen] = useState(false);
-  const [legId, setLegId] = useState(matchedPamphlet?.id ?? "");
+  const [legId, setLegId] = useState(matchedPamphlet?.id ?? group[0]?.show?.leg ?? "");
   const [tagline, setTagline] = useState(
     isSingle ? (soloShow?.taglineSuffix ?? DEFAULT_TAGLINE) : (matchedPamphlet?.label ?? DEFAULT_TAGLINE),
   );
@@ -1108,11 +1124,8 @@ function PosterEditor({
     const id = legId.trim();
     if (!id) return true;
     setSaveError("");
-    const lbl = tagline.trim() || undefined;
-    const payload = {
-      id,
-      shows: buildPamphletShows(),
-      label: lbl,
+    const pamphlet: PamphletFacet = {
+      label: tagline.trim() || undefined,
       showDoors,
       showQr,
       pinTopRsvp,
@@ -1123,32 +1136,18 @@ function PosterEditor({
       centerLogo,
       taglineAlign,
       scale: scale !== 1 ? scale : undefined,
+      shows: Object.fromEntries(buildPamphletShows().map(({ slug, ...rest }) => [slug, rest])),
     };
-    const isUpdate = matchedPamphlet?.id === id;
-    const res = await fetch("/api/pamphlets", {
-      method: isUpdate ? "PATCH" : "POST",
+    const res = await fetch("/api/legs", {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ slug: id, pamphlet }),
     });
     if (!res.ok) {
-      setSaveError(res.status === 409 ? "Name already taken by another pamphlet" : "Failed to save");
+      setSaveError("Failed to save");
       return false;
     }
-    onPamphletSaved({
-      id,
-      label: lbl,
-      shows: payload.shows,
-      showDoors,
-      showQr,
-      pinTopRsvp,
-      tags: payload.tags,
-      venueImg: payload.venueImg,
-      venueImgWidth: payload.venueImgWidth,
-      venueImgOffsetY: payload.venueImgOffsetY,
-      centerLogo,
-      taglineAlign: payload.taglineAlign,
-      scale: payload.scale,
-    });
+    onPamphletSaved(id, pamphlet);
     return true;
   };
 
