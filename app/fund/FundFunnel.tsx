@@ -165,7 +165,7 @@ function ContributeOverlay({
 
 export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) {
   const coveredKeys = new Set(leg.coveredInKind ?? []);
-  const LINES = leg.lines;
+  const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
   const booked = leg.booked ?? [];
   const hasBooked = booked.length > 0;
   const flightBy = leg.flightBy

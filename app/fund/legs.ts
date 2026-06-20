@@ -45,6 +45,22 @@ export type FundLeg = FundFacet & { slug: string };
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
+// The five prime budget lines a new fund leg starts from. norcal is the
+// canonical template; the artist edits these per trip and can drop any a trip
+// does not need. Remove a line, or zero it, and it stays gone.
+export const PRIME_LINES: readonly FundLine[] = [
+  { key: "flight", label: "Flight", note: "round-trip, includes checked bags for equipment", amount: 450 },
+  { key: "car", label: "Rental car", note: "includes gas, tolls, and parking", amount: 550 },
+  { key: "lodging", label: "Lodging", note: "hotel or Airbnb", amount: 900 },
+  { key: "food", label: "Food", note: "breakfast, lunch, and dinner on the road", amount: 350 },
+  { key: "buffer", label: "Just in case", note: "life happens, like cancellations out of my control", amount: 250 },
+];
+
+// Fresh copies of the template lines, for seeding a new fund leg.
+export function primeLines(): FundLine[] {
+  return PRIME_LINES.map((p) => ({ ...p }));
+}
+
 // Built-in seed so /fund keeps working before chorus is seeded. Chorus wins
 // once it returns a leg with the same slug.
 const SEED_LEGS: Record<string, Leg> = {
@@ -54,13 +70,7 @@ const SEED_LEGS: Record<string, Leg> = {
       destination: "the Bay & Sactown",
       shortName: "Bay and Sactown",
       nights: 6,
-      lines: [
-        { key: "flight", label: "Flight", note: "round-trip, includes checked bags for equipment", amount: 450 },
-        { key: "car", label: "Rental car", note: "includes gas, tolls, and parking", amount: 550 },
-        { key: "lodging", label: "Lodging", note: "hotel or Airbnb", amount: 900 },
-        { key: "food", label: "Food", note: "breakfast, lunch, and dinner on the road", amount: 350 },
-        { key: "buffer", label: "Just in case", note: "life happens, like cancellations out of my control", amount: 250 },
-      ],
+      lines: primeLines(),
     },
   },
 };
