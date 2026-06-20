@@ -212,7 +212,6 @@ interface ShowGroup {
 export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
-  const [pamphlets, setPamphlets] = useState<Pamphlet[]>([]);
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -226,18 +225,14 @@ export default function HostsAdminPage() {
         fetch("/api/sponsors")
           .then((r) => r.json())
           .catch(() => []),
-        fetch("/api/pamphlets")
-          .then((r) => r.json())
-          .catch(() => []),
         fetch("/api/legs")
           .then((r) => r.json())
           .catch(() => []),
       ])
-        .then(([showsData, sponsorsData, pamphletData, legsData]) => {
+        .then(([showsData, sponsorsData, legsData]) => {
           if (cancelled) return;
           setShows(Array.isArray(showsData) ? showsData : []);
           setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
-          setPamphlets(Array.isArray(pamphletData) ? pamphletData : []);
           setLegs(Array.isArray(legsData) ? legsData : []);
         })
         .catch(() => !cancelled && setMessage({ type: "error", text: "Failed to load data" }))
@@ -381,7 +376,6 @@ export default function HostsAdminPage() {
   };
 
   const cardProps = {
-    pamphlets,
     legs,
     onCreateLeg: createLeg,
     onMessage: (text: string) => setMessage({ type: "success", text }),
@@ -401,15 +395,6 @@ export default function HostsAdminPage() {
       ),
     onShowUpdate: (slug: string, fields: Partial<Show>) =>
       setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s))),
-    onPamphletCascade: (deletedSlug: string) =>
-      setPamphlets((prev) =>
-        prev.flatMap((p) => {
-          const remaining = p.shows.filter((s) => s.slug !== deletedSlug);
-          if (remaining.length === p.shows.length) return [p];
-          if (remaining.length === 0) return [];
-          return [{ ...p, shows: remaining }];
-        }),
-      ),
   };
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
@@ -1156,11 +1141,18 @@ function PosterEditor({
       scale: scale !== 1 ? scale : undefined,
       shows: Object.fromEntries(buildPamphletShows().map(({ slug, ...rest }) => [slug, rest])),
     };
-    const res = await fetch("/api/legs", {
+    let res = await fetch("/api/legs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: id, pamphlet }),
     });
+    if (res.status === 404) {
+      res = await fetch("/api/legs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: id, pamphlet }),
+      });
+    }
     if (!res.ok) {
       setSaveError("Failed to save");
       return false;
@@ -1862,24 +1854,20 @@ function PosterEditor({
 
 function ShowGroupCard({
   group,
-  pamphlets,
   legs,
   onCreateLeg,
   onMessage,
   onUpdateSponsor,
   onRemoveSponsor,
   onShowUpdate,
-  onPamphletCascade,
 }: {
   group: ShowGroup;
-  pamphlets: Pamphlet[];
   legs: Leg[];
   onCreateLeg: (slug: string) => Promise<void>;
   onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
-  onPamphletCascade: (deletedSlug: string) => void;
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
@@ -1988,19 +1976,6 @@ function ShowGroupCard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug: group.showSlug }),
         });
-        const orphaned = pamphlets.filter(
-          (p) => p.shows.length === 1 && p.shows[0].slug === group.showSlug,
-        );
-        await Promise.all(
-          orphaned.map((p) =>
-            fetch("/api/pamphlets", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: p.id }),
-            }),
-          ),
-        );
-        onPamphletCascade(group.showSlug);
       }
       onRemoveSponsor(host.submittedAt, host.showSlug);
       for (const s of supporters) onRemoveSponsor(s.submittedAt, s.showSlug);
