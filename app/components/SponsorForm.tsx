@@ -411,23 +411,6 @@ export default function SponsorForm({
           ),
         );
 
-        if (booked.length > 1) {
-          const pamphletId = `${resolvedCity}-${resolvedRegion}-${primarySlot.date}`
-            .toLowerCase()
-            .replace(/[^\w]+/g, "-")
-            .replace(/^-+|-+$/g, "");
-          if (pamphletId) {
-            fetch("/api/pamphlets", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: pamphletId,
-                shows: booked.map((b) => ({ slug: b.slug })),
-              }),
-            }).catch(() => {});
-          }
-        }
-
         onSuccess?.(fields);
         const bookedSlugs = booked.map((b) => b.slug).join(",");
         router.push(
