@@ -356,7 +356,7 @@ export async function GET(request: NextRequest) {
   const pinTopRsvp = flag("pinTopRsvp", pamphletPinTopRsvp);
   const centerLogo = flag("centerLogo", pamphletCenterLogo);
   const tags = searchParams.get("tags") ?? pamphletTags;
-  const venueImgSrc = inlineVenueImg(searchParams.get("venueImg")?.trim() || pamphletVenueImg);
+  const venueImgSrc = await inlineVenueImg(searchParams.get("venueImg")?.trim() || pamphletVenueImg);
   const venueImgOffsetY = Number(searchParams.get("venueImgOffsetY")) || pamphletVenueImgOffsetY || 0;
   const doorsOpenOverride = (searchParams.get("doorsOpen") ?? pamphletDoorsOpen).trim();
   const scale = Math.min(2, Math.max(0.5, Number(searchParams.get("scale")) || pamphletScale || 1));

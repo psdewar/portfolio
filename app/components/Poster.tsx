@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
+import { normalizeVenueImg, isAbsoluteImg } from "../lib/venue-img";
 import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
 import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
 
@@ -79,11 +80,12 @@ function Poster({
 }: PosterProps) {
   const dims = POSTER_DIMS[format];
   const aspectRatio = `${dims.W} / ${dims.H}`;
-  const venueImgSrc = venueImg.trim()
-    ? venueImg.trim().startsWith("/")
-      ? venueImg.trim()
-      : `/${venueImg.trim()}`
-    : "";
+  const normalizedVenueImg = normalizeVenueImg(venueImg);
+  const venueImgSrc = !normalizedVenueImg
+    ? ""
+    : isAbsoluteImg(normalizedVenueImg) || normalizedVenueImg.startsWith("/")
+      ? normalizedVenueImg
+      : `/${normalizedVenueImg}`;
 
   // Debug: measure the tagline block (the minimum logo width) vs the logo.
   const taglineRef = useRef<HTMLDivElement>(null);

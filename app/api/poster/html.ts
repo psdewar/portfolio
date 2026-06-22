@@ -2,7 +2,10 @@ import fs from "node:fs";
 import nodePath from "node:path";
 import { formatEventDate } from "../../lib/dates";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import { normalizeVenueImg, allowedVenueImgUrl } from "../../lib/venue-img";
 import { qrDataUrl } from "../../lib/qr";
+
+const MAX_VENUE_IMG_BYTES = 5 * 1024 * 1024;
 
 const dataUrlCache = new Map<string, string>();
 export function inlineAsset(publicRelativePath: string, mime: string): string {
@@ -14,19 +17,46 @@ export function inlineAsset(publicRelativePath: string, mime: string): string {
   return dataUrl;
 }
 
-// Resolve a /public-relative venue logo path to an inlined data URL, picking
-// the mime from the extension. Empty/blank input yields "".
-export function inlineVenueImg(publicRelativePath: string): string {
-  const p = publicRelativePath.trim();
-  if (!p) return "";
-  const mime = p.endsWith(".png")
+function venueMime(p: string): string {
+  return p.endsWith(".png")
     ? "image/png"
     : p.endsWith(".jpg") || p.endsWith(".jpeg")
       ? "image/jpeg"
       : p.endsWith(".svg")
         ? "image/svg+xml"
         : "image/webp";
-  return inlineAsset(p, mime);
+}
+
+// Resolve a venue logo to an inlined data URL. Accepts a /public-relative path,
+// an absolute image URL, or a Wikimedia Commons "File:" page link. Remote images
+// are fetched and base64-inlined so the Playwright render has no network
+// dependency, matching how every other poster asset is embedded. Blank yields "".
+export async function inlineVenueImg(input: string): Promise<string> {
+  const p = normalizeVenueImg(input);
+  if (!p) return "";
+  if (p.startsWith("data:")) return p;
+  if (/^https?:\/\//i.test(p)) {
+    const cached = dataUrlCache.get(p);
+    if (cached) return cached;
+    const url = allowedVenueImgUrl(p);
+    if (!url) throw new Error(`venue image host not allowed: ${p}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`venue image fetch failed: ${res.status} ${p}`);
+    // Re-validate after redirects (Commons Special:FilePath -> upload host).
+    if (!allowedVenueImgUrl(res.url)) {
+      throw new Error(`venue image redirected to disallowed host: ${res.url}`);
+    }
+    const mime = res.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
+    if (!mime.startsWith("image/")) throw new Error(`venue image not an image: ${mime || "unknown"}`);
+    const declaredLen = Number(res.headers.get("content-length"));
+    if (declaredLen > MAX_VENUE_IMG_BYTES) throw new Error("venue image too large");
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.byteLength > MAX_VENUE_IMG_BYTES) throw new Error("venue image too large");
+    const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+    dataUrlCache.set(p, dataUrl);
+    return dataUrl;
+  }
+  return inlineAsset(p, venueMime(p));
 }
 
 function fontFace(family: string, weight: number, filename: string): string {

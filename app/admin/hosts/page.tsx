@@ -1479,7 +1479,7 @@ function PosterEditor({
                 type="text"
                 value={venueImg}
                 onChange={(e) => setVenueImg(e.target.value)}
-                placeholder="Venue logo file in /public (e.g. tcc.webp)"
+                placeholder="Logo: /public file (tcc.webp) or image URL"
                 className={`${inputCls} mb-2`}
               />
               <div className="flex items-center gap-2 mb-2">

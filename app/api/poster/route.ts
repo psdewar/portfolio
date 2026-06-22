@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       label: searchParams.get("label") || undefined,
       tags: searchParams.get("tags") ?? "",
       doorsOpenOverride: searchParams.get("doorsOpen") ?? "",
-      venueImgSrc: inlineVenueImg(searchParams.get("venueImg") ?? ""),
+      venueImgSrc: await inlineVenueImg(searchParams.get("venueImg") ?? ""),
       venueImgWidth: Number(searchParams.get("venueImgW")) || undefined,
       venueImgOffsetY: Number(searchParams.get("venueImgOffsetY")) || undefined,
       centerLogo: searchParams.get("centerLogo") === "1",
