@@ -66,6 +66,7 @@ export function createAutocomplete(
   container: HTMLElement,
   onSelect: (place: PlaceResult) => void,
   inputClassName?: string,
+  initialValue?: string,
 ) {
   const google = (window as any).google;
 
@@ -73,13 +74,14 @@ export function createAutocomplete(
   wrapper.style.position = "relative";
 
   const existingInput = container.querySelector("input");
-  const hadFocus = existingInput === document.activeElement;
-  const previousValue = existingInput?.value || "";
+  const carriedValue = existingInput ? existingInput.value : initialValue || "";
+  const shouldFocus =
+    existingInput === document.activeElement || (!existingInput && !!initialValue);
 
   const input = document.createElement("input");
   input.type = "text";
   input.placeholder = "Magdalene Carney Institute, West Palm Beach, FL";
-  input.value = previousValue;
+  input.value = carriedValue;
   if (inputClassName) input.className = inputClassName;
 
   const list = document.createElement("ul");
@@ -92,7 +94,10 @@ export function createAutocomplete(
   while (container.firstChild) container.removeChild(container.firstChild);
   container.appendChild(wrapper);
 
-  if (hadFocus) input.focus();
+  if (shouldFocus) {
+    input.focus();
+    input.setSelectionRange(carriedValue.length, carriedValue.length);
+  }
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   let suggestions: any[] = [];

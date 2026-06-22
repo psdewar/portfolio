@@ -121,6 +121,7 @@ export default function SponsorForm({
   const mapsReady = useGoogleMaps();
   const cityContainerRef = useRef<HTMLDivElement>(null);
   const cityInputRef = useRef<HTMLInputElement>(null);
+  const typedLocationRef = useRef("");
   const doorTimeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [doorTimeOpenIndex, setDoorTimeOpenIndex] = useState<number | null>(null);
 
@@ -220,6 +221,7 @@ export default function SponsorForm({
         setEventCountry(result.country);
       },
       cls,
+      typedLocationRef.current,
     );
   }, [mapsReady, cityReadOnly, compact]);
 
@@ -739,6 +741,7 @@ export default function SponsorForm({
                         placeholder="Magdalene Carney Institute, West Palm Beach, FL"
                         className={fieldClass}
                         onChange={(e) => {
+                          typedLocationRef.current = e.target.value;
                           const parsed = parseTypedLocation(e.target.value);
                           if (parsed) {
                             setEventVenue(parsed.venue);
@@ -773,6 +776,9 @@ export default function SponsorForm({
                         change
                       </span>
                     </button>
+                  )}
+                  {!mapsReady && !hasLocation && (
+                    <p className="text-xs text-neutral-400 mt-1.5">Loading address search...</p>
                   )}
                 </>
               )}
