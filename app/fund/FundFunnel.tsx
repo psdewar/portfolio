@@ -463,10 +463,10 @@ html { scroll-behavior: smooth; }
 .match-chip::before { content: '+$'; color: var(--ink-dim); }
 .match-btn-text { background: var(--scarlet); color: #fff; border-color: transparent; }
 .match-btn-text:hover { opacity: 0.88; color: #fff; }
-.other-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.other-ways { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .other-item {
   border: 1px solid var(--rule); border-radius: 12px; background: var(--surface);
-  padding: 16px 18px; display: flex; gap: 16px; align-items: center;
+  padding: 16px 18px; display: flex; gap: 16px; align-items: center; min-width: 0;
 }
 .other-body { flex: 1 1 auto; min-width: 0; }
 .other-label { color: var(--paper); font-weight: 600; font-size: 18px; }
@@ -476,13 +476,13 @@ html { scroll-behavior: smooth; }
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 16px;
   border: 1px solid var(--rule-strong); border-radius: 9px; min-height: 44px; padding: 10px 16px; white-space: nowrap;
-  transition: color 0.15s ease;
+  max-width: 100%; min-width: 0; transition: color 0.15s ease;
 }
 .other-action:hover { color: var(--paper); }
 .other-soon { flex: 0 0 auto; color: var(--ghost); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
 @media (max-width: 560px) {
   .other-item { flex-wrap: wrap; }
-  .other-action, .other-soon { flex-basis: 100%; text-align: center; }
+  .other-action, .other-soon { flex-basis: 100%; width: 100%; text-align: center; }
 }
 
 .faq { display: grid; gap: 10px; }
