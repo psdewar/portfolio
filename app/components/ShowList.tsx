@@ -40,25 +40,7 @@ export default function ShowList({
             ? show.privateNote || "No public RSVP"
             : show.doorLabel || `Doors open at ${show.doorTime}`;
 
-          const inner = minimal ? (
-            <>
-              <span
-                className="flex-1 min-w-0 truncate font-semibold text-neutral-400 dark:text-neutral-500"
-                style={{
-                  fontFamily: '"Parkinsans", sans-serif',
-                  fontSize: "clamp(1rem, 0.6vw + 0.8rem, 1.5rem)",
-                }}
-              >
-                {cityRegion}
-              </span>
-              <LockSimpleIcon
-                size={22}
-                weight="duotone"
-                className="shrink-0"
-                style={{ color: "#9ca3af" }}
-              />
-            </>
-          ) : (
+          const inner = (
             <>
               <div
                 aria-hidden
@@ -69,7 +51,7 @@ export default function ShowList({
                   style={{
                     fontFamily: '"Space Mono", monospace',
                     fontSize: "clamp(0.875rem, 0.4vw + 0.75rem, 1.125rem)",
-                    color: isPrivate ? "#9ca3af" : "#d4a553",
+                    color: isPrivate && !minimal ? "#9ca3af" : "#d4a553",
                   }}
                 >
                   {formatWeekdayAbbr(show.date)}
@@ -90,7 +72,7 @@ export default function ShowList({
                   style={{
                     fontFamily: '"Space Mono", monospace',
                     fontSize: "clamp(0.875rem, 0.4vw + 0.75rem, 1.125rem)",
-                    color: isPrivate ? "#9ca3af" : "#d4a553",
+                    color: isPrivate && !minimal ? "#9ca3af" : "#d4a553",
                   }}
                 >
                   {formatMonthAbbr(show.date)}
@@ -100,7 +82,7 @@ export default function ShowList({
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
                 <div
                   className={`font-semibold leading-tight ${
-                    isPrivate
+                    isPrivate && !minimal
                       ? "text-neutral-400 dark:text-neutral-500"
                       : "text-neutral-900 dark:text-[#f0ede6]"
                   }`}
@@ -109,7 +91,9 @@ export default function ShowList({
                     fontSize: "clamp(1rem, 0.6vw + 0.8rem, 1.5rem)",
                   }}
                 >
-                  {show.venueLabel ? (
+                  {minimal ? (
+                    <span style={{ whiteSpace: "nowrap" }}>{cityRegion}</span>
+                  ) : show.venueLabel ? (
                     <span style={{ overflowWrap: "anywhere" }}>{show.venueLabel}</span>
                   ) : (
                     <>
@@ -120,19 +104,21 @@ export default function ShowList({
                     </>
                   )}
                 </div>
-                <div
-                  className={`uppercase tracking-[0.14em] ${
-                    isPrivate
-                      ? "text-neutral-400 dark:text-neutral-600"
-                      : "text-neutral-500 dark:text-neutral-400"
-                  }`}
-                  style={{
-                    fontFamily: '"Space Mono", monospace',
-                    fontSize: "clamp(0.875rem, 0.4vw + 0.75rem, 1.125rem)",
-                  }}
-                >
-                  {meta}
-                </div>
+                {!minimal && (
+                  <div
+                    className={`uppercase tracking-[0.14em] ${
+                      isPrivate
+                        ? "text-neutral-400 dark:text-neutral-600"
+                        : "text-neutral-500 dark:text-neutral-400"
+                    }`}
+                    style={{
+                      fontFamily: '"Space Mono", monospace',
+                      fontSize: "clamp(0.875rem, 0.4vw + 0.75rem, 1.125rem)",
+                    }}
+                  >
+                    {meta}
+                  </div>
+                )}
               </div>
 
               <div
@@ -141,7 +127,11 @@ export default function ShowList({
                 aria-hidden
               >
                 {isPrivate ? (
-                  <LockSimpleIcon size={22} weight="duotone" style={{ color: "#9ca3af" }} />
+                  <LockSimpleIcon
+                    size={22}
+                    weight="duotone"
+                    style={{ color: minimal ? "#d4a553" : "#9ca3af" }}
+                  />
                 ) : (
                   <ArrowRightIcon
                     size={22}
@@ -159,7 +149,11 @@ export default function ShowList({
 
           let row: React.ReactNode;
           if (isPrivate) {
-            row = <div className={`${rowClass} cursor-default opacity-70`}>{inner}</div>;
+            row = (
+              <div className={`${rowClass} cursor-default ${minimal ? "" : "opacity-70"}`}>
+                {inner}
+              </div>
+            );
           } else if (onSelect) {
             row = (
               <button
