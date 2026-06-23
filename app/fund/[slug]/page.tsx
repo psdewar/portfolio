@@ -5,7 +5,7 @@ import { FundFunnel } from "../FundFunnel";
 import PrivateNudgeToast from "../PrivateNudgeToast";
 import ArtistIntro from "../../components/ArtistIntro";
 import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
-import { getShows, isShowListable, getVenueLabel } from "../../lib/shows";
+import { getShows, isShowListable, getVenueLabel, isResidence } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
 import type { Metadata } from "next";
 
@@ -99,9 +99,10 @@ export default async function Page({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const derived: FundBooked[] = legShows.map((s) => ({
       slug: s.slug,
-      venue: getVenueLabel(s) ?? s.city,
+      venue: isResidence(s) ? s.venueLabel || `${s.city}, ${s.region}` : getVenueLabel(s) ?? s.city,
       date: s.date,
       doorTime: s.doorTime,
+      private: s.visibility === "private",
     }));
     const booked = derived.length ? derived : fund.booked;
     return (

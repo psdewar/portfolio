@@ -1938,7 +1938,7 @@ function ShowGroupCard({
   // Where a private show's direct /rsvp/<slug> link redirects. Funds add a networking toast.
   const redirectOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [
-      { value: "", label: "Default — other shows (/rsvp)" },
+      { value: "", label: "Default: other shows (/rsvp)" },
     ];
     const seen = new Set<string>();
     const addFund = (slug: string, name: string) => {

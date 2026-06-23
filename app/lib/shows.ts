@@ -118,6 +118,13 @@ export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue">): string 
   return show.venueLabel || show.venue || null;
 }
 
+// A residence: the venue reads as a street address (its leading number matches the
+// full address), so public surfaces should show the city, not the door-number address.
+export function isResidence(show: Pick<Show, "venue" | "address">): boolean {
+  const num = (show.venue ?? "").trim().match(/^\d+/)?.[0];
+  return !!num && (show.address ?? "").trim().startsWith(num);
+}
+
 export function getDoorLabel(show: Pick<Show, "doorLabel" | "doorTime">): string {
   return show.doorLabel || `Doors open at ${show.doorTime || "7PM"}`;
 }

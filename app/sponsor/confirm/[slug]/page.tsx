@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
-import { getShowBySlug, isShowDraft } from "../../../lib/shows";
+import { getShowBySlug, isShowDraft, isResidence } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
@@ -88,9 +88,7 @@ export default async function ConfirmPage({
     phone: hostRecord?.phone || "",
     items: hostRecord?.items || [],
   };
-  const streetNumber = (show.venue ?? "").trim().match(/^\d+/)?.[0];
-  const isResidence = !!streetNumber && (show.address ?? "").trim().startsWith(streetNumber);
-  const location = isResidence ? "your home" : show.venue || `${show.city}, ${show.region}`;
+  const location = isResidence(show) ? "your home" : show.venue || `${show.city}, ${show.region}`;
   const splitItem = "50/50 donation split";
   const contributeItems = host.items.filter((i) => i !== splitItem);
   const hasSplit = host.items.includes(splitItem);

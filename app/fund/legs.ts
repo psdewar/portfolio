@@ -1,6 +1,12 @@
 export type FundLine = { key: string; label: string; note: string; amount: number };
 
-export type FundBooked = { slug?: string; venue: string; date?: string; doorTime?: string };
+export type FundBooked = {
+  slug?: string;
+  venue: string;
+  date?: string;
+  doorTime?: string;
+  private?: boolean;
+};
 
 // The funding facet of a leg: the campaign rendered at /fund/<slug>.
 export type FundFacet = {

@@ -8,7 +8,7 @@ import PaymentOptions from "../components/PaymentOptions";
 import MomentsGallery from "../moments/MomentsGallery";
 import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
-import type { FundLeg, FundLine } from "./legs";
+import { type FundLeg, type FundLine, type FundBooked } from "./legs";
 import SponsorHeader from "app/sponsor/SponsorHeader";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
@@ -254,7 +254,8 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
   const venmoUrl = `https://venmo.com/psdewar?txn=pay&audience=private&amount=${total}&note=${encodeURIComponent(venmoNote)}`;
 
-  const posterSlugs = booked.map((b) => b.slug).filter((s): s is string => Boolean(s));
+  const slugged = booked.filter((b): b is FundBooked & { slug: string } => Boolean(b.slug));
+  const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
   const sharePoster = async (slug: string) => {
     setPosterLoading(true);
     try {
@@ -688,6 +689,9 @@ html { scroll-behavior: smooth; }
                   ) : (
                     <b>{b.venue}</b>
                   )}
+                  {b.private && (
+                    <span style={{ fontStyle: "italic", opacity: 0.8 }}> (private)</span>
+                  )}
                 </span>
               ))}
             </p>
@@ -751,9 +755,8 @@ html { scroll-behavior: smooth; }
             <div className="total-amount">~{money(tripTotal)}</div>
           </div>
           <p className="bf-footer" style={{ marginTop: 8 }}>
-            These figures are estimates based on trips to Florida, British Columbia, NJ/NYC, and
-            DC/Maryland/Virginia, subject to change due to need and circumstances. At every stop, I
-            bring merch and a donation box to earn it all back.
+            These figures are estimates based on previous tour stops, subject to change due to need
+            and circumstances. At every stop, I bring merch and a donation box to earn it all back.
           </p>
 
           <div className="section-head">Honorarium</div>
@@ -796,58 +799,53 @@ html { scroll-behavior: smooth; }
             ))}
           </ul>
 
-          <ul className="other-ways" style={{ marginTop: 10 }}>
-            <li className="other-item">
-              <div className="other-body">
-                <div className="other-label">Spread the word</div>
-                <div className="other-note">
-                  personal text &gt; group chat
-                  {posterSlugs.length === 1 && (
-                    <>
-                      {" · "}
-                      <a
-                        href={`/api/poster/${posterSlugs[0]}?format=print`}
-                        className="inkind-cta"
-                      >
-                        print version
-                      </a>
-                    </>
-                  )}
+          {posterSlugs.length > 0 && (
+            <ul className="other-ways" style={{ marginTop: 10 }}>
+              <li className="other-item">
+                <div className="other-body">
+                  <div className="other-label">Spread the word</div>
+                  <div className="other-note">
+                    personal text &gt; group chat
+                    {slugged.length === 1 && (
+                      <>
+                        {" · "}
+                        <a href={`/api/poster/${posterSlugs[0]}?format=print`} className="inkind-cta">
+                          print version
+                        </a>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {posterSlugs.length === 0 ? (
-                <span className="other-soon">Coming soon</span>
-              ) : posterSlugs.length === 1 ? (
-                <button
-                  className="other-action"
-                  onClick={() => sharePoster(posterSlugs[0])}
-                  disabled={posterLoading}
-                  style={{ opacity: posterLoading ? 0.6 : 1 }}
-                >
-                  {posterLoading ? "Preparing…" : "Download my concert poster"}
-                </button>
-              ) : (
-                <select
-                  className="other-action"
-                  value=""
-                  disabled={posterLoading}
-                  onChange={(e) => e.target.value && sharePoster(e.target.value)}
-                  style={{ opacity: posterLoading ? 0.6 : 1 }}
-                >
-                  <option value="">
+                {slugged.length === 1 ? (
+                  <button
+                    className="other-action"
+                    onClick={() => sharePoster(posterSlugs[0])}
+                    disabled={posterLoading}
+                    style={{ opacity: posterLoading ? 0.6 : 1 }}
+                  >
                     {posterLoading ? "Preparing…" : "Download my concert poster"}
-                  </option>
-                  {booked
-                    .filter((b) => b.slug)
-                    .map((b) => (
-                      <option key={b.slug} value={b.slug}>
-                        {b.venue}
+                  </button>
+                ) : (
+                  <select
+                    className="other-action"
+                    value=""
+                    disabled={posterLoading}
+                    onChange={(e) => e.target.value && sharePoster(e.target.value)}
+                    style={{ opacity: posterLoading ? 0.6 : 1 }}
+                  >
+                    <option value="">
+                      {posterLoading ? "Preparing…" : "Download my concert poster"}
+                    </option>
+                    {slugged.map((b) => (
+                      <option key={b.slug} value={b.slug} disabled={b.private}>
+                        {b.private ? `${b.venue} (private, no poster)` : b.venue}
                       </option>
                     ))}
-                </select>
-              )}
-            </li>
-          </ul>
+                  </select>
+                )}
+              </li>
+            </ul>
+          )}
 
           <div className="section-head">Good to know</div>
           <div className="faq">
