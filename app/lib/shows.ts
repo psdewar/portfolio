@@ -26,6 +26,11 @@ export interface Show {
   centerLogo?: boolean | null;
   // Optional reason shown on the private-concert overlay (e.g. "Youth camp", "Private house concert").
   privateNote?: string | null;
+  // Hide the private reason from the public tour list; the locked row falls back to "No public RSVP".
+  hidePrivateNote?: boolean | null;
+  // Private show only: where its direct /rsvp/<slug> link redirects (a site path, e.g. "/fund/norcal").
+  // Empty falls back to "/rsvp". A "/fund/..." target also shows a networking nudge toast.
+  privateRedirect?: string | null;
   // Tagline alignment: "left" (default) or "justify".
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.

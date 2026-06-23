@@ -15,7 +15,8 @@ import Poster, { type PamphletShowItem } from "../../components/Poster";
 import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
-import { type Leg, type PamphletFacet } from "../../fund/legs";
+import { type Leg, type PamphletFacet, FUND_LEGS } from "../../fund/legs";
+import projectsData from "../../../data/projects.json";
 import LegsManager from "../LegsManager";
 import BookingLoop from "../BookingLoop";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
@@ -1934,6 +1935,32 @@ function ShowGroupCard({
   const inputCls =
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
 
+  // Where a private show's direct /rsvp/<slug> link redirects. Funds add a networking toast.
+  const redirectOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [
+      { value: "", label: "Default — other shows (/rsvp)" },
+    ];
+    const seen = new Set<string>();
+    const addFund = (slug: string, name: string) => {
+      const value = `/fund/${slug}`;
+      if (seen.has(value)) return;
+      seen.add(value);
+      opts.push({ value, label: `Fund · ${name}` });
+    };
+    legs.forEach((l) => l.fund && addFund(l.slug, l.fund.destination));
+    Object.entries(FUND_LEGS).forEach(([slug, f]) => addFund(slug, f.destination));
+    (Object.values(projectsData) as { slug: string; title: string }[]).forEach((p) =>
+      addFund(p.slug, p.title),
+    );
+    opts.push(
+      { value: "/support", label: "Support" },
+      { value: "/listen", label: "Listen" },
+      { value: "/hire", label: "Hire" },
+      { value: "/", label: "Home" },
+    );
+    return opts;
+  }, [legs]);
+
   useEffect(() => {
     if (!group.showSlug) return;
     fetch("/api/rsvp")
@@ -2283,6 +2310,29 @@ function ShowGroupCard({
                       placeholder="Private reason (e.g. Youth camp, private house concert)"
                       className={inputCls}
                     />
+                    <label className="flex items-center justify-between px-0.5 text-sm text-neutral-700 dark:text-neutral-300">
+                      <span>Show reason on tour list</span>
+                      <input
+                        type="checkbox"
+                        checked={!show.hidePrivateNote}
+                        onChange={(e) => patchShow({ hidePrivateNote: !e.target.checked })}
+                        className="rounded shrink-0 ml-3"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between px-0.5 text-sm text-neutral-700 dark:text-neutral-300">
+                      <span className="shrink-0">Direct link goes to</span>
+                      <select
+                        value={show.privateRedirect ?? ""}
+                        onChange={(e) => patchShow({ privateRedirect: e.target.value || null })}
+                        className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 ml-3 min-w-0"
+                      >
+                        {redirectOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                 )}
                 <label className={`${drawerRow} cursor-pointer`}>

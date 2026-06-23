@@ -2,6 +2,7 @@ import projectsData from "../../../data/projects.json";
 import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
 import { FundFunnel } from "../FundFunnel";
+import PrivateNudgeToast from "../PrivateNudgeToast";
 import ArtistIntro from "../../components/ArtistIntro";
 import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
 import { getShows, isShowListable, getVenueLabel } from "../../lib/shows";
@@ -82,9 +83,10 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; nudge?: string }>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
 
   const fund = toFundView(await getLeg(slug));
   if (fund) {
@@ -102,10 +104,14 @@ export default async function Page({
       doorTime: s.doorTime,
     }));
     const booked = derived.length ? derived : fund.booked;
-    return <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} />;
+    return (
+      <>
+        {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
+        <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} />
+      </>
+    );
   }
 
-  const resolvedSearchParams = await searchParams;
   const projects = projectsData as Record<string, any>;
   const project = projects[slug];
   if (!project) {
@@ -113,7 +119,7 @@ export default async function Page({
   }
   // Use cached stats with 60s TTL for better performance
   const stats = await getFundingStats(project.slug);
-  const success = resolvedSearchParams?.success === "1" || resolvedSearchParams?.success === "true";
+  const success = sp?.success === "1" || sp?.success === "true";
   return <ProjectView project={project} stats={stats} success={success} />;
 }
 

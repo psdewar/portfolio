@@ -129,7 +129,10 @@ export default async function ConfirmPage({
           >
             {posterEl}
             {show.visibility === "private" && (
-              <PosterScrollOverlay note={show.privateNote ?? undefined} />
+              <PosterScrollOverlay
+                note={show.privateNote ?? undefined}
+                inPromo={!show.hidePrivateNote}
+              />
             )}
           </div>
 

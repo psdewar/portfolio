@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export default function PosterScrollOverlay({ note }: { note?: string }) {
+export default function PosterScrollOverlay({
+  note,
+  inPromo = true,
+}: {
+  note?: string;
+  inPromo?: boolean;
+}) {
   const textRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
 
@@ -39,9 +45,11 @@ export default function PosterScrollOverlay({ note }: { note?: string }) {
         <p className="text-white text-base leading-relaxed font-medium">
           No RSVPs{note ? `: ${note}` : ""}
         </p>
-        <p className="text-white/80 text-base leading-relaxed mt-1">
-          Date and location still included in promotional materials
-        </p>
+        {inPromo && (
+          <p className="text-white/80 text-base leading-relaxed mt-1">
+            Date and location still included in promotional materials
+          </p>
+        )}
       </div>
     </div>
   );

@@ -35,11 +35,30 @@ export default function ShowList({
           const isPrivate = show.visibility === "private";
           const venueName = show.venue || show.address || "";
           const cityRegion = `${show.city}, ${show.region}`;
+          const minimal = isPrivate && !!show.hidePrivateNote;
           const meta = isPrivate
             ? show.privateNote || "No public RSVP"
             : show.doorLabel || `Doors open at ${show.doorTime}`;
 
-          const inner = (
+          const inner = minimal ? (
+            <>
+              <span
+                className="flex-1 min-w-0 truncate font-semibold text-neutral-400 dark:text-neutral-500"
+                style={{
+                  fontFamily: '"Parkinsans", sans-serif',
+                  fontSize: "clamp(1rem, 0.6vw + 0.8rem, 1.5rem)",
+                }}
+              >
+                {cityRegion}
+              </span>
+              <LockSimpleIcon
+                size={22}
+                weight="duotone"
+                className="shrink-0"
+                style={{ color: "#9ca3af" }}
+              />
+            </>
+          ) : (
             <>
               <div
                 aria-hidden
