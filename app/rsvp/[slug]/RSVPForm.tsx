@@ -251,7 +251,7 @@ export default function RSVPForm({
     <>
       <div>
         <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
-          What&apos;s this experience worth to you?
+          Fund my tour across North America
         </label>
         <div className="flex items-stretch h-14 lg:h-[4.5rem]">
           <button
