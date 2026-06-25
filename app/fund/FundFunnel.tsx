@@ -90,13 +90,11 @@ function LineMatchControl({
 function ContributeOverlay({
   items,
   trip,
-  tripLabel,
   venmoUrl,
   onClose,
 }: {
   items: { key: string; amountCents: number }[];
   trip: string;
-  tripLabel: string;
   venmoUrl: string;
   onClose: () => void;
 }) {
@@ -110,6 +108,14 @@ function ContributeOverlay({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!complete) return;
+    const t = setTimeout(() => {
+      window.location.href = "/support#find-me";
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [complete]);
 
   const fetchClientSecret = useCallback(async () => {
     const res = await fetch("/api/contribution-checkout", {
@@ -138,13 +144,8 @@ function ContributeOverlay({
         </div>
         {complete ? (
           <div className="contribute-thanks">
-            <div className="contribute-thanks-title">Thank you.</div>
-            <p className="contribute-thanks-body">
-              You&apos;re part of the {tripLabel} trip now. I&apos;ll bring you along.
-            </p>
-            <button className="contribute-thanks-btn" onClick={onClose}>
-              Back to the page
-            </button>
+            <div className="contribute-thanks-title">Thank you, find me on socials</div>
+            <div className="contribute-thanks-spinner" aria-label="Loading" />
           </div>
         ) : method === "card" ? (
           <EmbeddedCheckoutProvider
@@ -588,15 +589,12 @@ html { scroll-behavior: smooth; }
 .contribute-thanks-title {
   font-size: 36px; font-weight: 700; color: #1a1915; letter-spacing: -0.02em; margin-bottom: 12px;
 }
-.contribute-thanks-body {
-  color: #4b4940; font-size: 16px; margin: 0 0 28px;
+.contribute-thanks-spinner {
+  width: 28px; height: 28px; margin: 22px auto 0;
+  border: 3px solid var(--rule); border-top-color: var(--paper);
+  border-radius: 50%; animation: cspin 0.7s linear infinite;
 }
-.contribute-thanks-btn {
-  background: var(--scarlet); color: #fff; border: none; border-radius: 10px;
-  padding: 13px 24px; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-.contribute-thanks-btn:hover { opacity: 0.9; }
+@keyframes cspin { to { transform: rotate(360deg); } }
 
 .contribute-choice { padding: 6px 28px 30px; }
 
@@ -871,7 +869,6 @@ html { scroll-behavior: smooth; }
         <ContributeOverlay
           items={items}
           trip={leg.slug}
-          tripLabel={leg.shortName}
           venmoUrl={venmoUrl}
           onClose={() => setCheckoutOpen(false)}
         />

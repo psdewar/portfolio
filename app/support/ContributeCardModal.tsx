@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 
@@ -20,6 +20,18 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!complete) return;
+    const t = setTimeout(() => {
+      onCloseRef.current();
+      window.location.href = "/support#find-me";
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [complete]);
 
   const cents = Math.round((parseFloat(amount) || 0) * 100);
 
@@ -59,9 +71,10 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
         </div>
         <div className="px-6 pb-6">
           {complete ? (
-            <p className="text-xl text-neutral-600 dark:text-neutral-300">
-              You&apos;re part of the tour now. I&apos;ll bring you along.
-            </p>
+            <div className="flex flex-col items-center gap-4 py-2">
+              <p className="text-xl text-neutral-600 dark:text-neutral-300">Find me on socials</p>
+              <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-neutral-200 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white" />
+            </div>
           ) : paying ? (
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
