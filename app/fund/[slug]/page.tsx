@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
 import { FundFunnel } from "../FundFunnel";
 import PrivateNudgeToast from "../PrivateNudgeToast";
+import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
 import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
 import { getShows, isShowListable, getVenueLabel, isResidence } from "../../lib/shows";
@@ -108,6 +109,7 @@ export default async function Page({
     return (
       <>
         {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
+        <HashScroll />
         <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} />
       </>
     );

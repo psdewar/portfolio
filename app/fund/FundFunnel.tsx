@@ -384,8 +384,13 @@ export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) 
   letter-spacing: -0.025em; color: var(--paper); margin: 0; font-weight: 600;
 }
 .bf-h1 em { font-style: normal; color: var(--gold); }
-.dateline { font-size: 16px; color: var(--ink-dim); margin-top: 16px; }
-.dateline b { color: var(--paper); font-weight: 600; }
+.bf-h1 .nights { font-size: 0.6em; font-weight: 500; color: var(--ink-dim); white-space: nowrap; }
+.bf-h1 .nights .dot { margin: 0 0.35em; }
+.dateline { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.loc { display: flex; flex-direction: column; gap: 2px; }
+.loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 26px); line-height: 1.1; }
+.loc-venue em { font-style: italic; font-weight: 400; opacity: 0.75; font-size: 0.66em; }
+.loc-when { color: var(--ink-dim); font-size: 15px; }
 
 html { scroll-behavior: smooth; }
 .section-head {
@@ -404,7 +409,6 @@ html { scroll-behavior: smooth; }
 .steps li { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; font-size: 19px; font-weight: 400; color: var(--paper); border-bottom: 1px solid var(--rule); counter-increment: step; }
 .steps li:last-child { border-bottom: none; }
 .steps li::before { content: counter(step); flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--paper); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-.step-ask { font-size: 18px; color: var(--paper); font-weight: 400; margin: 16px 0 0; }
 @media (max-width: 520px) {
   .stake li { flex-direction: column; gap: 3px; }
   .stake .s-label { flex-basis: auto; }
@@ -475,10 +479,11 @@ html { scroll-behavior: smooth; }
   flex: 0 0 auto; cursor: pointer; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 16px;
-  border: 1px solid var(--rule-strong); border-radius: 9px; min-height: 44px; padding: 10px 16px; white-space: nowrap;
+  border: 1px solid var(--rule-strong); border-radius: 9px; min-height: 48px; padding: 10px 16px; white-space: nowrap;
   max-width: 100%; min-width: 0; transition: color 0.15s ease;
 }
 .other-action:hover { color: var(--paper); }
+@media (min-width: 561px) { select.other-action { width: 17rem; } }
 .other-soon { flex: 0 0 auto; color: var(--ghost); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
 @media (max-width: 560px) {
   .other-item { flex-wrap: wrap; }
@@ -667,34 +672,28 @@ html { scroll-behavior: smooth; }
           </ol>
           <h1 className="bf-h1">
             <em>{leg.destination}</em>
+            <span className="nights">
+              <span className="dot">&middot;</span>
+              {leg.nights} night{leg.nights === 1 ? "" : "s"}
+            </span>
           </h1>
-          <p className="step-ask">
-            for a {leg.nights} night stay. I bring my energy and pay for the trip myself. Chip in
-            where you can{hasBooked ? " for" : ":"}
-          </p>
-
           {booked.length > 0 && (
-            <p className="dateline">
+            <div className="dateline">
               {booked.map((b, i) => (
-                <span key={i}>
-                  {i > 0 && <br />}
-                  {b.date ? (
-                    <>
-                      <b>
-                        {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
-                        {formatEventDateShort(b.date)}
-                      </b>{" "}
-                      {b.venue}
-                    </>
-                  ) : (
-                    <b>{b.venue}</b>
+                <div className="loc" key={i}>
+                  <span className="loc-venue">
+                    {b.venue}
+                    {b.private && <em> (private)</em>}
+                  </span>
+                  {b.date && (
+                    <span className="loc-when">
+                      {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
+                      {formatEventDateShort(b.date)}
+                    </span>
                   )}
-                  {b.private && (
-                    <span style={{ fontStyle: "italic", opacity: 0.8 }}> (private)</span>
-                  )}
-                </span>
+                </div>
               ))}
-            </p>
+            </div>
           )}
           <div className="section-head" id="cover">Cover my trip</div>
           <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
