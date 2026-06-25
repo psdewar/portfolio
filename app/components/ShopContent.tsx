@@ -32,7 +32,7 @@ const SIZE_LABELS: Record<string, string> = {
 const FINE_PRINT = [
   "No added fees",
   "Free shipping, U.S. only for now",
-  "Ships by the end of June",
+  "Ships in mid-July",
   "Secure checkout via Stripe",
 ];
 

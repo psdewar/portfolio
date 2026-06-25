@@ -1,11 +1,10 @@
 import qrcode from "qrcode-generator";
+import { isAllowedQrPath } from "./qr-paths";
 
 const SITE_URL = "https://peytspencer.com";
-const ALLOWED_PREFIXES = ["/rsvp", "/support", "/shop"];
 
 function sanitize(path: string): string {
-  if (path.includes("..")) return "/rsvp";
-  return ALLOWED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`)) ? path : "/rsvp";
+  return isAllowedQrPath(path) ? path : "/rsvp";
 }
 
 export function qrSvg(path: string): string {
