@@ -616,7 +616,7 @@ const STATIC_LEGEND: Record<"general" | "screensavers", QrDef[]> = {
   ],
 };
 
-type QrStatus = "idle" | "checking" | "ok" | "invalid";
+type QrStatus = "idle" | "checking" | "ok" | "redirects" | "invalid";
 
 interface QrItem {
   id: "ticket" | "support" | "shop";
@@ -631,6 +631,7 @@ const STATUS_TEXT: Record<QrStatus, string> = {
   idle: "",
   checking: "Checking link...",
   ok: "Valid link",
+  redirects: "Valid (redirects)",
   invalid: "Won't resolve, fix or turn off",
 };
 
@@ -638,17 +639,20 @@ const STATUS_COLOR: Record<QrStatus, string> = {
   idle: "text-neutral-500",
   checking: "text-neutral-500",
   ok: "text-emerald-600",
+  redirects: "text-sky-600",
   invalid: "text-red-600",
 };
 
-async function confirmLink(path: string): Promise<boolean> {
-  if (!isAllowedQrPath(path)) return false;
-  const checkUrl = path.startsWith("/ticket") ? `${path}?preview=1` : path;
+async function confirmLink(path: string): Promise<Exclude<QrStatus, "idle" | "checking">> {
+  if (!isAllowedQrPath(path)) return "invalid";
+  const isTicketSlug = path.startsWith("/ticket/");
+  const checkUrl = isTicketSlug ? `${path}?preview=1` : path;
   try {
     const res = await fetch(checkUrl, { method: "HEAD", redirect: "manual" });
-    return res.ok;
+    if (res.type === "opaqueredirect") return isTicketSlug ? "invalid" : "redirects";
+    return res.ok ? "ok" : "invalid";
   } catch {
-    return false;
+    return "invalid";
   }
 }
 
@@ -774,7 +778,7 @@ export default function PrintoutsClient({
     {
       id: "ticket",
       label: "Free ticket",
-      path: ticketSlug ? `/ticket/${ticketSlug}` : "/ticket",
+      path: "/ticket",
       enabled: Boolean(ticketSlug),
       status: "idle",
       nonce: 0,
@@ -792,11 +796,11 @@ export default function PrintoutsClient({
     const token = (reqTokens.current[id] ?? 0) + 1;
     reqTokens.current[id] = token;
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, path, status: "checking" } : it)));
-    confirmLink(path).then((ok) => {
+    confirmLink(path).then((result) => {
       if (reqTokens.current[id] !== token) return; // superseded by a newer edit
       setItems((prev) =>
         prev.map((it) =>
-          it.id === id ? { ...it, status: ok ? "ok" : "invalid", nonce: it.nonce + 1 } : it,
+          it.id === id ? { ...it, status: result, nonce: it.nonce + 1 } : it,
         ),
       );
     });
