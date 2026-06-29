@@ -437,6 +437,20 @@ export function AudienceEmailer() {
     }
   }
 
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const formatScheduled = (value: string) => {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  };
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-10 text-sm text-neutral-500">
@@ -708,6 +722,9 @@ export function AudienceEmailer() {
         <label className="block space-y-1">
           <span className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
             Schedule (optional, up to 72h)
+            <span className="ml-1 normal-case tracking-normal text-neutral-400">
+              · {localTz}
+            </span>
           </span>
           <input
             type="datetime-local"
@@ -717,8 +734,13 @@ export function AudienceEmailer() {
           />
         </label>
         <p className="text-xs text-neutral-500">
-          Leave the schedule blank to send immediately. SendGrid caps scheduled
-          sends at 72 hours out.
+          {scheduleAt && (
+            <span className="text-neutral-700 dark:text-neutral-300">
+              Sends {formatScheduled(scheduleAt)}.{" "}
+            </span>
+          )}
+          Leave blank to send immediately; SendGrid caps scheduled sends at 72
+          hours out.
         </p>
 
         {status.kind === "success" && (
