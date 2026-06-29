@@ -210,12 +210,18 @@ interface ShowGroup {
   supporters: Sponsor[];
 }
 
+const ADMIN_NAV = [
+  { href: "/admin/ledger", label: "Ledger" },
+  { href: "/admin/catalog", label: "Catalog" },
+];
+
 export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const purgedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
     const load = (withSpinner: boolean) => {
@@ -340,11 +346,49 @@ export default function HostsAdminPage() {
 
   const pamphletGroups = groupIntoLegs(upcoming);
 
+  // Drafts never belong in Completed — they never happened.
   const past = groups
-    .filter((g) => !g.host.date || isDatePast(g.host.date))
+    .filter(
+      (g) => !(g.show && isShowDraft(g.show)) && (!g.host.date || isDatePast(g.host.date)),
+    )
     .sort(
       (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
     );
+
+  // A draft past its date is dead. The filter above already hides it, so this is
+  // pure backend cleanup — no local state mutation, nothing to diverge from the
+  // refetch. Fires once per mount (purgedRef also guards StrictMode double-run).
+  useEffect(() => {
+    if (loading || purgedRef.current) return;
+    const expired = groups.filter(
+      (g) => g.show && isShowDraft(g.show) && g.host.date && isDatePast(g.host.date),
+    );
+    if (expired.length === 0) return;
+    purgedRef.current = true;
+    const headers = { "Content-Type": "application/json" };
+    Promise.all(
+      expired.map(async (g) => {
+        const slug = g.showSlug;
+        await Promise.all([
+          ...[g.host, ...g.supporters].map((s) =>
+            fetch("/api/sponsors", {
+              method: "DELETE",
+              headers,
+              body: JSON.stringify({ showSlug: slug, submittedAt: s.submittedAt }),
+            }),
+          ),
+          fetch("/api/rsvp", { method: "DELETE", headers, body: JSON.stringify({ slug }) }),
+        ]);
+        await fetch("/api/shows", { method: "DELETE", headers, body: JSON.stringify({ slug }) });
+      }),
+    ).then(() =>
+      setMessage({
+        type: "success",
+        text: `Cleared ${expired.length} expired draft${expired.length === 1 ? "" : "s"}`,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const pastLegs = groupIntoLegs(past);
   const pastGrouped = new Set(pastLegs.flat().map((g) => g.showSlug));
@@ -438,6 +482,22 @@ export default function HostsAdminPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h1 className="text-xs font-semibold tracking-[0.2em] uppercase text-neutral-900 dark:text-white">
+            Admin
+          </h1>
+          <nav className="flex items-center gap-2">
+            {ADMIN_NAV.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
         {message && (
           <div
             className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm border shadow-lg ${
