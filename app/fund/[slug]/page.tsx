@@ -84,7 +84,7 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; nudge?: string }>;
+  searchParams: Promise<{ success?: string; nudge?: string; og?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -110,7 +110,7 @@ export default async function Page({
       <>
         {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
         <HashScroll />
-        <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} />
+        <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} og={sp?.og === "true"} />
       </>
     );
   }

@@ -164,7 +164,7 @@ function ContributeOverlay({
   );
 }
 
-export function FundFunnel({ leg, intro }: { leg: FundLeg; intro?: ReactNode }) {
+export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: ReactNode; og?: boolean }) {
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
   const booked = leg.booked ?? [];
@@ -644,7 +644,7 @@ html { scroll-behavior: smooth; }
           </div>
 
           <div style={{ marginTop: 24 }}>
-            <MomentsGallery />
+            <MomentsGallery og={og} />
           </div>
 
           {intro && (

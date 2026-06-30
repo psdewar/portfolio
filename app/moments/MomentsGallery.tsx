@@ -29,12 +29,11 @@ function wrap(x: number, half: number) {
   return v;
 }
 
-function MomentsGallery() {
+function MomentsGallery({ og = false }: { og?: boolean }) {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [open, setOpen] = useState<FeaturedItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
-  const [ogMode, setOgMode] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
@@ -56,10 +55,9 @@ function MomentsGallery() {
   const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // OG capture: skip the slider entirely and show one static moment, so the
-    // page screenshot is fast and doesn't wait on the whole gallery loading.
-    if (new URLSearchParams(window.location.search).get("og") === "true") {
-      setOgMode(true);
+    // OG capture: skip the slider (the single moment is rendered server-side
+    // below) so we don't fetch or wait on the whole gallery.
+    if (og) {
       setLoading(false);
       return;
     }
@@ -84,7 +82,7 @@ function MomentsGallery() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [og]);
 
   const imgSig = items
     .filter((it) => !VIDEO_EXT.test(it.key))
@@ -243,7 +241,7 @@ function MomentsGallery() {
     scheduleResume();
   };
 
-  if (ogMode) {
+  if (og) {
     return (
       <section aria-label="Moment" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
