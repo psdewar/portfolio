@@ -24,7 +24,7 @@ export async function GET(
       path: `${base}/fund/${leg.slug}`,
       viewport: { width: 450, height: 800 },
       deviceScaleFactor: 2,
-      waitForTimeout: 3500,
+      waitForTimeout: 3000,
     });
     return new Response(screenshot, {
       headers: {

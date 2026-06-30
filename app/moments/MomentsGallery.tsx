@@ -1,11 +1,13 @@
 "use client";
 
 import { memo, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
+import { preconnect } from "react-dom";
 import posthog from "posthog-js";
 
 interface FeaturedItem {
   key: string;
   url: string;
+  thumb?: string;
   w?: number;
   h?: number;
 }
@@ -14,6 +16,7 @@ const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const SCROLL_SPEED = 0.06; // px per ms (~1px per frame at 60fps)
 const RESUME_DELAY_MS = 5000;
 const FADE_MS = 700;
+const STAGGER_MS = 70;
 const START_PAUSE_MS = 1000;
 const READY_FALLBACK_MS = 4000;
 const SLOW_LOAD_MS = 2500;
@@ -30,6 +33,8 @@ function MomentsGallery() {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [open, setOpen] = useState<FeaturedItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [revealed, setRevealed] = useState(false);
+  const [ogMode, setOgMode] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
@@ -51,11 +56,26 @@ function MomentsGallery() {
   const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // OG capture: skip the slider entirely and show one static moment, so the
+    // page screenshot is fast and doesn't wait on the whole gallery loading.
+    if (new URLSearchParams(window.location.search).get("og") === "true") {
+      setOgMode(true);
+      setLoading(false);
+      return;
+    }
     let active = true;
     fetch("/api/moments/featured")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((data) => {
-        if (active) setItems(Array.isArray(data.items) ? data.items : []);
+        if (!active) return;
+        const next: FeaturedItem[] = Array.isArray(data.items) ? data.items : [];
+        const first = next[0]?.thumb ?? next[0]?.url;
+        if (first) {
+          try {
+            preconnect(new URL(first).origin);
+          } catch {}
+        }
+        setItems(next);
       })
       .catch(() => {})
       .finally(() => {
@@ -65,6 +85,39 @@ function MomentsGallery() {
       active = false;
     };
   }, []);
+
+  const imgSig = items
+    .filter((it) => !VIDEO_EXT.test(it.key))
+    .map((it) => it.thumb ?? it.url)
+    .sort()
+    .join("\n");
+
+  useEffect(() => {
+    setRevealed(false);
+    if (!imgSig) {
+      setRevealed(true);
+      return;
+    }
+    const urls = imgSig.split("\n");
+    let active = true;
+    let loaded = 0;
+    const done = () => {
+      if (active && ++loaded >= urls.length) setRevealed(true);
+    };
+    for (const u of urls) {
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done;
+      img.src = u;
+    }
+    const fallback = setTimeout(() => {
+      if (active) setRevealed(true);
+    }, READY_FALLBACK_MS);
+    return () => {
+      active = false;
+      clearTimeout(fallback);
+    };
+  }, [imgSig]);
 
   useEffect(() => {
     lightboxOpen.current = open !== null;
@@ -190,6 +243,15 @@ function MomentsGallery() {
     scheduleResume();
   };
 
+  if (ogMode) {
+    return (
+      <section aria-label="Moment" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/api/og/moments" alt="" className="h-[40svh] w-screen object-cover" />
+      </section>
+    );
+  }
+
   if (loading) {
     return (
       <div
@@ -205,7 +267,7 @@ function MomentsGallery() {
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
-      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
+      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
 
       <div
         ref={scrollRef}
@@ -226,6 +288,8 @@ function MomentsGallery() {
               <Tile
                 key={`${copy}-${it.key}`}
                 item={it}
+                index={i}
+                revealed={revealed}
                 decorative={copy !== 0}
                 priority={copy === 0 && i === 0}
                 onMeasure={copy === 0 ? reportDims : undefined}
@@ -247,6 +311,8 @@ export default memo(MomentsGallery);
 
 function Tile({
   item,
+  index,
+  revealed,
   decorative,
   priority,
   onMeasure,
@@ -254,6 +320,8 @@ function Tile({
   onOpen,
 }: {
   item: FeaturedItem;
+  index: number;
+  revealed: boolean;
   decorative?: boolean;
   priority?: boolean;
   onMeasure?: (key: string, w: number, h: number) => void;
@@ -265,14 +333,17 @@ function Tile({
   const imgRef = useRef<HTMLImageElement>(null);
   const startedAt = useRef(0);
   const hasDims = !!(item.w && item.h);
-  const [loaded, setLoaded] = useState(false);
-  const mediaClass = `transition ease-out group-hover:scale-[1.04] ${
+  const mediaClass = `transition-transform ease-out group-hover:scale-[1.04] ${
     hasDims ? "h-full w-full object-cover" : "h-full w-auto"
-  } ${loaded ? "opacity-100" : "opacity-0"}`;
-  const fadeStyle = { transitionDuration: `${FADE_MS}ms` };
+  }`;
+  const fadeStyle = revealed
+    ? {
+        animation: `momentThumbIn ${FADE_MS}ms ease-out both`,
+        animationDelay: `${index * STAGGER_MS}ms`,
+      }
+    : { opacity: 0 };
 
   const reveal = (w?: number, h?: number) => {
-    setLoaded(true);
     onReady?.();
     if (!hasDims && w && h) onMeasure?.(item.key, w, h);
   };
@@ -331,7 +402,7 @@ function Tile({
       ) : (
         <img
           ref={imgRef}
-          src={item.url}
+          src={item.thumb ?? item.url}
           alt=""
           loading={priority ? "eager" : "lazy"}
           decoding="async"

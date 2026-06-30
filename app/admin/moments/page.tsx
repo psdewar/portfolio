@@ -7,6 +7,7 @@ interface MomentItem {
   size: number;
   lastModified: string | null;
   url: string;
+  thumb?: string;
   downloadUrl: string;
   featured: boolean;
 }
@@ -17,6 +18,7 @@ type State =
   | { kind: "ready" };
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
+const STAGGER_MS = 70;
 
 function filename(key: string) {
   return key.replace(/^drops\//, "");
@@ -68,6 +70,7 @@ function videoQuality(w: number, h: number) {
 export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
+  const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [photoIndex, setPhotoIndex] = useState(0);
   const [videoIndex, setVideoIndex] = useState(0);
@@ -79,6 +82,7 @@ export default function MomentsAdminPage() {
       if (!r.ok) throw new Error(data.error || `Failed (${r.status})`);
       setItems(Array.isArray(data.items) ? data.items : []);
       setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
+      setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
     } catch (err) {
       if (initial) {
@@ -98,11 +102,13 @@ export default function MomentsAdminPage() {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
     if (patch.key && patch.key !== key) {
       setFeaturedKeys((prev) => prev.map((k) => (k === key ? patch.key! : k)));
+      setOgKeyState((prev) => (prev === key ? patch.key! : prev));
     }
   }
   function removeItem(key: string) {
     setItems((prev) => prev.filter((it) => it.key !== key));
     setFeaturedKeys((prev) => prev.filter((k) => k !== key));
+    setOgKeyState((prev) => (prev === key ? null : prev));
   }
 
   const featuredSet = useMemo(() => new Set(featuredKeys), [featuredKeys]);
@@ -149,6 +155,23 @@ export default function MomentsAdminPage() {
     }
   }
 
+  async function setOg(key: string) {
+    const next = ogKey === key ? null : key;
+    const prev = ogKey;
+    setOgKeyState(next);
+    try {
+      const r = await fetch("/api/admin/moments/og", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: next }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      setOgKeyState(prev);
+      window.alert("Could not set the link preview.");
+    }
+  }
+
   const photos = items.filter((it) => !VIDEO_EXT.test(it.key));
   const videos = items.filter((it) => VIDEO_EXT.test(it.key));
 
@@ -189,6 +212,8 @@ export default function MomentsAdminPage() {
               items={photos}
               index={photoIndex}
               featuredSet={featuredSet}
+              ogKey={ogKey}
+              onSetOg={setOg}
               onPrev={() => setPhotoIndex((i) => i - 1)}
               onNext={() => setPhotoIndex((i) => i + 1)}
               onRemove={removeItem}
@@ -200,6 +225,8 @@ export default function MomentsAdminPage() {
               items={videos}
               index={videoIndex}
               featuredSet={featuredSet}
+              ogKey={ogKey}
+              onSetOg={setOg}
               onPrev={() => setVideoIndex((i) => i - 1)}
               onNext={() => setVideoIndex((i) => i + 1)}
               onRemove={removeItem}
@@ -218,6 +245,8 @@ function Lane({
   items,
   index,
   featuredSet,
+  ogKey,
+  onSetOg,
   onPrev,
   onNext,
   onRemove,
@@ -228,6 +257,8 @@ function Lane({
   items: MomentItem[];
   index: number;
   featuredSet: Set<string>;
+  ogKey: string | null;
+  onSetOg: (key: string) => void;
   onPrev: () => void;
   onNext: () => void;
   onRemove: (key: string) => void;
@@ -254,6 +285,8 @@ function Lane({
           key={item.key}
           item={item}
           featured={featuredSet.has(item.key)}
+          isOg={ogKey === item.key}
+          onSetOg={onSetOg}
           onPrev={onPrev}
           onNext={onNext}
           onRemove={onRemove}
@@ -272,6 +305,8 @@ function Lane({
 function ReviewCard({
   item,
   featured,
+  isOg,
+  onSetOg,
   onPrev,
   onNext,
   onRemove,
@@ -280,6 +315,8 @@ function ReviewCard({
 }: {
   item: MomentItem;
   featured: boolean;
+  isOg: boolean;
+  onSetOg: (key: string) => void;
   onPrev: () => void;
   onNext: () => void;
   onRemove: (key: string) => void;
@@ -388,7 +425,7 @@ function ReviewCard({
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={toggleFeatured}
@@ -403,6 +440,22 @@ function ReviewCard({
           <StarIcon filled={featured} />
           {featured ? "In slideshow" : "Add to slideshow"}
         </button>
+        {!isVideo && (
+          <button
+            type="button"
+            onClick={() => onSetOg(item.key)}
+            disabled={busy}
+            aria-pressed={isOg}
+            title="Use this photo as the link preview for /moments and /fund"
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
+              isOg
+                ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-sm hover:shadow"
+                : "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
+            }`}
+          >
+            {isOg ? "Link preview" : "Set as link preview"}
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton href={item.downloadUrl} label="Download">
             <DownloadIcon />
@@ -502,6 +555,39 @@ function SlideshowReorder({
   const [drag, setDrag] = useState<{ key: string; order: string[] } | null>(null);
   const order = drag ? drag.order : keys;
 
+  const [ready, setReady] = useState(false);
+  const imgSig = items
+    .filter((it) => !VIDEO_EXT.test(it.key))
+    .map((it) => it.thumb ?? it.url)
+    .sort()
+    .join("\n");
+  useEffect(() => {
+    setReady(false);
+    if (!imgSig) {
+      setReady(true);
+      return;
+    }
+    const urls = imgSig.split("\n");
+    let active = true;
+    let loaded = 0;
+    const done = () => {
+      if (active && ++loaded >= urls.length) setReady(true);
+    };
+    for (const u of urls) {
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done;
+      img.src = u;
+    }
+    const fallback = setTimeout(() => {
+      if (active) setReady(true);
+    }, 3000);
+    return () => {
+      active = false;
+      clearTimeout(fallback);
+    };
+  }, [imgSig]);
+
   function startDrag(e: React.PointerEvent, key: string) {
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ key, order: keys });
@@ -534,6 +620,7 @@ function SlideshowReorder({
 
   return (
     <section className="space-y-3">
+      <style>{`@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}`}</style>
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
           Slideshow order
@@ -561,22 +648,7 @@ function SlideshowReorder({
               }`}
             >
               <div className="pointer-events-none aspect-square">
-                {VIDEO_EXT.test(item.key) ? (
-                  <video
-                    src={item.url}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={item.url}
-                    alt=""
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                )}
+                <SlideThumb item={item} index={i} ready={ready} />
               </div>
               <span className="absolute top-1 left-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#d4a553] px-1 text-[10px] font-bold text-[#0a0a0a]">
                 {i + 1}
@@ -621,6 +693,21 @@ function SlideshowReorder({
         Drag a tile to reorder the slideshow, or nudge with the arrows. ✕ removes it.
       </p>
     </section>
+  );
+}
+
+function SlideThumb({ item, index, ready }: { item: MomentItem; index: number; ready: boolean }) {
+  const cls = "h-full w-full object-cover";
+  const style = ready
+    ? { animation: `momentThumbIn 700ms ease-out both`, animationDelay: `${index * STAGGER_MS}ms` }
+    : { opacity: 0 };
+  if (VIDEO_EXT.test(item.key)) {
+    return (
+      <video src={item.url} muted playsInline preload="metadata" className={cls} style={style} />
+    );
+  }
+  return (
+    <img src={item.thumb ?? item.url} alt="" decoding="async" className={cls} style={style} />
   );
 }
 

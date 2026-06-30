@@ -4,6 +4,7 @@ import {
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
 
 const FEATURED_KEY = "featured.json";
@@ -74,6 +75,71 @@ export async function setFeatured(keys: string[]): Promise<void> {
       ContentType: "application/json",
     }),
   );
+}
+
+const OG_KEY = "og.json";
+
+// The single moment chosen as the link-preview (OG) image, separate from the
+// slideshow order. Empty/unset means surfaces fall back to their own default.
+export async function getOgKey(): Promise<string | null> {
+  if (!s3 || !s3Bucket) return null;
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: OG_KEY }));
+    const text = await res.Body?.transformToString();
+    const parsed = text ? JSON.parse(text) : null;
+    return typeof parsed === "string" && parsed.startsWith("drops/") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setOgKey(key: string | null): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: OG_KEY,
+      Body: JSON.stringify(key),
+      ContentType: "application/json",
+    }),
+  );
+}
+
+const OG_FALLBACK = "https://peytspencer.com/og/home.jpeg";
+const OG_VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
+
+// Renders the chosen OG moment (or the first slideshow photo) as one resized
+// JPEG Response. Backs /api/og/moments, which the fund page shows in place of
+// the gallery during OG capture.
+export async function renderOgMoment(): Promise<Response> {
+  if (!s3 || !s3Bucket) return Response.redirect(OG_FALLBACK);
+
+  const [ogKey, featured] = await Promise.all([getOgKey(), getFeatured()]);
+  const key =
+    ogKey && !OG_VIDEO_EXT.test(ogKey) ? ogKey : featured.find((k) => !OG_VIDEO_EXT.test(k));
+  if (!key) return Response.redirect(OG_FALLBACK);
+
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: key }));
+    const bytes = await res.Body?.transformToByteArray();
+    if (!bytes) return Response.redirect(OG_FALLBACK);
+
+    const jpeg = await sharp(Buffer.from(bytes))
+      .rotate()
+      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+
+    return new Response(new Uint8Array(jpeg), {
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
+  } catch (error) {
+    console.error("renderOgMoment failed for", key, error);
+    return Response.redirect(OG_FALLBACK);
+  }
 }
 
 const DIMS_KEY = "dims.json";
@@ -193,6 +259,79 @@ export async function probeImageDims(key: string): Promise<[number, number] | nu
     const bytes = await res.Body?.transformToByteArray();
     if (!bytes) return null;
     return parseImageDims(bytes);
+  } catch {
+    return null;
+  }
+}
+
+const THUMBS_KEY = "thumbs.json";
+const THUMB_HEIGHT = 1280;
+const THUMB_QUALITY = 60;
+
+export type ThumbEntry = { key: string; w: number; h: number };
+
+export function thumbKeyFor(originalKey: string): string {
+  const base = originalKey.replace(/^drops\//, "").replace(/\.[^./]+$/, "");
+  return `thumbs/${base}.avif`;
+}
+
+export async function getThumbs(): Promise<Record<string, ThumbEntry>> {
+  if (!s3 || !s3Bucket) return {};
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: THUMBS_KEY }));
+    const text = await res.Body?.transformToString();
+    const parsed = text ? JSON.parse(text) : {};
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, ThumbEntry>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function recordThumbs(entries: Record<string, ThumbEntry>): Promise<void> {
+  if (!s3 || !s3Bucket || Object.keys(entries).length === 0) return;
+  const current = await getThumbs();
+  for (const [key, entry] of Object.entries(entries)) current[key] = entry;
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: THUMBS_KEY,
+      Body: JSON.stringify(current),
+      ContentType: "application/json",
+    }),
+  );
+}
+
+export async function makeThumb(input: Uint8Array): Promise<{ data: Buffer; w: number; h: number }> {
+  const out = await sharp(input)
+    .rotate()
+    .resize({ height: THUMB_HEIGHT, withoutEnlargement: true })
+    .avif({ quality: THUMB_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+  return { data: out.data, w: out.info.width, h: out.info.height };
+}
+
+export async function uploadThumb(originalKey: string, data: Buffer, w: number, h: number): Promise<ThumbEntry> {
+  const key = thumbKeyFor(originalKey);
+  await s3!.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket!,
+      Key: key,
+      Body: data,
+      ContentType: "image/avif",
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+  return { key, w, h };
+}
+
+export async function generateThumb(originalKey: string): Promise<ThumbEntry | null> {
+  if (!s3 || !s3Bucket) return null;
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: originalKey }));
+    const bytes = await res.Body?.transformToByteArray();
+    if (!bytes) return null;
+    const { data, w, h } = await makeThumb(bytes);
+    return await uploadThumb(originalKey, data, w, h);
   } catch {
     return null;
   }

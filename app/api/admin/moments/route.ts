@@ -11,6 +11,9 @@ import { isAdminAuthorized } from "../../shared/admin-auth";
 import {
   getFeatured,
   setFeatured,
+  getOgKey,
+  setOgKey,
+  getThumbs,
   sanitizeFilename,
   createUploadUrl,
 } from "../../shared/moments";
@@ -52,7 +55,11 @@ export async function GET(request: Request) {
   const list = await s3.send(
     new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 }),
   );
-  const featuredKeys = await getFeatured();
+  const [featuredKeys, thumbs, ogKey] = await Promise.all([
+    getFeatured(),
+    getThumbs(),
+    getOgKey(),
+  ]);
   const featured = new Set(featuredKeys);
 
   const objects = (list.Contents || [])
@@ -60,17 +67,21 @@ export async function GET(request: Request) {
     .sort((a, b) => (a.LastModified?.getTime() || 0) - (b.LastModified?.getTime() || 0));
 
   const items = await Promise.all(
-    objects.map(async (o) => ({
-      key: o.Key!,
-      size: o.Size || 0,
-      lastModified: o.LastModified?.toISOString() || null,
-      url: await signView(o.Key!),
-      downloadUrl: await signDownload(o.Key!),
-      featured: featured.has(o.Key!),
-    })),
+    objects.map(async (o) => {
+      const thumb = thumbs[o.Key!];
+      return {
+        key: o.Key!,
+        size: o.Size || 0,
+        lastModified: o.LastModified?.toISOString() || null,
+        url: await signView(o.Key!),
+        thumb: thumb ? await signView(thumb.key) : undefined,
+        downloadUrl: await signDownload(o.Key!),
+        featured: featured.has(o.Key!),
+      };
+    }),
   );
 
-  return NextResponse.json({ items, featuredKeys, truncated: list.IsTruncated || false });
+  return NextResponse.json({ items, featuredKeys, ogKey, truncated: list.IsTruncated || false });
 }
 
 export async function POST(request: Request) {
@@ -112,6 +123,7 @@ export async function DELETE(request: Request) {
   if (featured.includes(key)) {
     await setFeatured(featured.filter((k) => k !== key));
   }
+  if ((await getOgKey()) === key) await setOgKey(null);
 
   return NextResponse.json({ ok: true });
 }
@@ -162,6 +174,7 @@ export async function PATCH(request: Request) {
   if (featured.includes(key)) {
     await setFeatured(featured.map((k) => (k === key ? newKey : k)));
   }
+  if ((await getOgKey()) === key) await setOgKey(newKey);
 
   return NextResponse.json({
     key: newKey,
