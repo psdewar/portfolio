@@ -76,6 +76,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   );
   const videoRef = useRef<HTMLVideoElement>(null);
   const handledVideoFromUrlRef = useRef<string | null>(null);
+  const fullscreenTriedRef = useRef(false);
 
   const registerVideo = useCallback((videoId: string, videoSrc: string, instagramUrl?: string) => {
     videoRegistryRef.current.set(videoId, { videoSrc, instagramUrl });
@@ -128,6 +129,10 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     router.replace(url.pathname + url.search);
     setVideoState({ isOpen: false, videoId: null, startTime: 0 });
     setModalData(null);
+    fullscreenTriedRef.current = false;
+    if (typeof document !== "undefined" && document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -138,6 +143,43 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     closeVideo();
   }, [closeVideo]);
 
+  // Best-effort: on phones, take a landscape clip fullscreen the first time it plays.
+  const enterFullscreenIfLandscape = useCallback(() => {
+    const el = videoRef.current;
+    if (!el || fullscreenTriedRef.current) return;
+    if (!window.matchMedia?.("(pointer: coarse)")?.matches) return;
+    if (el.videoWidth < el.videoHeight) return;
+    fullscreenTriedRef.current = true;
+    const iosVideo = el as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+    try {
+      if (el.requestFullscreen) {
+        el.requestFullscreen()
+          .then(() => {
+            const orientation = screen.orientation as ScreenOrientation & {
+              lock?: (o: string) => Promise<void>;
+            };
+            return orientation?.lock?.("landscape");
+          })
+          .catch(() => {});
+      } else if (iosVideo.webkitEnterFullscreen) {
+        iosVideo.webkitEnterFullscreen();
+      }
+    } catch {
+      // fullscreen unsupported or blocked; leave the video playing inline
+    }
+  }, []);
+
+  // Dimensions are only known at readyState >= 1; with preload="none" play can fire earlier.
+  const handlePlay = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.readyState >= 1) {
+      enterFullscreenIfLandscape();
+    } else {
+      el.addEventListener("loadedmetadata", enterFullscreenIfLandscape, { once: true });
+    }
+  }, [enterFullscreenIfLandscape]);
+
   return (
     <VideoContext.Provider value={{ videoState, openVideo, closeVideo, registerVideo }}>
       <Suspense fallback={null}>
@@ -146,7 +188,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       {children}
 
       {videoState.isOpen && modalData && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-8">
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-8">
           <div className="absolute inset-0" onClick={closeVideo} />
           <video
             ref={videoRef}
@@ -156,6 +198,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
             muted={modalData.fromUrl} // Mute only when loaded from URL parameter
             className="relative h-full max-h-screen w-auto max-w-full object-contain rounded"
             onEnded={handleEnded}
+            onPlay={handlePlay}
             playsInline
             preload="none"
           />

@@ -12,6 +12,7 @@ export interface VideoMetadata {
   instagramUrl?: string;
   thumbnail?: string;
   title?: string;
+  byline?: string;
   description?: string;
 }
 
@@ -30,6 +31,13 @@ export const VIDEO_REGISTRY = {
     src: "https://assets.peytspencer.com/videos/fund-next-single-45sec.mp4",
     title: "Fund My Next Single",
     description: "Help fund my next Single",
+  },
+  "camp-oneness-true-happiness": {
+    src: "https://assets.peytspencer.com/videos/camp-oneness-true-happiness.mp4",
+    thumbnail: "https://assets.peytspencer.com/videos/camp-oneness-true-happiness-poster.jpg",
+    title: "True Happiness",
+    byline: "feat. Camp Oneness Choir",
+    description: "The Camp Oneness Choir performing True Happiness in Virginia",
   },
 
   // Add more videos here as needed
@@ -54,3 +62,8 @@ export function getVideoMetadata(videoId: string): VideoMetadata | null {
 export function isValidVideoId(videoId: string): videoId is VideoId {
   return videoId in VIDEO_REGISTRY;
 }
+
+// Per-leg intro video shown above the funnel, keyed by fund leg slug.
+export const LEG_INTRO_VIDEOS: Record<string, VideoId> = {
+  dmv: "camp-oneness-true-happiness",
+};

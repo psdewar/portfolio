@@ -10,6 +10,9 @@ import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
 import { type FundLeg, type FundLine, type FundBooked } from "./legs";
 import SponsorHeader from "app/sponsor/SponsorHeader";
+import { PlayIcon } from "@phosphor-icons/react";
+import { useVideo } from "../contexts/VideoContext";
+import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
@@ -19,6 +22,10 @@ const STEPS = [
   "I write original songs, record, rehearse, and sequence them into an hour-long presentation.",
   "I work with people in your community to book concert dates.",
 ];
+
+function isShowPast(dateStr: string): boolean {
+  return new Date(`${dateStr}T23:59:59`) < new Date();
+}
 
 function money(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
@@ -164,7 +171,34 @@ function ContributeOverlay({
   );
 }
 
+function LegIntroVideo({ videoId }: { videoId: string }) {
+  const { openVideo } = useVideo();
+  const meta = getVideoMetadata(videoId);
+  if (!meta?.thumbnail) return null;
+  const label = [meta.title, meta.byline].filter(Boolean).join(" ");
+  return (
+    <button
+      type="button"
+      className="camp-intro"
+      onClick={() => openVideo(videoId, meta.src)}
+      aria-label={label ? `Play ${label}` : "Play the intro video"}
+    >
+      <img src={meta.thumbnail} alt={meta.title ?? "Intro video"} className="camp-intro-poster" />
+      <span className="camp-intro-scrim" />
+      <span className="camp-intro-play">
+        <PlayIcon size={28} weight="fill" />
+      </span>
+      <span className="camp-intro-label">
+        <span className="camp-intro-kicker">Watch</span>
+        {meta.title && <span className="camp-intro-song">{meta.title}</span>}
+        {meta.byline && <span className="camp-intro-by">{meta.byline}</span>}
+      </span>
+    </button>
+  );
+}
+
 export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: ReactNode; og?: boolean }) {
+  const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
   const booked = leg.booked ?? [];
@@ -388,7 +422,13 @@ export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: R
 .bf-h1 .nights { font-size: 0.6em; font-weight: 500; color: var(--ink-dim); white-space: nowrap; }
 .bf-h1 .nights .dot { margin: 0 0.35em; }
 .dateline { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
-.loc { display: flex; flex-direction: column; gap: 2px; }
+.loc { display: flex; align-items: center; gap: 10px; }
+.loc-check {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; color: #fff;
+}
+.loc-check.is-done { background: #16a34a; }
+.loc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 26px); line-height: 1.1; }
 .loc-venue em { font-style: italic; font-weight: 400; opacity: 0.75; font-size: 0.66em; }
 .loc-when { color: var(--ink-dim); font-size: 15px; }
@@ -598,6 +638,52 @@ html { scroll-behavior: smooth; }
 
 .contribute-choice { padding: 6px 28px 30px; }
 
+.camp-intro {
+  display: block; position: relative; width: 100%; aspect-ratio: 16 / 9;
+  margin-bottom: 40px; padding: 0; border: 1px solid var(--rule); border-radius: 12px;
+  overflow: hidden; background: #000; cursor: pointer;
+}
+.camp-intro-poster {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  display: block; transition: transform 0.4s ease;
+}
+.camp-intro:hover .camp-intro-poster { transform: scale(1.03); }
+.camp-intro-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 46%);
+}
+.camp-intro-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 62px; height: 62px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; color: #fff; background: rgba(0,0,0,0.45);
+  border: 2px solid rgba(255,255,255,0.92);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.camp-intro-play svg { margin-left: 3px; }
+.camp-intro:hover .camp-intro-play {
+  background: var(--gold); border-color: var(--gold);
+  transform: translate(-50%, -50%) scale(1.06);
+}
+.camp-intro-label {
+  position: absolute; left: 16px; bottom: 13px; display: flex; flex-direction: column; gap: 2px;
+  text-align: left; color: #fff; line-height: 1.05;
+  font-family: var(--font-parkinsans), "Parkinsans", sans-serif; font-weight: 700;
+  letter-spacing: 0.01em; text-shadow: 0 1px 10px rgba(0,0,0,0.55);
+}
+.camp-intro-kicker {
+  font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 13px;
+  letter-spacing: 0.02em; color: var(--gold); text-shadow: none;
+}
+.camp-intro-song { font-size: 22px; font-weight: 700; }
+.camp-intro-by { font-size: 13px; font-weight: 500; letter-spacing: 0.01em; color: rgba(255,255,255,0.92); }
+@media (max-width: 639px) {
+  .wrap--intro { padding-top: 0; }
+  .camp-intro {
+    width: calc(100% + 32px); margin-left: -16px; margin-right: -16px; margin-bottom: 48px;
+    border: 0; border-radius: 0;
+  }
+}
+
 @media print {
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
@@ -619,7 +705,8 @@ html { scroll-behavior: smooth; }
       />
 
       <div className="bf-root">
-        <div className="wrap">
+        <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
+          {introVideoId && <LegIntroVideo videoId={introVideoId} />}
           <div className="masthead" ref={mastheadRef}>
             <div className="masthead-title" ref={titleRef}>
               Help fund my concert tour
@@ -677,20 +764,46 @@ html { scroll-behavior: smooth; }
           </h1>
           {booked.length > 0 && (
             <div className="dateline">
-              {booked.map((b, i) => (
-                <div className="loc" key={i}>
-                  <span className="loc-venue">
-                    {b.venue}
-                    {b.private && <em> (private)</em>}
-                  </span>
-                  {b.date && (
-                    <span className="loc-when">
-                      {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
-                      {formatEventDateShort(b.date)}
+              {booked.map((b, i) => {
+                const done = Boolean(b.date && isShowPast(b.date));
+                return (
+                  <div className="loc" key={i}>
+                    <span
+                      className={`loc-check${done ? " is-done" : ""}`}
+                      role={done ? "img" : undefined}
+                      aria-label={done ? "Completed" : undefined}
+                      aria-hidden={done ? undefined : true}
+                    >
+                      {done && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
                     </span>
-                  )}
-                </div>
-              ))}
+                    <div className="loc-info">
+                      <span className="loc-venue">
+                        {b.venue}
+                        {b.private && <em> (private)</em>}
+                      </span>
+                      {b.date && (
+                        <span className="loc-when">
+                          {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
+                          {formatEventDateShort(b.date)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="section-head" id="cover">Cover my trip</div>
