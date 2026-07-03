@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest) {
     const { cancelEventbrite: alsoCancelEb, ...forward } = await request.json();
 
     // Reverting a show to draft only cancels Eventbrite when opted in. When it does,
-    // clear the stale id too — otherwise publishEventbrite no-ops on re-confirm and
+    // clear the stale id too, otherwise publishEventbrite no-ops on re-confirm and
     // the show never relists.
     if (alsoCancelEb && forward.stage === "intent" && forward.slug) {
       const existing = await getShowBySlug(forward.slug);

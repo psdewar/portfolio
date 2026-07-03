@@ -20,7 +20,7 @@ async function resolve(request: NextRequest, slug: string | null) {
 }
 
 // Sync an Eventbrite event's registrants into Supabase (stay-connected + rsvps),
-// writing only rows that are new or whose guest count changed — so re-running is
+// writing only rows that are new or whose guest count changed, so re-running is
 // cheap and idempotent. Email + guests only; names are left untouched. The manage
 // modal fires this on open, so there's no manual save step.
 export async function POST(request: NextRequest) {

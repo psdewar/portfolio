@@ -185,6 +185,72 @@ function getShowStatus(show?: Show | null): { label: string; tone: StatusTone } 
   return { label: "Public", tone: "green" };
 }
 
+// Compose + send a SendGrid blast to a show's RSVPs (via /api/show-email, which emails
+// everyone in the rsvps table for the slug: site RSVPs plus synced Eventbrite folks).
+// Surfaced when you're cancelling the Eventbrite listing and there are people to warn.
+function NotifyRsvps({
+  slug,
+  count,
+  onSent,
+}: {
+  slug: string;
+  count: number;
+  onSent?: () => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const field =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
+
+  const send = async () => {
+    if (!subject.trim() || !body.trim() || sending) return;
+    setSending(true);
+    setResult(null);
+    const res = await fetch("/api/show-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, subject, body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSending(false);
+    setResult(res.ok ? `Sent to ${data.sent ?? 0} of ${data.total ?? count}` : data.error || "Failed to send");
+    if (res.ok) onSent?.();
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg bg-neutral-100/70 dark:bg-neutral-900/50 p-3">
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+        Email the {count} RSVP{count === 1 ? "" : "s"} about the change.
+      </p>
+      <input
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        placeholder="Subject"
+        className={field}
+      />
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Body"
+        rows={3}
+        className={`${field} resize-y`}
+      />
+      <div className="flex items-center gap-3">
+        <button
+          onClick={send}
+          disabled={sending || !subject.trim() || !body.trim()}
+          className="text-sm font-medium text-neutral-900 dark:text-white disabled:opacity-40"
+        >
+          {sending ? "Sending…" : `Email ${count} RSVP${count === 1 ? "" : "s"}`}
+        </button>
+        {result && <span className="text-xs text-neutral-500">{result}</span>}
+      </div>
+    </div>
+  );
+}
+
 function TagsField({
   value,
   onChange,
@@ -428,7 +494,7 @@ export default function HostsAdminPage() {
       (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
     );
 
-  // Drafts whose proposed date already passed — including shows reverted to draft
+  // Drafts whose proposed date already passed, including shows reverted to draft
   // for rescheduling. Kept (never auto-deleted) so the poster survives for reuse,
   // and surfaced under Unscheduled so they stay reachable to re-date or delete.
   const staleDrafts = groups
@@ -1981,6 +2047,7 @@ function ManageModal({
   onEditHost,
   onViewSupporters,
   onOpenEmail,
+  onEmailSent,
 }: {
   group: ShowGroup;
   show: Show | null;
@@ -1998,6 +2065,7 @@ function ManageModal({
   onEditHost: () => void;
   onViewSupporters: () => void;
   onOpenEmail: () => void;
+  onEmailSent: () => void;
 }) {
   const [askingPrivate, setAskingPrivate] = useState(false);
   const [privateDraft, setPrivateDraft] = useState("");
@@ -2008,7 +2076,7 @@ function ManageModal({
   // Opt-in for the current destructive action: also take the Eventbrite listing down.
   const [cancelEb, setCancelEb] = useState(false);
   const hasEb = !!show?.eventbriteId;
-  // Inline confirm/book — no page hop, no host roundtrip when the artist books it.
+  // Inline confirm/book: no page hop, no host roundtrip when the artist books it.
   const [confirmDate, setConfirmDate] = useState(show?.date ?? host.date ?? "");
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -2044,13 +2112,13 @@ function ManageModal({
   // drops off the public schedule but keeps its poster and details for reuse. Clearing
   // `leg` pulls it out of any pamphlet so it lands under Unscheduled, not a live leg.
   // Re-confirm from the draft's Confirm section to give it a new date. Eventbrite is
-  // only touched when opted in (cancelEb) — a bare stage change never forwards the flag.
+  // only touched when opted in (cancelEb): a bare stage change never forwards the flag.
   const rescheduleShow = async () => {
     if (!show?.slug) return;
     onShowUpdate(show.slug, { stage: "intent", leg: null });
     setAskingReschedule(false);
     onClose();
-    onMessage(`${show.slug} reverted to draft — poster kept`);
+    onMessage(`${show.slug} reverted to draft, poster kept`);
     await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -2058,7 +2126,7 @@ function ManageModal({
     });
   };
 
-  // Confirm & book a draft in place — the artist's own booking, no signed-link
+  // Confirm & book a draft in place: the artist's own booking, no signed-link
   // roundtrip (the admin cookie authorizes it). Optimistically advance stage + date
   // on both the show and its host record so it lands in Upcoming without a refetch.
   const confirmNow = async () => {
@@ -2078,7 +2146,7 @@ function ManageModal({
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setConfirmError(data.error || "Couldn't confirm — check the host's name and email.");
+      setConfirmError(data.error || "Couldn't confirm. Check the host's name and email.");
       setConfirming(false);
       return;
     }
@@ -2104,7 +2172,7 @@ function ManageModal({
 
   // Auto-sync Eventbrite registrants into Supabase when the modal opens (once per open,
   // only for shows with an Eventbrite event). The route writes only new/changed rows,
-  // so this is cheap even when nothing's new — no manual save step. The `ebSyncedOnce`
+  // so this is cheap even when nothing's new, no manual save step. The `ebSyncedOnce`
   // ref (not a cleanup flag) guards Strict Mode's double-invoke; state updates after an
   // unmount are harmless no-ops in React 18, so the fetch handlers always settle.
   useEffect(() => {
@@ -2418,6 +2486,9 @@ function ManageModal({
                       Also cancel the Eventbrite listing
                     </label>
                   )}
+                  {cancelEb && (rsvpCounts?.responses ?? 0) > 0 && (
+                    <NotifyRsvps slug={group.showSlug} count={rsvpCounts!.responses} onSent={onEmailSent} />
+                  )}
                   <div className="flex items-center gap-4">
                     <button
                       onClick={rescheduleShow}
@@ -2546,6 +2617,9 @@ function ManageModal({
                     />
                     Also cancel the Eventbrite listing
                   </label>
+                )}
+                {cancelEb && (rsvpCounts?.responses ?? 0) > 0 && (
+                  <NotifyRsvps slug={group.showSlug} count={rsvpCounts!.responses} onSent={onEmailSent} />
                 )}
                 <div className="flex gap-2 items-center">
                   <input
@@ -2899,6 +2973,7 @@ function ShowGroupCard({
           onEditHost={() => { setManaging(false); setEditingHost(true); }}
           onViewSupporters={() => { setManaging(false); setViewingSupporters(true); }}
           onOpenEmail={() => { setManaging(false); openEmail(); }}
+          onEmailSent={() => setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug))}
         />
       )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
