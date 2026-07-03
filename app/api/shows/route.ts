@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publishEventbrite } from "../../lib/eventbrite";
-import { isShowDraft } from "../../lib/shows";
+import { publishEventbrite, cancelEventbrite } from "../../lib/eventbrite";
+import { isShowDraft, getShowBySlug } from "../../lib/shows";
 
 export const maxDuration = 30;
 
@@ -82,7 +82,18 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const { cancelEventbrite: alsoCancelEb, ...forward } = await request.json();
+
+    // Only take the Eventbrite listing down when explicitly opted in. Best-effort:
+    // a stale/already-cancelled event shouldn't block the delete.
+    if (alsoCancelEb && forward.slug) {
+      const existing = await getShowBySlug(forward.slug);
+      if (existing?.eventbriteId) {
+        await cancelEventbrite(existing.eventbriteId).catch((e) =>
+          console.error("[shows] Eventbrite cancel on delete failed:", e),
+        );
+      }
+    }
 
     const res = await fetch(`${SHOWS_API}/chorus/shows`, {
       method: "DELETE",
@@ -90,7 +101,7 @@ export async function DELETE(request: NextRequest) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SHOWS_TOKEN}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(forward),
     });
 
     if (!res.ok) {
@@ -113,7 +124,20 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const { cancelEventbrite: alsoCancelEb, ...forward } = await request.json();
+
+    // Reverting a show to draft only cancels Eventbrite when opted in. When it does,
+    // clear the stale id too — otherwise publishEventbrite no-ops on re-confirm and
+    // the show never relists.
+    if (alsoCancelEb && forward.stage === "intent" && forward.slug) {
+      const existing = await getShowBySlug(forward.slug);
+      if (existing?.eventbriteId) {
+        await cancelEventbrite(existing.eventbriteId).catch((e) =>
+          console.error("[shows] Eventbrite cancel on revert failed:", e),
+        );
+        forward.eventbriteId = null;
+      }
+    }
 
     const res = await fetch(`${SHOWS_API}/chorus/shows`, {
       method: "PATCH",
@@ -121,7 +145,7 @@ export async function PATCH(request: NextRequest) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SHOWS_TOKEN}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(forward),
     });
 
     const responseText = await res.text();

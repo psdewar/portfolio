@@ -101,7 +101,8 @@ function Modal({
               </h4>
               <button
                 onClick={onClose}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                aria-label="Close"
+                className="-m-2 flex h-11 w-11 items-center justify-center text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
               >
                 ✕
               </button>
@@ -111,6 +112,77 @@ function Modal({
       </div>
     </div>
   );
+}
+
+// A full-width pressable row whose entire hit area toggles the switch.
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+  className,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={className}
+    >
+      <span className="text-neutral-800 dark:text-neutral-200">{label}</span>
+      <span
+        aria-hidden
+        className={`relative shrink-0 h-6 w-10 rounded-full transition-colors ${
+          checked ? "bg-[#d4a553]" : "bg-neutral-300 dark:bg-neutral-700"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+            checked ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
+// Single source of truth for a show's lifecycle status: label + color tone.
+// Read by the manage modal's pulse and the card badge so they never disagree.
+type StatusTone = "neutral" | "amber" | "sky" | "green";
+
+const STATUS_TONE: Record<StatusTone, { dot: string; text: string; pill: string }> = {
+  neutral: {
+    dot: "bg-neutral-400",
+    text: "text-neutral-400",
+    pill: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400",
+  },
+  amber: {
+    dot: "bg-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+    pill: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400",
+  },
+  sky: {
+    dot: "bg-sky-500",
+    text: "text-sky-600 dark:text-sky-400",
+    pill: "bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400",
+  },
+  green: {
+    dot: "bg-green-500",
+    text: "text-green-600 dark:text-green-400",
+    pill: "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400",
+  },
+};
+
+function getShowStatus(show?: Show | null): { label: string; tone: StatusTone } {
+  if (!show?.slug) return { label: "No show", tone: "neutral" };
+  if (isShowDraft(show)) return { label: "Draft", tone: "sky" };
+  if (show.visibility === "private") return { label: "Private", tone: "amber" };
+  return { label: "Public", tone: "green" };
 }
 
 function TagsField({
@@ -221,7 +293,6 @@ export default function HostsAdminPage() {
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const purgedRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
     const load = (withSpinner: boolean) => {
@@ -340,6 +411,8 @@ export default function HostsAdminPage() {
       );
   };
 
+  // Parked shows (cancelled, awaiting a new date) sit in their own section, off the
+  // live schedule and out of Completed, so their poster survives for reuse.
   const upcoming = groups
     .filter((g) => g.host.date && !isDatePast(g.host.date))
     .sort((a, b) => new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime());
@@ -355,40 +428,14 @@ export default function HostsAdminPage() {
       (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
     );
 
-  // A draft past its date is dead. The filter above already hides it, so this is
-  // pure backend cleanup — no local state mutation, nothing to diverge from the
-  // refetch. Fires once per mount (purgedRef also guards StrictMode double-run).
-  useEffect(() => {
-    if (loading || purgedRef.current) return;
-    const expired = groups.filter(
-      (g) => g.show && isShowDraft(g.show) && g.host.date && isDatePast(g.host.date),
+  // Drafts whose proposed date already passed — including shows reverted to draft
+  // for rescheduling. Kept (never auto-deleted) so the poster survives for reuse,
+  // and surfaced under Unscheduled so they stay reachable to re-date or delete.
+  const staleDrafts = groups
+    .filter((g) => g.show && isShowDraft(g.show) && g.host.date && isDatePast(g.host.date))
+    .sort(
+      (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
     );
-    if (expired.length === 0) return;
-    purgedRef.current = true;
-    const headers = { "Content-Type": "application/json" };
-    Promise.all(
-      expired.map(async (g) => {
-        const slug = g.showSlug;
-        await Promise.all([
-          ...[g.host, ...g.supporters].map((s) =>
-            fetch("/api/sponsors", {
-              method: "DELETE",
-              headers,
-              body: JSON.stringify({ showSlug: slug, submittedAt: s.submittedAt }),
-            }),
-          ),
-          fetch("/api/rsvp", { method: "DELETE", headers, body: JSON.stringify({ slug }) }),
-        ]);
-        await fetch("/api/shows", { method: "DELETE", headers, body: JSON.stringify({ slug }) });
-      }),
-    ).then(() =>
-      setMessage({
-        type: "success",
-        text: `Cleared ${expired.length} expired draft${expired.length === 1 ? "" : "s"}`,
-      }),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
 
   const pastLegs = groupIntoLegs(past);
   const pastGrouped = new Set(pastLegs.flat().map((g) => g.showSlug));
@@ -444,9 +491,13 @@ export default function HostsAdminPage() {
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
-  // Solo = confirmed shows with no leg (own poster). Unscheduled = drafts.
+  // Solo = confirmed shows with no leg (own poster). Unscheduled = drafts, plus
+  // past-dated ones (e.g. reverted for rescheduling) so they stay reachable.
   const solo = ungrouped.filter((g) => g.show && !isShowDraft(g.show));
-  const unscheduled = ungrouped.filter((g) => !g.show || isShowDraft(g.show));
+  const unscheduled = [
+    ...ungrouped.filter((g) => !g.show || isShowDraft(g.show)),
+    ...staleDrafts,
+  ];
   const suggested = suggestLegs(solo);
 
   const handlePamphletSaved = (slug: string, pamphlet: PamphletFacet) => {
@@ -1890,9 +1941,9 @@ function PosterEditor({
       ) : variant === "drawer" ? (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="flex items-center justify-between gap-3 w-full px-6 py-3 text-sm text-left hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 transition-colors"
         >
-          <span>Poster</span>
+          <span className="text-neutral-800 dark:text-neutral-200">Poster</span>
           <span className="text-neutral-400">Edit</span>
         </button>
       ) : (
@@ -1913,49 +1964,71 @@ function PosterEditor({
   );
 }
 
-function ShowGroupCard({
+function ManageModal({
   group,
+  show,
+  host,
+  supporters,
   legs,
+  rsvpCounts,
+  emailSentSlugs,
   onCreateLeg,
-  onMessage,
-  onUpdateSponsor,
-  onRemoveSponsor,
   onShowUpdate,
+  onUpdateSponsor,
+  onMessage,
+  onRemoveSponsor,
+  onClose,
+  onEditHost,
+  onViewSupporters,
+  onOpenEmail,
 }: {
   group: ShowGroup;
+  show: Show | null;
+  host: Sponsor;
+  supporters: Sponsor[];
   legs: Leg[];
+  rsvpCounts: { responses: number; attending: number } | null;
+  emailSentSlugs: Set<string>;
   onCreateLeg: (slug: string) => Promise<void>;
-  onMessage: (text: string) => void;
-  onUpdateSponsor: (updated: Sponsor) => void;
-  onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  onUpdateSponsor: (updated: Sponsor) => void;
+  onMessage: (text: string) => void;
+  onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
+  onClose: () => void;
+  onEditHost: () => void;
+  onViewSupporters: () => void;
+  onOpenEmail: () => void;
 }) {
-  const { show, host, supporters } = group;
-  const [editingHost, setEditingHost] = useState(false);
-  const [viewingSupporters, setViewingSupporters] = useState(false);
-  const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
+  const [askingPrivate, setAskingPrivate] = useState(false);
+  const [privateDraft, setPrivateDraft] = useState("");
+  const [askingReschedule, setAskingReschedule] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const [emailOpen, setEmailOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [emailSchedule, setEmailSchedule] = useState("");
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailResult, setEmailResult] = useState<string | null>(null);
-  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
-  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(
-    null,
-  );
-  const [emailConfirming, setEmailConfirming] = useState(false);
-  const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
-  const [dateValue, setDateValue] = useState(show?.date ?? host.date ?? "");
-  const [editingDate, setEditingDate] = useState(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const dateSave = useDebouncedSave(show, onShowUpdate);
-  const [managing, setManaging] = useState(false);
-  const [askingPrivate, setAskingPrivate] = useState(false);
-  const [privateDraft, setPrivateDraft] = useState("");
+  // Opt-in for the current destructive action: also take the Eventbrite listing down.
+  const [cancelEb, setCancelEb] = useState(false);
+  const hasEb = !!show?.eventbriteId;
+  // Inline confirm/book — no page hop, no host roundtrip when the artist books it.
+  const [confirmDate, setConfirmDate] = useState(show?.date ?? host.date ?? "");
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [ebSyncing, setEbSyncing] = useState(false);
+  const [ebSynced, setEbSynced] = useState<number | null>(null);
+  const [ebSyncFailed, setEbSyncFailed] = useState(false);
+  const ebSyncedOnce = useRef(false);
+
+  const drawerRow =
+    "flex items-center justify-between gap-3 w-full px-6 py-3 text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 transition-colors";
+  const groupList =
+    "border-y border-neutral-100 dark:border-neutral-800/80 divide-y divide-neutral-100 dark:divide-neutral-800/80";
+  const sectionLabel =
+    "text-xs font-medium uppercase tracking-wider text-neutral-400 px-6 mb-1";
+  const inputCls =
+    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
+
+  const status = getShowStatus(show);
+  const tone = STATUS_TONE[status.tone];
 
   const patchShow = async (fields: Partial<Show>) => {
     if (!show?.slug) return;
@@ -1967,33 +2040,99 @@ function ShowGroupCard({
     });
   };
 
+  // "Needs rescheduling": revert a confirmed show to a draft (stage "intent") so it
+  // drops off the public schedule but keeps its poster and details for reuse. Clearing
+  // `leg` pulls it out of any pamphlet so it lands under Unscheduled, not a live leg.
+  // Re-confirm from the draft's Confirm section to give it a new date. Eventbrite is
+  // only touched when opted in (cancelEb) — a bare stage change never forwards the flag.
+  const rescheduleShow = async () => {
+    if (!show?.slug) return;
+    onShowUpdate(show.slug, { stage: "intent", leg: null });
+    setAskingReschedule(false);
+    onClose();
+    onMessage(`${show.slug} reverted to draft — poster kept`);
+    await fetch("/api/shows", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: show.slug, stage: "intent", leg: null, cancelEventbrite: cancelEb }),
+    });
+  };
+
+  // Confirm & book a draft in place — the artist's own booking, no signed-link
+  // roundtrip (the admin cookie authorizes it). Optimistically advance stage + date
+  // on both the show and its host record so it lands in Upcoming without a refetch.
+  const confirmNow = async () => {
+    if (!show?.slug || confirming) return;
+    setConfirming(true);
+    setConfirmError(null);
+    const res = await fetch("/api/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: show.slug,
+        name: host.name,
+        email: host.email,
+        phone: host.phone,
+        date: confirmDate || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setConfirmError(data.error || "Couldn't confirm — check the host's name and email.");
+      setConfirming(false);
+      return;
+    }
+    const nextDate = confirmDate || show.date;
+    onShowUpdate(show.slug, { stage: "booked", date: nextDate });
+    onUpdateSponsor({ ...host, date: nextDate });
+    onClose();
+    onMessage(`${show.slug} is booked`);
+  };
+
+  const copyConfirmLink = async () => {
+    if (!show?.slug) return;
+    const res = await fetch(`/api/confirm-link?slug=${encodeURIComponent(show.slug)}`);
+    if (!res.ok) {
+      setConfirmError("Couldn't get the confirmation link.");
+      return;
+    }
+    const { url } = await res.json();
+    await navigator.clipboard.writeText(`${window.location.origin}${url}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1800);
+  };
+
+  // Auto-sync Eventbrite registrants into Supabase when the modal opens (once per open,
+  // only for shows with an Eventbrite event). The route writes only new/changed rows,
+  // so this is cheap even when nothing's new — no manual save step. The `ebSyncedOnce`
+  // ref (not a cleanup flag) guards Strict Mode's double-invoke; state updates after an
+  // unmount are harmless no-ops in React 18, so the fetch handlers always settle.
+  useEffect(() => {
+    if (!hasEb || !show?.slug || ebSyncedOnce.current) return;
+    ebSyncedOnce.current = true;
+    setEbSyncing(true);
+    fetch("/api/admin/import-eventbrite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: show.slug }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("sync failed");
+        return r.json();
+      })
+      .then((d) => {
+        if (typeof d.synced === "number") setEbSynced(d.synced);
+      })
+      .catch(() => setEbSyncFailed(true))
+      .finally(() => setEbSyncing(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasEb, show?.slug]);
+
   const flightOn = !!show?.flights?.includes(PAYMENT_MODEL);
   const toggleFlight = (on: boolean) => {
     const others = (show?.flights ?? []).filter((f) => f !== PAYMENT_MODEL);
     patchShow({ flights: on ? [...others, PAYMENT_MODEL] : others });
   };
-
-  const openEmail = () => {
-    setEmailOpen(true);
-    setEmailResult(null);
-    setEmailConfirming(false);
-    fetch("/api/rsvp")
-      .then((r) => r.json())
-      .then((counts) => {
-        const c = counts[group.showSlug];
-        setEmailRecipientCount(c?.responses || 0);
-        setRsvpCounts(c || null);
-      })
-      .catch(() => {
-        setEmailRecipientCount(null);
-        setRsvpCounts(null);
-      });
-  };
-
-  const drawerRow =
-    "flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm text-left text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors";
-  const inputCls =
-    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
 
   // Where a private show's direct /rsvp/<slug> link redirects. Funds add a networking toast.
   const redirectOptions = useMemo(() => {
@@ -2021,22 +2160,6 @@ function ShowGroupCard({
     return opts;
   }, [legs]);
 
-  useEffect(() => {
-    if (!group.showSlug) return;
-    fetch("/api/rsvp")
-      .then((r) => r.json())
-      .then((counts) => {
-        const c = counts[group.showSlug];
-        setRsvpCounts(c || null);
-      })
-      .catch(() => setRsvpCounts(null));
-  }, [group.showSlug]);
-
-  const debounceSaveDate = (newDate: string) => {
-    if (!newDate) return;
-    dateSave.save({ date: newDate });
-  };
-
   const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
 
   const handleDeleteShow = async () => {
@@ -2061,7 +2184,7 @@ function ShowGroupCard({
         await fetch("/api/shows", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: group.showSlug }),
+          body: JSON.stringify({ slug: group.showSlug, cancelEventbrite: cancelEb }),
         });
       }
       onRemoveSponsor(host.submittedAt, host.showSlug);
@@ -2071,6 +2194,469 @@ function ShowGroupCard({
       setDeleting(false);
     }
   };
+
+  return (
+    <Modal
+      onClose={onClose}
+      header={
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <h4 className="text-sm font-light tracking-widest text-neutral-900 dark:text-white shrink-0">
+              MANAGE
+            </h4>
+            {show?.slug && (
+              <span className="text-sm text-neutral-400 truncate">· {show.slug}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="-m-2 flex h-11 w-11 items-center justify-center text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <div className="-mx-6 space-y-5">
+        {show?.slug && (
+          <section>
+            <h5 className={sectionLabel}>Show</h5>
+            <div className={groupList}>
+              {show.visibility !== "private" ? (
+                askingPrivate ? (
+                  <div className="px-6 py-3 space-y-2.5 bg-amber-50/50 dark:bg-amber-950/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-amber-600 dark:text-amber-500">
+                        Make private
+                      </span>
+                      <button
+                        onClick={() => { setAskingPrivate(false); setPrivateDraft(""); }}
+                        className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={privateDraft}
+                      onChange={(e) => setPrivateDraft(e.target.value)}
+                      placeholder="Private reason (e.g. Youth camp, private house concert)"
+                      className={inputCls}
+                    />
+                    <button
+                      onClick={() => {
+                        patchShow({ visibility: "private", privateNote: privateDraft.trim() || null });
+                        setAskingPrivate(false);
+                        setPrivateDraft("");
+                      }}
+                      className="w-full py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                    >
+                      Make private
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAskingPrivate(true); setPrivateDraft(""); }}
+                    className={drawerRow}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-neutral-800 dark:text-neutral-200">Visibility</span>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`} />
+                        {status.label}
+                      </span>
+                    </span>
+                    <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
+                      Make private
+                    </span>
+                  </button>
+                )
+              ) : (
+                <div className="px-6 py-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-sm text-neutral-800 dark:text-neutral-200">Visibility</span>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`} />
+                        {status.label}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => patchShow({ visibility: "public" })}
+                      className="text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-green-600 dark:hover:text-green-500 transition-colors shrink-0"
+                    >
+                      Make public
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    defaultValue={show.privateNote ?? ""}
+                    onBlur={(e) => patchShow({ privateNote: e.target.value.trim() || null })}
+                    placeholder="Private reason (e.g. Youth camp, private house concert)"
+                    className={inputCls}
+                  />
+                  <ToggleRow
+                    label="Show reason on tour list"
+                    checked={!show.hidePrivateNote}
+                    onChange={(v) => patchShow({ hidePrivateNote: !v })}
+                    className="flex items-center justify-between gap-3 w-full text-sm text-left text-neutral-700 dark:text-neutral-300"
+                  />
+                  <label className="flex items-center justify-between gap-3 text-sm text-neutral-800 dark:text-neutral-200">
+                    <span className="shrink-0">Direct link goes to</span>
+                    <select
+                      value={show.privateRedirect ?? ""}
+                      onChange={(e) => patchShow({ privateRedirect: e.target.value || null })}
+                      className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 min-w-0"
+                    >
+                      {redirectOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <ToggleRow
+                label="Never group into a leg"
+                checked={!!show.standalone}
+                onChange={(v) => patchShow({ standalone: v })}
+                className={drawerRow}
+              />
+              <ToggleRow
+                label="Start payment at $0"
+                checked={flightOn}
+                onChange={toggleFlight}
+                className={drawerRow}
+              />
+              <label className={`${drawerRow} cursor-pointer`}>
+                <span className="text-neutral-800 dark:text-neutral-200">Leg</span>
+                <select
+                  value={show.leg ?? ""}
+                  onChange={async (e) => {
+                    const v = e.target.value;
+                    if (v === "__new__") {
+                      const raw = window.prompt("New leg slug (e.g. socal)") ?? "";
+                      const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                      if (!slug) return;
+                      if (!legs.some((l) => l.slug === slug)) await onCreateLeg(slug);
+                      patchShow({ leg: slug });
+                    } else {
+                      patchShow({ leg: v || null });
+                    }
+                  }}
+                  className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 shrink-0"
+                >
+                  <option value="">— none —</option>
+                  {legs.map((l) => (
+                    <option key={l.slug} value={l.slug}>
+                      {l.slug}
+                    </option>
+                  ))}
+                  <option value="__new__">+ New leg…</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        )}
+
+        {show?.slug && isShowDraft(show) && (
+          <section>
+            <h5 className={sectionLabel}>Confirm</h5>
+            <div className={groupList}>
+              <label className={`${drawerRow} cursor-pointer`}>
+                <span className="text-neutral-800 dark:text-neutral-200">Date</span>
+                <input
+                  type="date"
+                  value={confirmDate}
+                  onChange={(e) => setConfirmDate(e.target.value)}
+                  className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 shrink-0"
+                />
+              </label>
+              <button
+                onClick={confirmNow}
+                disabled={confirming}
+                className={`${drawerRow} text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-950/20 disabled:opacity-50`}
+              >
+                <span>{confirming ? "Booking…" : "Confirm & book"}</span>
+                <span className="text-neutral-400 truncate ml-3">
+                  {host.name || host.email || "add a host first"}
+                </span>
+              </button>
+              <button className={drawerRow} onClick={copyConfirmLink}>
+                <span className="text-neutral-800 dark:text-neutral-200">Copy confirm link</span>
+                <span className="text-neutral-400">{copiedLink ? "Copied" : "for the host"}</span>
+              </button>
+              {confirmError && (
+                <p className="px-6 py-2 text-xs text-red-600 dark:text-red-400">{confirmError}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {show?.slug && !isShowDraft(show) && (
+          <section>
+            <h5 className={sectionLabel}>Schedule</h5>
+            <div className={groupList}>
+              {askingReschedule ? (
+                <div className="px-6 py-3 space-y-2.5">
+                  <p className="text-sm text-neutral-800 dark:text-neutral-200">
+                    Revert to draft? Keeps the poster.
+                  </p>
+                  {hasEb && (
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                      <input
+                        type="checkbox"
+                        checked={cancelEb}
+                        onChange={(e) => setCancelEb(e.target.checked)}
+                        className="rounded"
+                      />
+                      Also cancel the Eventbrite listing
+                    </label>
+                  )}
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={rescheduleShow}
+                      className="text-sm font-medium text-amber-600 dark:text-amber-500 hover:text-amber-700"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setAskingReschedule(false)}
+                      className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setCancelEb(false); setAskingReschedule(true); }}
+                  className={`${drawerRow} text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20`}
+                >
+                  <span>Needs rescheduling</span>
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <h5 className={sectionLabel}>People</h5>
+          <div className={groupList}>
+            <button className={drawerRow} onClick={onEditHost}>
+              <span className="text-neutral-800 dark:text-neutral-200">Edit host</span>
+              <span className="text-neutral-400 truncate ml-3">{host.name || host.email}</span>
+            </button>
+            {supporters.length > 0 && (
+              <button className={drawerRow} onClick={onViewSupporters}>
+                <span className="text-neutral-800 dark:text-neutral-200">Supporters</span>
+                <span className="text-neutral-400">+{supporters.length}</span>
+              </button>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h5 className={sectionLabel}>Promote</h5>
+          <div className={groupList}>
+            <button className={drawerRow} onClick={onOpenEmail}>
+              <span className="text-neutral-800 dark:text-neutral-200">Email RSVPs</span>
+              {rsvpCounts && <span className="text-neutral-400">{rsvpCounts.responses}</span>}
+            </button>
+            {hasEb && (
+              <div className={`${drawerRow} hover:bg-transparent dark:hover:bg-transparent`}>
+                <span className="text-neutral-800 dark:text-neutral-200">Eventbrite RSVPs</span>
+                <span
+                  className={
+                    ebSyncFailed
+                      ? "text-red-600 dark:text-red-400"
+                      : ebSynced
+                        ? "text-amber-600 dark:text-amber-500"
+                        : "text-neutral-400"
+                  }
+                >
+                  {ebSyncing
+                    ? "syncing…"
+                    : ebSyncFailed
+                      ? "sync failed"
+                      : ebSynced == null
+                        ? ""
+                        : ebSynced > 0
+                          ? `synced ${ebSynced}`
+                          : "up to date"}
+                </span>
+              </div>
+            )}
+            {show?.slug && (
+              <PosterEditor
+                group={[group]}
+                matchedPamphlet={null}
+                onPamphletSaved={() => {}}
+                onShowUpdate={onShowUpdate}
+                variant="drawer"
+              />
+            )}
+            <button
+              disabled
+              title="PDF renovating"
+              className={`${drawerRow} opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent`}
+            >
+              <span className="text-neutral-800 dark:text-neutral-200">PDF</span>
+              <span className="text-neutral-400">soon</span>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <h5 className={sectionLabel}>Danger</h5>
+          <div className={groupList}>
+            {!confirmDelete ? (
+              <button
+                className={`${drawerRow} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20`}
+                onClick={() => {
+                  setConfirmDelete(true);
+                  setDeleteInput("");
+                  setCancelEb(false);
+                }}
+              >
+                <span>Delete show</span>
+              </button>
+            ) : (
+              <div className="px-6 py-3 space-y-2">
+                {rsvpCounts &&
+                  rsvpCounts.responses > 0 &&
+                  !emailSentSlugs.has(group.showSlug) && (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
+                      notified. Send a cancel email first.
+                    </p>
+                  )}
+                {hasEb && (
+                  <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    <input
+                      type="checkbox"
+                      checked={cancelEb}
+                      onChange={(e) => setCancelEb(e.target.checked)}
+                      className="rounded"
+                    />
+                    Also cancel the Eventbrite listing
+                  </label>
+                )}
+                <div className="flex gap-2 items-center">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={deleteInput}
+                    onChange={(e) => setDeleteInput(e.target.value)}
+                    placeholder='type "delete"'
+                    className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                  />
+                  <button
+                    onClick={handleDeleteShow}
+                    disabled={deleteInput !== "delete" || deleting}
+                    className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+                  >
+                    {deleting ? "Deleting..." : "Confirm"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setDeleteInput("");
+                    }}
+                    className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </Modal>
+  );
+}
+
+function ShowGroupCard({
+  group,
+  legs,
+  onCreateLeg,
+  onMessage,
+  onUpdateSponsor,
+  onRemoveSponsor,
+  onShowUpdate,
+}: {
+  group: ShowGroup;
+  legs: Leg[];
+  onCreateLeg: (slug: string) => Promise<void>;
+  onMessage: (text: string) => void;
+  onUpdateSponsor: (updated: Sponsor) => void;
+  onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
+  onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+}) {
+  const { show, host, supporters } = group;
+  const [editingHost, setEditingHost] = useState(false);
+  const [viewingSupporters, setViewingSupporters] = useState(false);
+  const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSchedule, setEmailSchedule] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<string | null>(null);
+  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
+  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(
+    null,
+  );
+  const [emailConfirming, setEmailConfirming] = useState(false);
+  const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
+  const [dateValue, setDateValue] = useState(show?.date ?? host.date ?? "");
+  const [editingDate, setEditingDate] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const dateSave = useDebouncedSave(show, onShowUpdate);
+  const [managing, setManaging] = useState(false);
+
+  const openEmail = () => {
+    setEmailOpen(true);
+    setEmailResult(null);
+    setEmailConfirming(false);
+    fetch("/api/rsvp")
+      .then((r) => r.json())
+      .then((counts) => {
+        const c = counts[group.showSlug];
+        setEmailRecipientCount(c?.responses || 0);
+        setRsvpCounts(c || null);
+      })
+      .catch(() => {
+        setEmailRecipientCount(null);
+        setRsvpCounts(null);
+      });
+  };
+
+  useEffect(() => {
+    if (!group.showSlug) return;
+    fetch("/api/rsvp")
+      .then((r) => r.json())
+      .then((counts) => {
+        const c = counts[group.showSlug];
+        setRsvpCounts(c || null);
+      })
+      .catch(() => setRsvpCounts(null));
+  }, [group.showSlug]);
+
+  const debounceSaveDate = (newDate: string) => {
+    if (!newDate) return;
+    dateSave.save({ date: newDate });
+  };
+
+  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+  const status = getShowStatus(show);
+  const statusTone = STATUS_TONE[status.tone];
 
   return (
     <>
@@ -2296,263 +2882,24 @@ function ShowGroupCard({
         </Modal>
       )}
       {managing && (
-        <Modal
+        <ManageModal
+          group={group}
+          show={show}
+          host={host}
+          supporters={supporters}
+          legs={legs}
+          rsvpCounts={rsvpCounts}
+          emailSentSlugs={emailSentSlugs}
+          onCreateLeg={onCreateLeg}
+          onShowUpdate={onShowUpdate}
+          onUpdateSponsor={onUpdateSponsor}
+          onMessage={onMessage}
+          onRemoveSponsor={onRemoveSponsor}
           onClose={() => setManaging(false)}
-          title={`MANAGE${show?.slug ? ` · ${show.slug}` : ""}`}
-        >
-          <div className="space-y-5">
-            {show?.slug && (
-              <section className="space-y-1">
-                <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Show</h5>
-                {show.visibility !== "private" ? (
-                  askingPrivate ? (
-                    <div className="px-3 py-2.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-amber-600 dark:text-amber-500">
-                          Visibility · Making private
-                        </span>
-                        <button
-                          onClick={() => { setAskingPrivate(false); setPrivateDraft(""); }}
-                          className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        autoFocus
-                        value={privateDraft}
-                        onChange={(e) => setPrivateDraft(e.target.value)}
-                        placeholder="Private reason (e.g. Youth camp, private house concert)"
-                        className={inputCls}
-                      />
-                      <button
-                        onClick={() => {
-                          patchShow({ visibility: "private", privateNote: privateDraft.trim() || null });
-                          setAskingPrivate(false);
-                          setPrivateDraft("");
-                        }}
-                        className="w-full py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
-                      >
-                        Confirm — Make private
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between px-3 py-2.5 min-h-[44px]">
-                      <span className="text-sm text-neutral-700 dark:text-neutral-300">
-                        Visibility · Public
-                      </span>
-                      <button
-                        onClick={() => { setAskingPrivate(true); setPrivateDraft(""); }}
-                        className="text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-500 transition-colors"
-                      >
-                        Make private
-                      </button>
-                    </div>
-                  )
-                ) : (
-                  <div className="px-3 py-2.5 space-y-2">
-                    <div className="flex items-center justify-between min-h-[44px]">
-                      <span className="text-sm font-medium text-amber-600 dark:text-amber-500">
-                        Visibility · Private
-                      </span>
-                      <button
-                        onClick={() => patchShow({ visibility: "public" })}
-                        className="text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
-                      >
-                        Make public
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      defaultValue={show.privateNote ?? ""}
-                      onBlur={(e) => patchShow({ privateNote: e.target.value.trim() || null })}
-                      placeholder="Private reason (e.g. Youth camp, private house concert)"
-                      className={inputCls}
-                    />
-                    <label className="flex items-center justify-between px-0.5 text-sm text-neutral-700 dark:text-neutral-300">
-                      <span>Show reason on tour list</span>
-                      <input
-                        type="checkbox"
-                        checked={!show.hidePrivateNote}
-                        onChange={(e) => patchShow({ hidePrivateNote: !e.target.checked })}
-                        className="rounded shrink-0 ml-3"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between px-0.5 text-sm text-neutral-700 dark:text-neutral-300">
-                      <span className="shrink-0">Direct link goes to</span>
-                      <select
-                        value={show.privateRedirect ?? ""}
-                        onChange={(e) => patchShow({ privateRedirect: e.target.value || null })}
-                        className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 ml-3 min-w-0"
-                      >
-                        {redirectOptions.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                )}
-                <label className={`${drawerRow} cursor-pointer`}>
-                  <span>Keep separate · never auto-suggest into a leg</span>
-                  <input
-                    type="checkbox"
-                    checked={!!show.standalone}
-                    onChange={(e) => patchShow({ standalone: e.target.checked })}
-                    className="rounded shrink-0 ml-3"
-                  />
-                </label>
-                <label className={`${drawerRow} cursor-pointer`}>
-                  <span>Opt-in payments · start at $0 instead of $20</span>
-                  <input
-                    type="checkbox"
-                    checked={flightOn}
-                    onChange={(e) => toggleFlight(e.target.checked)}
-                    className="rounded shrink-0 ml-3"
-                  />
-                </label>
-                <label className={`${drawerRow} cursor-pointer`}>
-                  <span>Leg</span>
-                  <select
-                    value={show.leg ?? ""}
-                    onChange={async (e) => {
-                      const v = e.target.value;
-                      if (v === "__new__") {
-                        const raw = window.prompt("New leg slug (e.g. socal)") ?? "";
-                        const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
-                        if (!slug) return;
-                        if (!legs.some((l) => l.slug === slug)) await onCreateLeg(slug);
-                        patchShow({ leg: slug });
-                      } else {
-                        patchShow({ leg: v || null });
-                      }
-                    }}
-                    className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 ml-3 shrink-0"
-                  >
-                    <option value="">— none —</option>
-                    {legs.map((l) => (
-                      <option key={l.slug} value={l.slug}>
-                        {l.slug}
-                      </option>
-                    ))}
-                    <option value="__new__">+ New leg…</option>
-                  </select>
-                </label>
-              </section>
-            )}
-
-            <section className="space-y-1">
-              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">People</h5>
-              <button
-                className={drawerRow}
-                onClick={() => {
-                  setManaging(false);
-                  setEditingHost(true);
-                }}
-              >
-                <span>Amend host</span>
-                <span className="text-neutral-400 truncate ml-3">{host.name || host.email}</span>
-              </button>
-              {supporters.length > 0 && (
-                <button
-                  className={drawerRow}
-                  onClick={() => {
-                    setManaging(false);
-                    setViewingSupporters(true);
-                  }}
-                >
-                  <span>Supporters</span>
-                  <span className="text-neutral-400">+{supporters.length}</span>
-                </button>
-              )}
-            </section>
-
-            <section className="space-y-1">
-              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Promote</h5>
-              <button
-                className={drawerRow}
-                onClick={() => {
-                  setManaging(false);
-                  openEmail();
-                }}
-              >
-                <span>Email RSVPs</span>
-                {rsvpCounts && <span className="text-neutral-400">{rsvpCounts.responses}</span>}
-              </button>
-              {show?.slug && (
-                <PosterEditor
-                  group={[group]}
-                  matchedPamphlet={null}
-                  onPamphletSaved={() => {}}
-                  onShowUpdate={onShowUpdate}
-                  variant="drawer"
-                />
-              )}
-              <button
-                disabled
-                title="PDF renovating"
-                className={`${drawerRow} opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent`}
-              >
-                <span>PDF</span>
-                <span className="text-neutral-400">soon</span>
-              </button>
-            </section>
-
-            <section className="space-y-1">
-              <h5 className="text-xs uppercase tracking-wider text-neutral-400 px-3">Danger</h5>
-              {!confirmDelete ? (
-                <button
-                  className={`${drawerRow} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20`}
-                  onClick={() => {
-                    setConfirmDelete(true);
-                    setDeleteInput("");
-                  }}
-                >
-                  <span>Delete show</span>
-                </button>
-              ) : (
-                <div className="px-3 py-2 space-y-2">
-                  {rsvpCounts &&
-                    rsvpCounts.responses > 0 &&
-                    !emailSentSlugs.has(group.showSlug) && (
-                      <p className="text-xs text-amber-600 dark:text-amber-500">
-                        ⚠ {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
-                        notified. Send a cancel email first.
-                      </p>
-                    )}
-                  <div className="flex gap-2 items-center">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={deleteInput}
-                      onChange={(e) => setDeleteInput(e.target.value)}
-                      placeholder='type "delete"'
-                      className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
-                    />
-                    <button
-                      onClick={handleDeleteShow}
-                      disabled={deleteInput !== "delete" || deleting}
-                      className="text-sm px-3 py-1.5 rounded bg-red-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-                    >
-                      {deleting ? "Deleting..." : "Confirm"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setConfirmDelete(false);
-                        setDeleteInput("");
-                      }}
-                      className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-        </Modal>
+          onEditHost={() => { setManaging(false); setEditingHost(true); }}
+          onViewSupporters={() => { setManaging(false); setViewingSupporters(true); }}
+          onOpenEmail={() => { setManaging(false); openEmail(); }}
+        />
       )}
       <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
         <div className="flex-1 p-5 flex flex-col gap-3">
@@ -2610,30 +2957,23 @@ function ShowGroupCard({
           </div>
 
           <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-            {show?.slug && isShowDraft(show) ? (
-              <Link
-                href={`/admin/pending?created=${show.slug}`}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-950/50 transition-colors"
+            {!show?.slug ? (
+              <span className="text-xs text-neutral-400">{status.label}</span>
+            ) : isShowDraft(show) ? (
+              <button
+                onClick={() => setManaging(true)}
+                title="Confirm or send a link"
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${statusTone.pill} hover:bg-sky-100 dark:hover:bg-sky-950/50 transition-colors`}
               >
-                Draft
-              </Link>
-            ) : show?.slug ? (
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
-                  show.visibility === "private"
-                    ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
-                    : "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400"
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    show.visibility === "private" ? "bg-amber-500" : "bg-green-500"
-                  }`}
-                />
-                {show.visibility === "private" ? "Private" : "Public"}
-              </span>
+                {status.label}
+              </button>
             ) : (
-              <span className="text-xs text-neutral-400">No show</span>
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${statusTone.pill}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${statusTone.dot}`} />
+                {status.label}
+              </span>
             )}
             <button
               onClick={() => setManaging(true)}

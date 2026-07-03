@@ -217,6 +217,13 @@ export async function publishEventbrite(
   }
 }
 
+// Take a live listing down. Eventbrite won't hard-delete a published/ticketed event,
+// so cancel is the reliable "remove from public" action (unpublishes, notifies orders).
+export async function cancelEventbrite(eventId: string): Promise<void> {
+  if (!TOKEN) return;
+  await eb(`/events/${eventId}/cancel/`, { method: "POST" });
+}
+
 export async function getAttendees(eventId: string): Promise<{ email: string; name: string }[]> {
   const out: { email: string; name: string }[] = [];
   let continuation: string | undefined;

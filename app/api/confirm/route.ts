@@ -3,6 +3,7 @@ import { publishEventbrite } from "../../lib/eventbrite";
 import { getShowBySlug } from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
+import { isAdminAuthorized } from "../shared/admin-auth";
 
 export const maxDuration = 30;
 
@@ -75,7 +76,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const { slug, sig, name, email, phone, date, doorTime } = await request.json();
-    if (!slug || !verifySlug(slug, sig)) {
+    // The host confirms via a signed link; the artist can confirm their own drafts
+    // straight from the admin (cookie auth), so no signature roundtrip is needed there.
+    const authorized = slug && ((await isAdminAuthorized(request)) || verifySlug(slug, sig));
+    if (!authorized) {
       return NextResponse.json({ error: "Invalid or expired link" }, { status: 403 });
     }
     if (!name?.trim() || !isEmailValid(email || "")) {
