@@ -1,6 +1,26 @@
 import SingleCard from "../sponsor/confirm/[slug]/SingleCard";
 import TourStops from "./TourStops";
 import { getShows, isShowListable } from "../lib/shows";
+import EnergyClips, { type EnergyClip } from "./EnergyClips";
+
+// Newest first. Each caption highlights a different facet of the act.
+const ENERGY_CLIPS: EnergyClip[] = [
+  {
+    label: "Bringing people together",
+    src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
+    poster: "https://assets.peytspencer.com/videos/concert-fulton-md-poster.jpg",
+  },
+  {
+    label: "Celebrating life's milestones",
+    src: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec.mp4",
+    poster: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec-poster.jpg",
+  },
+  {
+    label: "Uplifting every generation",
+    src: "https://assets.peytspencer.com/videos/concert-ftgu-intro-2-15sec.mp4",
+    poster: "/images/covers/intro-video-cover.jpg",
+  },
+];
 
 export default async function ArtistIntro() {
   const tourShows = (await getShows())
@@ -10,30 +30,7 @@ export default async function ArtistIntro() {
   return (
     <>
       <section>
-        <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">My Energy</h3>
-        <div className="flex flex-wrap items-start">
-          <div className="w-full sm:w-[315px]">
-            <iframe
-              src="https://www.instagram.com/p/DW9Jl9moGdK/embed"
-              title="The energy I bring"
-              loading="lazy"
-              scrolling="no"
-              allow="encrypted-media; clipboard-write"
-              className="w-full"
-              style={{ height: 560, border: 0 }}
-            />
-          </div>
-          <div className="w-full sm:w-[315px] bg-neutral-900 overflow-hidden" style={{ height: 560 }}>
-            <video
-              src="https://assets.peytspencer.com/videos/concert-ftgu-intro-2-15sec.mp4"
-              poster="/images/covers/intro-video-cover.jpg"
-              className="w-full h-full object-cover"
-              controls
-              playsInline
-              preload="none"
-            />
-          </div>
-        </div>
+        <EnergyClips title="My Energy" clips={ENERGY_CLIPS} />
       </section>
 
       <section>
