@@ -1,10 +1,10 @@
 import SingleCard from "../sponsor/confirm/[slug]/SingleCard";
 import TourStops from "./TourStops";
 import { getShows, isShowListable } from "../lib/shows";
-import EnergyClips, { type EnergyClip } from "./EnergyClips";
+import EnergyVideos, { type EnergyVideo } from "./EnergyVideos";
 
 // Newest first. Each caption highlights a different facet of the act.
-const ENERGY_CLIPS: EnergyClip[] = [
+const ENERGY_VIDEOS: EnergyVideo[] = [
   {
     label: "Bringing people together",
     src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
@@ -30,7 +30,7 @@ export default async function ArtistIntro() {
   return (
     <>
       <section>
-        <EnergyClips title="My Energy" clips={ENERGY_CLIPS} />
+        <EnergyVideos title="My Energy" videos={ENERGY_VIDEOS} />
       </section>
 
       <section>

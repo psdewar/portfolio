@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type EnergyClip = { label: string; src: string; poster?: string };
+export type EnergyVideo = { label: string; src: string; poster?: string };
 
 function Chevron({ dir }: { dir: "left" | "right" }) {
   return (
@@ -12,11 +12,11 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
   );
 }
 
-export default function EnergyClips({ title, clips }: { title?: string; clips: EnergyClip[] }) {
+export default function EnergyVideos({ title, videos }: { title?: string; videos: EnergyVideo[] }) {
   const ref = useRef<HTMLDivElement>(null);
-  const videos = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const players = useRef<Map<string, HTMLVideoElement>>(new Map());
   const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(clips.length > 1);
+  const [canRight, setCanRight] = useState(videos.length > 1);
   const [active, setActive] = useState(0);
   const [started, setStarted] = useState<Set<string>>(() => new Set());
 
@@ -28,9 +28,9 @@ export default function EnergyClips({ title, clips }: { title?: string; clips: E
     setCanRight(!atEnd);
     const first = el.firstElementChild as HTMLElement | null;
     const step = first ? first.clientWidth + 12 : el.clientWidth;
-    const idx = atEnd ? clips.length - 1 : Math.round(el.scrollLeft / step);
-    setActive(Math.min(clips.length - 1, Math.max(0, idx)));
-  }, [clips.length]);
+    const idx = atEnd ? videos.length - 1 : Math.round(el.scrollLeft / step);
+    setActive(Math.min(videos.length - 1, Math.max(0, idx)));
+  }, [videos.length]);
 
   useEffect(() => {
     sync();
@@ -43,7 +43,7 @@ export default function EnergyClips({ title, clips }: { title?: string; clips: E
     if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
   };
 
-  if (!clips.length) return null;
+  if (!videos.length) return null;
 
   const glass =
     "absolute top-1/2 -translate-y-1/2 z-10 grid place-items-center w-10 h-10 rounded-full " +
@@ -53,14 +53,14 @@ export default function EnergyClips({ title, clips }: { title?: string; clips: E
 
   return (
     <div>
-      {(title || clips.length > 1) && (
+      {(title || videos.length > 1) && (
         <div className="flex items-center gap-2 mb-2">
           {title && <h3 className="text-xs text-neutral-400 uppercase tracking-wider">{title}</h3>}
-          {clips.length > 1 && (
+          {videos.length > 1 && (
             <div className="flex items-center gap-1" aria-hidden>
-              {clips.map((c, i) => (
+              {videos.map((video, i) => (
                 <span
-                  key={c.label}
+                  key={video.label}
                   className={`h-1.5 w-1.5 rounded-full transition-colors ${
                     i === active ? "bg-neutral-500 dark:bg-neutral-300" : "bg-neutral-300 dark:bg-neutral-700"
                   }`}
@@ -77,35 +77,35 @@ export default function EnergyClips({ title, clips }: { title?: string; clips: E
           onScroll={sync}
           className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {clips.map((clip, i) => (
+          {videos.map((video, i) => (
             <figure
-              key={clip.label}
+              key={video.label}
               className="relative snap-start shrink-0 w-[300px] max-w-[78vw] bg-neutral-900 rounded-lg overflow-hidden"
               style={{ aspectRatio: "9 / 16" }}
             >
               <video
                 ref={(el) => {
-                  if (el) videos.current.set(clip.label, el);
-                  else videos.current.delete(clip.label);
+                  if (el) players.current.set(video.label, el);
+                  else players.current.delete(video.label);
                 }}
-                src={clip.src}
-                poster={clip.poster}
+                src={video.src}
+                poster={video.poster}
                 className="w-full h-full object-contain"
                 controls
                 playsInline
                 loop
                 preload="none"
                 onPlay={() => {
-                  setStarted((s) => new Set(s).add(clip.label));
+                  setStarted((s) => new Set(s).add(video.label));
                   setActive(i);
-                  videos.current.forEach((v, label) => {
-                    if (label !== clip.label) v.pause();
+                  players.current.forEach((p, label) => {
+                    if (label !== video.label) p.pause();
                   });
                 }}
               />
-              {!started.has(clip.label) && (
+              {!started.has(video.label) && (
                 <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 px-3 pb-2.5 pt-10 bg-gradient-to-t from-black/80 to-transparent text-sm font-semibold leading-snug text-white line-clamp-2">
-                  {clip.label}
+                  {video.label}
                 </figcaption>
               )}
             </figure>
@@ -114,12 +114,12 @@ export default function EnergyClips({ title, clips }: { title?: string; clips: E
         </div>
 
         {canLeft && (
-          <button type="button" onClick={() => nudge(-1)} aria-label="Previous clips" className={`${glass} left-2`}>
+          <button type="button" onClick={() => nudge(-1)} aria-label="Previous videos" className={`${glass} left-2`}>
             <Chevron dir="left" />
           </button>
         )}
         {canRight && (
-          <button type="button" onClick={() => nudge(1)} aria-label="More clips" className={`${glass} right-2`}>
+          <button type="button" onClick={() => nudge(1)} aria-label="More videos" className={`${glass} right-2`}>
             <Chevron dir="right" />
           </button>
         )}
