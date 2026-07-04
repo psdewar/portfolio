@@ -69,6 +69,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   const [modalData, setModalData] = useState<{
     videoSrc: string;
     instagramUrl?: string;
+    poster?: string;
     fromUrl?: boolean; // Track if video was opened via URL parameter
   } | null>(null);
 
@@ -98,6 +99,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       setModalData({
         videoSrc: registryData.src,
         instagramUrl: registryData.instagramUrl,
+        poster: registryData.thumbnail,
         fromUrl: true,
       });
     } else if (manualData) {
@@ -123,7 +125,12 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     url.searchParams.set("video", videoId);
     router.replace(url.pathname + url.search);
     setVideoState({ isOpen: true, videoId, startTime: 0 });
-    setModalData({ videoSrc, instagramUrl, fromUrl: false }); // User-initiated, not from URL
+    setModalData({
+      videoSrc,
+      instagramUrl,
+      poster: getVideoMetadata(videoId)?.thumbnail,
+      fromUrl: false,
+    }); // User-initiated, not from URL
   };
 
   const closeVideo = useCallback(() => {
@@ -197,6 +204,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
           <video
             ref={videoRef}
             src={modalData.videoSrc}
+            poster={modalData.poster}
             controls
             muted={modalData.fromUrl}
             className="relative h-full max-h-screen w-auto max-w-full object-contain rounded"

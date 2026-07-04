@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
-export type EnergyVideo = { label: string; src: string; poster?: string };
+import { PlayIcon } from "@phosphor-icons/react";
+import { getVideoMetadata } from "../lib/videos.config";
 
 function Chevron({ dir }: { dir: "left" | "right" }) {
   return (
@@ -12,13 +12,28 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
   );
 }
 
-export default function EnergyVideos({ title, videos }: { title?: string; videos: EnergyVideo[] }) {
+const GAP = 12;
+function stepOf(el: HTMLElement) {
+  const first = el.firstElementChild as HTMLElement | null;
+  return first ? first.clientWidth + GAP : el.clientWidth;
+}
+
+export default function EnergyVideos({ title, videoIds }: { title?: string; videoIds: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const players = useRef<Map<string, HTMLVideoElement>>(new Map());
   const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(videos.length > 1);
   const [active, setActive] = useState(0);
-  const [started, setStarted] = useState<Set<string>>(() => new Set());
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [ready, setReady] = useState<Set<string>>(new Set());
+
+  const clips = videoIds
+    .map((id) => {
+      const meta = getVideoMetadata(id);
+      return meta ? { id, ...meta } : null;
+    })
+    .filter((c): c is NonNullable<typeof c> => !!c);
+
+  const [canRight, setCanRight] = useState(clips.length > 1);
 
   const sync = useCallback(() => {
     const el = ref.current;
@@ -26,11 +41,10 @@ export default function EnergyVideos({ title, videos }: { title?: string; videos
     const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
     setCanLeft(el.scrollLeft > 4);
     setCanRight(!atEnd);
-    const first = el.firstElementChild as HTMLElement | null;
-    const step = first ? first.clientWidth + 12 : el.clientWidth;
-    const idx = atEnd ? videos.length - 1 : Math.round(el.scrollLeft / step);
-    setActive(Math.min(videos.length - 1, Math.max(0, idx)));
-  }, [videos.length]);
+    const step = stepOf(el);
+    const idx = atEnd ? clips.length - 1 : Math.round(el.scrollLeft / step);
+    setActive(Math.min(clips.length - 1, Math.max(0, idx)));
+  }, [clips.length]);
 
   useEffect(() => {
     sync();
@@ -38,12 +52,20 @@ export default function EnergyVideos({ title, videos }: { title?: string; videos
     return () => window.removeEventListener("resize", sync);
   }, [sync]);
 
+  const play = (id: string) => players.current.get(id)?.play().catch(() => {});
+
   const nudge = (dir: 1 | -1) => {
     const el = ref.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+    if (!el) return;
+    const step = stepOf(el);
+    const current = Math.round(el.scrollLeft / step);
+    const target = Math.min(clips.length - 1, Math.max(0, current + dir));
+    el.scrollTo({ left: target * step, behavior: "smooth" });
+    const clip = clips[target];
+    if (clip) play(clip.id);
   };
 
-  if (!videos.length) return null;
+  if (!clips.length) return null;
 
   const glass =
     "absolute top-1/2 -translate-y-1/2 z-10 grid place-items-center w-10 h-10 rounded-full " +
@@ -53,14 +75,14 @@ export default function EnergyVideos({ title, videos }: { title?: string; videos
 
   return (
     <div>
-      {(title || videos.length > 1) && (
+      {(title || clips.length > 1) && (
         <div className="flex items-center gap-2 mb-2">
           {title && <h3 className="text-xs text-neutral-400 uppercase tracking-wider">{title}</h3>}
-          {videos.length > 1 && (
+          {clips.length > 1 && (
             <div className="flex items-center gap-1" aria-hidden>
-              {videos.map((video, i) => (
+              {clips.map((clip, i) => (
                 <span
-                  key={video.label}
+                  key={clip.id}
                   className={`h-1.5 w-1.5 rounded-full transition-colors ${
                     i === active ? "bg-neutral-500 dark:bg-neutral-300" : "bg-neutral-300 dark:bg-neutral-700"
                   }`}
@@ -77,38 +99,59 @@ export default function EnergyVideos({ title, videos }: { title?: string; videos
           onScroll={sync}
           className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {videos.map((video, i) => (
-            <figure
-              key={video.label}
-              className="relative snap-start shrink-0 w-[300px] max-w-[78vw] bg-neutral-900 rounded-lg overflow-hidden"
+          {clips.map((clip) => (
+            <div
+              key={clip.id}
+              className="group relative snap-start shrink-0 w-[300px] max-w-[78vw] bg-black rounded-lg overflow-hidden"
               style={{ aspectRatio: "9 / 16" }}
             >
+              {clip.thumbnail && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={clip.thumbnail}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.03]"
+                />
+              )}
               <video
                 ref={(el) => {
-                  if (el) players.current.set(video.label, el);
-                  else players.current.delete(video.label);
+                  if (el) players.current.set(clip.id, el);
+                  else players.current.delete(clip.id);
                 }}
-                src={video.src}
-                poster={video.poster}
-                className="w-full h-full object-contain"
-                controls
+                src={clip.src}
+                poster={clip.thumbnail}
+                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+                  playing === clip.id && ready.has(clip.id) ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}
+                controls={playing === clip.id}
                 playsInline
                 loop
                 preload="none"
                 onPlay={() => {
-                  setStarted((s) => new Set(s).add(video.label));
-                  setActive(i);
-                  players.current.forEach((p, label) => {
-                    if (label !== video.label) p.pause();
+                  setPlaying(clip.id);
+                  players.current.forEach((p, id) => {
+                    if (id !== clip.id) {
+                      p.pause();
+                      p.currentTime = 0;
+                    }
                   });
                 }}
+                onPlaying={() => setReady((s) => (s.has(clip.id) ? s : new Set(s).add(clip.id)))}
               />
-              {!started.has(video.label) && (
-                <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 px-3 pb-2.5 pt-10 bg-gradient-to-t from-black/80 to-transparent text-sm font-semibold leading-snug text-white line-clamp-2">
-                  {video.label}
-                </figcaption>
+              {playing !== clip.id && (
+                <button
+                  type="button"
+                  onClick={() => play(clip.id)}
+                  aria-label={clip.title ? `Play ${clip.title}` : "Play clip"}
+                  className="absolute inset-0"
+                >
+                  <span className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.6)_0%,rgba(0,0,0,0)_46%)]" />
+                  <span className="absolute left-1/2 top-1/2 flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/90 bg-black/45 text-white transition-[background-color,border-color,transform] duration-200 group-hover:scale-[1.06] group-hover:border-[#d4a553] group-hover:bg-[#d4a553]">
+                    <PlayIcon size={28} weight="fill" className="ml-[3px]" />
+                  </span>
+                </button>
               )}
-            </figure>
+            </div>
           ))}
           <div aria-hidden className="shrink-0 w-[min(calc(100%-312px),320px)]" />
         </div>

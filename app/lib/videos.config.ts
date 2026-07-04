@@ -40,6 +40,22 @@ export const VIDEO_REGISTRY = {
     description: "The Camp Oneness Choir performing True Happiness in Virginia",
   },
 
+  "concert-fulton-md": {
+    src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
+    thumbnail: "https://assets.peytspencer.com/videos/concert-fulton-md-cover.jpg",
+    title: "Bringing people together",
+  },
+  "concert-so-gone-mexico": {
+    src: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec.mp4",
+    thumbnail: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec-poster.jpg",
+    title: "Celebrating life's milestones",
+  },
+  "concert-ftgu-intro": {
+    src: "https://assets.peytspencer.com/videos/concert-ftgu-intro-2-15sec.mp4",
+    thumbnail: "/images/covers/intro-video-cover.jpg",
+    title: "Uplifting every generation",
+  },
+
   // Add more videos here as needed
   // Example:
   // "behind-the-scenes": {

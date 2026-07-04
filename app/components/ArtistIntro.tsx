@@ -1,26 +1,10 @@
 import SingleCard from "../sponsor/confirm/[slug]/SingleCard";
 import TourStops from "./TourStops";
 import { getShows, isShowListable } from "../lib/shows";
-import EnergyVideos, { type EnergyVideo } from "./EnergyVideos";
+import EnergyVideos from "./EnergyVideos";
 
-// Newest first. Each caption highlights a different facet of the act.
-const ENERGY_VIDEOS: EnergyVideo[] = [
-  {
-    label: "Bringing people together",
-    src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
-    poster: "https://assets.peytspencer.com/videos/concert-fulton-md-cover.jpg",
-  },
-  {
-    label: "Celebrating life's milestones",
-    src: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec.mp4",
-    poster: "https://assets.peytspencer.com/videos/concert-so-gone-mexico-30sec-poster.jpg",
-  },
-  {
-    label: "Uplifting every generation",
-    src: "https://assets.peytspencer.com/videos/concert-ftgu-intro-2-15sec.mp4",
-    poster: "/images/covers/intro-video-cover.jpg",
-  },
-];
+// Newest first. Captions and covers live in the video registry (videos.config).
+const ENERGY_VIDEO_IDS = ["concert-fulton-md", "concert-so-gone-mexico", "concert-ftgu-intro"];
 
 export default async function ArtistIntro() {
   const tourShows = (await getShows())
@@ -30,7 +14,7 @@ export default async function ArtistIntro() {
   return (
     <>
       <section>
-        <EnergyVideos title="My Energy" videos={ENERGY_VIDEOS} />
+        <EnergyVideos title="My Energy" videoIds={ENERGY_VIDEO_IDS} />
       </section>
 
       <section>
