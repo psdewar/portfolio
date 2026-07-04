@@ -36,24 +36,25 @@ export const useVideo = () => {
 
 function VideoParamsHandler({
   onVideoFromUrl,
+  handledRef,
 }: {
   onVideoFromUrl: (videoId: string, startTime: number) => void;
+  handledRef: { current: string | null };
 }) {
   const searchParams = useSearchParams();
-  const handledVideoFromUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const videoParam = searchParams.get("video");
     const timeParam = searchParams.get("t");
-    const lastHandled = handledVideoFromUrlRef.current;
+    const lastHandled = handledRef.current;
 
     if (videoParam && videoParam !== lastHandled) {
-      handledVideoFromUrlRef.current = videoParam;
+      handledRef.current = videoParam;
       onVideoFromUrl(videoParam, timeParam ? parseInt(timeParam, 10) : 0);
     } else if (!videoParam && lastHandled) {
-      handledVideoFromUrlRef.current = null;
+      handledRef.current = null;
     }
-  }, [searchParams, onVideoFromUrl]);
+  }, [searchParams, onVideoFromUrl, handledRef]);
 
   return null;
 }
@@ -106,15 +107,18 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Play on open. A click carries a user gesture, so the unmuted (fromUrl=false)
+  // case starts with sound; URL-opened stays muted since arriving has no gesture.
   useEffect(() => {
-    if (videoState.isOpen && videoRef.current && videoState.startTime > 0) {
-      if (Math.abs(videoRef.current.currentTime - videoState.startTime) > 0.5) {
-        videoRef.current.currentTime = videoState.startTime;
-      }
-    }
-  }, [videoState.isOpen, videoState.startTime]);
+    const el = videoRef.current;
+    if (!el || !videoState.isOpen || !modalData) return;
+    el.muted = !!modalData.fromUrl;
+    if (videoState.startTime > 0) el.currentTime = videoState.startTime;
+    el.play().catch(() => {});
+  }, [videoState.isOpen, modalData, videoState.startTime]);
 
   const openVideo = (videoId: string, videoSrc: string, instagramUrl?: string) => {
+    handledVideoFromUrlRef.current = videoId; // mark handled so the URL sync below doesn't re-open it muted
     const url = new URL(window.location.href);
     url.searchParams.set("video", videoId);
     router.replace(url.pathname + url.search);
@@ -183,7 +187,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   return (
     <VideoContext.Provider value={{ videoState, openVideo, closeVideo, registerVideo }}>
       <Suspense fallback={null}>
-        <VideoParamsHandler onVideoFromUrl={handleVideoFromUrl} />
+        <VideoParamsHandler onVideoFromUrl={handleVideoFromUrl} handledRef={handledVideoFromUrlRef} />
       </Suspense>
       {children}
 
@@ -194,8 +198,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
             ref={videoRef}
             src={modalData.videoSrc}
             controls
-            autoPlay
-            muted={modalData.fromUrl} // Mute only when loaded from URL parameter
+            muted={modalData.fromUrl}
             className="relative h-full max-h-screen w-auto max-w-full object-contain rounded"
             onEnded={handleEnded}
             onPlay={handlePlay}
