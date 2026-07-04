@@ -8,7 +8,7 @@ const ENERGY_CLIPS: EnergyClip[] = [
   {
     label: "Bringing people together",
     src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
-    poster: "https://assets.peytspencer.com/videos/concert-fulton-md-poster.jpg",
+    poster: "https://assets.peytspencer.com/videos/concert-fulton-md-cover.jpg",
   },
   {
     label: "Celebrating life's milestones",
