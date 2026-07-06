@@ -6,9 +6,12 @@ import { type Leg } from "../../fund/legs";
 import {
   type LedgerItem,
   type LedgerCategory,
+  type LedgerMethod,
   REVENUE_CATEGORIES,
   EXPENSE_CATEGORIES,
   CATEGORY_LABELS,
+  METHODS,
+  METHOD_LABELS,
   TOUR_OVERHEAD_ID,
 } from "../../lib/ledger";
 
@@ -26,7 +29,8 @@ export default function LedgerPage() {
   const [legId, setLegId] = useState(TOUR_OVERHEAD_ID);
   const [date, setDate] = useState(today);
   const [type, setType] = useState<"revenue" | "expense">("revenue");
-  const [category, setCategory] = useState<LedgerCategory>("cash");
+  const [category, setCategory] = useState<LedgerCategory>("donation");
+  const [method, setMethod] = useState<LedgerMethod>("cash");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,7 +63,8 @@ export default function LedgerPage() {
     setLegId(TOUR_OVERHEAD_ID);
     setDate(today());
     setType("revenue");
-    setCategory("cash");
+    setCategory("donation");
+    setMethod("cash");
     setDescription("");
     setAmount("");
     setEditingId(null);
@@ -78,6 +83,7 @@ export default function LedgerPage() {
       date,
       type: effectiveType,
       category,
+      method,
       description: description.trim(),
       amount: numAmount,
     };
@@ -119,6 +125,7 @@ export default function LedgerPage() {
     setDate(item.date);
     setType(item.type);
     setCategory(item.category);
+    setMethod(item.method);
     setDescription(item.description);
     setAmount(String(item.amount));
   };
@@ -262,15 +269,26 @@ export default function LedgerPage() {
                 )}
               </div>
 
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as LedgerCategory)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-                ))}
-              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as LedgerCategory)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                  ))}
+                </select>
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as LedgerMethod)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                >
+                  {METHODS.map((m) => (
+                    <option key={m} value={m}>{METHOD_LABELS[m]}</option>
+                  ))}
+                </select>
+              </div>
 
               <input
                 type="text"
@@ -348,6 +366,9 @@ export default function LedgerPage() {
                             </span>
                             <span className="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">
                               {item.description || CATEGORY_LABELS[item.category]}
+                            </span>
+                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                              {METHOD_LABELS[item.method]}
                             </span>
                             <span
                               className={`shrink-0 text-sm font-medium tabular-nums ${

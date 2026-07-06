@@ -742,7 +742,13 @@ export default function HostsAdminPage() {
             )}
 
             {past.length > 0 && (
-              <CompletedSection legs={pastLegs} ungrouped={pastUngrouped} />
+              <CompletedSection
+                legs={pastLegs}
+                ungrouped={pastUngrouped}
+                legPamphlet={legPamphlet}
+                onPamphletSaved={handlePamphletSaved}
+                onShowUpdate={cardProps.onShowUpdate}
+              />
             )}
 
             {groups.length === 0 && (
@@ -763,9 +769,15 @@ export default function HostsAdminPage() {
 function CompletedSection({
   legs,
   ungrouped,
+  legPamphlet,
+  onPamphletSaved,
+  onShowUpdate,
 }: {
   legs: ShowGroup[][];
   ungrouped: ShowGroup[];
+  legPamphlet: (slug: string) => Pamphlet | null;
+  onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
+  onShowUpdate: (slug: string, fields: Partial<Show>) => void;
 }) {
   const [viewing, setViewing] = useState<ShowGroup | null>(null);
 
@@ -812,6 +824,18 @@ function CompletedSection({
               </div>
             </div>
           )}
+          {viewing.show?.slug && (
+            <div className="mt-4 pt-4 border-t border-neutral-300 dark:border-neutral-700">
+              <PosterEditor
+                group={[viewing]}
+                matchedPamphlet={null}
+                onPamphletSaved={() => {}}
+                onShowUpdate={onShowUpdate}
+                variant="drawer"
+                readOnly
+              />
+            </div>
+          )}
         </Modal>
       )}
       <div className="flex items-center gap-4 mb-8">
@@ -834,6 +858,18 @@ function CompletedSection({
                 >
                   {legName}
                 </h3>
+              )}
+              {sorted[0].show?.leg && (
+                <div className="mb-3">
+                  <PosterEditor
+                    group={sorted}
+                    matchedPamphlet={legPamphlet(sorted[0].show!.leg!)}
+                    onPamphletSaved={onPamphletSaved}
+                    onShowUpdate={onShowUpdate}
+                    variant="leg"
+                    readOnly
+                  />
+                </div>
               )}
               <div className="flex flex-wrap gap-2">
                 {sorted.map((g) => (
@@ -1098,12 +1134,14 @@ function PosterEditor({
   onPamphletSaved,
   onShowUpdate,
   variant,
+  readOnly = false,
 }: {
   group: ShowGroup[];
   matchedPamphlet: Pamphlet | null;
   onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
   variant: "card" | "leg" | "drawer";
+  readOnly?: boolean;
 }) {
   const isSingle = group.length === 1;
   const soloShow = group[0].show;
@@ -1536,6 +1574,7 @@ function PosterEditor({
   // the gate would otherwise consume the initial-skip on the first real edit.
   const autoSaveInit = useRef(true);
   useEffect(() => {
+    if (readOnly) return;
     if (autoSaveInit.current) {
       autoSaveInit.current = false;
       return;
@@ -1590,6 +1629,7 @@ function PosterEditor({
       {open && (
         <div className="fixed inset-0 z-50 flex bg-white dark:bg-neutral-800">
           {/* Inputs */}
+          {!readOnly && (
           <div className="w-[460px] shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
               <div className="flex items-center gap-2">
@@ -1925,34 +1965,48 @@ function PosterEditor({
               )}
             </div>
           </div>
+          )}
 
           {/* Preview — flush, full viewport height */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
-              {(isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS).map((f) => (
+            <div className="flex items-center gap-3 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
+              <div className="inline-flex rounded-lg bg-neutral-800/60 p-0.5">
+                {(isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setPreviewFormat(f)}
+                    className={`px-3 py-1 text-xs uppercase tracking-wider rounded-md transition-colors ${
+                      previewFormat === f
+                        ? "bg-[#d4a553] text-black font-medium"
+                        : "text-neutral-400 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
                 <button
-                  key={f}
-                  onClick={() => setPreviewFormat(f)}
-                  className={`px-2.5 py-1 text-xs uppercase tracking-wider rounded transition-colors ${
-                    previewFormat === f
-                      ? "bg-[#d4a553] text-black"
-                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60"
-                  }`}
+                  onClick={() => downloadOne(previewFormat)}
+                  disabled={downloading}
+                  title={`Download ${previewFormat.toUpperCase()}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 hover:bg-white/5 transition-colors disabled:opacity-50"
                 >
-                  {f}
+                  <DownloadSimpleIcon size={14} />
+                  {downloading ? "Downloading…" : "Download"}
                 </button>
-              ))}
-              <button
-                onClick={() => downloadOne(previewFormat)}
-                disabled={downloading}
-                title={`Download ${previewFormat.toUpperCase()} only`}
-                className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs uppercase tracking-wider rounded text-neutral-300 hover:text-white hover:bg-neutral-800/60 transition-colors disabled:opacity-50"
-              >
-                <DownloadSimpleIcon size={14} />
-                {previewFormat}
-              </button>
+                {readOnly && (
+                  <button
+                    onClick={() => setOpen(false)}
+                    aria-label="Close"
+                    className="grid place-items-center h-8 w-8 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
-            <div ref={previewRef} className="flex-1 flex justify-end overflow-hidden">
+            <div ref={previewRef} className={`flex-1 flex overflow-hidden ${readOnly ? "justify-center" : "justify-end"}`}>
               {isSingle && soloShow ? (
                 <Poster
                   slug={soloSlug}
