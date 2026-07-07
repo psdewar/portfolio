@@ -107,7 +107,7 @@ export default async function ConfirmPage({
               <SponsorAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
-              Add your contact below. Scroll down for clips of me live, a single from my set, and my story.
+              Submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story.
             </p>
           </div>
         </div>
