@@ -6,7 +6,6 @@ import { getShowBySlug, isShowDraft, isResidence } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { formatEventDate } from "../../../lib/dates";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
@@ -101,19 +100,14 @@ export default async function ConfirmPage({
         </div>
         <div className="min-w-0">
           <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
-            I&apos;d love to present my live rap concert-conversation for all ages at {location}
+            Let&apos;s put on a show at {location}
           </h2>
           <div className="flex items-center gap-4 mt-3 lg:mt-2">
             <div className="lg:hidden shrink-0">
               <SponsorAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
-              You opened this from my email or text. If {formatEventDate(show.date)} works, add your
-              contact and{" "}
-              {show.visibility === "private"
-                ? "confirm to lock in the date."
-                : "confirm to publish the shareable RSVP page."}{" "}
-              Scroll further down for more information.
+              Add your contact below. Scroll down for clips of me live, a single from my set, and my story.
             </p>
           </div>
         </div>
