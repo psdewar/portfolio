@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows, isShowUpcoming } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
+import { sendMetaLead } from "../../lib/meta-capi";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -84,6 +85,17 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+
+    const userAgent = request.headers.get("user-agent");
+    after(() =>
+      sendMetaLead({
+        email,
+        slug: eventId.trim(),
+        ip,
+        userAgent,
+        fbclid: body.fbclid,
+      }),
+    );
 
     const eventDate = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
       weekday: "long",

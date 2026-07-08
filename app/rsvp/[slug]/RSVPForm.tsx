@@ -76,6 +76,8 @@ export default function RSVPForm({
     if (searchParams.get("session_id")) {
       sessionStorage.setItem("stayConnectedCompleted", "true");
     }
+    const fbclid = searchParams.get("fbclid");
+    if (fbclid) sessionStorage.setItem("fbclid", fbclid);
   }, [searchParams]);
 
   useEffect(() => {
@@ -122,6 +124,7 @@ export default function RSVPForm({
           email: formData.email,
           guests: formData.guests,
           eventId,
+          fbclid: searchParams.get("fbclid") || sessionStorage.getItem("fbclid") || undefined,
         }),
       });
 

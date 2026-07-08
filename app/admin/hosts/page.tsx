@@ -1793,7 +1793,7 @@ function PosterEditor({
                       type="range"
                       min={0.6}
                       max={1.5}
-                      step={0.05}
+                      step={0.01}
                       value={scale}
                       onChange={(e) => setScale(Number(e.target.value))}
                       className="flex-1 accent-indigo-500"
