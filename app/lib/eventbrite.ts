@@ -85,10 +85,11 @@ async function eb(path: string, init?: RequestInit) {
 
 const DONATION_NAME = "Help fund my tour across North America";
 
-async function ensureTickets(eventId: string) {
+async function ensureTickets(eventId: string, startUtc: string) {
   const existing = await eb(`/events/${eventId}/ticket_classes/`);
   const list: Array<{ id: string; free?: boolean; donation?: boolean }> = existing.ticket_classes || [];
 
+  // Sales run to the start time (Eventbrite defaults to an hour before); 50 of each class.
   if (!list.some((t) => t.free && !t.donation)) {
     await eb(`/events/${eventId}/ticket_classes/`, {
       method: "POST",
@@ -96,17 +97,18 @@ async function ensureTickets(eventId: string) {
         ticket_class: {
           name: "General Admission",
           free: true,
-          quantity_total: 100,
+          quantity_total: 50,
           minimum_quantity: 1,
           maximum_quantity: 10,
           hide_sale_dates: true,
+          sales_end: startUtc,
         },
       }),
     });
   }
 
   const donation = list.find((t) => t.donation);
-  const donationFields = { name: DONATION_NAME, hide_sale_dates: true };
+  const donationFields = { name: DONATION_NAME, hide_sale_dates: true, sales_end: startUtc };
   if (donation) {
     await eb(`/events/${eventId}/ticket_classes/${donation.id}/`, {
       method: "POST",
@@ -115,7 +117,7 @@ async function ensureTickets(eventId: string) {
   } else {
     await eb(`/events/${eventId}/ticket_classes/`, {
       method: "POST",
-      body: JSON.stringify({ ticket_class: { ...donationFields, donation: true, quantity_total: 100 } }),
+      body: JSON.stringify({ ticket_class: { ...donationFields, donation: true, quantity_total: 50 } }),
     });
   }
 }
@@ -127,6 +129,10 @@ interface TemplateMeta {
   categoryId?: string;
   formatId?: string;
   logoId?: string;
+  overviewText?: string;
+  overviewAlign?: string;
+  faqs?: Array<{ question: string; answer: string }>;
+  parking?: string;
 }
 
 let templateCache: TemplateMeta | null = null;
@@ -134,6 +140,10 @@ async function getTemplate(): Promise<TemplateMeta> {
   if (templateCache) return templateCache;
   const event = await eb(`/events/${TEMPLATE_EVENT_ID}/`);
   const desc = await eb(`/events/${TEMPLATE_EVENT_ID}/description/`);
+  const sc = await eb(`/events/${TEMPLATE_EVENT_ID}/structured_content/`).catch(() => ({}));
+  const textModule = (sc.modules || []).find((mod: { type?: string }) => mod.type === "text");
+  const findWidget = (type: string) =>
+    (sc.widgets || []).find((w: { type?: string }) => w.type === type);
   templateCache = {
     name: event.name?.html || event.name?.text || "",
     description: desc.description || "",
@@ -141,12 +151,70 @@ async function getTemplate(): Promise<TemplateMeta> {
     categoryId: event.category_id || undefined,
     formatId: event.format_id || undefined,
     logoId: event.logo_id || undefined,
+    overviewText: textModule?.data?.body?.text || undefined,
+    overviewAlign: textModule?.data?.body?.alignment || "left",
+    faqs: findWidget("faqs")?.data?.faqs || undefined,
+    parking: findWidget("parking")?.data?.availability || undefined,
   };
   return templateCache;
 }
 
+// Push the template's Overview bio + FAQ/parking widgets onto an event (a POST replaces all; faqs auto-adds its faq sibling). Best-effort.
+async function applyOverview(eventId: string, tpl: TemplateMeta): Promise<void> {
+  const widgets: Array<{ type: string; data: unknown }> = [];
+  if (tpl.parking) widgets.push({ type: "parking", data: { availability: tpl.parking } });
+  if (tpl.faqs?.length) widgets.push({ type: "faqs", data: { faqs: tpl.faqs } });
+  if (!tpl.overviewText && widgets.length === 0) return;
+
+  const modules = tpl.overviewText
+    ? [{ type: "text", data: { body: { text: tpl.overviewText, alignment: tpl.overviewAlign } } }]
+    : [];
+  const current = await eb(`/events/${eventId}/structured_content/`).catch(() => ({}));
+  const version = Number(current.page_version_number || 0) + 1;
+  await eb(`/events/${eventId}/structured_content/${version}/`, {
+    method: "POST",
+    body: JSON.stringify({ purpose: "listing", publish: true, modules, widgets }),
+  });
+}
+
+// Restore an event's Good-to-know from the template; safe to re-run after an in-app wipe.
+export async function refreshEventbriteOverview(eventId: string): Promise<void> {
+  if (!TOKEN) throw new Error("EVENTBRITE_TOKEN not set");
+  await applyOverview(eventId, await getTemplate());
+}
+
+// Resolve zip + coords via the free US Census geocoder so the venue map always renders (Eventbrite's own geocoding silently fails on some addresses).
+async function geocodeAddress(
+  show: Show,
+): Promise<{ postalCode?: string; latitude: string; longitude: string } | null> {
+  if (!show.address || (show.country && show.country !== "US")) return null;
+  const oneLine = `${show.address}, ${show.city}, ${show.region}`;
+  const params = new URLSearchParams({
+    address: oneLine,
+    benchmark: "Public_AR_Current",
+    format: "json",
+  });
+  try {
+    const res = await fetch(
+      `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?${params}`,
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const match = data?.result?.addressMatches?.[0];
+    if (!match?.coordinates) return null;
+    return {
+      postalCode: match.addressComponents?.zip || undefined,
+      latitude: String(match.coordinates.y),
+      longitude: String(match.coordinates.x),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function createVenue(show: Show): Promise<string | undefined> {
   if (!show.venue && !show.address) return undefined;
+  const geo = await geocodeAddress(show);
   const venue = await eb(`/organizations/${ORG_ID}/venues/`, {
     method: "POST",
     body: JSON.stringify({
@@ -157,6 +225,9 @@ async function createVenue(show: Show): Promise<string | undefined> {
           city: show.city,
           region: show.region,
           country: show.country || "US",
+          postal_code: geo?.postalCode,
+          latitude: geo?.latitude,
+          longitude: geo?.longitude,
         },
       },
     }),
@@ -171,6 +242,7 @@ export async function cloneEventForShow(show: Show): Promise<string> {
   const venueId = await createVenue(show);
   const timezone = timezoneForRegion(show.region);
   const { h, m } = parseDoorTime(show.doorTime);
+  const startUtc = wallTimeToUtcIso(show.date, h, m, timezone);
 
   const created = await eb(`/organizations/${ORG_ID}/events/`, {
     method: "POST",
@@ -178,7 +250,7 @@ export async function cloneEventForShow(show: Show): Promise<string> {
       event: {
         name: { html: tpl.name },
         description: { html: tpl.description },
-        start: { utc: wallTimeToUtcIso(show.date, h, m, timezone), timezone },
+        start: { utc: startUtc, timezone },
         end: { utc: wallTimeToUtcIso(show.date, h + 3, m, timezone), timezone },
         currency: tpl.currency,
         online_event: false,
@@ -193,7 +265,15 @@ export async function cloneEventForShow(show: Show): Promise<string> {
   });
   const eventId: string = created.id;
 
-  await ensureTickets(eventId);
+  await ensureTickets(eventId, startUtc);
+  await applyOverview(eventId, tpl).catch((e) =>
+    console.error("[eventbrite] overview push failed:", e),
+  );
+  // all-ages + doors=start (door_time must be UTC), stored on music_properties not the event.
+  await eb(`/events/${eventId}/music_properties/`, {
+    method: "POST",
+    body: JSON.stringify({ music_properties: { age_restriction: "all_ages", door_time: startUtc } }),
+  }).catch((e) => console.error("[eventbrite] music_properties push failed:", e));
   await eb(`/events/${eventId}/publish/`, { method: "POST" });
 
   return eventId;
