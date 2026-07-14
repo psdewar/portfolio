@@ -161,8 +161,10 @@ export default function SponsorForm({
   const [selectedShowSlug, setSelectedShowSlug] = useState<string | null>(showSlug || null);
   const [hostNames, setHostNames] = useState<Record<string, string>>({});
 
-  const cityReadOnly = isPdfMode || (compact && !!city);
-  const dateReadOnly = (compact && !!date) || isPdfMode;
+  // Draft amend (admin editing a pending booking): everything stays editable.
+  const draftAmend = !!(editMode && pending);
+  const cityReadOnly = isPdfMode || (compact && !!city && !draftAmend);
+  const dateReadOnly = isPdfMode || (compact && !!date && !draftAmend);
   const hasLocation = !!(eventCity && eventRegion);
 
   // Fetch shows + sponsors once when entering supporter mode
@@ -414,9 +416,10 @@ export default function SponsorForm({
         );
 
         onSuccess?.(fields);
-        const bookedSlugs = booked.map((b) => b.slug).join(",");
         router.push(
-          pending ? `/admin/pending?created=${bookedSlugs}` : `/rsvp?submitted=${bookedSlugs}`,
+          pending
+            ? `/admin/hosts?amend=${booked[0].slug}`
+            : `/rsvp?submitted=${booked.map((b) => b.slug).join(",")}`,
         );
         return;
       }
@@ -437,6 +440,32 @@ export default function SponsorForm({
       const data = await res.json();
 
       if (editMode) {
+        // Draft amend also updates the show record: it feeds the confirm link,
+        // poster, and RSVP page, so the sponsor record alone isn't enough.
+        if (draftAmend && !isSupporter && finalShowSlug) {
+          const showRes = await fetch("/api/shows", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slug: finalShowSlug,
+              date: primarySlot.date,
+              doorTime: primarySlot.doorTime,
+              city: resolvedCity,
+              region: resolvedRegion,
+              country: resolvedCountry,
+              venue: resolvedVenue || null,
+              address: eventAddress || null,
+            }),
+          });
+          if (!showRes.ok) {
+            const err = await showRes.json().catch(() => ({}));
+            setSubmitResult({
+              ok: false,
+              msg: err.error || "Host saved, but the show didn't update.",
+            });
+            return;
+          }
+        }
         setSubmitResult({ ok: true, msg: "Updated." });
         onSuccess?.(fields);
       } else {

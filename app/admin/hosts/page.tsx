@@ -359,6 +359,14 @@ export default function HostsAdminPage() {
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // Deep link from draft creation: /admin/hosts?amend=<slug> opens that draft's amend form.
+  const [amendSlug, setAmendSlug] = useState<string | null>(null);
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("amend");
+    if (!slug) return;
+    setAmendSlug(slug);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     const load = (withSpinner: boolean) => {
@@ -535,6 +543,7 @@ export default function HostsAdminPage() {
 
   const cardProps = {
     legs,
+    amendSlug,
     onCreateLeg: createLeg,
     onMessage: (text: string) => setMessage({ type: "success", text }),
     onUpdateSponsor: (updated: Sponsor) =>
@@ -2094,7 +2103,6 @@ function ManageModal({
   emailSentSlugs,
   onCreateLeg,
   onShowUpdate,
-  onUpdateSponsor,
   onMessage,
   onRemoveSponsor,
   onClose,
@@ -2112,7 +2120,6 @@ function ManageModal({
   emailSentSlugs: Set<string>;
   onCreateLeg: (slug: string) => Promise<void>;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
-  onUpdateSponsor: (updated: Sponsor) => void;
   onMessage: (text: string) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onClose: () => void;
@@ -2130,9 +2137,6 @@ function ManageModal({
   // Opt-in for the current destructive action: also take the Eventbrite listing down.
   const [cancelEb, setCancelEb] = useState(false);
   const hasEb = !!show?.eventbriteId;
-  // Inline confirm/book: no page hop, no host roundtrip when the artist books it.
-  const [confirmDate, setConfirmDate] = useState(show?.date ?? host.date ?? "");
-  const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [ebSyncing, setEbSyncing] = useState(false);
@@ -2178,37 +2182,6 @@ function ManageModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: show.slug, stage: "intent", leg: null, cancelEventbrite: cancelEb }),
     });
-  };
-
-  // Confirm & book a draft in place: the artist's own booking, no signed-link
-  // roundtrip (the admin cookie authorizes it). Optimistically advance stage + date
-  // on both the show and its host record so it lands in Upcoming without a refetch.
-  const confirmNow = async () => {
-    if (!show?.slug || confirming) return;
-    setConfirming(true);
-    setConfirmError(null);
-    const res = await fetch("/api/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        slug: show.slug,
-        name: host.name,
-        email: host.email,
-        phone: host.phone,
-        date: confirmDate || undefined,
-      }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setConfirmError(data.error || "Couldn't confirm. Check the host's name and email.");
-      setConfirming(false);
-      return;
-    }
-    const nextDate = confirmDate || show.date;
-    onShowUpdate(show.slug, { stage: "booked", date: nextDate });
-    onUpdateSponsor({ ...host, date: nextDate });
-    onClose();
-    onMessage(`${show.slug} is booked`);
   };
 
   const copyConfirmLink = async () => {
@@ -2490,24 +2463,9 @@ function ManageModal({
           <section>
             <h5 className={sectionLabel}>Confirm</h5>
             <div className={groupList}>
-              <label className={`${drawerRow} cursor-pointer`}>
-                <span className="text-neutral-800 dark:text-neutral-200">Date</span>
-                <input
-                  type="date"
-                  value={confirmDate}
-                  onChange={(e) => setConfirmDate(e.target.value)}
-                  className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 shrink-0"
-                />
-              </label>
-              <button
-                onClick={confirmNow}
-                disabled={confirming}
-                className={`${drawerRow} text-green-600 dark:text-green-500 hover:bg-green-50 dark:hover:bg-green-950/20 disabled:opacity-50`}
-              >
-                <span>{confirming ? "Booking…" : "Confirm & book"}</span>
-                <span className="text-neutral-400 truncate ml-3">
-                  {host.name || host.email || "add a host first"}
-                </span>
+              <button className={drawerRow} onClick={onEditHost}>
+                <span className="text-neutral-800 dark:text-neutral-200">Amend booking</span>
+                <span className="text-neutral-400 truncate ml-3">date, venue, host</span>
               </button>
               <button className={drawerRow} onClick={copyConfirmLink}>
                 <span className="text-neutral-800 dark:text-neutral-200">Copy confirm link</span>
@@ -2713,6 +2671,7 @@ function ManageModal({
 function ShowGroupCard({
   group,
   legs,
+  amendSlug,
   onCreateLeg,
   onMessage,
   onUpdateSponsor,
@@ -2721,6 +2680,7 @@ function ShowGroupCard({
 }: {
   group: ShowGroup;
   legs: Leg[];
+  amendSlug: string | null;
   onCreateLeg: (slug: string) => Promise<void>;
   onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
@@ -2748,6 +2708,10 @@ function ShowGroupCard({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const dateSave = useDebouncedSave(show, onShowUpdate);
   const [managing, setManaging] = useState(false);
+
+  useEffect(() => {
+    if (amendSlug && amendSlug === group.showSlug) setEditingHost(true);
+  }, [amendSlug, group.showSlug]);
 
   const openEmail = () => {
     setEmailOpen(true);
@@ -2813,6 +2777,18 @@ function ShowGroupCard({
             onSuccess={(data) => {
               setEditingHost(false);
               onUpdateSponsor({ ...host, ...data });
+              if (show?.slug && isShowDraft(show)) {
+                onShowUpdate(show.slug, {
+                  date: data.date,
+                  doorTime: data.doorTime,
+                  city: data.city,
+                  region: data.region,
+                  country: data.country,
+                  venue: data.venue || null,
+                  address: data.address || null,
+                });
+                setDateValue(data.date);
+              }
             }}
           />
         </Modal>
@@ -3020,7 +2996,6 @@ function ShowGroupCard({
           emailSentSlugs={emailSentSlugs}
           onCreateLeg={onCreateLeg}
           onShowUpdate={onShowUpdate}
-          onUpdateSponsor={onUpdateSponsor}
           onMessage={onMessage}
           onRemoveSponsor={onRemoveSponsor}
           onClose={() => setManaging(false)}

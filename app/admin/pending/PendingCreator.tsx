@@ -11,8 +11,9 @@ export default function PendingCreator() {
         </h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
           Fill this out on the sponsor&apos;s behalf. It creates a show hidden from{" "}
-          <span className="font-mono">/rsvp</span> plus a one-click confirmation link to send them.
-          When they confirm, the show publishes and its Eventbrite event goes live.
+          <span className="font-mono">/rsvp</span> and drops you back in the hosts menu to amend
+          it or copy their one-click confirmation link. When they confirm, the show publishes and
+          its Eventbrite event goes live.
         </p>
       </div>
       <SponsorForm mode="host" pending />
