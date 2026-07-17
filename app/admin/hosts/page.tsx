@@ -359,13 +359,20 @@ export default function HostsAdminPage() {
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  // Deep link from draft creation: /admin/hosts?amend=<slug> opens that draft's amend form.
+  // Hosts deep links: ?amend=<slug> opens the amend form; ?new=<slug> highlights a fresh invite (?copied=1 = confirm link already copied).
   const [amendSlug, setAmendSlug] = useState<string | null>(null);
+  const [newSlug, setNewSlug] = useState<string | null>(null);
+  const [newCopied, setNewCopied] = useState(false);
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("amend");
-    if (!slug) return;
-    setAmendSlug(slug);
-    window.history.replaceState(null, "", window.location.pathname);
+    const params = new URLSearchParams(window.location.search);
+    const amend = params.get("amend");
+    const created = params.get("new");
+    if (amend) setAmendSlug(amend);
+    if (created) {
+      setNewSlug(created);
+      setNewCopied(params.get("copied") === "1");
+    }
+    if (amend || created) window.history.replaceState(null, "", window.location.pathname);
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -544,6 +551,8 @@ export default function HostsAdminPage() {
   const cardProps = {
     legs,
     amendSlug,
+    newSlug,
+    newCopied,
     onCreateLeg: createLeg,
     onMessage: (text: string) => setMessage({ type: "success", text }),
     onUpdateSponsor: (updated: Sponsor) =>
@@ -663,7 +672,7 @@ export default function HostsAdminPage() {
                   </h2>
                   <div className="flex items-center gap-2">
                     <Link
-                      href="/admin/pending"
+                      href="/admin/invite"
                       className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
                     >
                       Invite host
@@ -2672,6 +2681,8 @@ function ShowGroupCard({
   group,
   legs,
   amendSlug,
+  newSlug,
+  newCopied,
   onCreateLeg,
   onMessage,
   onUpdateSponsor,
@@ -2681,6 +2692,8 @@ function ShowGroupCard({
   group: ShowGroup;
   legs: Leg[];
   amendSlug: string | null;
+  newSlug: string | null;
+  newCopied: boolean;
   onCreateLeg: (slug: string) => Promise<void>;
   onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
@@ -2712,6 +2725,12 @@ function ShowGroupCard({
   useEffect(() => {
     if (amendSlug && amendSlug === group.showSlug) setEditingHost(true);
   }, [amendSlug, group.showSlug]);
+
+  const isNew = !!newSlug && newSlug === group.showSlug;
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isNew) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isNew]);
 
   const openEmail = () => {
     setEmailOpen(true);
@@ -3005,8 +3024,20 @@ function ShowGroupCard({
           onEmailSent={() => setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug))}
         />
       )}
-      <div className="bg-white dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 overflow-hidden transition-all h-full flex flex-col">
+      <div
+        ref={cardRef}
+        className={`bg-white dark:bg-neutral-900/50 rounded-xl border overflow-hidden transition-all h-full flex flex-col ${
+          isNew
+            ? "border-[#d4a553] ring-2 ring-[#d4a553]"
+            : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600"
+        }`}
+      >
         <div className="flex-1 p-5 flex flex-col gap-3">
+          {isNew && (
+            <span className="self-start inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#d4a553]/15 text-[#a9791f] dark:text-[#e0b860]">
+              {newCopied ? "New · confirm link copied" : "New invite"}
+            </span>
+          )}
           <div className="min-w-0">
             <div>
               {show?.slug ? (

@@ -376,6 +376,29 @@ export default function SponsorForm({
       const isHostNewSubmission = !editMode && !isSupporter && !showSlug;
 
       if (isHostNewSubmission) {
+        // Pre-copy the host confirm link within this submit gesture (invites only) so it's on the clipboard when we land.
+        let resolveLink!: (url: string) => void;
+        let rejectLink!: () => void;
+        const linkText = new Promise<string>((res, rej) => {
+          resolveLink = res;
+          rejectLink = rej;
+        });
+        let copyDone: Promise<boolean> | null = null;
+        if (pending && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+          const item = new ClipboardItem({
+            "text/plain": linkText.then((t) => new Blob([t], { type: "text/plain" })),
+          });
+          copyDone = navigator.clipboard.write([item]).then(
+            () => true,
+            () => false,
+          );
+        } else if (pending && navigator.clipboard?.writeText) {
+          copyDone = linkText.then(
+            (t) => navigator.clipboard.writeText(t).then(() => true, () => false),
+            () => false,
+          );
+        }
+
         const showResults = await Promise.allSettled(
           slotsToSubmit.map((slot) =>
             fetch("/api/shows", {
@@ -401,6 +424,7 @@ export default function SponsorForm({
         const booked = showResults.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
 
         if (booked.length === 0) {
+          if (copyDone) rejectLink();
           setSubmitResult({ ok: false, msg: "Didn't book. Text me and I'll fix it." });
           return;
         }
@@ -415,10 +439,22 @@ export default function SponsorForm({
           ),
         );
 
+        let copied = false;
+        if (copyDone) {
+          try {
+            const r = await fetch(`/api/confirm-link?slug=${encodeURIComponent(booked[0].slug)}`);
+            if (!r.ok) throw new Error();
+            resolveLink(`${window.location.origin}${(await r.json()).url}`);
+          } catch {
+            rejectLink();
+          }
+          copied = await copyDone;
+        }
+
         onSuccess?.(fields);
         router.push(
           pending
-            ? `/admin/hosts?amend=${booked[0].slug}`
+            ? `/admin/hosts?new=${encodeURIComponent(booked[0].slug)}${copied ? "&copied=1" : ""}`
             : `/rsvp?submitted=${booked.map((b) => b.slug).join(",")}`,
         );
         return;
