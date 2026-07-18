@@ -42,6 +42,10 @@ function pamphletHtml(
   const qrPath = "/rsvp";
   // Mirror preview's cqw units (percentage of container width) at this format's W.
   const pct = (v: number) => +((W * v) / 100).toFixed(3);
+  // Chromium's print pipeline snaps each edge of a painted rect to whole CSS pixels,
+  // so a fractional divider height renders 1px or 2px depending on where the divider
+  // lands. Only a whole-pixel height prints uniformly; 1px is nearest the 0.208% design.
+  const dividerH = format === "print" ? 1 : pct(0.208);
   const venueImgRules = [
     venueImgWidth ? `width:${venueImgWidth}px;height:auto;max-width:none` : "",
     venueImgOffsetY ? `transform:translateY(${venueImgOffsetY}px)` : "",
@@ -89,8 +93,7 @@ function pamphletHtml(
         const dateStr = dateFor(show);
         const locStr = locationLabelFor(show);
         const doorsStr = showDoors ? doorsFor(show) : "";
-        const dividerHtml =
-          i > 0 && format !== "print" ? '<div class="pamphlet-divider"></div>' : "";
+        const dividerHtml = i > 0 ? '<div class="pamphlet-divider"></div>' : "";
         return `
       ${dividerHtml}
       <div class="pamphlet-show">
@@ -135,7 +138,7 @@ function pamphletHtml(
     .pamphlet-top { display: flex; align-items: baseline; justify-content: space-between; gap: ${pct(3.333)}px; margin-bottom: ${pct(2.083)}px; }
     .pamphlet-rows { position: relative; display: flex; align-items: stretch; justify-content: space-between; gap: ${pct(3.75)}px; }
     .pamphlet-shows { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
-    .pamphlet-divider { height: ${pct(0.208)}px; background: rgba(212,165,83,0.18); margin: ${pct(0.729)}px 0; }
+    .pamphlet-divider { height: ${dividerH}px; background: rgba(212,165,83,0.18); margin: ${pct(0.729)}px 0; }
     .pamphlet-show { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: ${pct(1.667 * scale)}px; }
     .pamphlet-date { font-size: ${pct(4.167 * scale)}px; font-weight: 700; color: #f0ede6; letter-spacing: 0; line-height: 1.1; flex-shrink: 0; }
     .pamphlet-detail { font-size: ${pct(2.917 * scale)}px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; line-height: 1.3; }
@@ -148,7 +151,6 @@ function pamphletHtml(
     ${format === "fb" || format === "fbe" ? wideBannerCss() + " .venue-img { display: none; }" : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
-    ${format === "print" ? ".pamphlet-divider { display: none; }" : ""}
   </style>
 </head>
 <body>
