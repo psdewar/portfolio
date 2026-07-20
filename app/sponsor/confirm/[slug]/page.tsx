@@ -63,6 +63,7 @@ export default async function ConfirmPage({
       address={show.address}
       taglineSuffix={show.taglineSuffix ?? undefined}
       tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
+      posterImg={show.posterImg ?? undefined}
       venueImg={show.venueImg ?? undefined}
       venueImgWidth={show.venueImgWidth ?? undefined}
       venueImgOffsetY={show.venueImgOffsetY ?? undefined}

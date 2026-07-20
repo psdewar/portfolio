@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
 import { getDoorLabel } from "../lib/shows";
-import { normalizeVenueImg, isAbsoluteImg } from "../lib/venue-img";
+import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
 import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
 
@@ -37,6 +37,10 @@ interface PosterProps {
   venueImg?: string;
   venueImgWidth?: number;
   venueImgOffsetY?: number;
+  // Custom artwork that replaces the generated poster entirely — a /public file
+  // (posters/woodinville.jpg) or an image URL. Anything the page layers on top
+  // (the private-concert overlay) still sits above it.
+  posterImg?: string;
   taglineAlign?: string;
   debug?: boolean;
   centerLogo?: boolean;
@@ -68,6 +72,7 @@ function Poster({
   venueImg = "",
   venueImgWidth,
   venueImgOffsetY,
+  posterImg = "",
   taglineAlign = "left",
   debug = false,
   centerLogo = false,
@@ -80,12 +85,8 @@ function Poster({
 }: PosterProps) {
   const dims = POSTER_DIMS[format];
   const aspectRatio = `${dims.W} / ${dims.H}`;
-  const normalizedVenueImg = normalizeVenueImg(venueImg);
-  const venueImgSrc = !normalizedVenueImg
-    ? ""
-    : isAbsoluteImg(normalizedVenueImg) || normalizedVenueImg.startsWith("/")
-      ? normalizedVenueImg
-      : `/${normalizedVenueImg}`;
+  const venueImgSrc = resolveImgSrc(venueImg);
+  const customSrc = resolveImgSrc(posterImg);
 
   // Debug: measure the tagline block (the minimum logo width) vs the logo.
   const taglineRef = useRef<HTMLDivElement>(null);
@@ -162,6 +163,14 @@ function Poster({
             max-width: 100%;
             border-radius: 0;
           }
+        }
+        .poster-custom {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          z-index: 2;
         }
         .photo-overlay {
           position: absolute;
@@ -501,6 +510,10 @@ function Poster({
         data-format={format}
         style={{ aspectRatio, "--pamphlet-scale": scale } as CSSProperties}
       >
+        {customSrc ? (
+          <img src={customSrc} alt="" className="poster-custom" />
+        ) : (
+          <>
         <Image
           src="/Jan23OpenMicNight-08_Original.jpg"
           alt=""
@@ -665,6 +678,8 @@ function Poster({
             </div>
           ) : null}
         </div>
+          </>
+        )}
       </div>
     </>
   );

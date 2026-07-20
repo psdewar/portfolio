@@ -22,6 +22,7 @@ interface RSVPFormProps {
   venueLabel?: string | null;
   address?: string | null;
   tags?: string | null;
+  posterImg?: string | null;
   flights?: string[] | null;
   onBack?: () => void;
 }
@@ -47,6 +48,7 @@ export default function RSVPForm({
   venueLabel,
   address,
   tags,
+  posterImg,
   flights,
   onBack,
 }: RSVPFormProps) {
@@ -229,6 +231,7 @@ export default function RSVPForm({
       venueLabel={venueLabel}
       address={address}
       tags={tags ?? PAY_WHAT_YOU_WANT_TAG}
+      posterImg={posterImg ?? undefined}
     />
   );
 

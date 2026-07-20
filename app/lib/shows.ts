@@ -24,6 +24,9 @@ export interface Show {
   venueImgOffsetY?: number | null;
   // Center the venue logo over the tagline block.
   centerLogo?: boolean | null;
+  // Custom poster artwork replacing the generated one: a /public file
+  // ("posters/woodinville-wa-0.jpg") or an image URL. Blank keeps the generated poster.
+  posterImg?: string | null;
   // Optional reason shown on the private-concert overlay (e.g. "Youth camp", "Private house concert").
   privateNote?: string | null;
   // Hide the private reason from the public tour list; the locked row falls back to "No public RSVP".

@@ -17,7 +17,8 @@ export function inlineAsset(publicRelativePath: string, mime: string): string {
   return dataUrl;
 }
 
-function venueMime(p: string): string {
+function venueMime(path: string): string {
+  const p = path.toLowerCase();
   return p.endsWith(".png")
     ? "image/png"
     : p.endsWith(".jpg") || p.endsWith(".jpeg")
@@ -91,6 +92,8 @@ export type PosterOptions = {
   venueImgOffsetY?: number;
   centerLogo?: boolean;
   taglineAlign?: string;
+  // Inlined custom artwork that replaces the generated poster.
+  posterImgSrc?: string;
 };
 
 export function posterHtml(
@@ -117,8 +120,29 @@ export function posterHtml(
     venueImgOffsetY,
     centerLogo = false,
     taglineAlign = "left",
+    posterImgSrc = "",
   } = opts;
   const { W, H } = POSTER_DIMS[format];
+
+  // Custom artwork stands in for the whole poster, letterboxed on the poster
+  // background so art drawn at another aspect ratio is never cropped.
+  if (posterImgSrc) {
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; background: #0a0a0a; }
+    .poster-custom { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <div class="poster"><img src="${posterImgSrc}" alt="" class="poster-custom" /></div>
+</body>
+</html>`;
+  }
   const isWideBanner = format === "fb" || format === "fbe";
   // Venue logo replaces the tagline suffix when both are present (matches the pamphlet).
   const showVenueImg = !!venueImgSrc && !isWideBanner && format !== "eb";

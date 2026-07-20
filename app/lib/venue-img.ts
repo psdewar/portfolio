@@ -18,6 +18,14 @@ export function isAbsoluteImg(p: string): boolean {
   return /^(https?:\/\/|data:)/i.test(p);
 }
 
+// Browser-side src for a venue logo or custom poster: absolute URLs and data
+// URLs pass through, a bare /public filename gets its leading slash.
+export function resolveImgSrc(input: string): string {
+  const p = normalizeVenueImg(input);
+  if (!p) return "";
+  return isAbsoluteImg(p) || p.startsWith("/") ? p : `/${p}`;
+}
+
 // Hosts the server is allowed to fetch a venue logo from. The poster/pamphlet
 // routes fetch this URL server-side, so an open fetch would be an SSRF vector
 // (cloud metadata, localhost, RFC1918). Keep this list tight; add a host here to

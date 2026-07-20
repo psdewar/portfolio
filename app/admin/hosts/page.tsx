@@ -1247,6 +1247,7 @@ function PosterEditor({
     isSingle ? (soloShow?.centerLogo ?? false) : (matchedPamphlet?.centerLogo ?? false),
   );
   const [privateNote, setPrivateNote] = useState(soloShow?.privateNote ?? "");
+  const [posterImg, setPosterImg] = useState(isSingle ? (soloShow?.posterImg ?? "") : "");
   const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -1425,6 +1426,7 @@ function PosterEditor({
     const params = new URLSearchParams({ format });
     if (tags.trim()) params.set("tags", tags.trim());
     if (tagline.trim()) params.set("label", tagline.trim());
+    params.set("posterImg", posterImg.trim());
     if (venueImg.trim()) params.set("venueImg", venueImg.trim());
     if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
     if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
@@ -1450,6 +1452,7 @@ function PosterEditor({
       centerLogo,
       privateNote: privateNote.trim() || null,
       taglineAlign,
+      posterImg: posterImg.trim() || null,
     };
     await fetch("/api/shows", {
       method: "PATCH",
@@ -1538,6 +1541,7 @@ function PosterEditor({
     setVenueImgOffsetY("");
     setCommittedOffsetY("");
     setCenterLogo(false);
+    setPosterImg("");
     liveLogo("", "");
     setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     if (isSingle) {
@@ -1619,6 +1623,7 @@ function PosterEditor({
     venueImgOffsetY,
     centerLogo,
     privateNote,
+    posterImg,
     scale,
     showDoors,
     showQr,
@@ -1678,6 +1683,23 @@ function PosterEditor({
                   className={`${inputCls} mb-2`}
                 />
               )}
+              {isSingle && (
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={posterImg}
+                    onChange={(e) => setPosterImg(e.target.value)}
+                    placeholder="Custom poster: /public file (posters/woodinville.jpg) or image URL"
+                    className={inputCls}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {posterImg.trim()
+                      ? "Custom art replaces everything below — no generated text, date, or QR."
+                      : "Upload art to public/posters, then name it here to replace the generated poster."}
+                  </p>
+                </div>
+              )}
+              <div className={posterImg.trim() ? "opacity-40" : undefined}>
               <textarea
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
@@ -1956,6 +1978,7 @@ function PosterEditor({
                   </div>
                 </>
               )}
+              </div>
             </div>
             <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-6 pt-4">
               {saveError && <div className="text-sm text-red-500 mb-2">{saveError}</div>}
@@ -2038,6 +2061,7 @@ function PosterEditor({
                   address={soloShow.address}
                   taglineSuffix={tagline}
                   tags={tags}
+                  posterImg={posterImg}
                   venueImg={venueImg}
                   venueImgWidth={Number(committedImgWidth) || undefined}
                   venueImgOffsetY={Number(committedOffsetY) || undefined}
