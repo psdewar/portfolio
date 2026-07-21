@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite } from "../../lib/eventbrite";
-import { getShowBySlug } from "../../lib/shows";
+import { getShowBySlug, type Show } from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
   if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
-    const { slug, sig, name, email, phone, date, doorTime } = await request.json();
+    const { slug, sig, name, email, phone, date, doorTime, venue, address, city, region, country } =
+      await request.json();
     // The host confirms via a signed link; the artist can confirm their own drafts
     // straight from the admin (cookie auth), so no signature roundtrip is needed there.
     const authorized = slug && ((await isAdminAuthorized(request)) || verifySlug(slug, sig));
@@ -94,13 +95,62 @@ export async function POST(request: NextRequest) {
     const nextDate = typeof date === "string" && date.trim() ? date.trim() : show.date;
     const nextDoorTime =
       typeof doorTime === "string" && doorTime.trim() ? doorTime.trim() : show.doorTime;
+    const contact = { name: name.trim(), email: email.trim(), phone: (phone || "").trim() };
+
+    // Press-kit invite: the admin's location-less draft (opaque "draft-N" slug) is
+    // a reusable template. Each host supplies their own location, so spawn a fresh
+    // location-derived show (chorus mints the clean city-region slug) and leave the
+    // draft in place — the same signed link keeps working for the next host.
+    if (!show.city?.trim() || !show.region?.trim()) {
+      const loc = { city: (city || "").trim(), region: (region || "").trim() };
+      if (!loc.city || !loc.region) {
+        return NextResponse.json({ error: "Add the city and state." }, { status: 400 });
+      }
+
+      const spawned: Show = {
+        ...show,
+        ...loc,
+        country: (country || show.country || "US").trim(),
+        venue: (venue || "").trim() || null,
+        address: (address || "").trim() || null,
+        date: nextDate,
+        doorTime: nextDoorTime,
+        stage: "booked",
+        visibility: show.visibility === "draft" ? "public" : show.visibility || "public",
+        eventbriteId: null,
+      };
+
+      // chorus mints a fresh slug + id, so the draft's must not ride along —
+      // a duplicate "slug" key would shadow the minted one on read-back.
+      const createBody: Record<string, unknown> = { ...spawned };
+      delete createBody.slug;
+      delete createBody.id;
+
+      const created = await fetch(`${SHOWS_API}/chorus/shows`, {
+        method: "POST",
+        headers: authJson,
+        body: JSON.stringify(createBody),
+      });
+      if (!created.ok) {
+        return NextResponse.json(
+          { error: (await created.text()) || "Failed to book" },
+          { status: created.status },
+        );
+      }
+      const newSlug = ((await created.json()) as { slug: string }).slug;
+
+      const bookedShow: Show = { ...spawned, slug: newSlug };
+      await upsertHost(newSlug, contact, bookedShow);
+
+      const eventbrite =
+        spawned.visibility === "private" ? undefined : await publishEventbrite(bookedShow);
+
+      return NextResponse.json({ ok: true, slug: newSlug, eventbrite });
+    }
+
     const booked = { ...show, date: nextDate, doorTime: nextDoorTime };
 
-    await upsertHost(
-      slug,
-      { name: name.trim(), email: email.trim(), phone: (phone || "").trim() },
-      booked,
-    );
+    await upsertHost(slug, contact, booked);
 
     // Publish: advance the lifecycle to booked. Keep access (private stays private);
     // a legacy "draft" visibility becomes public.

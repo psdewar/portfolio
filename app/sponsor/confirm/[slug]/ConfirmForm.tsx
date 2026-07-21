@@ -1,17 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { isEmailValid } from "../../../lib/email";
 import { formatEventDateShort, formatLongDate } from "../../../lib/dates";
 import { DOOR_TIMES } from "../../../lib/door-times";
+import { useGoogleMaps, createAutocomplete } from "../../../lib/maps";
+
+// "Cafe Zoe, Menlo Park, CA" → parts, when the host typed a location but never
+// picked a suggestion. Two- or three-part comma form only.
+function parseTypedLocation(raw: string): { venue: string; city: string; region: string } | null {
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  if (parts.length === 2) return { venue: "", city: parts[0], region: parts[1] };
+  return {
+    venue: parts.slice(0, -2).join(", "),
+    city: parts[parts.length - 2],
+    region: parts[parts.length - 1],
+  };
+}
 
 export default function ConfirmForm({
   slug,
   sig,
   host,
   isPrivate = false,
+  needsLocation = false,
   date: initialDate,
   doorTime: initialDoorTime,
 }: {
@@ -19,6 +34,7 @@ export default function ConfirmForm({
   sig: string;
   host: { name: string; email: string; phone: string };
   isPrivate?: boolean;
+  needsLocation?: boolean;
   date: string;
   doorTime: string;
 }) {
@@ -30,12 +46,41 @@ export default function ConfirmForm({
   const [doorTime, setDoorTime] = useState(initialDoorTime);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Re-entry lock: disabled={loading} misses a same-frame double-tap, which would
+  // promote the draft twice (two shows, two Eventbrite events). Set synchronously.
+  const submitting = useRef(false);
+
+  const [venue, setVenue] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [country, setCountry] = useState("US");
+  const locRef = useRef<HTMLDivElement>(null);
+  const mapsReady = useGoogleMaps();
+
+  useEffect(() => {
+    if (!needsLocation || !mapsReady || !locRef.current) return;
+    const cls =
+      "w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white pb-1.5 text-base";
+    createAutocomplete(
+      locRef.current,
+      (r) => {
+        setVenue(r.venue === r.city ? "" : r.venue);
+        setAddress(r.address);
+        setCity(r.city);
+        setRegion(r.region);
+        setCountry(r.country);
+      },
+      cls,
+    );
+  }, [needsLocation, mapsReady]);
 
   const today = new Date().toISOString().slice(0, 10);
   const doorOptions =
     doorTime && !DOOR_TIMES.includes(doorTime) ? [doorTime, ...DOOR_TIMES] : DOOR_TIMES;
 
   const handleConfirm = async () => {
+    if (submitting.current) return;
     if (!name.trim() || !isEmailValid(email)) {
       setError("Add your name and a valid email.");
       return;
@@ -44,24 +89,50 @@ export default function ConfirmForm({
       setError("Pick a date and door time.");
       return;
     }
+    // Location fields only when the draft was created without one. The host may
+    // have typed an address without picking a suggestion — parse that as a fallback.
+    let loc = { venue, address, city, region, country };
+    if (needsLocation && (!city || !region)) {
+      const typed = locRef.current?.querySelector("input")?.value ?? "";
+      const parsed = parseTypedLocation(typed);
+      if (!parsed) {
+        setError("Add the venue or address, like 'Cafe Zoe, Menlo Park, CA'.");
+        return;
+      }
+      loc = { venue: parsed.venue, address: typed, city: parsed.city, region: parsed.region, country };
+    }
+    submitting.current = true;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, sig, name, email, phone, date, doorTime }),
+        body: JSON.stringify({
+          slug,
+          sig,
+          name,
+          email,
+          phone,
+          date,
+          doorTime,
+          ...(needsLocation ? loc : {}),
+        }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error || "Couldn't save. Try again in a moment.");
         setLoading(false);
+        submitting.current = false;
         return;
       }
-      router.push(isPrivate ? "/rsvp" : `/rsvp?submitted=${slug}`);
+      // Promotion mints a new location-derived slug; land on it.
+      const finalSlug = (data.slug as string) || slug;
+      router.push(isPrivate ? "/rsvp" : `/rsvp?submitted=${finalSlug}`);
     } catch {
       setError("Couldn't save. Try again in a moment.");
       setLoading(false);
+      submitting.current = false;
     }
   };
 
@@ -71,6 +142,20 @@ export default function ConfirmForm({
   return (
     <div>
       <div className="space-y-4 mb-5">
+        {needsLocation && (
+          <div>
+            <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+              Venue or address
+            </label>
+            <div ref={locRef}>
+              <input
+                type="text"
+                placeholder="Cafe Zoe, Menlo Park, CA"
+                className={fieldClass}
+              />
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="min-w-0">
             <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">

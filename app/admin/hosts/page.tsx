@@ -435,6 +435,20 @@ export default function HostsAdminPage() {
     }
   }
 
+  // Press-kit invites are shows created without a host record yet. Surface each
+  // as its own group so its poster art can be set and confirm link copied.
+  const representedSlugs = new Set(groups.map((g) => g.showSlug));
+  for (const show of shows) {
+    if (isShowDraft(show) && !representedSlugs.has(show.slug)) {
+      groups.push({
+        showSlug: show.slug,
+        show,
+        host: { showSlug: show.slug, name: "", email: "", phone: "", items: [], submittedAt: "", role: "host" },
+        supporters: [],
+      });
+    }
+  }
+
   // Group shows by their explicit leg (Show.leg). Shows without a leg are left
   // out here and surface in the ungrouped buckets below.
   const groupIntoLegs = (items: ShowGroup[]): ShowGroup[][] => {
@@ -578,9 +592,15 @@ export default function HostsAdminPage() {
   // Solo = confirmed shows with no leg (own poster). Unscheduled = drafts, plus
   // past-dated ones (e.g. reverted for rescheduling) so they stay reachable.
   const solo = ungrouped.filter((g) => g.show && !isShowDraft(g.show));
+  // Press-kit drafts have no date yet (the host sets it at confirmation); they'd
+  // fall out of the dated `upcoming` bucket, so surface them under Unscheduled.
+  const undatedDrafts = groups.filter(
+    (g) => g.show && isShowDraft(g.show) && !g.host.date && !g.show.date,
+  );
   const unscheduled = [
     ...ungrouped.filter((g) => !g.show || isShowDraft(g.show)),
     ...staleDrafts,
+    ...undatedDrafts,
   ];
   const suggested = suggestLegs(solo);
 
@@ -664,7 +684,7 @@ export default function HostsAdminPage() {
               assignShow={assignShow}
               onMessage={(type, text) => setMessage({ type, text })}
             />
-            {upcoming.length > 0 && (
+            {(upcoming.length > 0 || unscheduled.length > 0) && (
               <div className="mb-16">
                 <div className="flex items-baseline justify-between mb-8">
                   <h2 className="text-lg font-medium tracking-[0.15em] text-neutral-900 dark:text-white uppercase">
@@ -677,6 +697,7 @@ export default function HostsAdminPage() {
                     >
                       Invite host
                     </Link>
+                    <PressKitInviteButton onMessage={(type, text) => setMessage({ type, text })} />
                     <CustomPosterButton />
                     <BlankPamphletButton />
                   </div>
@@ -922,6 +943,77 @@ function CompletedSection({
         )}
       </div>
     </div>
+  );
+}
+
+// Create a location-less draft (press-kit invite): the host fills in where and
+// when at confirmation. Copies the confirm link within the click gesture, then
+// lands in the hosts menu highlighting the new draft so its art can be set.
+function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: string) => void }) {
+  const [creating, setCreating] = useState(false);
+
+  const handleClick = async () => {
+    setCreating(true);
+    // Arrange the clipboard write inside this gesture (Safari drops it otherwise).
+    let resolveLink!: (url: string) => void;
+    let rejectLink!: () => void;
+    const linkText = new Promise<string>((res, rej) => {
+      resolveLink = res;
+      rejectLink = rej;
+    });
+    let copyDone: Promise<boolean> | null = null;
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      const item = new ClipboardItem({
+        "text/plain": linkText.then((t) => new Blob([t], { type: "text/plain" })),
+      });
+      copyDone = navigator.clipboard.write([item]).then(
+        () => true,
+        () => false,
+      );
+    } else if (navigator.clipboard?.writeText) {
+      copyDone = linkText.then(
+        (t) => navigator.clipboard.writeText(t).then(() => true, () => false),
+        () => false,
+      );
+    }
+
+    try {
+      const res = await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: "intent" }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const slug = (await res.json()).slug as string;
+
+      let copied = false;
+      if (copyDone) {
+        try {
+          const r = await fetch(`/api/confirm-link?slug=${encodeURIComponent(slug)}`);
+          if (!r.ok) throw new Error();
+          resolveLink(`${window.location.origin}${(await r.json()).url}`);
+        } catch {
+          rejectLink();
+        }
+        copied = await copyDone;
+      }
+
+      window.location.href = `/admin/hosts?new=${encodeURIComponent(slug)}${copied ? "&copied=1" : ""}`;
+    } catch (e) {
+      rejectLink();
+      onMessage("error", e instanceof Error && e.message ? e.message : "Couldn't create the invite.");
+      setCreating(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={creating}
+      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50"
+    >
+      {creating ? "Creating…" : "Press kit (no location)"}
+    </button>
   );
 }
 

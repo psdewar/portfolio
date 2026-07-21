@@ -22,7 +22,10 @@ export async function generateMetadata({
   const show = await getShowBySlug(slug);
   if (!show) return { robots };
 
-  const title = `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`;
+  const hasLocation = !!show.city?.trim() && !!show.region?.trim();
+  const title = hasLocation
+    ? `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`
+    : "Host an All-Ages Rap Concert-Conversation";
   const description =
     "Tap to hear my energy, play a single from my set, and confirm your interest.";
   const image = `https://peytspencer.com/api/og/rsvp/${slug}`;
@@ -88,7 +91,13 @@ export default async function ConfirmPage({
     phone: hostRecord?.phone || "",
     items: hostRecord?.items || [],
   };
-  const location = isResidence(show) ? "your home" : show.venue || `${show.city}, ${show.region}`;
+  // A press-kit invite is created without a location; the host supplies it here.
+  const needsLocation = !show.city?.trim() || !show.region?.trim();
+  const location = needsLocation
+    ? ""
+    : isResidence(show)
+      ? "your home"
+      : show.venue || `${show.city}, ${show.region}`;
   const splitItem = "50/50 donation split";
   const contributeItems = host.items.filter((i) => i !== splitItem);
   const hasSplit = host.items.includes(splitItem);
@@ -101,14 +110,16 @@ export default async function ConfirmPage({
         </div>
         <div className="min-w-0">
           <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
-            Let&apos;s put on a show at {location}
+            Let&apos;s put on a show{location ? ` at ${location}` : ""}
           </h2>
           <div className="flex items-center gap-4 mt-3 lg:mt-2">
             <div className="lg:hidden shrink-0">
               <SponsorAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
-              Submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story.
+              {needsLocation
+                ? "Tell me where and when, and drop your contact below. Scroll down for clips of me live, a single from my set, and my story."
+                : "Submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story."}
             </p>
           </div>
         </div>
@@ -163,6 +174,7 @@ export default async function ConfirmPage({
               sig={sig!}
               host={host}
               isPrivate={show.visibility === "private"}
+              needsLocation={needsLocation}
               date={show.date}
               doorTime={show.doorTime}
             />
