@@ -23,7 +23,7 @@ export async function generateMetadata({
   if (!show) return { robots };
 
   const title = needsHostLocation(show)
-    ? "Host an All-Ages Rap Concert-Conversation"
+    ? "Host My All-Ages Rap Concert-Conversation"
     : `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`;
   const description =
     "Tap to hear my energy, play a single from my set, and confirm your interest.";
