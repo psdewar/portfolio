@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import nodePath from "node:path";
 import { formatEventDate } from "../../lib/dates";
-import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import { getDoorLabel, getPosterLocation } from "../../lib/shows";
+import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../../lib/poster-defaults";
 import { normalizeVenueImg, allowedVenueImgUrl } from "../../lib/venue-img";
 import { qrDataUrl } from "../../lib/qr";
 
@@ -94,19 +95,23 @@ export type PosterOptions = {
   taglineAlign?: string;
   // Inlined custom artwork that replaces the generated poster.
   posterImgSrc?: string;
+  // Press-kit invite: no date to announce, so the poster asks for one instead.
+  invite?: boolean;
 };
 
 export function posterHtml(
+  // A press-kit invite is a location-less draft: the host supplies date, venue,
+  // and city at confirmation, so every detail field can still be empty here.
   show: {
     slug?: string;
-    date: string;
-    venue: string | null;
+    date?: string;
+    venue?: string | null;
     venueLabel?: string | null;
     doorLabel?: string | null;
-    address: string | null;
-    city: string;
-    region: string;
-    doorTime: string;
+    address?: string | null;
+    city?: string | null;
+    region?: string | null;
+    doorTime?: string;
   },
   opts: PosterOptions = {},
 ): string {
@@ -121,6 +126,7 @@ export function posterHtml(
     centerLogo = false,
     taglineAlign = "left",
     posterImgSrc = "",
+    invite = false,
   } = opts;
   const { W, H } = POSTER_DIMS[format];
 
@@ -157,11 +163,10 @@ export function posterHtml(
     ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
     : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
-  const dateStr = formatEventDate(show.date);
-  const cityRegion = `<span style="white-space:nowrap">${show.city}, ${show.region}</span>`;
-  const location = show.venueLabel
-    ? show.venueLabel
-    : `${show.venue || show.address ? `${show.venue || show.address}, ` : ""}${cityRegion}`;
+  const loc = getPosterLocation(show);
+  const location =
+    loc.label ?? `${loc.prefix}<span style="white-space:nowrap">${loc.cityRegion}</span>`;
+  const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);
   const tagsList = tags
     .split(",")
     .map((t) => t.trim())
@@ -171,6 +176,29 @@ export function posterHtml(
   const taglineDivs = taglineLines
     .map((line) => `        <div class="the-concert">${line}</div>`)
     .join("\n");
+
+  // Without a date there is nothing to announce: an invite asks for one, anything
+  // else drops the block rather than print placeholders. Matches the <Poster>.
+  const detailsBlock = show.date
+    ? `<div class="details">
+        <div class="bottom-row">
+          <div class="bottom-left${tagsList.length ? "" : " three-line"}">
+            ${tagsList.length ? `<div class="tags">${tagsList.join(" · ")}</div>` : ""}
+            <div class="detail-value date">${formatEventDate(show.date)}</div>
+            ${hasLocation ? `<div class="detail-value">${location}</div>` : ""}
+            <div class="detail-value">${doorsOpenOverride || getDoorLabel(show)}</div>
+          </div>
+          <div class="qr-section">
+            <div class="qr-label">peytspencer.com/rsvp</div>
+            <img src="${qrDataUrl(show.slug ? `/rsvp/${show.slug}` : "/rsvp")}" alt="QR Code" class="qr-code" />
+          </div>
+        </div>
+      </div>`
+    : invite
+      ? `<div class="details">
+        <div class="detail-value date invite">${INVITE_HEADLINE}</div>
+      </div>`
+      : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -203,6 +231,7 @@ export function posterHtml(
     .tags { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; line-height: 1; }
     .detail-value { font-size: 14px; font-weight: 500; color: #f0ede6; letter-spacing: 0.02em; }
     .detail-value.date { font-size: 20px; font-weight: 700; color: #f0ede6; }
+    .detail-value.date.invite { font-size: 26px; text-transform: uppercase; }
     .bottom-left.three-line .detail-value { font-size: 14px; }
     .bottom-left.three-line .detail-value.date { font-size: 22px; }
     .qr-section { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
@@ -247,20 +276,7 @@ ${taglineDivs}
             : ""
         }
       </div>
-      <div class="details">
-        <div class="bottom-row">
-          <div class="bottom-left${tagsList.length ? "" : " three-line"}">
-            ${tagsList.length ? `<div class="tags">${tagsList.join(" · ")}</div>` : ""}
-            <div class="detail-value date">${dateStr}</div>
-            <div class="detail-value">${location}</div>
-            <div class="detail-value">${doorsOpenOverride || show.doorLabel || `Doors open at ${show.doorTime}`}</div>
-          </div>
-          <div class="qr-section">
-            <div class="qr-label">peytspencer.com/rsvp</div>
-            <img src="${qrDataUrl(show.slug ? `/rsvp/${show.slug}` : "/rsvp")}" alt="QR Code" class="qr-code" />
-          </div>
-        </div>
-      </div>
+      ${detailsBlock}
     </div>
   </div>
 ${

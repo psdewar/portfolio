@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
-import { getShowBySlug, isShowDraft, isResidence } from "../../../lib/shows";
+import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
@@ -22,10 +22,9 @@ export async function generateMetadata({
   const show = await getShowBySlug(slug);
   if (!show) return { robots };
 
-  const hasLocation = !!show.city?.trim() && !!show.region?.trim();
-  const title = hasLocation
-    ? `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`
-    : "Host an All-Ages Rap Concert-Conversation";
+  const title = needsHostLocation(show)
+    ? "Host an All-Ages Rap Concert-Conversation"
+    : `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`;
   const description =
     "Tap to hear my energy, play a single from my set, and confirm your interest.";
   const image = `https://peytspencer.com/api/og/rsvp/${slug}`;
@@ -54,6 +53,9 @@ export default async function ConfirmPage({
   const show = await getShowBySlug(slug);
   if (!show) notFound();
 
+  // A press-kit invite is created without a location; the host supplies it here.
+  const needsLocation = needsHostLocation(show);
+
   const posterEl = (
     <Poster
       date={show.date}
@@ -74,6 +76,7 @@ export default async function ConfirmPage({
       taglineAlign={show.taglineAlign ?? undefined}
       slug={slug}
       showQr
+      invite={needsLocation}
       hideDetails={show.visibility === "private"}
     />
   );
@@ -91,8 +94,6 @@ export default async function ConfirmPage({
     phone: hostRecord?.phone || "",
     items: hostRecord?.items || [],
   };
-  // A press-kit invite is created without a location; the host supplies it here.
-  const needsLocation = !show.city?.trim() || !show.region?.trim();
   const location = needsLocation
     ? ""
     : isResidence(show)

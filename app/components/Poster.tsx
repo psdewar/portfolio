@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
-import { getDoorLabel } from "../lib/shows";
+import { getDoorLabel, getPosterLocation } from "../lib/shows";
 import { resolveImgSrc } from "../lib/venue-img";
-import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
+import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
 import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
 
 export interface PamphletShowItem {
@@ -47,6 +47,8 @@ interface PosterProps {
   pinTopRsvp?: boolean;
   // Hide the bottom details block (date/location/doors/QR) — used for private concerts.
   hideDetails?: boolean;
+  // Press-kit invite: no date to announce, so the poster asks for one instead.
+  invite?: boolean;
   format?: PosterFormat;
   scale?: number;
   // Pamphlet mode — when provided, renders a multi-show list instead of single-date details.
@@ -78,6 +80,7 @@ function Poster({
   centerLogo = false,
   pinTopRsvp = true,
   hideDetails = false,
+  invite = false,
   format = "standard",
   scale = 1,
   shows,
@@ -125,6 +128,9 @@ function Poster({
     .map((t) => t.trim())
     .filter(Boolean)
     .slice(0, 3);
+
+  const loc = getPosterLocation({ venueLabel, venue, address, city, region });
+  const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);
 
   const computedLoc = (s: PamphletShowItem) =>
     `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
@@ -331,6 +337,10 @@ function Poster({
           font-size: 4.167cqw;
           font-weight: 700;
           color: #f0ede6;
+        }
+        .detail-value.date.invite {
+          font-size: 5.417cqw;
+          text-transform: uppercase;
         }
         .bottom-left.three-line .detail-value {
           font-size: 2.917cqw;
@@ -647,21 +657,18 @@ function Poster({
                 <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
                   {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
                   <div className="detail-value date">{formatEventDate(date)}</div>
+                  {hasLocation && (
+                    <div className="detail-value">
+                      {loc.label ?? (
+                        <>
+                          {loc.prefix}
+                          <span className="whitespace-nowrap">{loc.cityRegion}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <div className="detail-value">
-                    {venueLabel ? (
-                      venueLabel
-                    ) : (
-                      <>
-                        {(venue || address) && `${venue || address}, `}
-                        <span className="whitespace-nowrap">
-                          {city}, {region}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className="detail-value">
-                    {doorsOpen ||
-                      getDoorLabel({ doorLabel: doorLabel ?? null, doorTime: doorTime ?? "" })}
+                    {doorsOpen || getDoorLabel({ doorLabel, doorTime })}
                   </div>
                 </div>
                 {showQr && (
@@ -675,6 +682,10 @@ function Poster({
                   </div>
                 )}
               </div>
+            </div>
+          ) : invite ? (
+            <div className="details">
+              <div className="detail-value date invite">{INVITE_HEADLINE}</div>
             </div>
           ) : null}
         </div>

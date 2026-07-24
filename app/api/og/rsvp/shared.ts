@@ -1,4 +1,4 @@
-import { type Show } from "../../../lib/shows";
+import { needsHostLocation, type Show } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS } from "../../poster/html";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
@@ -19,6 +19,7 @@ export async function screenshotPoster(show: Show): Promise<Response> {
     const html = posterHtml(show, {
       tags: show.tags ?? PAY_WHAT_YOU_WANT_TAG,
       posterImgSrc: await inlineVenueImg(show.posterImg ?? ""),
+      invite: needsHostLocation(show),
     });
 
     const screenshot = await takeScreenshot({

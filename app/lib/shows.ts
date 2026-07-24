@@ -139,6 +139,34 @@ export function isResidence(show: Pick<Show, "venue" | "address">): boolean {
   return !!num && (show.address ?? "").trim().startsWith(num);
 }
 
-export function getDoorLabel(show: Pick<Show, "doorLabel" | "doorTime">): string {
+// A press-kit invite: created without a location, so the host supplies it (and the
+// date) at confirmation. Its poster invites rather than announces.
+export function needsHostLocation(show: { city?: string | null; region?: string | null }): boolean {
+  return !show.city?.trim() || !show.region?.trim();
+}
+
+export function getDoorLabel(show: { doorLabel?: string | null; doorTime?: string | null }): string {
   return show.doorLabel || `Doors open at ${show.doorTime || "7PM"}`;
+}
+
+// The poster's location line, split so each renderer can keep city/region on one
+// line. A manual venueLabel wins; otherwise venue (or address) leads the city and
+// region. Parts a show doesn't have yet are dropped rather than printed empty.
+export function getPosterLocation(show: {
+  venueLabel?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+}): { label: string | null; prefix: string; cityRegion: string } {
+  const cityRegion = [show.city, show.region]
+    .map((p) => p?.trim())
+    .filter(Boolean)
+    .join(", ");
+  const lead = (show.venue || show.address || "").trim();
+  return {
+    label: show.venueLabel?.trim() || null,
+    prefix: lead && cityRegion ? `${lead}, ` : lead,
+    cityRegion,
+  };
 }

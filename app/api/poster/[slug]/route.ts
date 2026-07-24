@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getShowBySlug } from "../../../lib/shows";
+import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
     centerLogo: sp.has("centerLogo") ? sp.get("centerLogo") === "1" : !!show.centerLogo,
     taglineAlign: sp.get("align") || show.taglineAlign || "left",
+    invite: needsHostLocation(show),
   });
   const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
   const suffix = format !== "standard" ? `-${format}` : "";

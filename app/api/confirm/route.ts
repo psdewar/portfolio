@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite } from "../../lib/eventbrite";
-import { getShowBySlug, type Show } from "../../lib/shows";
+import { getShowBySlug, needsHostLocation, type Show } from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     // a reusable template. Each host supplies their own location, so spawn a fresh
     // location-derived show (chorus mints the clean city-region slug) and leave the
     // draft in place — the same signed link keeps working for the next host.
-    if (!show.city?.trim() || !show.region?.trim()) {
+    if (needsHostLocation(show)) {
       const loc = { city: (city || "").trim(), region: (region || "").trim() };
       if (!loc.city || !loc.region) {
         return NextResponse.json({ error: "Add the city and state." }, { status: 400 });
