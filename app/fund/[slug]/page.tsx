@@ -6,8 +6,9 @@ import PrivateNudgeToast from "../PrivateNudgeToast";
 import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
 import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
-import { getShows, isShowListable, getVenueLabel, isResidence } from "../../lib/shows";
+import { getShows, isShowOnTrip, getVenueLabel, isResidence } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
+import { doorTimeMinutes } from "../../lib/dates";
 import type { Metadata } from "next";
 
 // Use ISR with 1 hour TTL + on-demand revalidation from webhooks
@@ -93,11 +94,16 @@ export default async function Page({
   if (fund) {
     // Date and venue come from the real shows tagged into this leg; the leg's
     // authored `booked` is only a fallback until shows are linked. Private
-    // shows are fine here (the page is unlisted) — listable excludes drafts.
+    // shows are fine here (the page is unlisted), and so are unlisted bookings:
+    // isShowOnTrip keeps every real stop and only drops drafts and cancellations.
     const shows = await getShows();
     const legShows = shows
-      .filter((s) => s.leg === slug && isShowListable(s))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .filter((s) => s.leg === slug && isShowOnTrip(s))
+      .sort(
+        (a, b) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime() ||
+          doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
+      );
     const derived: FundBooked[] = legShows.map((s) => ({
       slug: s.slug,
       venue: isResidence(s) ? s.venueLabel || `${s.city}, ${s.region}` : getVenueLabel(s) ?? s.city,

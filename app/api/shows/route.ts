@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite, cancelEventbrite } from "../../lib/eventbrite";
-import { isShowDraft, getShowBySlug } from "../../lib/shows";
+import { isShowListed, getShowBySlug } from "../../lib/shows";
 
 export const maxDuration = 30;
 
@@ -62,9 +62,11 @@ export async function POST(request: NextRequest) {
     }
 
     const show = { ...body, ...created };
-    // Draft shows are pending sponsor confirmation — defer the public Eventbrite
-    // event to the confirmation step so it never leaks before they say yes.
-    const eventbrite = isShowDraft(show) ? undefined : await publishEventbrite(show);
+    // Same rule as confirm: drafts defer, private and unlisted never publish.
+    const eventbrite =
+      !isShowListed(show) || show.visibility === "private"
+        ? undefined
+        : await publishEventbrite(show);
 
     return NextResponse.json({ ...created, eventbrite });
   } catch (error) {

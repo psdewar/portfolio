@@ -23,6 +23,12 @@ const STEPS = [
   "I work with people in your community to book concert dates.",
 ];
 
+const CONTRIBUTE_STEPS = [
+  "Type an amount on any line, or tap Full.",
+  "Tap Contribute at the bottom.",
+  "Pay with Venmo, Zelle, or card.",
+];
+
 function isShowPast(dateStr: string): boolean {
   return new Date(`${dateStr}T23:59:59`) < new Date();
 }
@@ -688,6 +694,7 @@ html { scroll-behavior: smooth; }
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
   .match-ctrl, .other-action, .cta-row, .progress .bar, .contribute-fab, .contribute-overlay { display: none; }
+  .steps--contribute { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-root *, .bf-root *::before, .bf-root *::after {
@@ -790,10 +797,7 @@ html { scroll-behavior: smooth; }
                       )}
                     </span>
                     <div className="loc-info">
-                      <span className="loc-venue">
-                        {b.venue}
-                        {b.private && <em> (private)</em>}
-                      </span>
+                      <span className="loc-venue">{b.venue}</span>
                       {b.date && (
                         <span className="loc-when">
                           {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
@@ -806,6 +810,14 @@ html { scroll-behavior: smooth; }
               })}
             </div>
           )}
+          <ol
+            className="steps steps--contribute"
+            style={{ counterReset: `step ${STEPS.length + 1}` }}
+          >
+            {CONTRIBUTE_STEPS.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ol>
           <div className="section-head" id="cover">Cover my trip</div>
           <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
             Contribute any amount

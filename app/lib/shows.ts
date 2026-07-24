@@ -38,6 +38,10 @@ export interface Show {
   taglineAlign?: string | null;
   // Manual override: never chain this show into a pamphlet leg.
   standalone?: boolean | null;
+  // The night belongs to the host's own gathering and I play a set inside it.
+  guestSet?: boolean | null;
+  // Below private: on no public surface at all, but still counts on its leg's fund page.
+  unlisted?: boolean | null;
   // Active client-side A/B flight keys for this show (e.g. "payment-model").
   flights?: string[] | null;
   // Eventbrite event id, set when the show is auto-published to Eventbrite.
@@ -67,15 +71,22 @@ export function isShowDraft(show: Pick<Show, "stage" | "visibility">): boolean {
   return show.stage === "intent" || show.visibility === "draft";
 }
 
-// Drafts (unconfirmed) are hidden. Confirmed shows surface — public ones open for
-// RSVP, private ones as locked (no-RSVP) tour stops.
-export function isShowListed(show: Pick<Show, "stage" | "visibility">): boolean {
-  return !isShowDraft(show);
+// Drafts (unconfirmed) are hidden, and so are unlisted bookings. Confirmed shows
+// surface — public ones open for RSVP, private ones as locked (no-RSVP) tour stops.
+export function isShowListed(show: Pick<Show, "stage" | "visibility" | "unlisted">): boolean {
+  return !isShowDraft(show) && !show.unlisted;
 }
 
 // A show the public can see on a listing: live (not cancelled) and not a draft.
-export function isShowListable(show: Pick<Show, "status" | "stage" | "visibility">): boolean {
+export function isShowListable(
+  show: Pick<Show, "status" | "stage" | "visibility" | "unlisted">,
+): boolean {
   return show.status !== "cancelled" && isShowListed(show);
+}
+
+// Every real stop, unlisted included — for the fund page; public uses isShowListable.
+export function isShowOnTrip(show: Pick<Show, "status" | "stage" | "visibility">): boolean {
+  return show.status !== "cancelled" && !isShowDraft(show);
 }
 
 export async function getUpcomingShows(): Promise<Show[]> {
@@ -108,9 +119,9 @@ const CHECKIN_TZ: Record<string, string> = {
 
 // Self check-in is open only on the show's local calendar day.
 export function isCheckinLive(
-  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "region">,
+  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "unlisted" | "region">,
 ): boolean {
-  if (show.status === "cancelled" || isShowDraft(show) || show.visibility === "private") {
+  if (show.status === "cancelled" || !isShowListed(show) || show.visibility === "private") {
     return false;
   }
   const tz = CHECKIN_TZ[show.region] ?? "America/New_York";

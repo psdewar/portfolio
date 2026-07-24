@@ -2,6 +2,23 @@ export function parseLocalDate(iso: string): Date {
   return new Date(iso + "T00:00:00");
 }
 
+// A door time ("7PM", "2:30 pm", "19:00") as 24-hour parts. Unparseable falls back to 7PM.
+export function parseDoorTime(t?: string | null): { h: number; m: number } {
+  const match = (t || "").trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return { h: 19, m: 0 };
+  let h = parseInt(match[1], 10);
+  const m = match[2] ? parseInt(match[2], 10) : 0;
+  const ap = match[3]?.toLowerCase();
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  return { h, m };
+}
+
+export function doorTimeMinutes(t?: string | null): number {
+  const { h, m } = parseDoorTime(t);
+  return h * 60 + m;
+}
+
 export function formatEventDate(iso: string): string {
   return parseLocalDate(iso).toLocaleDateString("en-US", {
     weekday: "long",

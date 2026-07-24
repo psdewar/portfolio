@@ -348,6 +348,26 @@ interface ShowGroup {
   supporters: Sponsor[];
 }
 
+// unlisted also forces private, so confirmation skips the Eventbrite publish.
+const SHOW_TYPES: { value: string; label: string; fields: Partial<Show> }[] = [
+  { value: "mine", label: "My concert", fields: { guestSet: false, unlisted: false } },
+  {
+    value: "unlisted",
+    label: "Mine, fund page only",
+    fields: { guestSet: false, unlisted: true, visibility: "private" },
+  },
+  {
+    value: "guest-booking",
+    label: "Guest booking, fund page only",
+    fields: { guestSet: true, unlisted: true, visibility: "private" },
+  },
+];
+
+function showTypeOf(show: Pick<Show, "guestSet" | "unlisted">): string {
+  if (!show.unlisted) return "mine";
+  return show.guestSet ? "guest-booking" : "unlisted";
+}
+
 const ADMIN_NAV = [
   { href: "/admin/ledger", label: "Ledger" },
   { href: "/admin/catalog", label: "Catalog" },
@@ -2547,6 +2567,23 @@ function ManageModal({
                 onChange={(v) => patchShow({ standalone: v })}
                 className={drawerRow}
               />
+              <label className={`${drawerRow} cursor-pointer`}>
+                <span className="text-neutral-800 dark:text-neutral-200">Type</span>
+                <select
+                  value={showTypeOf(show)}
+                  onChange={(e) => {
+                    const next = SHOW_TYPES.find((t) => t.value === e.target.value);
+                    if (next) patchShow(next.fields);
+                  }}
+                  className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 shrink-0"
+                >
+                  {SHOW_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <ToggleRow
                 label="Start payment at $0"
                 checked={flightOn}
