@@ -20,6 +20,7 @@ const CSS = `
   --hair: rgba(212, 165, 83, 0.28);
   --muted: rgba(240, 237, 230, 0.72);
   --panel: rgba(255, 255, 255, 0.04);
+  --scrim: rgba(38, 43, 63, 0.78);
   --lockup-filter: none;
   width: 100%;
   height: 100%;
@@ -38,6 +39,7 @@ const CSS = `
   --hair: rgba(10, 10, 10, 0.18);
   --muted: rgba(10, 10, 10, 0.66);
   --panel: rgba(10, 10, 10, 0.02);
+  --scrim: rgba(255, 255, 255, 0.82);
   --lockup-filter: invert(1);
 }
 
@@ -111,6 +113,7 @@ const CSS = `
 }
 
 .ftgu-dates {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -118,6 +121,29 @@ const CSS = `
   padding: calc(5 * var(--s)) calc(5 * var(--s));
   border-left: 1px solid var(--hair);
   background: var(--panel);
+}
+.ftgu-dates > * {
+  position: relative;
+  z-index: 1;
+}
+.ftgu-dates-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.ftgu-dates-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 26%;
+  filter: grayscale(1) brightness(0.9) contrast(1.05);
+}
+.ftgu-dates-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
 }
 .ftgu-heading {
   font-family: var(--font-space-mono), monospace;
@@ -273,6 +299,10 @@ export default async function FtguPage({
         </section>
 
         <section className="ftgu-dates" style={{ "--rs": rowScale } as React.CSSProperties}>
+          <div className="ftgu-dates-bg">
+            <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" />
+          </div>
+
           <div className="ftgu-heading">{heading}</div>
 
           <div className="ftgu-rows">
