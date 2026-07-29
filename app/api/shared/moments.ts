@@ -2,12 +2,38 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
+  CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
+import { getShows } from "../../lib/shows";
 
 const FEATURED_KEY = "featured.json";
+
+async function getJson(key: string): Promise<unknown> {
+  if (!s3 || !s3Bucket) return null;
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: key }));
+    const text = await res.Body?.transformToString();
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function putJson(key: string, value: unknown): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: key,
+      Body: JSON.stringify(value),
+      ContentType: "application/json",
+    }),
+  );
+}
 
 export function sanitizeFilename(name: string) {
   return name.replace(/[^\w.-]/g, "_").slice(0, 200);
@@ -19,6 +45,171 @@ export function contentKey(filename: string, hash: string, captured?: number) {
     dot > 0 ? filename.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
   const body = captured ? `${hash}-${captured}` : hash;
   return ext ? `drops/${body}.${ext}` : `drops/${body}`;
+}
+
+export function previewKeyFor(originalKey: string): string {
+  const base = originalKey.replace(/^drops\//, "").replace(/\.[^./]+$/, "");
+  return `previews/${base}.jpg`;
+}
+
+const CITIES_KEY = "cities.json";
+
+export async function getCities(): Promise<Record<string, string>> {
+  const parsed = await getJson(CITIES_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+}
+
+export async function setCity(key: string, city: string | null): Promise<void> {
+  const current = await getCities();
+  if (city) current[key] = city;
+  else delete current[key];
+  await putJson(CITIES_KEY, current);
+}
+
+export function capturedAt(key: string): number | null {
+  const m = key.match(/^drops\/[a-f0-9]{64}-(\d+)\./);
+  return m ? Number(m[1]) : null;
+}
+
+export function coordsFrom(body: Record<string, unknown>) {
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  return Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    (lat !== 0 || lng !== 0)
+    ? { lat, lng }
+    : null;
+}
+
+const STOPS_KEY = "stops.json";
+const STOP_RADIUS_KM = 100;
+const GEOCODE_UA = "peytspencer.com moments (psdewar2@gmail.com)";
+
+function showLabel(s: { city: string; region: string }) {
+  return s.region ? `${s.city}, ${s.region}` : s.city;
+}
+
+async function geocodeStop(label: string): Promise<[number, number] | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(label)}&format=jsonv2&limit=1`,
+      { headers: { "User-Agent": GEOCODE_UA } },
+    );
+    const hit = ((await res.json()) as Array<{ lat: string; lon: string }>)[0];
+    const lat = Number(hit?.lat);
+    const lng = Number(hit?.lon);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function stopCoords(): Promise<Array<{ label: string; lat: number; lng: number }>> {
+  const [shows, cachedRaw] = await Promise.all([getShows(), getJson(STOPS_KEY)]);
+  const cached =
+    cachedRaw && typeof cachedRaw === "object"
+      ? (cachedRaw as Record<string, [number, number]>)
+      : {};
+  const labels = new Set<string>();
+  for (const s of shows) if (s.city) labels.add(showLabel(s));
+  const out: Array<{ label: string; lat: number; lng: number }> = [];
+  let added = false;
+  for (const label of labels) {
+    let c = cached[label];
+    if (!c) {
+      const g = await geocodeStop(label);
+      if (!g) continue;
+      cached[label] = g;
+      c = g;
+      added = true;
+    }
+    out.push({ label, lat: c[0], lng: c[1] });
+  }
+  if (added) await putJson(STOPS_KEY, cached).catch(() => {});
+  return out;
+}
+
+function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLng = (bLng - aLng) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+// GPS never invents a label: coordinates snap to the nearest tour stop, so
+// every city shown is one the tour actually visited.
+export async function cityFromCoords(lat: number, lng: number): Promise<string | null> {
+  try {
+    const stops = await stopCoords();
+    let best: string | null = null;
+    let bestD = Infinity;
+    for (const s of stops) {
+      const d = distanceKm(lat, lng, s.lat, s.lng);
+      if (d < bestD) {
+        bestD = d;
+        best = s.label;
+      }
+    }
+    return bestD <= STOP_RADIUS_KM ? best : null;
+  } catch {
+    return null;
+  }
+}
+
+// The photo's own GPS decides its stop; skip if a city is already stored. The
+// re-read after writing recovers a write lost to a concurrent sibling upload.
+export async function recordCityFromCoords(
+  key: string,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  try {
+    const cities = await getCities();
+    if (cities[key]) return;
+    const city = await cityFromCoords(lat, lng);
+    if (!city) return;
+    await setCity(key, city);
+    const check = await getCities();
+    if (!check[key]) await setCity(key, city);
+  } catch {}
+}
+
+// City per moment, read from cities.json. Keys not yet stored are backfilled
+// once: the show whose date matches the capture timestamp embedded in the key
+// (same day or the small hours after) is written back, so the city is derived
+// a single time and saved rather than recomputed per request.
+export async function resolveCities(keys: string[]): Promise<Record<string, string>> {
+  const out = await getCities();
+  const need = keys.filter((k) => !out[k] && capturedAt(k) != null);
+  if (need.length === 0) return out;
+  let derived = 0;
+  try {
+    const shows = await getShows();
+    const days = new Map<string, string>();
+    for (const s of shows) {
+      const t = new Date(s.date).getTime();
+      if (!Number.isFinite(t) || !s.city) continue;
+      const label = s.region ? `${s.city}, ${s.region}` : s.city;
+      for (const off of [0, 1]) {
+        const day = new Date(t + off * 86400000).toISOString().slice(0, 10);
+        if (!days.has(day)) days.set(day, label);
+      }
+    }
+    for (const k of need) {
+      const city = days.get(new Date(capturedAt(k)!).toISOString().slice(0, 10));
+      if (city) {
+        out[k] = city;
+        derived++;
+      }
+    }
+  } catch {}
+  if (derived > 0) await putJson(CITIES_KEY, out).catch(() => {});
+  return out;
 }
 
 export async function objectExists(key: string): Promise<boolean> {
@@ -50,31 +241,14 @@ export async function createUploadUrl(
 }
 
 export async function getFeatured(): Promise<string[]> {
-  if (!s3 || !s3Bucket) return [];
-  try {
-    const res = await s3.send(
-      new GetObjectCommand({ Bucket: s3Bucket, Key: FEATURED_KEY }),
-    );
-    const text = await res.Body?.transformToString();
-    const parsed = text ? JSON.parse(text) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((k): k is string => typeof k === "string")
-      : [];
-  } catch {
-    return [];
-  }
+  const parsed = await getJson(FEATURED_KEY);
+  return Array.isArray(parsed)
+    ? parsed.filter((k): k is string => typeof k === "string")
+    : [];
 }
 
 export async function setFeatured(keys: string[]): Promise<void> {
-  if (!s3 || !s3Bucket) return;
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: s3Bucket,
-      Key: FEATURED_KEY,
-      Body: JSON.stringify(keys),
-      ContentType: "application/json",
-    }),
-  );
+  await putJson(FEATURED_KEY, keys);
 }
 
 const OG_KEY = "og.json";
@@ -82,27 +256,12 @@ const OG_KEY = "og.json";
 // The single moment chosen as the link-preview (OG) image, separate from the
 // slideshow order. Empty/unset means surfaces fall back to their own default.
 export async function getOgKey(): Promise<string | null> {
-  if (!s3 || !s3Bucket) return null;
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: OG_KEY }));
-    const text = await res.Body?.transformToString();
-    const parsed = text ? JSON.parse(text) : null;
-    return typeof parsed === "string" && parsed.startsWith("drops/") ? parsed : null;
-  } catch {
-    return null;
-  }
+  const parsed = await getJson(OG_KEY);
+  return typeof parsed === "string" && parsed.startsWith("drops/") ? parsed : null;
 }
 
 export async function setOgKey(key: string | null): Promise<void> {
-  if (!s3 || !s3Bucket) return;
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: s3Bucket,
-      Key: OG_KEY,
-      Body: JSON.stringify(key),
-      ContentType: "application/json",
-    }),
-  );
+  await putJson(OG_KEY, key);
 }
 
 const OG_FALLBACK = "https://peytspencer.com/og/home.jpeg";
@@ -119,41 +278,38 @@ export async function renderOgMoment(): Promise<Response> {
     ogKey && !OG_VIDEO_EXT.test(ogKey) ? ogKey : featured.find((k) => !OG_VIDEO_EXT.test(k));
   if (!key) return Response.redirect(OG_FALLBACK);
 
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: key }));
-    const bytes = await res.Body?.transformToByteArray();
-    if (!bytes) return Response.redirect(OG_FALLBACK);
+  for (const source of [previewKeyFor(key), key]) {
+    try {
+      const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: source }));
+      const bytes = await res.Body?.transformToByteArray();
+      if (!bytes) continue;
 
-    const jpeg = await sharp(Buffer.from(bytes))
-      .rotate()
-      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 82 })
-      .toBuffer();
+      const jpeg = await sharp(Buffer.from(bytes))
+        .rotate()
+        .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 82 })
+        .toBuffer();
 
-    return new Response(new Uint8Array(jpeg), {
-      headers: {
-        "Content-Type": "image/jpeg",
-        "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-      },
-    });
-  } catch (error) {
-    console.error("renderOgMoment failed for", key, error);
-    return Response.redirect(OG_FALLBACK);
+      return new Response(new Uint8Array(jpeg), {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      });
+    } catch (error) {
+      console.error("renderOgMoment failed for", source, error);
+    }
   }
+  return Response.redirect(OG_FALLBACK);
 }
 
 const DIMS_KEY = "dims.json";
 
 export async function getDims(): Promise<Record<string, [number, number]>> {
-  if (!s3 || !s3Bucket) return {};
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: DIMS_KEY }));
-    const text = await res.Body?.transformToString();
-    const parsed = text ? JSON.parse(text) : {};
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, [number, number]>) : {};
-  } catch {
-    return {};
-  }
+  const parsed = await getJson(DIMS_KEY);
+  return parsed && typeof parsed === "object"
+    ? (parsed as Record<string, [number, number]>)
+    : {};
 }
 
 export async function recordDims(entries: Record<string, [number, number]>): Promise<void> {
@@ -176,14 +332,7 @@ export async function recordDims(entries: Record<string, [number, number]>): Pro
     }
   }
   if (!changed) return;
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: s3Bucket,
-      Key: DIMS_KEY,
-      Body: JSON.stringify(current),
-      ContentType: "application/json",
-    }),
-  );
+  await putJson(DIMS_KEY, current);
 }
 
 const u16be = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
@@ -276,29 +425,15 @@ export function thumbKeyFor(originalKey: string): string {
 }
 
 export async function getThumbs(): Promise<Record<string, ThumbEntry>> {
-  if (!s3 || !s3Bucket) return {};
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: THUMBS_KEY }));
-    const text = await res.Body?.transformToString();
-    const parsed = text ? JSON.parse(text) : {};
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, ThumbEntry>) : {};
-  } catch {
-    return {};
-  }
+  const parsed = await getJson(THUMBS_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, ThumbEntry>) : {};
 }
 
 export async function recordThumbs(entries: Record<string, ThumbEntry>): Promise<void> {
   if (!s3 || !s3Bucket || Object.keys(entries).length === 0) return;
   const current = await getThumbs();
   for (const [key, entry] of Object.entries(entries)) current[key] = entry;
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: s3Bucket,
-      Key: THUMBS_KEY,
-      Body: JSON.stringify(current),
-      ContentType: "application/json",
-    }),
-  );
+  await putJson(THUMBS_KEY, current);
 }
 
 export async function makeThumb(input: Uint8Array): Promise<{ data: Buffer; w: number; h: number }> {
@@ -326,13 +461,68 @@ export async function uploadThumb(originalKey: string, data: Buffer, w: number, 
 
 export async function generateThumb(originalKey: string): Promise<ThumbEntry | null> {
   if (!s3 || !s3Bucket) return null;
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: originalKey }));
-    const bytes = await res.Body?.transformToByteArray();
-    if (!bytes) return null;
-    const { data, w, h } = await makeThumb(bytes);
-    return await uploadThumb(originalKey, data, w, h);
-  } catch {
-    return null;
+  const sources = OG_VIDEO_EXT.test(originalKey)
+    ? [previewKeyFor(originalKey)]
+    : [previewKeyFor(originalKey), originalKey];
+  for (const source of sources) {
+    try {
+      const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: source }));
+      const bytes = await res.Body?.transformToByteArray();
+      if (!bytes) continue;
+      const { data, w, h } = await makeThumb(bytes);
+      return await uploadThumb(originalKey, data, w, h);
+    } catch {}
   }
+  return null;
+}
+
+export async function deleteMomentArtifacts(originalKey: string): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
+  const thumbObject = thumbs[originalKey]?.key ?? thumbKeyFor(originalKey);
+  await Promise.all([
+    s3.send(
+      new DeleteObjectCommand({ Bucket: s3Bucket, Key: previewKeyFor(originalKey) }),
+    ),
+    s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: thumbObject })),
+  ]);
+  const writes: Promise<void>[] = [];
+  if (thumbs[originalKey]) {
+    delete thumbs[originalKey];
+    writes.push(putJson(THUMBS_KEY, thumbs));
+  }
+  if (dims[originalKey]) {
+    delete dims[originalKey];
+    writes.push(putJson(DIMS_KEY, dims));
+  }
+  await Promise.all(writes);
+}
+
+export async function renameMomentArtifacts(oldKey: string, newKey: string): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  try {
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: s3Bucket,
+        CopySource: `${s3Bucket}/${previewKeyFor(oldKey)}`,
+        Key: previewKeyFor(newKey),
+      }),
+    );
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: s3Bucket, Key: previewKeyFor(oldKey) }),
+    );
+  } catch {}
+  const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
+  const writes: Promise<void>[] = [];
+  if (thumbs[oldKey]) {
+    thumbs[newKey] = thumbs[oldKey];
+    delete thumbs[oldKey];
+    writes.push(putJson(THUMBS_KEY, thumbs));
+  }
+  if (dims[oldKey]) {
+    dims[newKey] = dims[oldKey];
+    delete dims[oldKey];
+    writes.push(putJson(DIMS_KEY, dims));
+  }
+  await Promise.all(writes);
 }

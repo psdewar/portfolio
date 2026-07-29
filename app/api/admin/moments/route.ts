@@ -16,6 +16,9 @@ import {
   getThumbs,
   sanitizeFilename,
   createUploadUrl,
+  deleteMomentArtifacts,
+  renameMomentArtifacts,
+  resolveCities,
 } from "../../shared/moments";
 
 const URL_TTL = 3600;
@@ -52,36 +55,65 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const list = await s3.send(
-    new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 }),
-  );
-  const [featuredKeys, thumbs, ogKey] = await Promise.all([
+  const [list, previewList, featuredKeys, thumbs, ogKey] = await Promise.all([
+    s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 })),
+    s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "previews/", MaxKeys: 1000 })),
     getFeatured(),
     getThumbs(),
     getOgKey(),
   ]);
   const featured = new Set(featuredKeys);
 
+  const baseOf = (key: string) =>
+    key.replace(/^(drops|previews)\//, "").replace(/\.[^./]+$/, "");
+
   const objects = (list.Contents || [])
     .filter((o) => o.Key && o.Key !== "drops/")
     .sort((a, b) => (a.LastModified?.getTime() || 0) - (b.LastModified?.getTime() || 0));
+  const dropBases = new Set(objects.map((o) => baseOf(o.Key!)));
+
+  const previewObjects = (previewList.Contents || []).filter(
+    (o) => o.Key && o.Key !== "previews/",
+  );
+  const previewByBase = new Map(previewObjects.map((o) => [baseOf(o.Key!), o.Key!]));
+  const cities = await resolveCities(objects.map((o) => o.Key!));
 
   const items = await Promise.all(
     objects.map(async (o) => {
       const thumb = thumbs[o.Key!];
+      const previewKey = previewByBase.get(baseOf(o.Key!));
+      const thumbKey = thumb?.key ?? previewKey;
       return {
         key: o.Key!,
         size: o.Size || 0,
         lastModified: o.LastModified?.toISOString() || null,
         url: await signView(o.Key!),
-        thumb: thumb ? await signView(thumb.key) : undefined,
+        thumb: thumbKey ? await signView(thumbKey) : undefined,
         downloadUrl: await signDownload(o.Key!),
         featured: featured.has(o.Key!),
+        city: cities[o.Key!],
       };
     }),
   );
 
-  return NextResponse.json({ items, featuredKeys, ogKey, truncated: list.IsTruncated || false });
+  const pending = await Promise.all(
+    previewObjects
+      .filter((o) => !dropBases.has(baseOf(o.Key!)))
+      .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0))
+      .map(async (o) => ({
+        key: o.Key!,
+        lastModified: o.LastModified?.toISOString() || null,
+        url: await signView(o.Key!),
+      })),
+  );
+
+  return NextResponse.json({
+    items,
+    pending,
+    featuredKeys,
+    ogKey,
+    truncated: list.IsTruncated || false,
+  });
 }
 
 export async function POST(request: Request) {
@@ -113,11 +145,16 @@ export async function DELETE(request: Request) {
   }
 
   const { key } = (await request.json().catch(() => ({}))) as { key?: string };
+  if (key && key.startsWith("previews/")) {
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+    return NextResponse.json({ ok: true });
+  }
   if (!key || !key.startsWith("drops/")) {
     return NextResponse.json({ error: "Invalid key." }, { status: 400 });
   }
 
   await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+  await deleteMomentArtifacts(key);
 
   const featured = await getFeatured();
   if (featured.includes(key)) {
@@ -169,6 +206,7 @@ export async function PATCH(request: Request) {
     }),
   );
   await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+  await renameMomentArtifacts(key, newKey);
 
   const featured = await getFeatured();
   if (featured.includes(key)) {

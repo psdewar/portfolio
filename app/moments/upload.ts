@@ -1,7 +1,12 @@
 // Client-side upload for the /moments page. Speaks the S3 API, so the same code
 // works against Cloudflare R2 (prod), MinIO (dev / NAS), or any S3-compatible
-// backend. Files are uploaded untouched — large ones are sliced into parts via
-// S3/R2 multipart so multi-GB originals survive flaky mobile connections.
+// backend. Uploads are two-tier: a small JPEG preview (downscaled photo or
+// video poster frame) goes to previews/ first so every drop is visible
+// server-side within seconds, then the original uploads untouched at full
+// quality; large ones are sliced into parts via S3/R2 multipart so multi-GB
+// originals survive flaky mobile connections. All transfers share one 6-slot
+// budget, matching the browser's per-origin connection cap on the HTTP/1.1
+// R2 endpoint.
 //
 // R2 CORS must allow PUT from the site origin AND expose the ETag header
 // (ExposeHeaders: ["ETag"]) — multipart completion reads each part's ETag.
@@ -23,7 +28,25 @@ export type UploadResult = {
 
 const SINGLE_PART_MAX = 16 * 1024 * 1024;
 const PART_CONCURRENCY = 5;
+const TRANSFER_CONCURRENCY = 6;
 const MAX_ATTEMPTS = 4;
+
+let activeTransfers = 0;
+const transferQueue: Array<() => void> = [];
+
+async function acquireTransfer() {
+  if (activeTransfers < TRANSFER_CONCURRENCY) {
+    activeTransfers++;
+    return;
+  }
+  await new Promise<void>((r) => transferQueue.push(r));
+}
+
+function releaseTransfer() {
+  const next = transferQueue.shift();
+  if (next) next();
+  else activeTransfers--;
+}
 
 class PermanentError extends Error {}
 class CancelledError extends PermanentError {
@@ -51,6 +74,8 @@ function httpError(status: number, message: string) {
 
 const HASH_FULL_MAX = 16 * 1024 * 1024;
 const FINGERPRINT_CHUNK = 8 * 1024 * 1024;
+
+type Fingerprint = { hash: string; captured?: number };
 
 async function sha256Hex(bytes: BufferSource): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -82,9 +107,19 @@ async function captureMeta(
   }
 }
 
-async function fingerprint(
-  file: File,
-): Promise<{ hash: string; captured?: number } | undefined> {
+async function getGps(file: File): Promise<{ lat: number; lng: number } | null> {
+  if (!file.type.startsWith("image/")) return null;
+  try {
+    const g = await exifr.gps(file);
+    return g && Number.isFinite(g.latitude) && Number.isFinite(g.longitude)
+      ? { lat: g.latitude, lng: g.longitude }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fingerprint(file: File): Promise<Fingerprint | undefined> {
   const capture = await captureMeta(file);
   if (capture) return capture;
   try {
@@ -107,6 +142,159 @@ async function fingerprint(
     return { hash: await sha256Hex(bytes) };
   } catch {
     return undefined;
+  }
+}
+
+const PREVIEW_MAX_EDGE = 2048;
+const PREVIEW_QUALITY = 0.82;
+const PREVIEW_MIN_IMAGE = 2 * 1024 * 1024;
+const PREVIEW_TIMEOUT_MS = 8000;
+const RAW_IMAGE = /^image\/(heic|heif)$/i;
+const WEB_IMAGE = /^image\/(jpeg|png|webp)$/i;
+
+function canvasJpeg(
+  source: CanvasImageSource,
+  w: number,
+  h: number,
+): Promise<Blob | null> {
+  const scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(w, h));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return Promise.resolve(null);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return new Promise((r) => canvas.toBlob(r, "image/jpeg", PREVIEW_QUALITY));
+}
+
+export type PreviewResult = { blob: Blob; duration?: number };
+
+async function imagePreview(file: File): Promise<PreviewResult | null> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    if (!img.naturalWidth) return null;
+    const blob = await canvasJpeg(img, img.naturalWidth, img.naturalHeight);
+    return blob ? { blob } : null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function videoPoster(file: File): Promise<PreviewResult | null> {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.style.cssText =
+    "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none";
+  document.body.appendChild(video);
+  try {
+    video.src = url;
+    const ready = await new Promise<boolean>((resolve) => {
+      let settled = false;
+      let frames = 0;
+      const done = (ok: boolean) => {
+        if (!settled) {
+          settled = true;
+          resolve(ok);
+        }
+      };
+      video.onerror = () => done(false);
+      const vfc = (
+        video as HTMLVideoElement & {
+          requestVideoFrameCallback?: (cb: () => void) => void;
+        }
+      ).requestVideoFrameCallback?.bind(video);
+      if (vfc) {
+        const onFrame = () => {
+          frames++;
+          if (frames >= 2 || video.currentTime > 0.2) done(true);
+          else {
+            setTimeout(() => done(true), 300);
+            vfc(onFrame);
+          }
+        };
+        vfc(onFrame);
+      } else {
+        video.ontimeupdate = () => {
+          if (video.currentTime > 0.2) done(true);
+        };
+        video.onloadeddata = () => setTimeout(() => done(video.readyState >= 2), 250);
+      }
+      video.play().catch(() => {
+        video.onloadeddata = () => done(video.readyState >= 2);
+        video.load();
+      });
+    });
+    video.pause();
+    if (!ready || !video.videoWidth) return null;
+    const duration = Number.isFinite(video.duration) ? video.duration : undefined;
+    const blob = await canvasJpeg(video, video.videoWidth, video.videoHeight);
+    return blob ? { blob, duration } : null;
+  } finally {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    video.remove();
+    URL.revokeObjectURL(url);
+  }
+}
+
+export async function makePreview(file: File): Promise<PreviewResult | null> {
+  const attempt = (p: Promise<PreviewResult | null>) =>
+    Promise.race([p.catch(() => null), sleep(PREVIEW_TIMEOUT_MS).then(() => null)]);
+  if (RAW_IMAGE.test(file.type)) return attempt(imagePreview(file));
+  if (WEB_IMAGE.test(file.type)) {
+    if (file.size <= PREVIEW_MIN_IMAGE) return null;
+    return attempt(imagePreview(file));
+  }
+  if (file.type.startsWith("video/")) {
+    return (await attempt(videoPoster(file))) ?? (await attempt(videoPoster(file)));
+  }
+  return null;
+}
+
+async function uploadPreview(
+  file: File,
+  fp: Fingerprint | undefined,
+  meta: UploadMeta,
+  signal?: AbortSignal,
+  provided?: Blob,
+  onMade?: (made: PreviewResult) => void,
+) {
+  if (!fp?.hash) return;
+  const made = provided ? { blob: provided } : await makePreview(file);
+  if (!made) return;
+  if (!provided) onMade?.(made);
+  const blob = made.blob;
+  const res = await fetch("/api/moments/sign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "preview",
+      passcode: meta.passcode,
+      filename: file.name,
+      hash: fp.hash,
+      captured: fp.captured,
+    }),
+  });
+  if (!res.ok) return;
+  const data = (await res.json()) as { url?: string; exists?: boolean };
+  if (data.exists || !data.url) return;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await putWithPermit(data.url, blob, "image/jpeg", () => {}, signal);
+      return;
+    } catch (err) {
+      if (err instanceof PermanentError) return;
+      if (attempt === 0) await sleep(backoffMs(0));
+    }
   }
 }
 
@@ -203,6 +391,21 @@ function putXhr(
   });
 }
 
+async function putWithPermit(
+  url: string,
+  body: Blob,
+  contentType: string | undefined,
+  onProgress: (loaded: number) => void,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  await acquireTransfer();
+  try {
+    return await putXhr(url, body, contentType, onProgress, signal);
+  } finally {
+    releaseTransfer();
+  }
+}
+
 async function postAction(payload: Record<string, unknown>, fallbackError: string) {
   const res = await fetch("/api/moments/multipart", {
     method: "POST",
@@ -218,16 +421,17 @@ async function postAction(payload: Record<string, unknown>, fallbackError: strin
 
 async function uploadSingle(
   file: File,
+  fp: Fingerprint | undefined,
+  gps: { lat: number; lng: number } | null,
   meta: UploadMeta,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<UploadResult> {
-  const fp = await fingerprint(file);
+  const contentType = file.type || "application/octet-stream";
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       onProgress(0);
-      const contentType = file.type || "application/octet-stream";
       const signRes = await fetch("/api/moments/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,6 +442,8 @@ async function uploadSingle(
           hash: fp?.hash,
           captured: fp?.captured,
           size: file.size,
+          lat: gps?.lat,
+          lng: gps?.lng,
         }),
       });
       if (!signRes.ok) {
@@ -254,7 +460,7 @@ async function uploadSingle(
         return { key: data.key, duplicate: true };
       }
       if (!data.url) throw new Error("No upload URL returned");
-      await putXhr(
+      await putWithPermit(
         data.url,
         file,
         contentType,
@@ -274,6 +480,8 @@ async function uploadSingle(
 
 async function uploadMultipart(
   file: File,
+  fp: Fingerprint | undefined,
+  gps: { lat: number; lng: number } | null,
   meta: UploadMeta,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
@@ -299,7 +507,7 @@ async function uploadMultipart(
     });
     if (res.status === 410) {
       dropRecord(existing.key);
-      return uploadMultipart(file, meta, onProgress);
+      return uploadMultipart(file, fp, gps, meta, onProgress, signal);
     }
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -312,7 +520,6 @@ async function uploadMultipart(
     partUrls = data.partUrls;
     uploadedParts = Array.isArray(data.uploadedParts) ? data.uploadedParts : [];
   } else {
-    const fp = await fingerprint(file);
     const data = (await postAction(
       {
         action: "create",
@@ -322,6 +529,8 @@ async function uploadMultipart(
         hash: fp?.hash,
         captured: fp?.captured,
         size: file.size,
+        lat: gps?.lat,
+        lng: gps?.lng,
       },
       "Could not start upload",
     )) as {
@@ -380,7 +589,7 @@ async function uploadMultipart(
       let lastError: unknown;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
-          etag = await putXhr(
+          etag = await putWithPermit(
             partUrls[i],
             blob,
             undefined,
@@ -414,7 +623,14 @@ async function uploadMultipart(
       Array.from({ length: Math.min(PART_CONCURRENCY, partUrls.length) }, worker),
     );
     await postAction(
-      { action: "complete", passcode: meta.passcode, key, uploadId, parts },
+      {
+        action: "complete",
+        passcode: meta.passcode,
+        key,
+        uploadId,
+        parts,
+        size: file.size,
+      },
       "Could not finish upload",
     );
     dropRecord(key);
@@ -437,6 +653,8 @@ export async function uploadFile(
   meta: UploadMeta,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
+  preview?: Blob,
+  onPreview?: (made: PreviewResult) => void,
 ): Promise<UploadResult> {
   if (
     process.env.NODE_ENV !== "production" &&
@@ -447,7 +665,10 @@ export async function uploadFile(
     await sleep(500);
     throw new Error("Simulated failure (remove ?fail to upload for real)");
   }
+  const fp = await fingerprint(file);
+  const gps = await getGps(file);
+  await uploadPreview(file, fp, meta, signal, preview, onPreview).catch(() => {});
   if (file.size <= SINGLE_PART_MAX)
-    return uploadSingle(file, meta, onProgress, signal);
-  return uploadMultipart(file, meta, onProgress, signal);
+    return uploadSingle(file, fp, gps, meta, onProgress, signal);
+  return uploadMultipart(file, fp, gps, meta, onProgress, signal);
 }

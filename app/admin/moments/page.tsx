@@ -10,6 +10,13 @@ interface MomentItem {
   thumb?: string;
   downloadUrl: string;
   featured: boolean;
+  city?: string;
+}
+
+interface PendingItem {
+  key: string;
+  lastModified: string | null;
+  url: string;
 }
 
 type State =
@@ -69,6 +76,7 @@ function videoQuality(w: number, h: number) {
 
 export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
+  const [pending, setPending] = useState<PendingItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -81,6 +89,7 @@ export default function MomentsAdminPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || `Failed (${r.status})`);
       setItems(Array.isArray(data.items) ? data.items : []);
+      setPending(Array.isArray(data.pending) ? data.pending : []);
       setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
@@ -195,6 +204,23 @@ export default function MomentsAdminPage() {
       {state.kind === "ready" && (
         <div className="space-y-6">
           <AdminUpload onDone={() => load(false)} />
+          {pending.length > 0 && (
+            <PendingStrip
+              items={pending}
+              onDelete={async (key) => {
+                const r = await fetch("/api/admin/moments", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ key }),
+                });
+                if (!r.ok) {
+                  window.alert("Delete failed");
+                  return;
+                }
+                setPending((prev) => prev.filter((p) => p.key !== key));
+              }}
+            />
+          )}
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
@@ -327,6 +353,7 @@ function ReviewCard({
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
 
   const quality = isVideo && dims ? videoQuality(dims.w, dims.h) : null;
   const taken = takenAt(item.key);
@@ -357,6 +384,29 @@ function ReviewCard({
       onRemove(item.key);
     } catch {
       window.alert("Delete failed");
+      setBusy(false);
+    }
+  }
+
+  async function editCity() {
+    const city = window.prompt('City shown on the slider (e.g. "Fulton, MD"):', item.city || "");
+    if (city === null) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/admin/moments/city", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: item.key, city }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        window.alert(d.error || "Could not save city");
+        return;
+      }
+      onUpdate(item.key, { city: d.city || undefined });
+    } catch {
+      window.alert("Could not save city");
+    } finally {
       setBusy(false);
     }
   }
@@ -456,6 +506,19 @@ function ReviewCard({
             {isOg ? "Link preview" : "Set as link preview"}
           </button>
         )}
+        <button
+          type="button"
+          onClick={editCity}
+          disabled={busy}
+          title="City flashed on the public slider"
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
+            item.city
+              ? "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
+              : "border border-dashed border-amber-500/70 text-amber-600 dark:text-amber-400 hover:border-amber-500"
+          }`}
+        >
+          {item.city || "Set city"}
+        </button>
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton href={item.downloadUrl} label="Download">
             <DownloadIcon />
@@ -502,7 +565,7 @@ function ReviewCard({
           ) : (
             <img
               key={item.key}
-              src={item.url}
+              src={fallbackSrc ?? item.url}
               alt={bareName(item.key)}
               decoding="async"
               onLoad={(e) =>
@@ -511,6 +574,9 @@ function ReviewCard({
                   h: e.currentTarget.naturalHeight,
                 })
               }
+              onError={() => {
+                if (item.thumb && !fallbackSrc) setFallbackSrc(item.thumb);
+              }}
               className="max-h-full max-w-full object-contain"
             />
           )}
@@ -535,6 +601,55 @@ function ReviewCard({
         )}
       </div>
     </div>
+  );
+}
+
+function PendingStrip({
+  items,
+  onDelete,
+}: {
+  items: PendingItem[];
+  onDelete: (key: string) => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          Previews awaiting full quality
+        </h2>
+        <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+          {items.length}
+        </span>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {items.map((it) => (
+          <div
+            key={it.key}
+            className="relative shrink-0 w-28 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900"
+          >
+            <div className="aspect-square">
+              <img src={it.url} alt="" decoding="async" className="h-full w-full object-cover" />
+            </div>
+            <button
+              type="button"
+              onClick={() => onDelete(it.key)}
+              aria-label="Delete preview"
+              title="Delete preview"
+              className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
+            >
+              <CloseIcon />
+            </button>
+            <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1.5 py-1 text-center text-[10px] tabular-nums text-white">
+              {formatDate(it.lastModified)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-neutral-400 dark:text-neutral-500">
+        The full-quality file is still uploading or never finished. Previews stand in until it
+        lands.
+      </p>
+    </section>
   );
 }
 
@@ -701,7 +816,7 @@ function SlideThumb({ item, index, ready }: { item: MomentItem; index: number; r
   const style = ready
     ? { animation: `momentThumbIn 700ms ease-out both`, animationDelay: `${index * STAGGER_MS}ms` }
     : { opacity: 0 };
-  if (VIDEO_EXT.test(item.key)) {
+  if (VIDEO_EXT.test(item.key) && !item.thumb) {
     return (
       <video src={item.url} muted playsInline preload="metadata" className={cls} style={style} />
     );

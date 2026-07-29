@@ -8,6 +8,8 @@ interface FeaturedItem {
   key: string;
   url: string;
   thumb?: string;
+  view?: string;
+  city?: string;
   w?: number;
   h?: number;
 }
@@ -44,6 +46,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
   const rafId = useRef<number | null>(null);
   const lastTs = useRef(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialized = useRef(false);
   const dir = useRef(1);
   const barRef = useRef<HTMLDivElement>(null);
@@ -53,6 +56,37 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
   const lightboxOpen = useRef(false);
   const pendingDims = useRef<Record<string, [number, number]>>({});
   const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cityLabel, setCityLabel] = useState<{ city: string; n: number } | null>(null);
+  const lastCity = useRef("");
+  const cityCount = useRef(0);
+  const cityRanges = useRef<Array<{ left: number; right: number; city: string }>>([]);
+
+  const measureCityTiles = () => {
+    const root = scrollRef.current;
+    if (!root) return;
+    cityRanges.current = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-city]"),
+    ).map((t) => ({
+      left: t.offsetLeft,
+      right: t.offsetLeft + t.offsetWidth,
+      city: t.dataset.city!,
+    }));
+  };
+
+  const syncCity = () => {
+    const el = scrollRef.current;
+    if (!el || cityRanges.current.length === 0) return;
+    const centerX = el.scrollLeft + el.clientWidth / 2;
+    for (const r of cityRanges.current) {
+      if (centerX >= r.left && centerX < r.right) {
+        if (r.city !== lastCity.current) {
+          lastCity.current = r.city;
+          setCityLabel({ city: r.city, n: ++cityCount.current });
+        }
+        return;
+      }
+    }
+  };
 
   useEffect(() => {
     // OG capture: skip the slider (the single moment is rendered server-side
@@ -135,6 +169,8 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
         cycleStart.current = start;
         initialized.current = true;
       }
+      measureCityTiles();
+      syncCity();
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -164,6 +200,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
           const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
           barRef.current.style.width = `${frac * 100}%`;
         }
+        syncCity();
       }
       rafId.current = requestAnimationFrame(step);
     };
@@ -179,6 +216,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
   useEffect(() => {
     return () => {
       if (resumeTimer.current) clearTimeout(resumeTimer.current);
+      if (settleTimer.current) clearTimeout(settleTimer.current);
       if (dimsTimer.current) clearTimeout(dimsTimer.current);
       if (readyTimer.current) clearTimeout(readyTimer.current);
     };
@@ -221,6 +259,16 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
     }, RESUME_DELAY_MS);
   };
 
+  const applyWrap = () => {
+    const el = scrollRef.current;
+    const w = setWidth.current;
+    if (!el || w <= 0) return;
+    const wrapped = wrap(el.scrollLeft, w);
+    if (wrapped !== el.scrollLeft) el.scrollLeft = wrapped;
+    lastScroll.current = el.scrollLeft;
+    offset.current = el.scrollLeft;
+  };
+
   const onScroll = () => {
     if (!paused.current) return;
     const el = scrollRef.current;
@@ -230,14 +278,21 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
     if (Math.abs(moved) > 0.3 && Math.abs(moved) < w) {
       dir.current = moved > 0 ? 1 : -1;
     }
-    const wrapped = wrap(el.scrollLeft, w);
-    if (wrapped !== el.scrollLeft) el.scrollLeft = wrapped;
+    const nearEdge =
+      el.scrollLeft < w * 0.2 || el.scrollLeft > w * 3 - el.clientWidth - w * 0.2;
+    if (nearEdge) {
+      applyWrap();
+    } else {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(applyWrap, 150);
+    }
     lastScroll.current = el.scrollLeft;
     offset.current = el.scrollLeft;
     if (barRef.current) {
       const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
       barRef.current.style.width = `${frac * 100}%`;
     }
+    syncCity();
     scheduleResume();
   };
 
@@ -265,7 +320,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
-      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
+      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}@keyframes cityIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
 
       <div
         ref={scrollRef}
@@ -299,6 +354,37 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
         ))}
       </div>
       <div ref={barRef} className="h-[3px] bg-[#d4a553]" style={{ width: "0%" }} />
+      {items.some((it) => it.city) && (
+        <div aria-live="polite" className="flex h-8 items-center px-4">
+          {cityLabel && (
+            <div
+              key={cityLabel.n}
+              className="flex items-center gap-2"
+              style={{
+                fontFamily: '"Space Mono", monospace',
+                animation: "cityIn .3s ease both",
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[#d4a553]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              <span className="text-xs uppercase tracking-[0.2em] text-neutral-600 dark:text-neutral-300">
+                {cityLabel.city}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && <Lightbox item={open} onClose={() => setOpen(null)} />}
     </section>
@@ -378,6 +464,7 @@ function Tile({
       aria-label={isVideo ? "Play moment" : "View moment"}
       aria-hidden={decorative || undefined}
       tabIndex={decorative ? -1 : undefined}
+      data-city={item.city || undefined}
       className="group relative h-full flex-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d4a553]"
       style={{ aspectRatio: hasDims ? `${item.w} / ${item.h}` : undefined }}
     >
@@ -385,6 +472,7 @@ function Tile({
         <video
           ref={videoRef}
           src={item.url}
+          poster={item.thumb}
           muted
           loop
           playsInline
@@ -499,7 +587,7 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
           />
         ) : (
           <img
-            src={item.url}
+            src={item.view ?? item.url}
             alt=""
             onClick={(e) => e.stopPropagation()}
             className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"

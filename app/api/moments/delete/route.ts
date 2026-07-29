@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { s3, s3Bucket } from "../../shared/s3";
-import { getFeatured, setFeatured } from "../../shared/moments";
+import {
+  getFeatured,
+  setFeatured,
+  deleteMomentArtifacts,
+} from "../../shared/moments";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
 export async function POST(request: Request) {
@@ -34,6 +38,7 @@ export async function POST(request: Request) {
   }
 
   await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+  await deleteMomentArtifacts(key);
 
   const featured = await getFeatured();
   if (featured.includes(key)) {

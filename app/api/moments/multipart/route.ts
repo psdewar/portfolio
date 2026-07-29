@@ -5,10 +5,18 @@ import {
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
   ListPartsCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, s3Bucket } from "../../shared/s3";
-import { sanitizeFilename, contentKey, objectExists } from "../../shared/moments";
+import {
+  sanitizeFilename,
+  contentKey,
+  objectExists,
+  recordCityFromCoords,
+  coordsFrom,
+} from "../../shared/moments";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
 const MIN_PART = 5 * 1024 * 1024;
@@ -91,6 +99,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ key, exists: true });
     }
 
+    const coords = coordsFrom(body as Record<string, unknown>);
+    if (hash && coords) await recordCityFromCoords(key, coords.lat, coords.lng);
+
     const created = await s3.send(
       new CreateMultipartUploadCommand({
         Bucket: s3Bucket,
@@ -131,6 +142,20 @@ export async function POST(request: Request) {
         },
       }),
     );
+
+    const expectedSize = Number(body.size);
+    if (Number.isFinite(expectedSize) && expectedSize > 0) {
+      const head = await s3.send(
+        new HeadObjectCommand({ Bucket: s3Bucket, Key: key }),
+      );
+      if (head.ContentLength !== expectedSize) {
+        await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+        return NextResponse.json(
+          { error: "Upload verification failed: size mismatch. Try again." },
+          { status: 500 },
+        );
+      }
+    }
     return NextResponse.json({ ok: true, key });
   }
 

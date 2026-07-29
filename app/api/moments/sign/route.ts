@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 import { s3, s3Bucket } from "../../shared/s3";
-import { createUploadUrl, contentKey, objectExists } from "../../shared/moments";
+import {
+  createUploadUrl,
+  contentKey,
+  objectExists,
+  previewKeyFor,
+  recordCityFromCoords,
+  coordsFrom,
+} from "../../shared/moments";
 
 export async function POST(request: Request) {
   const ip = getClientIP(request);
@@ -45,11 +52,24 @@ export async function POST(request: Request) {
       : undefined;
 
   try {
+    if ((body as Record<string, unknown>).kind === "preview") {
+      if (!validHash) {
+        return NextResponse.json({ error: "Preview requires a hash" }, { status: 400 });
+      }
+      const key = previewKeyFor(contentKey(filename, validHash, captured));
+      if (await objectExists(key)) {
+        return NextResponse.json({ key, exists: true });
+      }
+      const { url } = await createUploadUrl(filename, "image/jpeg", key);
+      return NextResponse.json({ url, key, exists: false });
+    }
     if (validHash) {
       const key = contentKey(filename, validHash, captured);
       if (await objectExists(key)) {
         return NextResponse.json({ key, exists: true });
       }
+      const coords = coordsFrom(body as Record<string, unknown>);
+      if (coords) await recordCityFromCoords(key, coords.lat, coords.lng);
       const { url } = await createUploadUrl(filename, contentType, key);
       return NextResponse.json({ url, key, exists: false });
     }

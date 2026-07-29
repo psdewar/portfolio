@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Trash, Images, CheckCircle } from "@phosphor-icons/react";
+import { X, Images, CheckCircle } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
-import { uploadFile, type UploadMeta } from "./upload";
+import { uploadFile, makePreview, type PreviewResult, type UploadMeta } from "./upload";
 
 type JobStatus = "queued" | "uploading" | "done" | "error";
 
@@ -13,6 +13,8 @@ type FileJob = {
   file: File;
   progress: number;
   status: JobStatus;
+  thumb?: string;
+  duration?: number;
   error?: string;
   duplicate?: boolean;
   key?: string;
@@ -35,6 +37,16 @@ export default function MomentsClient() {
   const controllers = useRef(new Map<string, AbortController>());
   const removedIds = useRef(new Set<string>());
   const prevJobCount = useRef(0);
+  const jobsRef = useRef<FileJob[]>([]);
+  jobsRef.current = jobs;
+  const previewBlobs = useRef(new Map<string, Blob>());
+
+  useEffect(
+    () => () => {
+      for (const j of jobsRef.current) if (j.thumb) URL.revokeObjectURL(j.thumb);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!unlocked) passcodeRef.current?.focus();
@@ -58,6 +70,65 @@ export default function MomentsClient() {
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
   const failedJobs = jobs.filter((j) => j.status === "error");
   const doneCount = jobs.filter((j) => j.status === "done").length;
+
+  const measured = jobs.filter((j) => j.status !== "error");
+  const totalBytes = measured.reduce((a, j) => a + j.file.size, 0);
+  const uploadedBytes = measured.reduce(
+    (a, j) => a + (j.status === "done" ? j.file.size : (j.progress / 100) * j.file.size),
+    0,
+  );
+  const [etaText, setEtaText] = useState("");
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [clock, setClock] = useState(0);
+  const rateRef = useRef<{ t: number; bytes: number; rate: number } | null>(null);
+
+  useEffect(() => {
+    if (!uploading) {
+      rateRef.current = null;
+      setEtaText("");
+      setDeadline(null);
+      return;
+    }
+    const now = Date.now();
+    const prev = rateRef.current;
+    if (!prev) {
+      rateRef.current = { t: now, bytes: uploadedBytes, rate: 0 };
+      return;
+    }
+    const dt = (now - prev.t) / 1000;
+    if (dt < 1) return;
+    const inst = Math.max(0, uploadedBytes - prev.bytes) / dt;
+    const rate = prev.rate > 0 ? prev.rate * 0.7 + inst * 0.3 : inst;
+    rateRef.current = { t: now, bytes: uploadedBytes, rate };
+    if (rate > 20000) {
+      const secs = (totalBytes - uploadedBytes) / rate;
+      if (secs <= 120) {
+        setDeadline(now + secs * 1000);
+        setEtaText("");
+      } else {
+        setDeadline(null);
+        setEtaText(`${Math.min(99, Math.floor((uploadedBytes / totalBytes) * 100))}% sent`);
+      }
+    }
+  }, [uploading, uploadedBytes, totalBytes]);
+
+  useEffect(() => {
+    if (!uploading || deadline === null) return;
+    const id = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [uploading, deadline]);
+
+  const nowMs = clock > 0 ? clock : Date.now();
+  const remainingSecs = deadline !== null ? Math.round((deadline - nowMs) / 1000) : null;
+  const countdown =
+    remainingSecs === null
+      ? ""
+      : remainingSecs < -2
+        ? "Almost done"
+        : remainingSecs < 60
+          ? `${Math.max(1, remainingSecs)} second${Math.max(1, remainingSecs) === 1 ? "" : "s"} left`
+          : "A couple minutes left";
+  const subline = etaText || countdown;
 
   useEffect(() => {
     if (!uploading) return;
@@ -95,6 +166,19 @@ export default function MomentsClient() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [uploading]);
 
+  useEffect(() => {
+    if (!uploading) return;
+    window.history.pushState({ momentsUpload: true }, "");
+    const onPop = () => {
+      window.history.pushState({ momentsUpload: true }, "");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (window.history.state?.momentsUpload) window.history.back();
+    };
+  }, [uploading]);
+
   async function retryAllFailed() {
     for (const job of failedJobs) await runJob(job);
   }
@@ -129,6 +213,16 @@ export default function MomentsClient() {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
   }
 
+  function grantThumb(job: FileJob, made: PreviewResult) {
+    if (job.thumb || removedIds.current.has(job.id) || previewBlobs.current.has(job.id))
+      return;
+    previewBlobs.current.set(job.id, made.blob);
+    updateJob(job.id, {
+      thumb: URL.createObjectURL(made.blob),
+      duration: made.duration,
+    });
+  }
+
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
 
@@ -147,15 +241,25 @@ export default function MomentsClient() {
       file,
       progress: 0,
       status: "queued",
+      thumb: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
     }));
     setJobs((prev) => [...prev, ...newJobs]);
 
+    (async () => {
+      for (const job of newJobs) {
+        if (job.thumb) continue;
+        const made = await makePreview(job.file).catch(() => null);
+        if (made) grantThumb(job, made);
+      }
+    })();
+
+    const queue = [...newJobs].sort((a, b) => a.file.size - b.file.size);
     const FILE_CONCURRENCY = 3;
     let nextIndex = 0;
     await Promise.all(
-      Array.from({ length: Math.min(FILE_CONCURRENCY, newJobs.length) }, async () => {
-        while (nextIndex < newJobs.length) {
-          await runJob(newJobs[nextIndex++]);
+      Array.from({ length: Math.min(FILE_CONCURRENCY, queue.length) }, async () => {
+        while (nextIndex < queue.length) {
+          await runJob(queue[nextIndex++]);
         }
       }),
     );
@@ -180,6 +284,8 @@ export default function MomentsClient() {
           }
         },
         controller.signal,
+        previewBlobs.current.get(job.id),
+        (made) => grantThumb(job, made),
       );
       updateJob(job.id, {
         status: "done",
@@ -202,6 +308,8 @@ export default function MomentsClient() {
     removedIds.current.add(job.id);
     controllers.current.get(job.id)?.abort();
     controllers.current.delete(job.id);
+    previewBlobs.current.delete(job.id);
+    if (job.thumb) URL.revokeObjectURL(job.thumb);
     if (job.status === "done" && job.key && !job.duplicate) {
       fetch("/api/moments/delete", {
         method: "POST",
@@ -243,7 +351,7 @@ export default function MomentsClient() {
           </form>
         ) : (
           <div className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6">
-            <DropZone onFiles={handleFiles} disabled={uploading} />
+            <DropZone onFiles={handleFiles} />
 
             {jobs.length > 0 && (
               <>
@@ -257,9 +365,18 @@ export default function MomentsClient() {
                       </span>
                     )}
                     <p className="flex-1 text-sm md:text-base font-medium tabular-nums" style={epunda}>
-                      {uploading
-                        ? "Wait here until uploading finishes."
-                        : `${doneCount}/${jobs.length} received`}
+                      {uploading ? (
+                        <>
+                          Wait here until uploading finishes.
+                          {subline && (
+                            <span className="block text-xs font-normal text-white/60">
+                              {subline}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        `${doneCount}/${jobs.length} received`
+                      )}
                     </p>
                     {uploading ? (
                       <span className="shrink-0 text-xs font-normal tabular-nums text-[#d4a553]">
@@ -295,14 +412,17 @@ export default function MomentsClient() {
                     </span>
                   </Banner>
                 )}
-                {jobs.map((job) => (
-                  <JobRow
-                    key={job.id}
-                    job={job}
-                    onRetry={() => runJob(job)}
-                    onRemove={() => removeJob(job)}
-                  />
-                ))}
+                <div className="grid grid-cols-3 gap-px bg-black/10 sm:grid-cols-4 dark:bg-white/10">
+                  <style>{`@media (prefers-reduced-motion: no-preference){.tile-in{animation:tileIn .45s ease both}}@keyframes tileIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}`}</style>
+                  {jobs.map((job) => (
+                    <MomentTile
+                      key={job.id}
+                      job={job}
+                      onRetry={() => runJob(job)}
+                      onRemove={() => removeJob(job)}
+                    />
+                  ))}
+                </div>
                 </div>
                 <div ref={listEndRef} />
               </>
@@ -323,6 +443,12 @@ export default function MomentsClient() {
       )}
     </main>
   );
+}
+
+function formatDuration(secs: number) {
+  const total = Math.round(secs);
+  const sec = total % 60;
+  return `${Math.floor(total / 60)}:${sec < 10 ? "0" : ""}${sec}`;
 }
 
 const BANNER_STYLES = {
@@ -368,20 +494,13 @@ function Banner({
   );
 }
 
-function DropZone({
-  onFiles,
-  disabled,
-}: {
-  onFiles: (files: FileList | null) => void;
-  disabled: boolean;
-}) {
+function DropZone({ onFiles }: { onFiles: (files: FileList | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragActive(false);
-    if (disabled) return;
     onFiles(e.dataTransfer.files);
   }
 
@@ -389,24 +508,22 @@ function DropZone({
     <div
       onDragOver={(e) => {
         e.preventDefault();
-        if (!disabled) setDragActive(true);
+        setDragActive(true);
       }}
       onDragLeave={() => setDragActive(false)}
       onDrop={onDrop}
-      onClick={() => !disabled && inputRef.current?.click()}
-      className={`group flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-        disabled
-          ? "cursor-not-allowed border-neutral-200 opacity-60 dark:border-neutral-800"
-          : dragActive
-            ? "cursor-pointer border-[#d4a553] bg-[#d4a553]/5"
-            : "cursor-pointer border-neutral-300 hover:border-[#d4a553] dark:border-neutral-700 dark:hover:border-[#d4a553]"
+      onClick={() => inputRef.current?.click()}
+      className={`group flex flex-1 cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
+        dragActive
+          ? "border-[#d4a553] bg-[#d4a553]/5"
+          : "border-neutral-300 hover:border-[#d4a553] dark:border-neutral-700 dark:hover:border-[#d4a553]"
       }`}
     >
       <input
         ref={inputRef}
         type="file"
         multiple
-        accept="image/*,video/*"
+        accept="image/*,image/heic,image/heif,video/*"
         className="hidden"
         onChange={(e) => {
           onFiles(e.target.files);
@@ -428,7 +545,7 @@ function DropZone({
   );
 }
 
-function JobRow({
+function MomentTile({
   job,
   onRetry,
   onRemove,
@@ -437,97 +554,124 @@ function JobRow({
   onRetry: () => void;
   onRemove: () => void;
 }) {
+  const isVideo = job.file.type.startsWith("video/");
   const isError = job.status === "error";
   const isDone = job.status === "done";
-  const showCheck = isDone && !job.duplicate;
-  const dotIndex = job.file.name.lastIndexOf(".");
-  const base = dotIndex > 0 ? job.file.name.slice(0, dotIndex) : job.file.name;
-  const ext = dotIndex > 0 ? job.file.name.slice(dotIndex) : "";
+  const uploadingNow = job.status === "uploading";
   const pct = isDone ? 100 : job.progress;
-  const statusText = isDone
-    ? job.duplicate
-      ? "Already added"
-      : "Done"
-    : isError
-      ? job.error || "Failed"
-      : job.status === "queued"
-        ? "Waiting"
-        : `${job.progress}%`;
-
-  const lerp = (from: number, to: number) => Math.round(from + ((to - from) * pct) / 100);
-  const fillColor = isError
-    ? "rgba(239, 68, 68, 0.15)"
-    : `rgb(${lerp(115, 22)}, ${lerp(115, 163)}, ${lerp(115, 74)})`;
+  const veil = 100 - pct;
 
   return (
-    <div className="relative flex min-h-[56px] items-center overflow-hidden bg-neutral-100 dark:bg-white/5">
-      <div
-        className="absolute inset-y-0 left-0 transition-all duration-300"
-        style={{ width: `${pct}%`, backgroundColor: fillColor }}
-      />
-      <div className="relative flex min-w-0 flex-1 items-center gap-3 px-6 py-2">
-        {showCheck && (
-          <CheckCircle size={20} weight="fill" className="shrink-0 text-green-600 dark:text-green-500" />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="flex min-w-0 items-baseline text-sm md:text-base"><span className="min-w-0 truncate" style={epunda}>{base}</span>{ext && <span className="shrink-0" style={epunda}>{ext}</span>}</p>
-          {!showCheck && (
-            <span
-              className={`text-xs tabular-nums ${
-                isError
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-neutral-500 dark:text-neutral-400"
-              }`}
-              style={mono}
-            >
-              {statusText}
-            </span>
-          )}
-        </div>
-        {isError && (
-          <button
-            type="button"
-            onClick={onRetry}
-            aria-label={`Retry ${job.file.name}`}
-            className="shrink-0 px-2 py-2 text-xs uppercase tracking-wider text-[#d4a553]"
+    <div className="tile-in relative aspect-square overflow-hidden bg-[#262b3f]">
+      {job.thumb ? (
+        <>
+          <img
+            src={job.thumb}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ filter: "grayscale(1) brightness(0.45)" }}
+          />
+          <img
+            src={job.thumb}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover transition-[clip-path] duration-300 ease-out"
+            style={{ clipPath: `inset(0 0 ${veil}% 0)` }}
+          />
+        </>
+      ) : (
+        <p
+          className="absolute inset-x-1 top-1/2 -translate-y-1/2 truncate text-center text-[10px] text-white/70"
+          style={mono}
+        >
+          {job.file.name}
+        </p>
+      )}
+
+      {uploadingNow && pct > 0 && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 h-[2px] bg-[#d4a553] shadow-[0_0_6px_rgba(212,165,83,0.9)] transition-[top] duration-300 ease-out"
+          style={{ top: `${pct}%` }}
+        />
+      )}
+
+      {uploadingNow &&
+        (pct > 0 ? (
+          <span
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-bold tabular-nums text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.85)] sm:text-xl"
+            style={mono}
+          >
+            {pct}%
+          </span>
+        ) : (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/35 border-t-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" />
+          </span>
+        ))}
+      {job.status === "queued" && (
+        <span
+          className="absolute bottom-1 left-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] text-white/80"
+          style={mono}
+        >
+          waiting
+        </span>
+      )}
+      {isDone &&
+        (job.duplicate ? (
+          <span
+            className="absolute bottom-1 left-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] text-white"
+            style={mono}
+          >
+            Already added
+          </span>
+        ) : (
+          <CheckCircle
+            size={18}
+            weight="fill"
+            className="absolute bottom-1 left-1 text-[#d4a553] drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
+          />
+        ))}
+
+      {isVideo && !isError && (
+        <span
+          className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1 py-0.5 text-[10px] tabular-nums text-white"
+          style={mono}
+        >
+          {job.duration ? formatDuration(job.duration) : "video"}
+        </span>
+      )}
+
+      {isError && (
+        <button
+          type="button"
+          onClick={onRetry}
+          aria-label={`Retry ${job.file.name}`}
+          className="absolute inset-0 flex items-center justify-center bg-red-600/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+        >
+          <span
+            className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600"
             style={mono}
           >
             Retry
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm("Remove this upload?")) onRemove();
-          }}
-          aria-label={`Remove ${job.file.name}`}
-          className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
-        >
-          <Trash size={20} weight="regular" />
+          </span>
         </button>
-      </div>
-      {!isError && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 transition-all duration-300"
-          style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}
-        >
-          <div className="flex h-full w-full items-center gap-3 px-6 py-2 text-white">
-            {showCheck && <CheckCircle size={20} weight="fill" className="shrink-0" />}
-            <div className="min-w-0 flex-1">
-              <p className="flex min-w-0 items-baseline text-sm md:text-base"><span className="min-w-0 truncate" style={epunda}>{base}</span>{ext && <span className="shrink-0" style={epunda}>{ext}</span>}</p>
-              {!showCheck && (
-                <span className="text-xs tabular-nums" style={mono}>
-                  {statusText}
-                </span>
-              )}
-            </div>
-            <span className="-mr-3 flex h-11 w-11 shrink-0 items-center justify-center">
-              <Trash size={20} weight="regular" />
-            </span>
-          </div>
-        </div>
       )}
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (window.confirm("Remove this upload?")) onRemove();
+        }}
+        aria-label={`Remove ${job.file.name}`}
+        className="absolute right-0 top-0 z-10 flex h-11 w-11 items-start justify-end p-2 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a553]"
+      >
+        <X size={16} weight="bold" />
+      </button>
     </div>
   );
 }
