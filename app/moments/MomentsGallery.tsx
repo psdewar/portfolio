@@ -349,13 +349,25 @@ function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
   return (
     <div
       aria-hidden={decorative || undefined}
-      className="relative flex h-full w-24 flex-none flex-col items-center justify-center bg-[#262b3f] text-center sm:w-28"
+      className="relative flex h-full w-24 flex-none flex-col items-center justify-center overflow-hidden bg-[#262b3f] text-center sm:w-28"
     >
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-1/2 border-l-2 border-dashed border-[#d4a553]/40"
+        className="absolute bottom-0 left-1/2 top-16 border-l-2 border-dashed border-white/70"
       />
-      <div className="relative flex flex-col items-center gap-2.5 bg-[#262b3f] px-3 py-3">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 56 40"
+        className="absolute left-1/2 top-6 h-10 w-14"
+        fill="none"
+        stroke="rgba(255,255,255,0.7)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="4 7"
+      >
+        <path d="M1 40 Q1 2 30 2 H55" />
+      </svg>
+      <div className="relative flex max-w-full flex-col items-center gap-2.5 bg-[#262b3f] px-2 py-3">
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
@@ -369,10 +381,12 @@ function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
           <path d="M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11z" />
           <circle cx="12" cy="10" r="2.5" />
         </svg>
-        <span className="font-bebas text-2xl leading-[0.95] text-white sm:text-3xl">{name}</span>
+        <span className="max-w-full font-bebas text-lg leading-[0.95] text-white sm:text-2xl">
+          {name}
+        </span>
         {region && (
           <span
-            className="text-[10px] uppercase tracking-[0.3em] text-[#d4a553]"
+            className="text-xs uppercase tracking-[0.25em] text-[#d4a553]"
             style={{ fontFamily: '"Space Mono", monospace' }}
           >
             {region}
