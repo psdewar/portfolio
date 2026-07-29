@@ -12,6 +12,7 @@ import {
   recordThumbs,
   previewKeyFor,
   resolveCities,
+  orderByFundingLeg,
   type ThumbEntry,
 } from "../../shared/moments";
 
@@ -31,15 +32,16 @@ function signView(key: string) {
 export async function GET() {
   if (!s3 || !s3Bucket) return NextResponse.json({ items: [] });
 
-  const keys = await getFeatured();
+  const featured = await getFeatured();
   const [dims, thumbs, previewList, cities] = await Promise.all([
     getDims(),
     getThumbs(),
     s3.send(
       new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "previews/", MaxKeys: 1000 }),
     ),
-    resolveCities(keys),
+    resolveCities(featured),
   ]);
+  const keys = await orderByFundingLeg(featured, cities);
   const previewKeys = new Set(
     (previewList.Contents || [])
       .map((o) => o.Key || "")

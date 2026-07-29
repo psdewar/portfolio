@@ -1,3 +1,5 @@
+import { getUpcomingShows } from "../lib/shows";
+
 export type FundLine = { key: string; label: string; note: string; amount: number };
 
 export type FundBooked = {
@@ -101,6 +103,15 @@ export async function getLegs(): Promise<Leg[]> {
 export async function getLeg(slug: string): Promise<Leg | undefined> {
   const legs = await getLegs();
   return legs.find((l) => l.slug === slug);
+}
+
+// The leg the funding currently points at: the next upcoming show on a
+// fund-faceted leg wins, else the first fund-faceted leg.
+export async function getFundingLegSlug(): Promise<string | undefined> {
+  const [legs, shows] = await Promise.all([getLegs(), getUpcomingShows()]);
+  const fundable = new Set(legs.filter((l) => l.fund).map((l) => l.slug));
+  const next = shows.find((s) => s.leg && fundable.has(s.leg));
+  return next?.leg ?? legs.find((l) => l.fund)?.slug;
 }
 
 // Back-compat: seed-only sync map used by the /fund redirect and SSG params.

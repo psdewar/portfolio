@@ -8,7 +8,8 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
-import { getShows } from "../../lib/shows";
+import { getShows, isShowOnTrip } from "../../lib/shows";
+import { getFundingLegSlug } from "../../fund/legs";
 
 const FEATURED_KEY = "featured.json";
 
@@ -210,6 +211,34 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
   } catch {}
   if (derived > 0) await putJson(CITIES_KEY, out).catch(() => {});
   return out;
+}
+
+// "The first" is autopicked: the strip opens on the funding leg's first stop.
+// Order is derived per request, never stored. The funding leg's stops lead in
+// show-date order; every other moment keeps its featured order.
+export async function orderByFundingLeg(
+  keys: string[],
+  cities: Record<string, string>,
+): Promise<string[]> {
+  try {
+    const slug = await getFundingLegSlug();
+    if (!slug) return keys;
+    const shows = await getShows();
+    const rank = new Map<string, number>();
+    for (const s of shows
+      .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
+      const label = showLabel(s);
+      if (!rank.has(label)) rank.set(label, rank.size);
+    }
+    if (rank.size === 0) return keys;
+    return keys
+      .map((k, i) => ({ k, i, r: rank.get(cities[k] ?? "") ?? Infinity }))
+      .sort((a, b) => a.r - b.r || a.i - b.i)
+      .map((e) => e.k);
+  } catch {
+    return keys;
+  }
 }
 
 export async function objectExists(key: string): Promise<boolean> {
