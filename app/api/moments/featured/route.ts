@@ -15,9 +15,12 @@ import {
   type ThumbEntry,
 } from "../../shared/moments";
 
+export const maxDuration = 60;
+
 const VIEW_TTL = 21600;
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif)$/i;
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
+const THUMB_BATCH = 4;
 
 function signView(key: string) {
   return getSignedUrl(s3!, new GetObjectCommand({ Bucket: s3Bucket!, Key: key }), {
@@ -58,7 +61,7 @@ export async function GET() {
     if (Object.keys(found).length) await recordDims(found);
   }
 
-  const missingThumbs = keys.filter((k) => !thumbs[k]);
+  const missingThumbs = keys.filter((k) => !thumbs[k]).slice(0, THUMB_BATCH);
   if (missingThumbs.length) {
     const found: Record<string, ThumbEntry> = {};
     await Promise.all(
@@ -77,12 +80,11 @@ export async function GET() {
     keys.map(async (key) => {
       const t = thumbs[key];
       const d = dims[key];
-      const preview = previewKeyFor(key);
-      const hasView = !VIDEO_EXT.test(key) && previewKeys.has(preview);
+      const preview = previewKeys.has(previewKeyFor(key)) ? previewKeyFor(key) : null;
       const [url, thumb, view] = await Promise.all([
         signView(key),
-        t ? signView(t.key) : Promise.resolve(undefined),
-        hasView ? signView(preview) : Promise.resolve(undefined),
+        t ? signView(t.key) : preview ? signView(preview) : Promise.resolve(undefined),
+        !VIDEO_EXT.test(key) && preview ? signView(preview) : Promise.resolve(undefined),
       ]);
       const wh = t ? { w: t.w, h: t.h } : Array.isArray(d) ? { w: d[0], h: d[1] } : {};
       const city = cities[key];
