@@ -56,37 +56,17 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
   const lightboxOpen = useRef(false);
   const pendingDims = useRef<Record<string, [number, number]>>({});
   const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [cityLabel, setCityLabel] = useState<{ city: string; n: number } | null>(null);
-  const lastCity = useRef("");
-  const cityCount = useRef(0);
-  const cityRanges = useRef<Array<{ left: number; right: number; city: string }>>([]);
-
-  const measureCityTiles = () => {
-    const root = scrollRef.current;
-    if (!root) return;
-    cityRanges.current = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-city]"),
-    ).map((t) => ({
-      left: t.offsetLeft,
-      right: t.offsetLeft + t.offsetWidth,
-      city: t.dataset.city!,
-    }));
-  };
-
-  const syncCity = () => {
-    const el = scrollRef.current;
-    if (!el || cityRanges.current.length === 0) return;
-    const centerX = el.scrollLeft + el.clientWidth / 2;
-    for (const r of cityRanges.current) {
-      if (centerX >= r.left && centerX < r.right) {
-        if (r.city !== lastCity.current) {
-          lastCity.current = r.city;
-          setCityLabel({ city: r.city, n: ++cityCount.current });
-        }
-        return;
+  const entries: Array<{ slate: string } | { item: FeaturedItem; index: number }> = [];
+  {
+    let lastCity = "";
+    items.forEach((it, i) => {
+      if (it.city && it.city !== lastCity) {
+        entries.push({ slate: it.city });
+        lastCity = it.city;
       }
-    }
-  };
+      entries.push({ item: it, index: i });
+    });
+  }
 
   useEffect(() => {
     // OG capture: skip the slider (the single moment is rendered server-side
@@ -169,8 +149,6 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
         cycleStart.current = start;
         initialized.current = true;
       }
-      measureCityTiles();
-      syncCity();
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -200,7 +178,6 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
           const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
           barRef.current.style.width = `${frac * 100}%`;
         }
-        syncCity();
       }
       rafId.current = requestAnimationFrame(step);
     };
@@ -292,7 +269,6 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
       const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
       barRef.current.style.width = `${frac * 100}%`;
     }
-    syncCity();
     scheduleResume();
   };
 
@@ -320,7 +296,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
-      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}@keyframes cityIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
+      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
 
       <div
         ref={scrollRef}
@@ -337,54 +313,27 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
       >
         {[0, 1, 2].map((copy) => (
           <div key={copy} ref={copy === 0 ? setRef : undefined} className="flex h-full flex-none">
-            {items.map((it, i) => (
-              <Tile
-                key={`${copy}-${it.key}`}
-                item={it}
-                index={i}
-                revealed={revealed}
-                decorative={copy !== 0}
-                priority={copy === 0 && i === 0}
-                onMeasure={copy === 0 ? reportDims : undefined}
-                onReady={copy === 0 && i === 0 ? markReady : undefined}
-                onOpen={setOpen}
-              />
-            ))}
+            {entries.map((e, j) =>
+              "slate" in e ? (
+                <Slate key={`${copy}-slate-${j}`} city={e.slate} decorative={copy !== 0} />
+              ) : (
+                <Tile
+                  key={`${copy}-${e.item.key}`}
+                  item={e.item}
+                  index={e.index}
+                  revealed={revealed}
+                  decorative={copy !== 0}
+                  priority={copy === 0 && e.index === 0}
+                  onMeasure={copy === 0 ? reportDims : undefined}
+                  onReady={copy === 0 && e.index === 0 ? markReady : undefined}
+                  onOpen={setOpen}
+                />
+              ),
+            )}
           </div>
         ))}
       </div>
       <div ref={barRef} className="h-[3px] bg-[#d4a553]" style={{ width: "0%" }} />
-      {items.some((it) => it.city) && (
-        <div aria-live="polite" className="flex h-8 items-center px-4">
-          {cityLabel && (
-            <div
-              key={cityLabel.n}
-              className="flex items-center gap-2"
-              style={{
-                fontFamily: '"Space Mono", monospace',
-                animation: "cityIn .3s ease both",
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-3.5 w-3.5 text-[#d4a553]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11z" />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-              <span className="text-xs uppercase tracking-[0.2em] text-neutral-600 dark:text-neutral-300">
-                {cityLabel.city}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
 
       {open && <Lightbox item={open} onClose={() => setOpen(null)} />}
     </section>
@@ -392,6 +341,47 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
 }
 
 export default memo(MomentsGallery);
+
+function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
+  const comma = city.lastIndexOf(", ");
+  const name = comma > 0 ? city.slice(0, comma) : city;
+  const region = comma > 0 ? city.slice(comma + 2) : "";
+  return (
+    <div
+      aria-hidden={decorative || undefined}
+      className="relative flex h-full w-24 flex-none flex-col items-center justify-center bg-[#262b3f] text-center sm:w-28"
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-y-0 left-1/2 border-l-2 border-dashed border-[#d4a553]/40"
+      />
+      <div className="relative flex flex-col items-center gap-2.5 bg-[#262b3f] px-3 py-3">
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-[#d4a553]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11z" />
+          <circle cx="12" cy="10" r="2.5" />
+        </svg>
+        <span className="font-bebas text-2xl leading-[0.95] text-white sm:text-3xl">{name}</span>
+        {region && (
+          <span
+            className="text-[10px] uppercase tracking-[0.3em] text-[#d4a553]"
+            style={{ fontFamily: '"Space Mono", monospace' }}
+          >
+            {region}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Tile({
   item,
@@ -464,7 +454,6 @@ function Tile({
       aria-label={isVideo ? "Play moment" : "View moment"}
       aria-hidden={decorative || undefined}
       tabIndex={decorative ? -1 : undefined}
-      data-city={item.city || undefined}
       className="group relative h-full flex-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d4a553]"
       style={{ aspectRatio: hasDims ? `${item.w} / ${item.h}` : undefined }}
     >
