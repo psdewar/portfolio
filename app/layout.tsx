@@ -5,7 +5,7 @@ import { Bebas_Neue, Space_Mono, Fira_Sans } from "next/font/google";
 import { ClientLayout } from "./ClientLayout";
 
 const myFont = localFont({
-  src: "./fonts/EpundaSans-VariableFont_wght.ttf",
+  src: "./fonts/EpundaSans-VariableFont_wght.woff2",
   variable: "--font-epunda",
 });
 
@@ -16,21 +16,24 @@ const bebasNeue = Bebas_Neue({
 });
 
 const parkinsans = localFont({
-  src: "./fonts/Parkinsans-VariableFont_wght.ttf",
+  src: "./fonts/Parkinsans-VariableFont_wght.woff2",
   variable: "--font-parkinsans",
   adjustFontFallback: "Arial",
+  preload: false,
 });
 
 const spaceMono = Space_Mono({
   weight: ["400", "700"],
   subsets: ["latin"],
   variable: "--font-space-mono",
+  preload: false,
 });
 
 const firaSans = Fira_Sans({
   weight: ["400", "500", "600"],
   subsets: ["latin"],
   variable: "--font-fira-sans",
+  preload: false,
 });
 
 const siteConfig = {
