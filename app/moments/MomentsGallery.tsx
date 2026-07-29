@@ -31,7 +31,7 @@ function wrap(x: number, half: number) {
   return v;
 }
 
-function MomentsGallery({ og = false }: { og?: boolean }) {
+function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [open, setOpen] = useState<FeaturedItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
       return;
     }
     let active = true;
-    fetch("/api/moments/featured")
+    fetch(leg ? `/api/moments/featured?leg=${encodeURIComponent(leg)}` : "/api/moments/featured")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((data) => {
         if (!active) return;
@@ -96,7 +96,7 @@ function MomentsGallery({ og = false }: { og?: boolean }) {
     return () => {
       active = false;
     };
-  }, [og]);
+  }, [og, leg]);
 
   const imgSig = items
     .filter((it) => !VIDEO_EXT.test(it.key))

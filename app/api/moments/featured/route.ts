@@ -29,9 +29,10 @@ function signView(key: string) {
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!s3 || !s3Bucket) return NextResponse.json({ items: [] });
 
+  const leg = new URL(request.url).searchParams.get("leg") || undefined;
   const featured = await getFeatured();
   const [dims, thumbs, previewList, cities] = await Promise.all([
     getDims(),
@@ -41,7 +42,7 @@ export async function GET() {
     ),
     resolveCities(featured),
   ]);
-  const keys = await orderByFundingLeg(featured, cities);
+  const keys = await orderByFundingLeg(featured, cities, leg);
   const previewKeys = new Set(
     (previewList.Contents || [])
       .map((o) => o.Key || "")

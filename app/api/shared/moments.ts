@@ -219,9 +219,10 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
 export async function orderByFundingLeg(
   keys: string[],
   cities: Record<string, string>,
+  legSlug?: string,
 ): Promise<string[]> {
   try {
-    const slug = await getFundingLegSlug();
+    const slug = legSlug || (await getFundingLegSlug());
     if (!slug) return keys;
     const shows = await getShows();
     const rank = new Map<string, number>();

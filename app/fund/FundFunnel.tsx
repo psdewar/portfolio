@@ -738,7 +738,7 @@ html { scroll-behavior: smooth; }
           </div>
 
           <div style={{ marginTop: 24 }}>
-            <MomentsGallery og={og} />
+            <MomentsGallery og={og} leg={leg.slug} />
           </div>
 
           {intro && (
