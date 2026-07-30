@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Images, CheckCircle } from "@phosphor-icons/react";
+import { X, Images, CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
 import { uploadFile, makePreview, type PreviewResult, type UploadMeta } from "./upload";
@@ -25,7 +25,7 @@ const mono = { fontFamily: '"Space Mono", monospace' } as const;
 const epunda = { fontFamily: "var(--font-epunda)" } as const;
 const gold = "linear-gradient(to right, #d4a553, #e0b860)";
 
-export default function MomentsClient() {
+export default function MomentsClient({ fundSlug }: { fundSlug?: string }) {
   const [passcode, setPasscode] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [unlockError, setUnlockError] = useState("");
@@ -57,7 +57,32 @@ export default function MomentsClient() {
     if (saved) {
       setPasscode(saved);
       setUnlocked(true);
+      return;
     }
+    const match = window.location.hash.match(/(?:^#|&)code=([^&]+)/);
+    if (!match) return;
+    let code = "";
+    try {
+      code = decodeURIComponent(match[1]);
+    } catch {
+      return;
+    }
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    setPasscode(code);
+    setUnlockLoading(true);
+    fetch("/api/moments/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode: code }),
+    })
+      .then((res) => {
+        if (res.ok) {
+          setUnlocked(true);
+          sessionStorage.setItem("momentsUnlock", code);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setUnlockLoading(false));
   }, []);
 
   useEffect(() => {
@@ -67,6 +92,7 @@ export default function MomentsClient() {
     prevJobCount.current = jobs.length;
   }, [jobs.length]);
 
+  const fundName = fundSlug ? fundSlug.charAt(0).toUpperCase() + fundSlug.slice(1) : "";
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
   const failedJobs = jobs.filter((j) => j.status === "error");
   const doneCount = jobs.filter((j) => j.status === "done").length;
@@ -383,18 +409,23 @@ export default function MomentsClient() {
                         {doneCount}/{jobs.length}
                       </span>
                     ) : (
-                      <span className="ml-auto flex shrink-0 items-center gap-2 text-sm md:text-base font-normal" style={epunda}>
-                        Send more or
-                        <a
-                          href="/support"
-                          className="-my-2 whitespace-nowrap rounded-full px-3 py-2.5 text-xs font-normal uppercase tracking-wide text-[#0a0a0a]"
-                          style={{ background: gold }}
-                        >
-                          Help fund my tour
-                        </a>
+                      <span className="ml-auto shrink-0 text-sm md:text-base font-normal" style={epunda}>
+                        Send more anytime
                       </span>
                     )}
                   </Banner>
+                )}
+                {!uploading && doneCount > 0 && failedJobs.length === 0 && (
+                  <div className="px-4 py-4 sm:px-6">
+                    <a
+                      href="/fund"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg py-4 text-lg font-medium text-[#0a0a0a] transition-all hover:scale-[1.01]"
+                      style={{ background: gold }}
+                    >
+                      {fundName ? `Help me cover my ${fundName} tour` : "Help me cover my tour"}
+                      <ArrowRight size={20} weight="bold" />
+                    </a>
+                  </div>
                 )}
                 {failedJobs.length > 0 && (
                   <Banner

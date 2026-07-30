@@ -215,7 +215,9 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
 
 // "The first" is autopicked: the strip opens on the funding leg's first stop.
 // Order is derived per request, never stored. The funding leg's stops lead in
-// show-date order; every other moment keeps its featured order.
+// show-date order; every other city groups its moments where it first appears,
+// so each stop gets exactly one slate; cityless moments keep featured order at
+// the end.
 export async function orderByFundingLeg(
   keys: string[],
   cities: Record<string, string>,
@@ -223,18 +225,23 @@ export async function orderByFundingLeg(
 ): Promise<string[]> {
   try {
     const slug = legSlug || (await getFundingLegSlug());
-    if (!slug) return keys;
-    const shows = await getShows();
     const rank = new Map<string, number>();
-    for (const s of shows
-      .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
-      const label = showLabel(s);
-      if (!rank.has(label)) rank.set(label, rank.size);
+    if (slug) {
+      const shows = await getShows();
+      for (const s of shows
+        .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
+        const label = showLabel(s);
+        if (!rank.has(label)) rank.set(label, rank.size);
+      }
+    }
+    for (const k of keys) {
+      const city = cities[k];
+      if (city && !rank.has(city)) rank.set(city, rank.size);
     }
     if (rank.size === 0) return keys;
     return keys
-      .map((k, i) => ({ k, i, r: rank.get(cities[k] ?? "") ?? Infinity }))
+      .map((k, i) => ({ k, i, r: cities[k] ? rank.get(cities[k])! : Infinity }))
       .sort((a, b) => a.r - b.r || a.i - b.i)
       .map((e) => e.k);
   } catch {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import MomentsClient from "./MomentsClient";
+import { getFundingLegSlug } from "../fund/legs";
 
 const title = "Moments from the concert";
 const description =
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MomentsPage() {
-  return <MomentsClient />;
+export default async function MomentsPage() {
+  const fundSlug = await getFundingLegSlug().catch(() => undefined);
+  return <MomentsClient fundSlug={fundSlug} />;
 }

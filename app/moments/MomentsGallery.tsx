@@ -31,6 +31,15 @@ function wrap(x: number, half: number) {
   return v;
 }
 
+function fadeIn(revealed: boolean, index: number): React.CSSProperties {
+  return revealed
+    ? {
+        animation: `momentThumbIn ${FADE_MS}ms ease-out both`,
+        animationDelay: `${index * STAGGER_MS}ms`,
+      }
+    : { opacity: 0 };
+}
+
 function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [open, setOpen] = useState<FeaturedItem | null>(null);
@@ -56,12 +65,14 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   const lightboxOpen = useRef(false);
   const pendingDims = useRef<Record<string, [number, number]>>({});
   const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const entries: Array<{ slate: string } | { item: FeaturedItem; index: number }> = [];
+  const entries: Array<
+    { slate: string; index: number } | { item: FeaturedItem; index: number }
+  > = [];
   {
     let lastCity = "";
     items.forEach((it, i) => {
       if (it.city && it.city !== lastCity) {
-        entries.push({ slate: it.city });
+        entries.push({ slate: it.city, index: i });
         lastCity = it.city;
       }
       entries.push({ item: it, index: i });
@@ -315,7 +326,13 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
           <div key={copy} ref={copy === 0 ? setRef : undefined} className="flex h-full flex-none">
             {entries.map((e, j) =>
               "slate" in e ? (
-                <Slate key={`${copy}-slate-${j}`} city={e.slate} decorative={copy !== 0} />
+                <Slate
+                  key={`${copy}-slate-${j}`}
+                  city={e.slate}
+                  index={e.index}
+                  revealed={revealed}
+                  decorative={copy !== 0}
+                />
               ) : (
                 <Tile
                   key={`${copy}-${e.item.key}`}
@@ -342,7 +359,17 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
 
 export default memo(MomentsGallery);
 
-function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
+function Slate({
+  city,
+  index,
+  revealed,
+  decorative,
+}: {
+  city: string;
+  index: number;
+  revealed: boolean;
+  decorative?: boolean;
+}) {
   const comma = city.lastIndexOf(", ");
   const name = comma > 0 ? city.slice(0, comma) : city;
   const region = comma > 0 ? city.slice(comma + 2) : "";
@@ -350,6 +377,7 @@ function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
     <div
       aria-hidden={decorative || undefined}
       className="relative flex h-full w-24 flex-none flex-col items-center justify-center overflow-hidden bg-[#262b3f] text-center sm:w-28"
+      style={fadeIn(revealed, index)}
     >
       <div
         aria-hidden="true"
@@ -424,12 +452,7 @@ function Tile({
   const mediaClass = `transition-transform ease-out group-hover:scale-[1.04] ${
     hasDims ? "h-full w-full object-cover" : "h-full w-auto"
   }`;
-  const fadeStyle = revealed
-    ? {
-        animation: `momentThumbIn ${FADE_MS}ms ease-out both`,
-        animationDelay: `${index * STAGGER_MS}ms`,
-      }
-    : { opacity: 0 };
+  const fadeStyle = fadeIn(revealed, index);
 
   const reveal = (w?: number, h?: number) => {
     onReady?.();
