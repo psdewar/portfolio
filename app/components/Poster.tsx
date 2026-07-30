@@ -131,6 +131,9 @@ function Poster({
 
   const loc = getPosterLocation({ venueLabel, venue, address, city, region });
   const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);
+  const dateText = date ? formatEventDate(date) : "";
+  // Long weekday + month combos ("Saturday, September 12, 2026") wrap at full size.
+  const longDate = dateText.length >= 25;
 
   const computedLoc = (s: PamphletShowItem) =>
     `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
@@ -338,6 +341,9 @@ function Poster({
           font-weight: 700;
           color: #f0ede6;
         }
+        .detail-value.date.long {
+          font-size: 3.75cqw;
+        }
         .detail-value.date.invite {
           font-size: 5.417cqw;
           text-transform: uppercase;
@@ -347,6 +353,9 @@ function Poster({
         }
         .bottom-left.three-line .detail-value.date {
           font-size: 4.583cqw;
+        }
+        .bottom-left.three-line .detail-value.date.long {
+          font-size: 4.167cqw;
         }
         .tags {
           font-family: var(--font-space-mono), monospace;
@@ -656,7 +665,7 @@ function Poster({
               <div className="bottom-row">
                 <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
                   {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
-                  <div className="detail-value date">{formatEventDate(date)}</div>
+                  <div className={`detail-value date${longDate ? " long" : ""}`}>{dateText}</div>
                   {hasLocation && (
                     <div className="detail-value">
                       {loc.label ?? (
