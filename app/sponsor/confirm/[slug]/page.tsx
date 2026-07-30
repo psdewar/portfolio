@@ -6,6 +6,7 @@ import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../.
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
+import { HONORARIUM_ITEM, HONORARIUM_DEFINITION } from "../../../lib/sponsor";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
@@ -153,7 +154,14 @@ export default async function ConfirmPage({
                     className="flex items-start gap-2 text-neutral-700 dark:text-neutral-300"
                   >
                     <CheckIcon size={16} weight="bold" className="mt-0.5 shrink-0 text-neutral-400" />
-                    <span>{item}</span>
+                    <span>
+                      {item}
+                      {item === HONORARIUM_ITEM && (
+                        <span className="block text-sm text-neutral-400 dark:text-neutral-500">
+                          {HONORARIUM_DEFINITION}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

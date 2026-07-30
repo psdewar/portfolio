@@ -13,7 +13,8 @@ export default function InviteCreator() {
           Fill this out on the sponsor&apos;s behalf. It creates a show hidden from{" "}
           <span className="font-mono">/rsvp</span> and drops you back in the hosts menu, where you
           can copy their one-click confirmation link. When they confirm, the show publishes and its
-          Eventbrite event goes live.
+          Eventbrite event goes live. No address yet? Leave it blank, log their potential
+          contributions, and they set the where and when at confirmation.
         </p>
       </div>
       <SponsorForm mode="host" pending />

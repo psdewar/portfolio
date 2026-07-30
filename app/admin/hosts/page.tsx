@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CircleNotchIcon,
@@ -394,40 +394,37 @@ export default function HostsAdminPage() {
     }
     if (amend || created) window.history.replaceState(null, "", window.location.pathname);
   }, []);
+  const load = useCallback((withSpinner: boolean) => {
+    Promise.all([
+      fetch("/api/shows")
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch("/api/sponsors")
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch("/api/legs")
+        .then((r) => r.json())
+        .catch(() => []),
+    ])
+      .then(([showsData, sponsorsData, legsData]) => {
+        setShows(Array.isArray(showsData) ? showsData : []);
+        setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
+        setLegs(Array.isArray(legsData) ? legsData : []);
+      })
+      .catch(() => setMessage({ type: "error", text: "Failed to load data" }))
+      .finally(() => withSpinner && setLoading(false));
+  }, []);
   useEffect(() => {
-    let cancelled = false;
-    const load = (withSpinner: boolean) => {
-      Promise.all([
-        fetch("/api/shows")
-          .then((r) => r.json())
-          .catch(() => []),
-        fetch("/api/sponsors")
-          .then((r) => r.json())
-          .catch(() => []),
-        fetch("/api/legs")
-          .then((r) => r.json())
-          .catch(() => []),
-      ])
-        .then(([showsData, sponsorsData, legsData]) => {
-          if (cancelled) return;
-          setShows(Array.isArray(showsData) ? showsData : []);
-          setSponsors(Array.isArray(sponsorsData) ? sponsorsData : []);
-          setLegs(Array.isArray(legsData) ? legsData : []);
-        })
-        .catch(() => !cancelled && setMessage({ type: "error", text: "Failed to load data" }))
-        .finally(() => !cancelled && withSpinner && setLoading(false));
-    };
     load(true);
     // Re-fetch when the tab regains focus so host confirmations show up without a manual reload.
     const refresh = () => document.visibilityState === "visible" && load(false);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
-      cancelled = true;
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     if (message?.type !== "success") return;
@@ -605,6 +602,8 @@ export default function HostsAdminPage() {
       ),
     onShowUpdate: (slug: string, fields: Partial<Show>) =>
       setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s))),
+    onShowRemove: (slug: string) => setShows((prev) => prev.filter((s) => s.slug !== slug)),
+    onRefresh: () => load(false),
   };
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
@@ -2250,6 +2249,7 @@ function ManageModal({
   onShowUpdate,
   onMessage,
   onRemoveSponsor,
+  onDeleted,
   onClose,
   onEditHost,
   onViewSupporters,
@@ -2267,6 +2267,7 @@ function ManageModal({
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
   onMessage: (text: string) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
+  onDeleted: () => void;
   onClose: () => void;
   onEditHost: () => void;
   onViewSupporters: () => void;
@@ -2430,6 +2431,7 @@ function ManageModal({
       onRemoveSponsor(host.submittedAt, host.showSlug);
       for (const s of supporters) onRemoveSponsor(s.submittedAt, s.showSlug);
       onMessage(`Removed ${location || host.name || host.email}`);
+      onDeleted();
     } finally {
       setDeleting(false);
     }
@@ -2841,6 +2843,8 @@ function ShowGroupCard({
   onUpdateSponsor,
   onRemoveSponsor,
   onShowUpdate,
+  onShowRemove,
+  onRefresh,
 }: {
   group: ShowGroup;
   legs: Leg[];
@@ -2852,6 +2856,8 @@ function ShowGroupCard({
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  onShowRemove: (slug: string) => void;
+  onRefresh: () => void;
 }) {
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
@@ -2948,6 +2954,12 @@ function ShowGroupCard({
             pending={!!show && isShowDraft(show)}
             onSuccess={(data) => {
               setEditingHost(false);
+              // A press-kit draft has no host record yet; the save created one, so
+              // refetch to pick up its server-minted submittedAt.
+              if (!host.submittedAt) {
+                onRefresh();
+                return;
+              }
               onUpdateSponsor({ ...host, ...data });
               if (show?.slug && isShowDraft(show)) {
                 onShowUpdate(show.slug, {
@@ -3170,6 +3182,10 @@ function ShowGroupCard({
           onShowUpdate={onShowUpdate}
           onMessage={onMessage}
           onRemoveSponsor={onRemoveSponsor}
+          onDeleted={() => {
+            setManaging(false);
+            if (group.showSlug) onShowRemove(group.showSlug);
+          }}
           onClose={() => setManaging(false)}
           onEditHost={() => { setManaging(false); setEditingHost(true); }}
           onViewSupporters={() => { setManaging(false); setViewingSupporters(true); }}

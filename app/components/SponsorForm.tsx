@@ -14,7 +14,13 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { SUPPORT_MENU, SUPPORTER_ITEMS, SPECIAL_ITEMS } from "../lib/sponsor";
+import {
+  SUPPORT_MENU,
+  SUPPORTER_ITEMS,
+  SPECIAL_ITEMS,
+  HONORARIUM_ITEM,
+  HONORARIUM_DEFINITION,
+} from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 import { type Show, getVenueLabel, getDoorLabel, isShowListed } from "../lib/shows";
 import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
@@ -270,6 +276,8 @@ export default function SponsorForm({
     let resolvedRegion = eventRegion;
     let resolvedCountry = eventCountry;
 
+    // Pending invites may skip location and dates (press-kit style): the host
+    // supplies the where and when at confirmation.
     if (!isSupporter) {
       if (!resolvedCity || !resolvedRegion) {
         const typedInput = cityContainerRef.current?.querySelector("input");
@@ -284,7 +292,7 @@ export default function SponsorForm({
           setEventCity(resolvedCity);
           setEventRegion(resolvedRegion);
           setEventCountry(resolvedCountry);
-        } else {
+        } else if (!pending || typed) {
           setSubmitResult({
             ok: false,
             msg: typed
@@ -300,6 +308,7 @@ export default function SponsorForm({
       for (let i = 0; i < eventDates.length; i++) {
         const d = eventDates[i].trim();
         if (!d) {
+          if (pending) continue;
           setSubmitResult({
             ok: false,
             msg: multi ? `Pick a date for row ${i + 1} or remove it.` : "Pick a date.",
@@ -343,10 +352,13 @@ export default function SponsorForm({
 
     const slotsToSubmit = isSupporter
       ? []
-      : eventDates.map((d, i) => ({
-          date: d.trim(),
-          doorTime: eventDoorTimes[i].trim(),
-        }));
+      : eventDates
+          .map((d, i) => ({
+            date: d.trim(),
+            doorTime: eventDoorTimes[i].trim(),
+          }))
+          .filter((s) => s.date);
+    if (!isSupporter && slotsToSubmit.length === 0) slotsToSubmit.push({ date: "", doorTime: "" });
     const primarySlot = slotsToSubmit[0] || { date: "", doorTime: "" };
 
     const fields: SponsorFields = {
@@ -405,13 +417,16 @@ export default function SponsorForm({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                date: slot.date,
-                doorTime: slot.doorTime,
-                city: resolvedCity,
-                region: resolvedRegion,
-                country: resolvedCountry,
-                venue: resolvedVenue || null,
-                address: eventAddress || null,
+                ...(slot.date ? { date: slot.date, doorTime: slot.doorTime } : {}),
+                ...(resolvedCity
+                  ? {
+                      city: resolvedCity,
+                      region: resolvedRegion,
+                      country: resolvedCountry,
+                      venue: resolvedVenue || null,
+                      address: eventAddress || null,
+                    }
+                  : {}),
                 // pending = admin-created draft awaiting host confirmation; public self-booking is live on submit.
                 stage: pending ? "intent" : "booked",
               }),
@@ -461,8 +476,9 @@ export default function SponsorForm({
       }
 
       const finalShowSlug = isSupporter ? selectedShowSlug : showSlug;
+      // Amending a press-kit draft that has no host record yet creates one.
       const res = await fetch("/api/sponsors", {
-        method: editMode ? "PATCH" : "POST",
+        method: editMode && submittedAt ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildSponsorBody(finalShowSlug!, primarySlot)),
       });
@@ -484,13 +500,16 @@ export default function SponsorForm({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               slug: finalShowSlug,
-              date: primarySlot.date,
-              doorTime: primarySlot.doorTime,
-              city: resolvedCity,
-              region: resolvedRegion,
-              country: resolvedCountry,
-              venue: resolvedVenue || null,
-              address: eventAddress || null,
+              ...(primarySlot.date ? { date: primarySlot.date, doorTime: primarySlot.doorTime } : {}),
+              ...(resolvedCity
+                ? {
+                    city: resolvedCity,
+                    region: resolvedRegion,
+                    country: resolvedCountry,
+                    venue: resolvedVenue || null,
+                    address: eventAddress || null,
+                  }
+                : {}),
             }),
           });
           if (!showRes.ok) {
@@ -615,11 +634,11 @@ export default function SponsorForm({
           className={`leading-snug ${compact ? "text-sm" : "text-base sm:text-lg"} ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
         >
           {item}
-          {item === "Artist honorarium" && (
+          {item === HONORARIUM_ITEM && (
             <span
               className={`block text-neutral-400 dark:text-neutral-500 ${compact ? "text-xs" : "text-xs sm:text-sm"}`}
             >
-              Recognizes the performance itself. Any amount goes a long way.
+              {HONORARIUM_DEFINITION}
             </span>
           )}
         </span>
@@ -985,7 +1004,7 @@ export default function SponsorForm({
 
           {/* Host: checkboxes */}
           <section>
-            <h2 className={headingClass}>Ways to contribute</h2>
+            <h2 className={headingClass}>{pending ? "Potential contributions" : "Ways to contribute"}</h2>
 
             {/* Mobile / tablet: CSS columns */}
             <div
@@ -1056,7 +1075,9 @@ export default function SponsorForm({
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
           {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
-              Pick a suggestion, or type the entire address
+              {pending
+                ? "Address and date optional: the host fills in where and when at confirmation."
+                : "Pick a suggestion, or type the entire address"}
             </p>
           )}
           {wizardMode === "host" && hasLocation && (
