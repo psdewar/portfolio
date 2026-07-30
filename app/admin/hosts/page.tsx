@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
-import { type Show, isShowDraft, isShowListed } from "../../lib/shows";
+import { type Show, isShowDraft, isShowListed, isShowListable } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { type Leg, type PamphletFacet, FUND_LEGS } from "../../fund/legs";
@@ -452,15 +452,30 @@ export default function HostsAdminPage() {
     }
   }
 
-  // Press-kit invites are shows created without a host record yet. Surface each
-  // as its own group so its poster art can be set and confirm link copied.
+  // Shows without a host record: press-kit invites awaiting a host, plus listed
+  // shows added directly (e.g. logged after the fact). Surface each as its own
+  // group, carrying the show's own date/location so it lands in the right
+  // section. Unlisted and cancelled bookings don't count as stops here.
   const representedSlugs = new Set(groups.map((g) => g.showSlug));
   for (const show of shows) {
-    if (isShowDraft(show) && !representedSlugs.has(show.slug)) {
+    if (!representedSlugs.has(show.slug) && (isShowDraft(show) || isShowListable(show))) {
       groups.push({
         showSlug: show.slug,
         show,
-        host: { showSlug: show.slug, name: "", email: "", phone: "", items: [], submittedAt: "", role: "host" },
+        host: {
+          showSlug: show.slug,
+          name: "",
+          email: "",
+          phone: "",
+          city: show.city,
+          region: show.region,
+          venue: show.venue ?? undefined,
+          date: show.date,
+          doorTime: show.doorTime ?? undefined,
+          items: [],
+          submittedAt: "",
+          role: "host",
+        },
         supporters: [],
       });
     }
