@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Show } from "../../lib/shows";
-import { isDatePast, formatMonthDay } from "../../lib/dates";
+import { type Show, completedShows } from "../../lib/shows";
+import { formatMonthDay } from "../../lib/dates";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
@@ -176,13 +176,7 @@ export function AudienceEmailer() {
     }
   }, [loading, templates]);
 
-  const pastShows = useMemo(
-    () =>
-      shows
-        .filter((s) => isDatePast(s.date))
-        .sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [shows],
-  );
+  const pastShows = useMemo(() => completedShows(shows), [shows]);
 
   const locationGroups = useMemo(() => {
     const map = new Map<

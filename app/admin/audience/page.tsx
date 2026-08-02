@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Show } from "../../lib/shows";
-import { isDatePast, formatMonthDay } from "../../lib/dates";
+import { type Show, completedShows } from "../../lib/shows";
+import { formatMonthDay } from "../../lib/dates";
 import { AudienceEmailer } from "./AudienceEmailer";
 
 interface AddedContact {
@@ -37,13 +37,7 @@ export default function AudienceAdminPage() {
       .catch(() => setShows([]));
   }, []);
 
-  const pastShows = useMemo(
-    () =>
-      shows
-        .filter((s) => isDatePast(s.date))
-        .sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [shows],
-  );
+  const pastShows = useMemo(() => completedShows(shows), [shows]);
 
   const showLabel = (slug: string) => {
     const s = pastShows.find((p) => p.slug === slug);

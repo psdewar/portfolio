@@ -218,23 +218,34 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
 // show-date order; every other city groups its moments where it first appears,
 // so each stop gets exactly one slate; cityless moments keep featured order at
 // the end.
+// The current funding leg's city labels in show-date order; these cities always
+// lead the public slideshow.
+export async function legCityOrder(legSlug?: string): Promise<string[]> {
+  try {
+    const slug = legSlug || (await getFundingLegSlug());
+    if (!slug) return [];
+    const shows = await getShows();
+    const out: string[] = [];
+    for (const s of shows
+      .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
+      const label = showLabel(s);
+      if (!out.includes(label)) out.push(label);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export async function orderByFundingLeg(
   keys: string[],
   cities: Record<string, string>,
   legSlug?: string,
 ): Promise<string[]> {
   try {
-    const slug = legSlug || (await getFundingLegSlug());
     const rank = new Map<string, number>();
-    if (slug) {
-      const shows = await getShows();
-      for (const s of shows
-        .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
-        const label = showLabel(s);
-        if (!rank.has(label)) rank.set(label, rank.size);
-      }
-    }
+    for (const label of await legCityOrder(legSlug)) rank.set(label, rank.size);
     for (const k of keys) {
       const city = cities[k];
       if (city && !rank.has(city)) rank.set(city, rank.size);

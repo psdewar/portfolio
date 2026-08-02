@@ -62,24 +62,51 @@ export default function LegsManager({
       },
     }));
 
+  const lineKeyOf = (line: FundLine) => line.key || keyFromLabel(line.label);
+
   const removeLine = (slug: string, idx: number) =>
-    patchLeg(slug, (l) => ({
-      ...l,
-      fund: { ...emptyFund(), ...l.fund, lines: (l.fund?.lines ?? []).filter((_, i) => i !== idx) },
-    }));
+    patchLeg(slug, (l) => {
+      const lines = l.fund?.lines ?? [];
+      const removedKey = lines[idx] ? lineKeyOf(lines[idx]) : "";
+      const covered = (l.fund?.coveredInKind ?? []).filter((k) => k !== removedKey);
+      return {
+        ...l,
+        fund: {
+          ...emptyFund(),
+          ...l.fund,
+          lines: lines.filter((_, i) => i !== idx),
+          coveredInKind: covered.length ? covered : undefined,
+        },
+      };
+    });
+
+  const toggleCovered = (slug: string, key: string) =>
+    patchLeg(slug, (l) => {
+      const covered = l.fund?.coveredInKind ?? [];
+      const next = covered.includes(key) ? covered.filter((k) => k !== key) : [...covered, key];
+      return {
+        ...l,
+        fund: { ...emptyFund(), ...l.fund, coveredInKind: next.length ? next : undefined },
+      };
+    });
 
   const saveLeg = async (leg: Leg) => {
-    const fund = leg.fund
-      ? {
-          ...leg.fund,
-          nights: Number(leg.fund.nights) || 0,
-          lines: (leg.fund.lines ?? []).map((ln) => ({
-            ...ln,
-            key: ln.key || keyFromLabel(ln.label),
-            amount: Number(ln.amount) || 0,
-          })),
-        }
-      : undefined;
+    let fund: FundFacet | undefined;
+    if (leg.fund) {
+      const lines = (leg.fund.lines ?? []).map((ln) => ({
+        ...ln,
+        key: ln.key || keyFromLabel(ln.label),
+        amount: Number(ln.amount) || 0,
+      }));
+      const lineKeys = new Set(lines.map((ln) => ln.key));
+      const covered = (leg.fund.coveredInKind ?? []).filter((k) => lineKeys.has(k));
+      fund = {
+        ...leg.fund,
+        nights: Number(leg.fund.nights) || 0,
+        lines,
+        coveredInKind: covered.length ? covered : undefined,
+      };
+    }
     const res = await fetch("/api/legs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -135,6 +162,7 @@ export default function LegsManager({
           {legs.map((leg) => {
             const fund = leg.fund;
             const lines = fund?.lines ?? [];
+            const coveredKeys = new Set(fund?.coveredInKind ?? []);
             const total = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
             const legShows = shows
               .filter((s) => s.leg === leg.slug)
@@ -261,40 +289,71 @@ export default function LegsManager({
                           <span className="flex-[2]">Label</span>
                           <span className="flex-[3]">Note</span>
                           <span className="w-24 lg:w-28">Amount</span>
+                          <span className="w-9 text-center" title="Covered in kind">
+                            ✓
+                          </span>
                           <span className="w-9" />
                         </div>
                       )}
-                      {lines.map((line, idx) => (
-                        <div key={idx} className="flex gap-2 items-center">
-                          <input
-                            className={`${lineInput} flex-[2]`}
-                            placeholder="Label"
-                            value={line.label}
-                            onChange={(e) => setLine(leg.slug, idx, { label: e.target.value })}
-                          />
-                          <input
-                            className={`${lineInput} flex-[3]`}
-                            placeholder="Note"
-                            value={line.note}
-                            onChange={(e) => setLine(leg.slug, idx, { note: e.target.value })}
-                          />
-                          <input
-                            className={`${lineInput} w-24 lg:w-28 shrink-0`}
-                            type="number"
-                            min="0"
-                            placeholder="$"
-                            value={line.amount || ""}
-                            onChange={(e) => setLine(leg.slug, idx, { amount: Number(e.target.value) })}
-                          />
-                          <button
-                            onClick={() => removeLine(leg.slug, idx)}
-                            className={`${touch} w-9 shrink-0 inline-flex items-center justify-center text-lg text-neutral-400 hover:text-red-500 transition-colors`}
-                            aria-label="Remove line"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                      {lines.map((line, idx) => {
+                        const lineKey = lineKeyOf(line);
+                        const isCovered = coveredKeys.has(lineKey);
+                        return (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              className={`${lineInput} flex-[2]`}
+                              placeholder="Label"
+                              value={line.label}
+                              onChange={(e) => setLine(leg.slug, idx, { label: e.target.value })}
+                            />
+                            <input
+                              className={`${lineInput} flex-[3]`}
+                              placeholder="Note"
+                              value={line.note}
+                              onChange={(e) => setLine(leg.slug, idx, { note: e.target.value })}
+                            />
+                            <input
+                              className={`${lineInput} w-24 lg:w-28 shrink-0`}
+                              type="number"
+                              min="0"
+                              placeholder="$"
+                              value={line.amount || ""}
+                              onChange={(e) => setLine(leg.slug, idx, { amount: Number(e.target.value) })}
+                            />
+                            <button
+                              onClick={() => toggleCovered(leg.slug, lineKey)}
+                              aria-pressed={isCovered}
+                              aria-label={`${line.label || "Line"} covered in kind`}
+                              title="Covered in kind"
+                              className={`${touch} w-9 shrink-0 inline-flex items-center justify-center transition-colors ${
+                                isCovered
+                                  ? "text-[#d4a553]"
+                                  : "text-neutral-300 dark:text-neutral-600 hover:text-neutral-500"
+                              }`}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => removeLine(leg.slug, idx)}
+                              className={`${touch} w-9 shrink-0 inline-flex items-center justify-center text-lg text-neutral-400 hover:text-red-500 transition-colors`}
+                              aria-label="Remove line"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
                       <button
                         onClick={() => addLine(leg.slug)}
                         className={`${touch} inline-flex items-center text-sm lg:text-base text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors`}

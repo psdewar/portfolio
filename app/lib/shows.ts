@@ -1,3 +1,5 @@
+import { isDatePast } from "./dates";
+
 export interface Show {
   slug: string;
   name: string;
@@ -87,6 +89,19 @@ export function isShowListable(
 // Every real stop, unlisted included — for the fund page; public uses isShowListable.
 export function isShowOnTrip(show: Pick<Show, "status" | "stage" | "visibility">): boolean {
   return show.status !== "cancelled" && !isShowDraft(show);
+}
+
+// A completed show: a real stop (confirmed, not cancelled) whose date has passed.
+// Nothing writes stage "complete" yet, so completion is derived, not read.
+export function isShowCompleted(
+  show: Pick<Show, "date" | "status" | "stage" | "visibility">,
+): boolean {
+  return isShowOnTrip(show) && isDatePast(show.date);
+}
+
+// The single source for stay-connected lists: completed shows, newest first.
+export function completedShows(shows: Show[]): Show[] {
+  return shows.filter(isShowCompleted).sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 export async function getUpcomingShows(): Promise<Show[]> {

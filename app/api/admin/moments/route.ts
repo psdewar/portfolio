@@ -19,6 +19,7 @@ import {
   deleteMomentArtifacts,
   renameMomentArtifacts,
   resolveCities,
+  legCityOrder,
 } from "../../shared/moments";
 
 const URL_TTL = 3600;
@@ -55,12 +56,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [list, previewList, featuredKeys, thumbs, ogKey] = await Promise.all([
+  const [list, previewList, featuredKeys, thumbs, ogKey, legCities] = await Promise.all([
     s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 })),
     s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "previews/", MaxKeys: 1000 })),
     getFeatured(),
     getThumbs(),
     getOgKey(),
+    legCityOrder(),
   ]);
   const featured = new Set(featuredKeys);
 
@@ -112,6 +114,7 @@ export async function GET(request: Request) {
     pending,
     featuredKeys,
     ogKey,
+    legCities,
     truncated: list.IsTruncated || false,
   });
 }

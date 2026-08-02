@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface MomentItem {
   key: string;
@@ -65,6 +65,26 @@ function formatDuration(s: number) {
   return `${m}:${sec < 10 ? "0" : ""}${sec}`;
 }
 
+// Mirrors orderByFundingLeg in app/api/shared/moments.ts: leg cities lead in
+// show-date order, other cities rank by their first tile, no-city sinks to the end.
+function publicOrder(
+  keys: string[],
+  cityOf: (key: string) => string | undefined,
+  legCities: string[],
+): string[] {
+  const rank = new Map<string, number>();
+  for (const c of legCities) rank.set(c, rank.size);
+  for (const k of keys) {
+    const c = cityOf(k);
+    if (c && !rank.has(c)) rank.set(c, rank.size);
+  }
+  if (rank.size === 0) return keys;
+  return keys
+    .map((k, i) => ({ k, i, r: cityOf(k) ? rank.get(cityOf(k)!)! : Infinity }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((e) => e.k);
+}
+
 function videoQuality(w: number, h: number) {
   const p = Math.min(w, h);
   if (p >= 2160) return { label: "4K", tier: 4 };
@@ -78,6 +98,7 @@ export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
+  const [legCities, setLegCities] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -91,6 +112,7 @@ export default function MomentsAdminPage() {
       setItems(Array.isArray(data.items) ? data.items : []);
       setPending(Array.isArray(data.pending) ? data.pending : []);
       setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
+      setLegCities(Array.isArray(data.legCities) ? data.legCities : []);
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
     } catch (err) {
@@ -125,7 +147,7 @@ export default function MomentsAdminPage() {
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
   );
-  const featuredItems = featuredKeys
+  const featuredItems = publicOrder(featuredKeys, (k) => itemByKey.get(k)?.city, legCities)
     .map((k) => itemByKey.get(k))
     .filter((it): it is MomentItem => Boolean(it));
 
@@ -224,6 +246,7 @@ export default function MomentsAdminPage() {
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
+              legCities={legCities}
               onReorder={persistOrder}
               onRemove={(key) =>
                 toggleFeatured(key, false).catch(() =>
@@ -655,10 +678,12 @@ function PendingStrip({
 
 function SlideshowReorder({
   items,
+  legCities,
   onReorder,
   onRemove,
 }: {
   items: MomentItem[];
+  legCities: string[];
   onReorder: (keys: string[]) => void;
   onRemove: (key: string) => void;
 }) {
@@ -667,6 +692,9 @@ function SlideshowReorder({
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
   );
+  const cityOf = (k: string) => byKey.get(k)?.city;
+  const legSet = useMemo(() => new Set(legCities), [legCities]);
+  const snap = (next: string[]) => publicOrder(next, cityOf, legCities);
   const [drag, setDrag] = useState<{ key: string; order: string[] } | null>(null);
   const order = drag ? drag.order : keys;
 
@@ -703,11 +731,64 @@ function SlideshowReorder({
     };
   }, [imgSig]);
 
-  function startDrag(e: React.PointerEvent, key: string) {
-    e.currentTarget.setPointerCapture(e.pointerId);
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const blockScroll = useRef<((e: TouchEvent) => void) | null>(null);
+
+  useEffect(
+    () => () => {
+      if (press.current) clearTimeout(press.current.timer);
+      if (blockScroll.current) document.removeEventListener("touchmove", blockScroll.current);
+    },
+    [],
+  );
+
+  function clearPress() {
+    if (press.current) {
+      clearTimeout(press.current.timer);
+      press.current = null;
+    }
+  }
+  function releaseScroll() {
+    if (blockScroll.current) {
+      document.removeEventListener("touchmove", blockScroll.current);
+      blockScroll.current = null;
+    }
+  }
+  function lift(el: HTMLElement, pointerId: number, key: string) {
+    const stop = (ev: TouchEvent) => ev.preventDefault();
+    document.addEventListener("touchmove", stop, { passive: false });
+    blockScroll.current = stop;
+    try {
+      el.setPointerCapture(pointerId);
+    } catch {}
     setDrag({ key, order: keys });
   }
+  // Mouse drags immediately; touch lifts after a hold so horizontal swipes still
+  // scroll the strip.
+  function startDrag(e: React.PointerEvent, key: string) {
+    const el = e.currentTarget as HTMLElement;
+    if (e.pointerType === "mouse") {
+      el.setPointerCapture(e.pointerId);
+      setDrag({ key, order: keys });
+      return;
+    }
+    const pointerId = e.pointerId;
+    press.current = {
+      x: e.clientX,
+      y: e.clientY,
+      timer: window.setTimeout(() => {
+        press.current = null;
+        lift(el, pointerId, key);
+      }, 350),
+    };
+  }
   function dragOver(e: React.PointerEvent) {
+    if (press.current) {
+      if (Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 8) {
+        clearPress();
+      }
+      return;
+    }
     if (!drag) return;
     const overKey = document
       .elementFromPoint(e.clientX, e.clientY)
@@ -719,18 +800,22 @@ function SlideshowReorder({
     if (next.join("|") !== drag.order.join("|")) setDrag({ key: drag.key, order: next });
   }
   function endDrag() {
+    clearPress();
+    releaseScroll();
     if (!drag) return;
-    if (drag.order.join("|") !== keys.join("|")) onReorder(drag.order);
+    const next = snap(drag.order);
+    if (next.join("|") !== keys.join("|")) onReorder(next);
     setDrag(null);
   }
   function step(key: string, delta: number) {
     const from = keys.indexOf(key);
     const to = from + delta;
     if (to < 0 || to >= keys.length) return;
-    const next = [...keys];
-    next.splice(from, 1);
-    next.splice(to, 0, key);
-    onReorder(next);
+    const stepped = [...keys];
+    stepped.splice(from, 1);
+    stepped.splice(to, 0, key);
+    const next = snap(stepped);
+    if (next.join("|") !== keys.join("|")) onReorder(next);
   }
 
   return (
@@ -749,15 +834,33 @@ function SlideshowReorder({
           const item = byKey.get(key);
           if (!item) return null;
           const dragging = drag?.key === key;
+          const city = item.city;
+          const groupStart = i === 0 || cityOf(order[i - 1]) !== city;
+          const isLeg = !!city && legSet.has(city);
           return (
+            <div key={key} className="flex shrink-0 gap-3">
+              {groupStart && (
+                <div className="flex items-center">
+                  <span
+                    style={{ writingMode: "vertical-rl" }}
+                    className={`rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                      isLeg
+                        ? "text-[#d4a553]"
+                        : city
+                          ? "text-neutral-400 dark:text-neutral-500"
+                          : "text-amber-500"
+                    }`}
+                  >
+                    {city || "No city"}
+                  </span>
+                </div>
+              )}
             <div
-              key={key}
               data-key={key}
               onPointerDown={(e) => startDrag(e, key)}
               onPointerMove={dragOver}
               onPointerUp={endDrag}
               onPointerCancel={endDrag}
-              style={{ touchAction: "pan-y" }}
               className={`relative shrink-0 w-28 cursor-grab select-none overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 transition-shadow ${
                 dragging ? "cursor-grabbing opacity-60 shadow-lg ring-2 ring-[#d4a553]" : ""
               }`}
@@ -774,7 +877,7 @@ function SlideshowReorder({
                 onClick={() => onRemove(item.key)}
                 aria-label="Remove from slideshow"
                 title="Remove from slideshow"
-                className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
+                className="absolute top-1 right-1 inline-flex h-9 w-9 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
               >
                 <CloseIcon />
               </button>
@@ -785,7 +888,7 @@ function SlideshowReorder({
                   onClick={() => step(key, -1)}
                   disabled={i === 0}
                   aria-label="Move earlier"
-                  className="flex flex-1 items-center justify-center bg-black/55 py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
+                  className="flex flex-1 items-center justify-center bg-black/55 py-3 sm:py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
                 >
                   <ChevronLeftIcon />
                 </button>
@@ -795,17 +898,19 @@ function SlideshowReorder({
                   onClick={() => step(key, 1)}
                   disabled={i === order.length - 1}
                   aria-label="Move later"
-                  className="flex flex-1 items-center justify-center border-l border-white/15 bg-black/55 py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
+                  className="flex flex-1 items-center justify-center border-l border-white/15 bg-black/55 py-3 sm:py-1.5 text-white transition-colors hover:bg-[#d4a553] hover:text-[#0a0a0a] disabled:opacity-30 disabled:hover:bg-black/55 disabled:hover:text-white"
                 >
                   <ChevronRightIcon />
                 </button>
               </div>
             </div>
+            </div>
           );
         })}
       </div>
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        Drag a tile to reorder the slideshow, or nudge with the arrows. ✕ removes it.
+        Drag to reorder, hold first on mobile, or nudge with the arrows. ✕ removes it.
+        Gold cities lead while their leg is active.
       </p>
     </section>
   );
