@@ -54,7 +54,7 @@ export function Navbar() {
             {isHirePage && (
               <div className="hidden lg:flex items-center gap-2">
                 <Link
-                  href="/resume.pdf"
+                  href="/resume"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-lyrist text-white text-sm font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -116,7 +116,7 @@ export function Navbar() {
             {isHirePage && (
               <div className="md:hidden flex items-center gap-1.5">
                 <Link
-                  href="/resume.pdf"
+                  href="/resume"
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-lyrist text-white text-xs font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
                   target="_blank"
                   rel="noopener noreferrer"
