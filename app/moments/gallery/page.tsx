@@ -1,0 +1,34 @@
+import type { Metadata } from "next";
+import MomentsGallery from "../MomentsGallery";
+
+const title = "Moments from the road";
+const description = "Photos and videos from From The Ground Up concerts across North America.";
+const url = "https://peytspencer.com/moments/gallery";
+const ogImage = "https://peytspencer.com/og/home.jpeg";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: "/moments/gallery" },
+  openGraph: {
+    title,
+    description,
+    url,
+    siteName: "Peyt Spencer",
+    images: [{ url: ogImage }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [ogImage],
+  },
+};
+
+export default function GalleryPage() {
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4">
+      <MomentsGallery />
+    </div>
+  );
+}
