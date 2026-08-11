@@ -11,16 +11,16 @@
     --paper: #FBFAF6;
     --ink: #1B1A17;
     --muted: #6E6A60;
-    --accent: #1E6B50;
-    --hairline: #E3E0D6;
-    --band: #F1EFE7;
+    --accent: #BE185D;
+    --hairline: #E7E0D6;
+    --band: #F3EFE8;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #171613;
       --ink: #EAE7DF;
       --muted: #9B968A;
-      --accent: #5FBD97;
+      --accent: #F9A8C4;
       --hairline: #2E2C27;
       --band: #201F1B;
     }
@@ -29,7 +29,7 @@
     --paper: #171613;
     --ink: #EAE7DF;
     --muted: #9B968A;
-    --accent: #5FBD97;
+    --accent: #F9A8C4;
     --hairline: #2E2C27;
     --band: #201F1B;
   }
@@ -55,6 +55,7 @@
     font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
     font-weight: 700;
     font-size: 2rem;
+    line-height: 1.2;
     letter-spacing: -0.01em;
     margin: 0;
     text-wrap: balance;
@@ -62,14 +63,28 @@
   .roleline {
     font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
     font-weight: 500;
+    line-height: 1.4;
     color: var(--accent);
-    margin: 0.35rem 0 0;
+    margin: 0.55rem 0 0;
+  }
+  .roleline {
+    background: linear-gradient(90deg, #FB923C, #EC4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    width: fit-content;
+  }
+  @media print {
+    .roleline { background: none; color: var(--accent); -webkit-text-fill-color: currentColor; }
   }
   .contact {
     color: var(--muted);
-    margin: 0.35rem 0 0;
+    line-height: 1.4;
+    margin: 0.3rem 0 0;
     font-size: 0.9375rem;
   }
+  .contact a { color: inherit; text-decoration: none; }
+  .contact a:hover, .contact a:focus-visible { text-decoration: underline; }
   .contact span + span::before { content: "·"; margin: 0 0.5em; color: var(--hairline); }
 
   .thesis {
@@ -108,9 +123,6 @@
     gap: 1rem;
     margin-top: 1rem;
   }
-  @media (max-width: 420px) {
-    .stats { grid-template-columns: 1fr; }
-  }
   .stat b {
     display: block;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -118,6 +130,7 @@
     font-size: 1.875rem;
     font-weight: 600;
     line-height: 1.15;
+    white-space: nowrap;
   }
   .stat small { color: var(--muted); font-size: 0.875rem; line-height: 1.3; display: block; margin-top: 0.25rem; }
   .arc {
@@ -177,6 +190,11 @@
     font-weight: 600;
     font-size: 0.9375rem;
     margin: 0.9rem 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.15rem 1rem;
   }
   .era span {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -187,7 +205,9 @@
     margin-left: 0.5em;
   }
   .job li { margin-top: 0.3rem; max-width: 68ch; }
-  .job li::marker { color: var(--accent); }
+  .job ul.hats { list-style: none; padding-left: 0; }
+  .job ul.hats li { margin-top: 0.5rem; }
+  .job li::marker { color: var(--ink); }
 
   .meta-grid {
     display: grid;
@@ -201,13 +221,33 @@
   }
   .meta-grid dd { margin: 0; }
 
+  .tip, .job a {
+    -webkit-tap-highlight-color: transparent;
+  }
   .tip {
     border-bottom: 1px dotted var(--muted);
     cursor: help;
     position: relative;
   }
-  .tip:hover::after, .tip:focus::after {
+  .tip::before {
+    content: "";
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0);
+    pointer-events: none;
+    position: absolute;
+    left: 0.7rem;
+    bottom: calc(135% - 10px);
+    border: 5px solid transparent;
+    border-top-color: var(--ink);
+    z-index: 41;
+  }
+  .tip::after {
     content: attr(data-tip);
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0);
+    pointer-events: none;
     position: absolute;
     left: 0;
     bottom: 135%;
@@ -222,12 +262,49 @@
     max-width: 16rem;
     z-index: 40;
   }
-  .tip:focus { outline: none; }
-  @media print { .tip { border-bottom: none; } }
+  @media (hover: none), (pointer: coarse) {
+    .tip-toggle:checked + .tip::after { visibility: visible; opacity: 1; transform: none; }
+    .tip-toggle:checked + .tip::before { visibility: visible; opacity: 1; transform: none; }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tip.tip-open::after { visibility: visible; opacity: 1; transform: none; }
+    .tip.tip-open::before { visibility: visible; opacity: 1; transform: none; }
+  }
+  @media (min-width: 561px) {
+    .tip.tip-flip::after { left: auto; right: 0; }
+    .tip.tip-flip::before { left: auto; right: 0.7rem; }
+  }
+  .tip { cursor: help; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .tip-toggle { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+  .tip-toggle:focus-visible + .tip { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media print { .tip { border-bottom: none; } .tip-toggle { display: none; } .tip::after, .tip::before { content: none !important; } }
 
   .edu { display: grid; grid-template-columns: 7rem 1fr; column-gap: 1.25rem; align-items: center; }
   .edu img { height: 2rem; width: auto; }
 
+  @media (max-width: 560px) {
+    .page { padding: 2rem 1.25rem 3rem; }
+    header h1 { font-size: 1.75rem; }
+    .contact { margin-top: 0.2rem; }
+    .claude-band { padding: 1rem 1rem 1.1rem; }
+    .stats { grid-auto-flow: row; grid-template-columns: 1fr 1fr; justify-content: stretch; gap: 0.9rem 1rem; }
+    .stat b { font-size: 1.375rem; white-space: nowrap; letter-spacing: -0.02em; }
+    .stat small { font-size: 0.8125rem; margin-top: 0.2rem; }
+    .job li { margin-top: 0.45rem; }
+    .job li { position: relative; }
+    .tip::before { display: block; left: var(--tip-x, 1rem); bottom: calc(var(--tip-y, 100%) + 0.35rem - 10px); }
+    .tip { position: static; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    .tip::after {
+      left: 0; right: 0; bottom: calc(var(--tip-y, 100%) + 0.35rem);
+      width: auto; max-width: none;
+    }
+  }
+  @media (max-width: 640px) {
+    .stats { grid-auto-flow: row; grid-template-columns: 1fr 1fr; justify-content: stretch; gap: 0.9rem 1rem; }
+  }
+  @media (max-width: 360px) {
+    .stat b { font-size: 1.25rem; }
+  }
   @media (max-width: 480px) {
     .claude-band { margin: 2rem 0 0; }
     .meta-grid { grid-template-columns: 1fr; gap: 0.1rem; }
@@ -235,107 +312,43 @@
     .edu { grid-template-columns: 1fr; row-gap: 0.4rem; }
   }
   @media print {
-    :root { --paper: #fff; --ink: #000; --muted: #444; --accent: #1E6B50; --hairline: #ccc; --band: #f3f2ee; }
-    body { font-size: 10pt; line-height: 1.35; }
+    :root { --paper: #fff; --ink: #000; --muted: #444; --accent: #BE185D; --hairline: #ccc; --band: #f3f2ee; }
+    body { font-size: 11pt; line-height: 1.4; }
+    .ms { break-before: page; margin-top: 0; }
+    .ms .job-head { display: none; }
+    .ms-teaser { display: block; }
+    .ms .job { break-inside: auto; }
     .page { padding: 0; max-width: none; }
-    header h1 { font-size: 16pt; }
-    .roleline { font-size: 10.5pt; margin-top: 0.1rem; }
+    header h1 { font-size: 18pt; }
+    .roleline { font-size: 11.5pt; margin-top: 0.1rem; }
     .claude-band { margin: 0.6rem 0 0; padding: 0.6rem 0.8rem 0.7rem; break-inside: avoid; }
     .stats { margin-top: 0.5rem; }
-    .stat b { font-size: 12pt; }
-    .stat small { font-size: 8pt; margin-top: 0.1rem; }
+    .stat b { font-size: 13.5pt; }
+    .stat small { font-size: 8.75pt; margin-top: 0.1rem; }
     section { margin-top: 0.9rem; }
     section > h2 { padding-bottom: 0.2rem; margin-bottom: 0.5rem; }
     .job { margin-top: 0.7rem; break-inside: avoid; }
     .job ul { margin-top: 0.2rem; }
     .job li { margin-top: 0.12rem; max-width: none; }
-    .era { margin-top: 0.5rem; font-size: 10pt; }
+    .job ul.hats li { margin-top: 0.25rem; }
+    .era { margin-top: 0.55rem; font-size: 11pt; display: block; }
     .meta-grid { gap: 0.15rem 1.25rem; }
     .edu img { height: 1.4rem; }
     a { color: inherit; }
   }
 
-  .ed-line { border-radius: 2px; }
-  .ed-line:hover { box-shadow: inset 0 0 0 1px var(--hairline); cursor: text; }
-  .ed-line:focus { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none; }
-  .ed-dirty { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-  .ed-removed { display: none; }
-  #ed-toolbar {
-    position: fixed; right: 1rem; bottom: 1rem; z-index: 50;
-    display: flex; gap: 0.4rem; align-items: center;
-    font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
-    font-size: 0.8125rem;
-    max-width: calc(100vw - 2rem);
+  @media screen { .ms-teaser { display: none; } }
+  @media screen {
+    .page { display: flex; flex-direction: column; }
+    .page > header { order: 1; }
+    .page > .claude-band { order: 2; }
+    .page > section:nth-of-type(1) { order: 3; }
+    .page > section.ms { order: 4; }
+    .page > section:nth-of-type(2) { order: 5; }
+    .page > section:nth-of-type(3) { order: 6; }
+    .page > section.ms { margin-top: 2.25rem; }
   }
-  #ed-chip {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--ink); color: var(--paper); border: 0;
-    font-size: 15px; line-height: 1; padding: 0; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  }
-  #ed-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  #ed-modal {
-    position: fixed; inset: 0; z-index: 70;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex; align-items: center; justify-content: center; padding: 1rem;
-  }
-  #ed-modal div {
-    background: var(--paper); border: 1px solid var(--hairline); border-radius: 10px;
-    padding: 1rem; max-width: 34rem; width: 100%;
-    display: flex; flex-direction: column; gap: 0.75rem;
-    font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
-  }
-  #ed-modal p { margin: 0; font-size: 0.875rem; }
-  #ed-modal textarea {
-    width: 100%; min-height: 10rem; resize: vertical;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.8125rem;
-    color: var(--ink); background: var(--band);
-    border: 1px solid var(--hairline); border-radius: 6px; padding: 0.5rem;
-  }
-  #ed-modal button {
-    align-self: flex-end;
-    font: inherit; font-weight: 600; font-size: 0.8125rem;
-    background: var(--ink); color: var(--paper);
-    border: 0; border-radius: 6px; padding: 0.35rem 0.8rem; cursor: pointer;
-  }
-  .ed-tools {
-    display: none; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;
-    background: var(--band); border: 1px solid var(--hairline); border-radius: 8px;
-    padding: 0.4rem 0.5rem;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
-  }
-  #ed-toolbar:hover .ed-tools, #ed-toolbar:focus-within .ed-tools, #ed-toolbar.ed-open .ed-tools { display: flex; }
-  #ed-toolbar button {
-    font: inherit; font-weight: 600; background: var(--ink); color: var(--paper);
-    border: 0; border-radius: 6px; padding: 0.35rem 0.6rem; cursor: pointer;
-  }
-  #ed-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  #ed-toolbar button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--hairline); }
-  #ed-toolbar button:disabled { opacity: 0.5; cursor: default; }
-  #ed-del {
-    position: absolute; z-index: 60; width: 22px; height: 22px; border-radius: 50%;
-    border: 1px solid var(--hairline); background: var(--band); color: var(--muted);
-    font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
-    font-size: 13px; font-weight: 700; line-height: 1; padding: 0;
-    cursor: pointer; display: none; align-items: center; justify-content: center;
-  }
-  #ed-del:hover { color: #B3261E; border-color: #B3261E; }
-  #ed-del:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .ed-add {
-    margin-top: 0.5rem;
-    font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif;
-    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-    background: transparent; color: var(--muted);
-    border: 1px dashed var(--hairline); border-radius: 6px;
-    padding: 0.3rem 0.6rem; cursor: pointer;
-  }
-  .ed-add:hover { color: var(--accent); border-color: var(--accent); }
-  .ed-add:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  @media print {
-    #ed-toolbar, #ed-del, .ed-add { display: none !important; }
-    .ed-line { box-shadow: none !important; background: transparent !important; }
-  }
+
 </style>
 <style>
   .pdf-link-row { max-width: 46rem; margin: 0 auto; padding: 0 1.5rem 3rem; text-align: center; }
@@ -349,6 +362,7 @@
   <header>
     <h1>Peyt Spencer Dewar</h1>
     <p class="roleline">Touring artist · Founder · Software engineer</p>
+    <p class="contact">Bellevue, WA · <a href="mailto:psdewar2@gmail.com">psdewar2@gmail.com</a></p>
   </header>
 
   <div class="claude-band">
@@ -358,9 +372,9 @@
     </div>
     <div class="stats">
       <div class="stat"><b>3.7 Sonnet</b><small>first Claude model</small></div>
-      <div class="stat"><b>Dec 27 ’25</b><small>first Claude Code session</small></div>
-      <div class="stat"><b>376</b><small>CLI sessions since</small></div>
-      <div class="stat"><b>19,024</b><small>Claude Code prompts<br>0 raps written by AI</small></div>
+      <div class="stat"><b>Dec 27 '25</b><small>first Claude Code session</small></div>
+      <div class="stat"><b>377</b><small>CLI sessions since</small></div>
+      <div class="stat"><b>19,266</b><small>Claude Code prompts<br>0 raps written by AI</small></div>
     </div>
   </div>
 
@@ -372,13 +386,13 @@
         <h3>From the Ground Up Tour <span>· I wear all the hats</span></h3>
         <span class="dates">since Mar 2026</span>
       </div>
-      <ul>
-        <li><b>Rapper:</b> Presented 16 concerts (and counting) for hundreds of people of all ages</li>
-        <li><b>Booking agent:</b> Filled calendar through my own outreach pipeline, finding enthusiastic hosts in thousands of communities across North America</li>
-        <li><b>Promoter:</b> Launched <a href="https://peytspencer.com/sponsor/confirm/draft-0?sig=87c145558dc23f1ad327a383e0bcf02b">press kit sponsor form</a> that turns bookings into poster, RSVP link, and Eventbrite page on the spot</li>
-        <li><b>Fundraiser:</b> Brought in over $6K, mostly <span class="tip" tabindex="0" data-tip="Plural of honorarium: a monetary gift that recognizes the artistic performance itself">honoraria</span> plus merch sales and donations, while hosts covered flights, car rentals, lodging, and venue space</li>
-        <li><b>Accountant:</b> Wrote ledger to reconcile every expense and payment across banks, Venmo, Zelle, and Stripe into monthly summaries</li>
-        <li><b>Content creator:</b> Published dozens of videos for my 1.8K supporters on Instagram after editing with DaVinci Resolve and timing subtitles word for word with OpenAI Whisper</li>
+      <ul class="hats">
+        <li><b>Rapper:</b> Presented 16 concerts (and counting) across North America for <a href="https://peytspencer.com/moments/gallery" target="_blank" rel="noopener">hundreds of people of all ages</a></li>
+        <li><b>Booking agent:</b> Wrote outreach pipeline that sourced and tracked hundreds of prospective hosts through contact-to-booking state machine, filling the calendar by email and phone</li>
+        <li><b>Promoter:</b> Launched <a href="https://peytspencer.com/sponsor/confirm/draft-0?sig=87c145558dc23f1ad327a383e0bcf02b" target="_blank" rel="noopener">press kit sponsor form</a> that turns a host’s yes into rendered poster, RSVP link, and Eventbrite listing</li>
+        <li><b>Fundraiser:</b> Brought in over $6K, mostly post-concert <input type="checkbox" id="tip-honoraria" class="tip-toggle"><label class="tip" for="tip-honoraria" data-tip="Plural of honorarium: a monetary gift that recognizes the artistic performance itself">honoraria</label> plus merch sales and donations, while hosts covered flights, car rentals, lodging, and venue space</li>
+        <li><b>Accountant:</b> Wrote MCP server that lets Claude query tour finances, pulling bank activity from signed-in browser session and comparing against ledger to reconcile anything unrecorded</li>
+        <li><b>Content creator:</b> Published dozens of videos for my <a href="https://www.instagram.com/peytspencer" target="_blank" rel="noopener">1.8K supporters on Instagram</a> after editing with DaVinci Resolve and force-aligning captions word for word with OpenAI Whisper</li>
       </ul>
     </div>
 
@@ -389,43 +403,20 @@
       </div>
       <ul>
         <li>Developed toolkit for songwriters to discover “artist type beats”, capture song ideas, and overcome writer’s block, earning over $10K in premium subscription revenue</li>
-        <li>Hired and managed team of content creators for marketing campaigns</li>
-        <li>Created web scraper to automate outreach to independent artists</li>
-        <li>Guided team of college students to design and launch writer’s block screen</li>
+        <li>Built scraper that mined YouTube for independent artists, extracting thousands of contact emails to automate outreach</li>
+        <li>Mentored underserved students through CodeDay across multiple summers, including 2 engineering interns and 1 product manager intern who designed and launched writer’s block screen</li>
+        <li>Hired 2 content creators who posted 100 TikToks each to market the app</li>
         <li>Started label “Lyrist Records” to independently release original hip-hop music</li>
       </ul>
     </div>
-
-    <div class="job">
+    <div class="job ms-teaser">
       <div class="job-head">
-        <h3>Microsoft <span>· Software Development Engineer</span></h3>
+        <h3>Microsoft <span>· Software Development Engineer: next page</span></h3>
         <span class="dates">since Aug 2016</span>
       </div>
-      <p class="era">Azure Incident Management UX <span>since 2024</span></p>
-      <ul>
-        <li>Pioneered AI-assisted engineering for Microsoft’s incident management mobile app, building library of AI skills that goes from feature description to tested code and prepared pull request in under 30 minutes</li>
-        <li>Raised test coverage from single digits to 50% across .NET services and 80% in the mobile app</li>
-        <li>Shipped React Native screens with acknowledgement controls that prevented accidental ownership changes, along with native iOS and Android widgets notifying responders of outages immediately, together helping them act faster</li>
-        <li>Upgraded on-call portal from legacy Angular to React, improving load times</li>
-        <li>Enforced Microsoft’s EU Data Boundary commitment end to end, blocking incident data from ever crossing regions</li>
-      </ul>
-      <p class="era">Office Scripts Services <span>2020 to 2024</span></p>
-      <ul>
-        <li>Migrated consent records and authentication away from deprecated data APIs and over-privileged tokens, modernizing REST services and NoSQL storage without disrupting customers or sign-in</li>
-        <li>Designed subscription and webhook APIs connecting Excel, Power Automate, and Microsoft Graph so automated flows could start when spreadsheets changed, landing Excel Triggers in private preview and raising service reliability to 99.9%</li>
-      </ul>
-      <p class="era">Office Scripts Team <span>2019 to 2020</span></p>
-      <ul>
-        <li>Wrote TypeScript libraries and REST APIs to save, load, version, and share Excel automations, achieving 100% unit-test coverage</li>
-        <li>Added integration tests and CI/CD release gates, protecting every release on the way to general availability in Excel, a modern alternative to macros serving close to 1M monthly customers</li>
-      </ul>
-      <p class="era">Outlook Extensibility Team <span>2016 to 2019</span></p>
-      <ul>
-        <li>Wrote API validation tool for Outlook add-ins across 5 clients: web, Windows, macOS, iOS, and Android, so engineers caught inconsistent API behavior before release and support teams diagnosed failures faster</li>
-        <li>Developed JavaScript APIs, React-based mail and calendar add-in support, user-consent flows, and GDPR-compliant unsubscribe handling, helping launch the new Outlook web client without breaking add-ins for millions of customers and developers</li>
-      </ul>
     </div>
   </section>
+
 
   <section>
     <h2>Skills</h2>
@@ -446,8 +437,94 @@
       <span>B.S. Computer Science, University of Florida</span>
     </div>
   </section>
+
+  <section class="ms">
+    <h2>A decade at Microsoft</h2>
+    <div class="job">
+      <div class="job-head">
+        <h3>Software Development Engineer</h3>
+        <span class="dates">since Aug 2016</span>
+      </div>
+      <p class="era">Azure Incident Management UX <span>since 2024</span></p>
+      <ul>
+        <li>Pioneered AI-assisted engineering for Microsoft’s incident management mobile app, building library of AI skills that goes from feature description to tested code and prepared pull request in under 30 minutes</li>
+        <li>Found Windows-only dependency blocking Mac development by prompting through our .NET backend, then collaborated with owning team to get agents working across both codebases at once</li>
+        <li>Raised test coverage from single digits to 50% across .NET services and 80% in the mobile app, writing 1 prompt per stack that swept each codebase, tailored to xUnit and Jest</li>
+        <li>Swapped abandoned third-party mobile app dependency for Microsoft’s authentication library, rebuilding its iOS and Android modules on React Native’s new architecture and closing a supply-chain risk, then walking more than 50 people in the org through the cutover and rationale</li>
+        <li>Caught 3 services running with no reliability monitoring and defined 99.9% objectives for each</li>
+        <li>Taught 10 web and mobile engineers our app and its .NET services in 4 sessions, part of org push to break platform silos</li>
+      </ul>
+      <p class="era">Office Scripts Services <span>2020 to 2024</span></p>
+      <ul>
+        <li>Architected Excel Triggers end to end, designing subscription and webhook APIs across 3 services so Power Automate flows could start the moment a spreadsheet changed, shipping to private preview</li>
+        <li>Migrated live permission records for automations off deprecated middleware to direct store access, reaching 100% of production without incident</li>
+        <li>Diagnosed high-volume disposal failures in storage service, proving shared HttpClient was root cause against internal skepticism, escalating to Microsoft .NET experts and shipping first fixes toward 99.9% reliability</li>
+      </ul>
+      <p class="era">Office Scripts in Excel <span>2019 to 2020</span></p>
+      <ul>
+        <li>Wrote TypeScript client library and REST APIs to save, load, version, and share Excel automations, at 100% unit-test coverage</li>
+        <li>Added integration tests and release gates blocking on test failures and coverage thresholds, protecting every release through general availability, where Office Scripts reached close to 1M monthly customers as a modern alternative to macros</li>
+      </ul>
+      <p class="era">Outlook Extensibility <span>2016 to 2019</span></p>
+      <ul>
+        <li>Wrote JavaScript add-in that exercised every API available to Outlook add-ins across desktop, web, and mobile, so engineers caught inconsistent behavior before release and support teams diagnosed failures faster</li>
+        <li>Built React JavaScript APIs that let mail and calendar add-ins run in the new Outlook web client, helping launch without breaking add-ins for millions of customers and developers</li>
+      </ul>
+    </div>
+  </section>
 </div>
 
-<p class="pdf-link-row"><a href="/resume.pdf" download="peyt-spencer-dewar-resume.pdf">Download PDF</a></p>
+<p class="pdf-link-row"><a href="/resume.pdf" download="peyt-spencer-dewar-resume-2027.pdf">Download PDF</a></p>
+<script>
+(function () {
+  var label = document.querySelector('label.tip');
+  if (!label) return;
+  var li = label.closest('li');
+  if (!li) return;
+
+  var measureCtx = document.createElement('canvas').getContext('2d');
+  function tipWidthPx() {
+    var cs = getComputedStyle(label, '::after');
+    var rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    var maxW = rootPx * 16; // matches .tip::after { max-width: 16rem }
+    measureCtx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    var padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    var natural = measureCtx.measureText(label.getAttribute('data-tip') || '').width + padX;
+    return Math.min(maxW, natural);
+  }
+
+  function place() {
+    var l = label.getBoundingClientRect(), p = li.getBoundingClientRect();
+    li.style.setProperty('--tip-x', (l.left - p.left + l.width / 2 - 5) + 'px');
+    li.style.setProperty('--tip-y', (p.bottom - l.top) + 'px');
+
+    // Flip the bubble to right-align when it would overflow the li's right
+    // edge. Guarded to widths above the mobile breakpoint, matching the
+    // @media (min-width: 561px) wrapper on the .tip-flip CSS.
+    var flips = innerWidth > 560 && (l.left - p.left) + tipWidthPx() > p.width;
+    label.classList.toggle('tip-flip', flips);
+  }
+  place();
+  addEventListener('resize', place);
+  addEventListener('load', place);
+
+  // Safari (desktop) can fail to clear :hover on the ::after/::before tooltip
+  // pseudo-elements when the pointer leaves quickly. Drive the desktop tooltip
+  // from JS instead of :hover so it always closes on mouseleave.
+  var toggle = label.previousElementSibling;
+  if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    label.addEventListener('mouseenter', function () { label.classList.add('tip-open'); });
+    label.addEventListener('mouseleave', function () {
+      label.classList.remove('tip-open');
+      if (toggle) toggle.checked = false;
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (toggle && toggle.checked && e.target !== toggle && !label.contains(e.target)) {
+      toggle.checked = false;
+    }
+  });
+})();
+</script>
 </body>
 </html>
