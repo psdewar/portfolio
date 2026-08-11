@@ -86,6 +86,7 @@
   .contact a { color: inherit; text-decoration: none; }
   .contact a:hover, .contact a:focus-visible { text-decoration: underline; }
   .contact span + span::before { content: "·"; margin: 0 0.5em; color: var(--hairline); }
+  .print-site { display: none; }
 
   .thesis {
     margin: 1.5rem 0 0;
@@ -326,7 +327,8 @@
     .stat b { font-size: 13.5pt; }
     .stat small { font-size: 8.75pt; margin-top: 0.1rem; }
     section { margin-top: 0.9rem; }
-    section > h2 { padding-bottom: 0.2rem; margin-bottom: 0.5rem; }
+    section > h2 { padding-bottom: 0.2rem; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+    .eyebrow { letter-spacing: 0.05em; }
     .job { margin-top: 0.7rem; break-inside: avoid; }
     .job ul { margin-top: 0.2rem; }
     .job li { margin-top: 0.12rem; max-width: none; }
@@ -335,6 +337,7 @@
     .meta-grid { gap: 0.15rem 1.25rem; }
     .edu img { height: 1.4rem; }
     a { color: inherit; }
+    .print-site { display: inline; }
   }
 
   @media screen { .ms-teaser { display: none; } }
@@ -362,7 +365,7 @@
   <header>
     <h1>Peyt Spencer Dewar</h1>
     <p class="roleline">Touring artist · Founder · Software engineer</p>
-    <p class="contact">Bellevue, WA · <a href="mailto:psdewar2@gmail.com">psdewar2@gmail.com</a></p>
+    <p class="contact">Bellevue, WA · <span class="print-site"><a href="https://peytspencer.com" target="_blank" rel="noopener">peytspencer.com</a> · </span><a href="mailto:psdewar2@gmail.com">psdewar2@gmail.com</a></p>
   </header>
 
   <div class="claude-band">
@@ -383,16 +386,16 @@
 
     <div class="job">
       <div class="job-head">
-        <h3>From the Ground Up Tour <span>· I wear all the hats</span></h3>
+        <h3>From the Ground Up Tour <span>· I wear all hats</span></h3>
         <span class="dates">since Mar 2026</span>
       </div>
       <ul class="hats">
         <li><b>Rapper:</b> Presented 16 concerts (and counting) across North America for <a href="https://peytspencer.com/moments/gallery" target="_blank" rel="noopener">hundreds of people of all ages</a></li>
-        <li><b>Booking agent:</b> Wrote outreach pipeline that sourced and tracked hundreds of prospective hosts through contact-to-booking state machine, filling the calendar by email and phone</li>
-        <li><b>Promoter:</b> Launched <a href="https://peytspencer.com/sponsor/confirm/draft-0?sig=87c145558dc23f1ad327a383e0bcf02b" target="_blank" rel="noopener">press kit sponsor form</a> that turns a host’s yes into rendered poster, RSVP link, and Eventbrite listing</li>
+        <li><b>Booking agent:</b> Built outreach pipeline that sourced hundreds of prospective hosts by email and phone, advancing each through contact-to-booking state machine</li>
+        <li><b>Promoter:</b> Launched <a href="https://peytspencer.com/sponsor/confirm/draft-0?sig=87c145558dc23f1ad327a383e0bcf02b" target="_blank" rel="noopener">press kit sponsor form</a> that turns host confirmation into city poster, RSVP link, and Eventbrite listing</li>
         <li><b>Fundraiser:</b> Brought in over $6K, mostly post-concert <input type="checkbox" id="tip-honoraria" class="tip-toggle"><label class="tip" for="tip-honoraria" data-tip="Plural of honorarium: a monetary gift that recognizes the artistic performance itself">honoraria</label> plus merch sales and donations, while hosts covered flights, car rentals, lodging, and venue space</li>
-        <li><b>Accountant:</b> Wrote MCP server that lets Claude query tour finances, pulling bank activity from signed-in browser session and comparing against ledger to reconcile anything unrecorded</li>
-        <li><b>Content creator:</b> Published dozens of videos for my <a href="https://www.instagram.com/peytspencer" target="_blank" rel="noopener">1.8K supporters on Instagram</a> after editing with DaVinci Resolve and force-aligning captions word for word with OpenAI Whisper</li>
+        <li><b>Accountant:</b> Wired Claude into tour finances through MCP server, pulling bank activity from signed-in browser session and comparing against ledger to catch unrecorded expenses and revenue</li>
+        <li><b>Content creator:</b> Published dozens of videos for my <a href="https://www.instagram.com/peytspencer" target="_blank" rel="noopener">1.8K supporters on Instagram</a>, editing in DaVinci Resolve and force-aligning captions with OpenAI Whisper</li>
       </ul>
     </div>
 
@@ -404,8 +407,8 @@
       <ul>
         <li>Developed toolkit for songwriters to discover “artist type beats”, capture song ideas, and overcome writer’s block, earning over $10K in premium subscription revenue</li>
         <li>Built scraper that mined YouTube for independent artists, extracting thousands of contact emails to automate outreach</li>
-        <li>Mentored underserved students through CodeDay across multiple summers, including 2 engineering interns and 1 product manager intern who designed and launched writer’s block screen</li>
-        <li>Hired 2 content creators who posted 100 TikToks each to market the app</li>
+        <li>Mentored underserved students in CodeDay’s internship program during multiple summers, including 2 engineers and 1 product manager who designed and launched writer’s block screen</li>
+        <li>Hired 2 content creators who posted 100 TikToks each to promote mobile app</li>
         <li>Started label “Lyrist Records” to independently release original hip-hop music</li>
       </ul>
     </div>
@@ -448,33 +451,33 @@
       <p class="era">Azure Incident Management UX <span>since 2024</span></p>
       <ul>
         <li>Pioneered AI-assisted engineering for Microsoft’s incident management mobile app, building library of AI skills that goes from feature description to tested code and prepared pull request in under 30 minutes</li>
-        <li>Found Windows-only dependency blocking Mac development by prompting through our .NET backend, then collaborated with owning team to get agents working across both codebases at once</li>
-        <li>Raised test coverage from single digits to 50% across .NET services and 80% in the mobile app, writing 1 prompt per stack that swept each codebase, tailored to xUnit and Jest</li>
-        <li>Swapped abandoned third-party mobile app dependency for Microsoft’s authentication library, rebuilding its iOS and Android modules on React Native’s new architecture and closing a supply-chain risk, then walking more than 50 people in the org through the cutover and rationale</li>
-        <li>Caught 3 services running with no reliability monitoring and defined 99.9% objectives for each</li>
-        <li>Taught 10 web and mobile engineers our app and its .NET services in 4 sessions, part of org push to break platform silos</li>
+        <li>Raised test coverage from single digits to 80% in React Native and 50% in .NET, writing 1 prompt per stack that swept each codebase, tailored to Jest and xUnit</li>
+        <li>Found Windows-only dependency blocking Mac development by prompting Copilot through our .NET backend, then collaborated with owning team so agents could build features from client to service on one machine</li>
+        <li>Swapped abandoned third-party auth dependency for Microsoft’s own library, rebuilding its iOS and Android modules on React Native’s new architecture and closing supply-chain risk, then walking 50+ engineers across org through rollout plan and rationale</li>
+        <li>Taught 10 web and mobile engineers auth, design, notification, and deployment systems in 4 sessions as they joined on-call rotation to be familiar before first incident</li>
+        <li>Identified 3 services running with no reliability monitoring and defined 99.9% objectives for each, eliminating blind spots in our telemetry</li>
       </ul>
       <p class="era">Office Scripts Services <span>2020 to 2024</span></p>
       <ul>
-        <li>Architected Excel Triggers end to end, designing subscription and webhook APIs across 3 services so Power Automate flows could start the moment a spreadsheet changed, shipping to private preview</li>
+        <li>Architected Excel Triggers, designing subscription and webhook APIs across 3 services so Power Automate flows could fire on spreadsheet changes, shipped to internal stakeholders</li>
         <li>Migrated live permission records for automations off deprecated middleware to direct store access, reaching 100% of production without incident</li>
-        <li>Diagnosed high-volume disposal failures in storage service, proving shared HttpClient was root cause against internal skepticism, escalating to Microsoft .NET experts and shipping first fixes toward 99.9% reliability</li>
+        <li>Diagnosed high-volume disposal failures in storage service, proving shared HttpClient was root cause despite skepticism, escalating to .NET experts and completing first fixes toward 99.9% reliability before handoff</li>
       </ul>
       <p class="era">Office Scripts in Excel <span>2019 to 2020</span></p>
       <ul>
-        <li>Wrote TypeScript client library and REST APIs to save, load, version, and share Excel automations, at 100% unit-test coverage</li>
-        <li>Added integration tests and release gates blocking on test failures and coverage thresholds, protecting every release through general availability, where Office Scripts reached close to 1M monthly customers as a modern alternative to macros</li>
+        <li>Wrote TypeScript client library and REST APIs to save, load, version, and share Excel automations, with 100% unit-test coverage</li>
+        <li>Added integration tests and release gates blocking on test failures and coverage thresholds, protecting every release through general availability, where Office Scripts reached close to 1M monthly customers as modern alternative to macros</li>
       </ul>
       <p class="era">Outlook Extensibility <span>2016 to 2019</span></p>
       <ul>
-        <li>Wrote JavaScript add-in that exercised every API available to Outlook add-ins across desktop, web, and mobile, so engineers caught inconsistent behavior before release and support teams diagnosed failures faster</li>
-        <li>Built React JavaScript APIs that let mail and calendar add-ins run in the new Outlook web client, helping launch without breaking add-ins for millions of customers and developers</li>
+        <li>Wrote JavaScript add-in that exercised every API available to Outlook add-ins on desktop, web, and mobile, so engineers caught inconsistent behavior before release and support teams diagnosed failures faster</li>
+        <li>Built React-based JavaScript APIs that let mail and calendar add-ins run in Outlook web, so its launch broke nothing for millions of customers and developers</li>
       </ul>
     </div>
   </section>
 </div>
 
-<p class="pdf-link-row"><a href="/resume.pdf" download="peyt-spencer-dewar-resume-2027.pdf">Download PDF</a></p>
+<p class="pdf-link-row"><a href="https://peytspencer.com" target="_blank" rel="noopener">peytspencer.com</a> · <a href="/resume.pdf" download="peyt-spencer-dewar-resume-2027.pdf">Download PDF</a></p>
 <script>
 (function () {
   var label = document.querySelector('label.tip');
