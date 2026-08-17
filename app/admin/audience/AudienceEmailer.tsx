@@ -21,9 +21,22 @@ type SendStatus =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string };
 
-const DRAFT_STORAGE_KEY = "peyt-admin-emails-draft";
-const IMAGE_STORAGE_KEY = "peyt-admin-emails-image";
-const TEMPLATES_STORAGE_KEY = "peyt-admin-emails-templates";
+const DRAFT_STORAGE_KEY = "admin:audience:draft";
+const IMAGE_STORAGE_KEY = "admin:audience:image";
+const SEEDED_STORAGE_KEY = "admin:audience:seeded";
+const LEGACY_PREFIX = "peyt-admin-emails-";
+const LEGACY_TEMPLATES_KEY = `${LEGACY_PREFIX}templates`;
+
+function readStored(key: string, legacySuffix: string): string | null {
+  const current = localStorage.getItem(key);
+  if (current !== null) return current;
+  const legacyKey = `${LEGACY_PREFIX}${legacySuffix}`;
+  const legacy = localStorage.getItem(legacyKey);
+  if (legacy === null) return null;
+  localStorage.setItem(key, legacy);
+  localStorage.removeItem(legacyKey);
+  return legacy;
+}
 
 const SITE = "https://peytspencer.com";
 
@@ -35,9 +48,8 @@ type EmailTemplate = {
   heroLink: string;
 };
 
-const DEFAULT_TEMPLATES: EmailTemplate[] = [
+const SEED_TEMPLATES: Omit<EmailTemplate, "id">[] = [
   {
-    id: "colby",
     label: "Colby in your city",
     subject: "Colby Jeffers brings Better World to the Lower Mainland",
     body: `He's taking his Better World Concert Series across the Lower Mainland in four cities and four nights, Monday, May 18th to Thursday May 21st in Coquitlam, Richmond, Vancouver, and North Shore:
@@ -46,7 +58,6 @@ RSVP today at https://colbyjeffers.com!`,
     heroLink: "https://colbyjeffers.com",
   },
   {
-    id: "thanks",
     label: "Thanks for coming",
     subject: "Thank you for coming out",
     body: `Thank you for coming out. That night only happened because you showed up.
@@ -58,6 +69,34 @@ Peyt`,
     heroLink: `${SITE}/moments`,
   },
 ];
+
+function templateError(verb: string, err: unknown): string {
+  return `Could not ${verb} template: ${err instanceof Error ? err.message : "unknown error"}`;
+}
+
+const LEGACY_TEMPLATE_LIMIT = 20;
+
+function legacyTemplates(): Omit<EmailTemplate, "id">[] | null {
+  let parsed: unknown;
+  try {
+    const raw = localStorage.getItem(LEGACY_TEMPLATES_KEY);
+    if (!raw) return null;
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const migrated = parsed
+    .filter((t) => t && typeof t.label === "string" && t.label.trim())
+    .slice(0, LEGACY_TEMPLATE_LIMIT)
+    .map((t) => ({
+      label: t.label,
+      subject: typeof t.subject === "string" ? t.subject : "",
+      body: typeof t.body === "string" ? t.body : "",
+      heroLink: typeof t.heroLink === "string" ? t.heroLink : "",
+    }));
+  return migrated.length ? migrated : null;
+}
 
 export function AudienceEmailer() {
   const [shows, setShows] = useState<Show[]>([]);
@@ -77,7 +116,36 @@ export function AudienceEmailer() {
   const [status, setStatus] = useState<SendStatus>({ kind: "idle" });
   const [loading, setLoading] = useState(true);
   const [showsLoadFailed, setShowsLoadFailed] = useState(false);
-  const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_TEMPLATES);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+
+  async function templateRequest(
+    method: "POST" | "PATCH" | "DELETE",
+    payload: Record<string, unknown>,
+  ) {
+    const res = await fetch("/api/email-templates", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+  }
+
+  async function refreshTemplates() {
+    const res = await fetch("/api/email-templates");
+    if (!res.ok) throw new Error(`templates ${res.status}`);
+    const data = await res.json();
+    setTemplates(Array.isArray(data) ? data : []);
+  }
+
+  async function seedTemplates() {
+    const legacy = legacyTemplates();
+    if (!legacy && localStorage.getItem(SEEDED_STORAGE_KEY)) return;
+    for (const seed of legacy ?? SEED_TEMPLATES)
+      await templateRequest("POST", seed);
+    localStorage.setItem(SEEDED_STORAGE_KEY, "1");
+    localStorage.removeItem(LEGACY_TEMPLATES_KEY);
+    await refreshTemplates();
+  }
 
   function loadData() {
     setLoading(true);
@@ -89,12 +157,18 @@ export function AudienceEmailer() {
       fetch("/api/admin/audience").then((r) =>
         r.ok ? r.json() : Promise.reject(new Error(`audience ${r.status}`)),
       ),
+      fetch("/api/email-templates").then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error(`templates ${r.status}`)),
+      ),
     ])
-      .then(([showsData, audienceData]) => {
+      .then(([showsData, audienceData, templateData]) => {
         setShows(Array.isArray(showsData) ? showsData : []);
         setAudience(
           audienceData && typeof audienceData === "object" ? audienceData : {},
         );
+        const stored = Array.isArray(templateData) ? templateData : [];
+        if (stored.length === 0) return seedTemplates();
+        setTemplates(stored);
       })
       .catch((err) => {
         if (err instanceof Error && err.message === "shows") {
@@ -111,7 +185,7 @@ export function AudienceEmailer() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      const raw = readStored(DRAFT_STORAGE_KEY, "draft");
       if (raw) {
         const draft = JSON.parse(raw);
         if (typeof draft.subject === "string") setSubject(draft.subject);
@@ -122,13 +196,8 @@ export function AudienceEmailer() {
         if (typeof draft.heroLink === "string") setHeroLink(draft.heroLink);
         if (Array.isArray(draft.selected)) setSelected(new Set(draft.selected));
       }
-      const rawImage = localStorage.getItem(IMAGE_STORAGE_KEY);
+      const rawImage = readStored(IMAGE_STORAGE_KEY, "image");
       if (rawImage) setImage(JSON.parse(rawImage));
-      const rawTemplates = localStorage.getItem(TEMPLATES_STORAGE_KEY);
-      if (rawTemplates) {
-        const parsed = JSON.parse(rawTemplates);
-        if (Array.isArray(parsed)) setTemplates(parsed);
-      }
     } catch {
       // corrupted draft; start fresh
     }
@@ -166,15 +235,6 @@ export function AudienceEmailer() {
       // image too large for localStorage; in-memory only
     }
   }, [loading, image]);
-
-  useEffect(() => {
-    if (loading) return;
-    try {
-      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
-    } catch {
-      // skip
-    }
-  }, [loading, templates]);
 
   const pastShows = useMemo(() => completedShows(shows), [shows]);
 
@@ -266,7 +326,7 @@ export function AudienceEmailer() {
     setStatus({ kind: "idle" });
   }
 
-  function saveAsTemplate() {
+  async function saveAsTemplate() {
     if (!subject.trim() && !body.trim()) {
       setStatus({
         kind: "error",
@@ -276,31 +336,36 @@ export function AudienceEmailer() {
     }
     const label = window.prompt("Template name?")?.trim();
     if (!label) return;
-    setTemplates((prev) => {
-      const existing = prev.find(
-        (t) => t.label.toLowerCase() === label.toLowerCase(),
-      );
-      const next: EmailTemplate = {
-        id: existing?.id ?? crypto.randomUUID(),
+    const existing = templates.find(
+      (t) => t.label.toLowerCase() === label.toLowerCase(),
+    );
+    try {
+      await templateRequest(existing ? "PATCH" : "POST", {
+        id: existing?.id,
         label,
         subject,
         body,
         heroLink,
-      };
-      return existing
-        ? prev.map((t) => (t.id === existing.id ? next : t))
-        : [...prev, next];
-    });
-    setStatus({ kind: "success", message: `Saved template "${label}".` });
+      });
+      await refreshTemplates();
+      setStatus({ kind: "success", message: `Saved template "${label}".` });
+    } catch (err) {
+      setStatus({ kind: "error", message: templateError("save", err) });
+    }
   }
 
-  function deleteTemplate(id: string) {
+  async function deleteTemplate(id: string) {
     const t = templates.find((x) => x.id === id);
     if (t && !window.confirm(`Delete template "${t.label}"?`)) return;
-    setTemplates((prev) => prev.filter((x) => x.id !== id));
+    try {
+      await templateRequest("DELETE", { id });
+      await refreshTemplates();
+    } catch (err) {
+      setStatus({ kind: "error", message: templateError("delete", err) });
+    }
   }
 
-  function overwriteTemplate(id: string) {
+  async function overwriteTemplate(id: string) {
     const t = templates.find((x) => x.id === id);
     if (!t) return;
     if (!subject.trim() && !body.trim()) {
@@ -311,10 +376,13 @@ export function AudienceEmailer() {
       return;
     }
     if (!window.confirm(`Overwrite "${t.label}" with the current email?`)) return;
-    setTemplates((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, subject, body, heroLink } : x)),
-    );
-    setStatus({ kind: "success", message: `Updated "${t.label}".` });
+    try {
+      await templateRequest("PATCH", { id, subject, body, heroLink });
+      await refreshTemplates();
+      setStatus({ kind: "success", message: `Updated "${t.label}".` });
+    } catch (err) {
+      setStatus({ kind: "error", message: templateError("update", err) });
+    }
   }
 
   async function send(opts: { testOnly: boolean }) {
