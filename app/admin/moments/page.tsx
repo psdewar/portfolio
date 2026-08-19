@@ -1208,51 +1208,161 @@ function ChevronRightIcon() {
   );
 }
 
+const PART_SIZE = 16 * 1024 * 1024;
+const MULTIPART_MIN = 32 * 1024 * 1024;
+const PART_CONCURRENCY = 5;
+const FILE_CONCURRENCY = 3;
+
 function AdminUpload({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState<{ files: string; pct: number } | null>(null);
+
+  async function api(body: Record<string, unknown>) {
+    const r = await fetch("/api/admin/moments/multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Upload failed");
+    return d;
+  }
 
   async function upload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
     setError("");
-    try {
-      const queue = Array.from(files);
-      const uploadOne = async (file: File) => {
-        const signRes = await fetch("/api/admin/moments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, contentType: file.type }),
-        });
-        const signData = await signRes.json().catch(() => ({}));
-        if (!signRes.ok) throw new Error(signData.error || "Could not get upload URL");
-        const put = await fetch(signData.url, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!put.ok) throw new Error(`Upload failed (${put.status})`);
-      };
+    const queue = Array.from(files);
+    const totalBytes = queue.reduce((s, f) => s + f.size, 0) || 1;
+    let doneBytes = 0;
+    let doneFiles = 0;
+    const tick = (add: number) => {
+      doneBytes += add;
+      setProgress({
+        files: `${doneFiles}/${queue.length}`,
+        pct: Math.min(100, Math.round((doneBytes / totalBytes) * 100)),
+      });
+    };
+    // Serialized: concurrent process calls would race the read-modify-write on
+    // the thumbs/dims JSON in R2 and drop entries.
+    let processChain: Promise<unknown> = Promise.resolve();
+    const processInBackground = (key: string) => {
+      processChain = processChain
+        .then(() =>
+          fetch("/api/admin/moments/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key }),
+          }),
+        )
+        .catch(() => {});
+    };
 
-      const FILE_CONCURRENCY = 3;
-      let nextIndex = 0;
-      let firstError = "";
+    const uploadSmall = async (file: File) => {
+      const signRes = await fetch("/api/admin/moments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      const signData = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) throw new Error(signData.error || "Could not get upload URL");
+      const put = await fetch(signData.url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      tick(file.size);
+      processInBackground(signData.key);
+    };
+
+    // Large files: parallel 16MB parts, resumable. Uploaded parts survive an
+    // interrupted session; re-picking the same file skips them.
+    const uploadLarge = async (file: File) => {
+      const memo = `mpu:${file.name}:${file.size}`;
+      let session: { key: string; uploadId: string } | null = null;
+      try {
+        session = JSON.parse(localStorage.getItem(memo) || "null");
+      } catch {}
+      let have = new Set<number>();
+      if (session) {
+        try {
+          have = new Set<number>((await api({ action: "parts", ...session })).parts);
+        } catch {
+          session = null;
+        }
+      }
+      if (!session) {
+        session = (await api({
+          action: "create",
+          filename: file.name,
+          contentType: file.type,
+        })) as { key: string; uploadId: string };
+        localStorage.setItem(memo, JSON.stringify(session));
+        have = new Set();
+      }
+      const totalParts = Math.ceil(file.size / PART_SIZE);
+      if (have.size) tick(Math.min(have.size * PART_SIZE, file.size));
+      const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter(
+        (n) => !have.has(n),
+      );
+      let idx = 0;
       await Promise.all(
-        Array.from({ length: Math.min(FILE_CONCURRENCY, queue.length) }, async () => {
-          while (nextIndex < queue.length) {
-            const file = queue[nextIndex++];
+        Array.from({ length: Math.min(PART_CONCURRENCY, remaining.length) }, async () => {
+          while (idx < remaining.length) {
+            const n = remaining[idx++];
+            const { url } = await api({ action: "sign", ...session, partNumber: n });
+            const start = (n - 1) * PART_SIZE;
+            const blob = file.slice(start, Math.min(start + PART_SIZE, file.size));
+            const put = await fetch(url, { method: "PUT", body: blob });
+            if (!put.ok) throw new Error(`Part ${n} failed (${put.status})`);
+            tick(blob.size);
+          }
+        }),
+      );
+      await api({ action: "complete", ...session });
+      localStorage.removeItem(memo);
+      processInBackground(session.key);
+    };
+
+    let firstError = "";
+    const fail = (err: unknown) => {
+      if (!firstError) firstError = err instanceof Error ? err.message : "Upload failed";
+    };
+    try {
+      tick(0);
+      const smalls = queue.filter((f) => f.size < MULTIPART_MIN);
+      const larges = queue.filter((f) => f.size >= MULTIPART_MIN);
+      let si = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(FILE_CONCURRENCY, smalls.length) }, async () => {
+          while (si < smalls.length) {
+            const file = smalls[si++];
             try {
-              await uploadOne(file);
+              await uploadSmall(file);
+              doneFiles++;
+              tick(0);
             } catch (err) {
-              if (!firstError) firstError = err instanceof Error ? err.message : "Upload failed";
+              fail(err);
             }
           }
         }),
       );
+      for (const file of larges) {
+        try {
+          await uploadLarge(file);
+          doneFiles++;
+          tick(0);
+        } catch (err) {
+          fail(err);
+        }
+      }
       if (firstError) setError(firstError);
-      else onDone();
+      else processChain.then(() => onDone());
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -1276,7 +1386,11 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
         }}
       />
       <UploadIcon />
-      {busy ? "Uploading..." : "Upload photos or videos"}
+      {busy
+        ? progress
+          ? `Uploading ${progress.pct}% (${progress.files})`
+          : "Uploading..."
+        : "Upload photos or videos"}
       {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
     </label>
   );

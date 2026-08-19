@@ -11,6 +11,7 @@ import { isAdminAuthorized } from "../../shared/admin-auth";
 import {
   getFeatured,
   setFeatured,
+  purgeFeatured,
   getOgKey,
   setOgKey,
   getThumbs,
@@ -164,6 +165,7 @@ export async function DELETE(request: Request) {
     await setFeatured(featured.filter((k) => k !== key));
   }
   if ((await getOgKey()) === key) await setOgKey(null);
+  purgeFeatured();
 
   return NextResponse.json({ ok: true });
 }
@@ -216,6 +218,7 @@ export async function PATCH(request: Request) {
     await setFeatured(featured.map((k) => (k === key ? newKey : k)));
   }
   if ((await getOgKey()) === key) await setOgKey(newKey);
+  purgeFeatured();
 
   return NextResponse.json({
     key: newKey,

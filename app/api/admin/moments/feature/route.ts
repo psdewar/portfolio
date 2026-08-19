@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { s3, s3Bucket } from "../../../shared/s3";
 import { isAdminAuthorized } from "../../../shared/admin-auth";
-import { getFeatured, setFeatured } from "../../../shared/moments";
+import { getFeatured, setFeatured, purgeFeatured } from "../../../shared/moments";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthorized(request))) {
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     next = current.filter((k) => k !== key);
   }
   await setFeatured(next);
+  purgeFeatured();
 
   return NextResponse.json({ featured: Boolean(featured) });
 }
@@ -48,5 +49,6 @@ export async function PUT(request: Request) {
   }
 
   await setFeatured(keys as string[]);
+  purgeFeatured();
   return NextResponse.json({ featured: keys });
 }

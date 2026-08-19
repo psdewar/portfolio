@@ -6,12 +6,25 @@ import posthog from "posthog-js";
 
 interface FeaturedItem {
   key: string;
-  url: string;
   thumb?: string;
-  view?: string;
   city?: string;
   w?: number;
   h?: number;
+}
+
+// Full-res URLs are signed on demand and remembered for the session; the
+// featured payload itself stays stable so it can cache until an admin change.
+const viewUrls = new Map<string, Promise<string | null>>();
+function fetchView(key: string): Promise<string | null> {
+  let p = viewUrls.get(key);
+  if (!p) {
+    p = fetch(`/api/moments/view?key=${encodeURIComponent(key)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => (d && typeof d.url === "string" ? d.url : null))
+      .catch(() => null);
+    viewUrls.set(key, p);
+  }
+  return p;
 }
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
@@ -92,7 +105,7 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
       .then((data) => {
         if (!active) return;
         const next: FeaturedItem[] = Array.isArray(data.items) ? data.items : [];
-        const first = next[0]?.thumb ?? next[0]?.url;
+        const first = next[0]?.thumb;
         if (first) {
           try {
             preconnect(new URL(first).origin);
@@ -111,7 +124,8 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
 
   const imgSig = items
     .filter((it) => !VIDEO_EXT.test(it.key))
-    .map((it) => it.thumb ?? it.url)
+    .map((it) => it.thumb)
+    .filter((u): u is string => Boolean(u))
     .sort()
     .join("\n");
 
@@ -219,6 +233,16 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
 
   const reportDims = (key: string, w: number, h: number) => {
     if (!w || !h || pendingDims.current[key]) return;
+    const it = items.find((x) => x.key === key);
+    if (!it) return;
+    if (it.w && it.h) {
+      // Served dims can be wrong for EXIF-rotated shots; trust what the
+      // browser actually decoded and fix the box in place.
+      if (Math.abs(it.w / it.h - w / h) > (w / h) * 0.02) {
+        setItems((prev) => prev.map((x) => (x.key === key ? { ...x, w, h } : x)));
+      }
+      return;
+    }
     pendingDims.current[key] = [w, h];
     if (dimsTimer.current) clearTimeout(dimsTimer.current);
     dimsTimer.current = setTimeout(() => {
@@ -456,12 +480,26 @@ function Tile({
 
   const reveal = (w?: number, h?: number) => {
     onReady?.();
-    if (!hasDims && w && h) onMeasure?.(item.key, w, h);
+    if (w && h) onMeasure?.(item.key, w, h);
   };
+
+  const [src, setSrc] = useState<string | null>(item.thumb ?? null);
 
   useEffect(() => {
     startedAt.current = performance.now();
-    if (isVideo) return;
+    if (isVideo) {
+      reveal();
+      return;
+    }
+    if (!src) {
+      let on = true;
+      fetchView(item.key).then((u) => {
+        if (on && u) setSrc(u);
+      });
+      return () => {
+        on = false;
+      };
+    }
     const el = imgRef.current;
     if (el && el.complete && el.naturalWidth > 0) reveal(el.naturalWidth, el.naturalHeight);
   }, []);
@@ -476,7 +514,19 @@ function Tile({
   };
 
   function playHover() {
-    videoRef.current?.play().catch(() => {});
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.src) {
+      el.play().catch(() => {});
+      return;
+    }
+    startedAt.current = performance.now();
+    fetchView(item.key).then((u) => {
+      const v = videoRef.current;
+      if (!u || !v) return;
+      if (!v.src) v.src = u;
+      v.play().catch(() => {});
+    });
   }
   function pauseHover() {
     videoRef.current?.pause();
@@ -497,12 +547,11 @@ function Tile({
       {isVideo ? (
         <video
           ref={videoRef}
-          src={item.url}
           poster={item.thumb}
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           className={mediaClass}
           style={fadeStyle}
           onLoadedMetadata={(e) => {
@@ -514,7 +563,7 @@ function Tile({
       ) : (
         <img
           ref={imgRef}
-          src={item.thumb ?? item.url}
+          src={src ?? undefined}
           alt=""
           loading={priority ? "eager" : "lazy"}
           decoding="async"
@@ -545,6 +594,17 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
   const [dragging, setDragging] = useState(false);
   const startY = useRef<number | null>(null);
   const startT = useRef(0);
+  const [full, setFull] = useState<string | null>(null);
+
+  useEffect(() => {
+    let on = true;
+    fetchView(item.key).then((u) => {
+      if (on && u) setFull(u);
+    });
+    return () => {
+      on = false;
+    };
+  }, [item.key]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -601,9 +661,9 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
           transition: dragging ? "none" : "transform 0.25s ease",
         }}
       >
-        {isVideo ? (
+        {isVideo && full ? (
           <video
-            src={item.url}
+            src={full}
             controls
             autoPlay
             playsInline
@@ -613,7 +673,7 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
           />
         ) : (
           <img
-            src={item.view ?? item.url}
+            src={(isVideo ? item.thumb : full ?? item.thumb) ?? undefined}
             alt=""
             onClick={(e) => e.stopPropagation()}
             className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"

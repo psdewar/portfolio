@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getFeatured, recordDims } from "../../shared/moments";
+import { getFeatured, recordDims, purgeFeatured } from "../../shared/moments";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
 export async function POST(request: Request) {
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     }
   }
 
-  await recordDims(filtered);
+  const changed = await recordDims(filtered);
+  if (changed) purgeFeatured();
   return NextResponse.json({ ok: true });
 }

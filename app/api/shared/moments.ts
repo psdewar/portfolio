@@ -6,12 +6,21 @@ import {
   CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { revalidateTag } from "next/cache";
 import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
 import { getShows, isShowOnTrip } from "../../lib/shows";
 import { getFundingLegSlug } from "../../fund/legs";
 
 const FEATURED_KEY = "featured.json";
+
+// next@16.1.1 (installed) declares revalidateTag(tag, profile) with profile
+// REQUIRED — see node_modules/next/dist/server/web/spec-extension/revalidate.d.ts.
+// The one-arg form from Next 14/15 fails tsc here ("Expected 2 arguments, but
+// got 1"). "max" is the hard-purge profile.
+export function purgeFeatured() {
+  revalidateTag("moments-featured", "max");
+}
 
 async function getJson(key: string): Promise<unknown> {
   if (!s3 || !s3Bucket) return null;
@@ -358,8 +367,8 @@ export async function getDims(): Promise<Record<string, [number, number]>> {
     : {};
 }
 
-export async function recordDims(entries: Record<string, [number, number]>): Promise<void> {
-  if (!s3 || !s3Bucket) return;
+export async function recordDims(entries: Record<string, [number, number]>): Promise<boolean> {
+  if (!s3 || !s3Bucket) return false;
   const current = await getDims();
   let changed = false;
   for (const [key, dim] of Object.entries(entries)) {
@@ -377,8 +386,9 @@ export async function recordDims(entries: Record<string, [number, number]>): Pro
       changed = true;
     }
   }
-  if (!changed) return;
+  if (!changed) return false;
   await putJson(DIMS_KEY, current);
+  return true;
 }
 
 const u16be = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
@@ -453,6 +463,14 @@ export async function probeImageDims(key: string): Promise<[number, number] | nu
     );
     const bytes = await res.Body?.transformToByteArray();
     if (!bytes) return null;
+    // Sharp reads EXIF orientation; the byte parser reports stored dimensions,
+    // which are swapped for rotated portrait shots.
+    try {
+      const meta = await sharp(bytes).metadata();
+      if (meta.width && meta.height) {
+        return (meta.orientation ?? 1) >= 5 ? [meta.height, meta.width] : [meta.width, meta.height];
+      }
+    } catch {}
     return parseImageDims(bytes);
   } catch {
     return null;
