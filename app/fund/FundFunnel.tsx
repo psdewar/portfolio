@@ -19,12 +19,12 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 
 const STEPS = [
-  "I write original songs, record, rehearse, and sequence them into an hour-long presentation.",
+  "I write original songs, record, rehearse, and sequence them into an hour-long concert-conversation.",
   "I work with people in your community to book concert dates.",
 ];
 
 const CONTRIBUTE_STEPS = [
-  "Type an amount on any line, or tap Full.",
+  "You cover a piece of the trip below.",
   "Tap Contribute at the bottom.",
   "Pay with Venmo, Zelle, or card.",
 ];
@@ -54,6 +54,17 @@ function HonorariumControl({ value, onChange }: { value: string; onChange: (v: s
         </div>
       </div>
     </div>
+  );
+}
+
+function LinePrice({ amount, gifted }: { amount: number; gifted: boolean }) {
+  return (
+    <span
+      className={gifted ? "p-price p-price--gifted" : "p-price"}
+      aria-label={gifted ? `${money(amount)}, covered` : undefined}
+    >
+      {money(amount)}
+    </span>
   );
 }
 
@@ -207,7 +218,10 @@ export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: R
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
-  const booked = leg.booked ?? [];
+  const isPastStop = (b: FundBooked) => Boolean(b.date && isShowPast(b.date));
+  // Repeat trips: new dates first, completed stops below them as proof of work.
+  const allBooked = leg.booked ?? [];
+  const booked = [...allBooked.filter((b) => !isPastStop(b)), ...allBooked.filter(isPastStop)];
   const hasBooked = booked.length > 0;
   const flightBy = leg.flightBy
     ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
@@ -295,7 +309,9 @@ export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: R
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
   const venmoUrl = `https://venmo.com/psdewar?txn=pay&audience=private&amount=${total}&note=${encodeURIComponent(venmoNote)}`;
 
-  const slugged = booked.filter((b): b is FundBooked & { slug: string } => Boolean(b.slug));
+  const slugged = booked.filter(
+    (b): b is FundBooked & { slug: string } => Boolean(b.slug) && !isPastStop(b),
+  );
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
   const sharePoster = async (slug: string) => {
     setPosterLoading(true);
@@ -476,8 +492,7 @@ html { scroll-behavior: smooth; }
 .inkind-link { display: block; font-size: 16px; color: var(--ink-dim); margin-top: 6px; text-decoration: none; }
 .inkind-cta { color: var(--paper); text-decoration: underline; }
 .inkind-link:hover { text-decoration: underline; }
-.p-covered { display: flex; align-items: center; gap: 10px; color: var(--ink-dim); font-size: 16px; }
-.line-done { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #16a34a; color: #fff; }
+.p-price--gifted { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
 .lodging-or { display: block; padding: 12px 18px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--ink-dim); text-decoration: none; }
 .total-box { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
 .total-label { color: var(--paper); font-weight: 600; font-size: 18px; }
@@ -772,7 +787,7 @@ html { scroll-behavior: smooth; }
           {booked.length > 0 && (
             <div className="dateline">
               {booked.map((b, i) => {
-                const done = Boolean(b.date && isShowPast(b.date));
+                const done = isPastStop(b);
                 return (
                   <div className="loc" key={i}>
                     <span
@@ -831,27 +846,9 @@ html { scroll-behavior: smooth; }
                       <span className="p-label">{line.label}</span>{" "}
                       {line.note ? <span className="p-note">{line.note}</span> : null}
                     </div>
-                    <span className="p-price">{money(line.amount)}</span>
+                    <LinePrice amount={line.amount} gifted={coveredKeys.has(line.key)} />
                   </div>
-                  {coveredKeys.has(line.key) ? (
-                    <div className="p-covered">
-                      <span className="line-done" aria-label="Covered">
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="18"
-                          height="18"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                      Covered
-                    </div>
-                  ) : (
+                  {!coveredKeys.has(line.key) && (
                     <LineMatchControl
                       line={line}
                       value={lineVals[line.key]}
@@ -859,7 +856,7 @@ html { scroll-behavior: smooth; }
                     />
                   )}
                 </div>
-                {line.key === "lodging" && (
+                {line.key === "lodging" && !coveredKeys.has("lodging") && (
                   <a
                     className="lodging-or"
                     href={`sms:${PHONE}?&body=${encodeURIComponent(
@@ -886,6 +883,41 @@ html { scroll-behavior: smooth; }
             A gift that recognizes the artistic performance itself, separate from the trip.
           </p>
           <HonorariumControl value={honorarium} onChange={setHonorariumVal} />
+
+          {(leg.previousTrips ?? []).map((trip) => {
+            const prevLines = trip.lines.filter((l) => l.amount > 0);
+            const prevCovered = new Set(trip.coveredInKind ?? []);
+            const prevTotal = prevLines.reduce((sum, line) => sum + line.amount, 0);
+            return (
+              <section key={trip.label}>
+                <div className="section-head">{trip.label}</div>
+                {trip.note && (
+                  <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
+                    {trip.note}
+                  </p>
+                )}
+                <ul className="pieces">
+                  {prevLines.map((line) => (
+                    <li key={line.key} className="piece">
+                      <div className="piece-row">
+                        <div className="p-head">
+                          <div className="p-text">
+                            <span className="p-label">{line.label}</span>{" "}
+                            {line.note ? <span className="p-note">{line.note}</span> : null}
+                          </div>
+                          <LinePrice amount={line.amount} gifted={prevCovered.has(line.key)} />
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="total-box">
+                  <div className="total-label">Total</div>
+                  <div className="total-amount">~{money(prevTotal)}</div>
+                </div>
+              </section>
+            );
+          })}
 
           <div className="section-head" id="help">Other ways to help</div>
           <ul className="other-ways">

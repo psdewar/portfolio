@@ -10,6 +10,15 @@ export type FundBooked = {
   private?: boolean;
 };
 
+// A completed earlier trip on the same fund page: shown as a settled budget
+// below the current ask, not as a second ask.
+export type FundTrip = {
+  label: string;
+  note?: string;
+  lines: FundLine[];
+  coveredInKind?: string[];
+};
+
 // The funding facet of a leg: the campaign rendered at /fund/<slug>.
 export type FundFacet = {
   destination: string;
@@ -19,6 +28,7 @@ export type FundFacet = {
   lines: FundLine[];
   coveredInKind?: string[];
   booked?: FundBooked[];
+  previousTrips?: FundTrip[];
 };
 
 // The pamphlet (poster) facet of a leg. Its shows derive from Show.leg; the
