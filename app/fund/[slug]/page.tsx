@@ -104,13 +104,22 @@ export default async function Page({
           new Date(a.date).getTime() - new Date(b.date).getTime() ||
           doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
       );
-    const derived: FundBooked[] = legShows.map((s) => ({
-      slug: s.slug,
-      venue: isResidence(s) ? s.venueLabel || `${s.city}, ${s.region}` : getVenueLabel(s) ?? s.city,
-      date: s.date,
-      doorTime: s.doorTime,
-      private: s.visibility === "private",
-    }));
+    const derived: FundBooked[] = legShows.map((s) => {
+      const base = isResidence(s)
+        ? s.venueLabel || `${s.city}, ${s.region}`
+        : getVenueLabel(s) ?? s.city;
+      const venue =
+        s.city && !base.toLowerCase().includes(s.city.toLowerCase())
+          ? `${base}, ${s.city}, ${s.region}`
+          : base;
+      return {
+        slug: s.slug,
+        venue,
+        date: s.date,
+        doorTime: s.doorTime,
+        private: s.visibility === "private",
+      };
+    });
     const booked = derived.length ? derived : fund.booked;
     return (
       <>

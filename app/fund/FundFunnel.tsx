@@ -815,7 +815,7 @@ html { scroll-behavior: smooth; }
                       <span className="loc-venue">{b.venue}</span>
                       {b.date && (
                         <span className="loc-when">
-                          {b.doorTime ? `${b.doorTime.toLowerCase()} on ` : ""}
+                          {b.doorTime ? `${b.doorTime.toLowerCase()} ` : ""}
                           {formatEventDateShort(b.date)}
                         </span>
                       )}
