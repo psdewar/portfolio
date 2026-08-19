@@ -65,26 +65,6 @@ function formatDuration(s: number) {
   return `${m}:${sec < 10 ? "0" : ""}${sec}`;
 }
 
-// Mirrors orderByFundingLeg in app/api/shared/moments.ts: leg cities lead in
-// show-date order, other cities rank by their first tile, no-city sinks to the end.
-function publicOrder(
-  keys: string[],
-  cityOf: (key: string) => string | undefined,
-  legCities: string[],
-): string[] {
-  const rank = new Map<string, number>();
-  for (const c of legCities) rank.set(c, rank.size);
-  for (const k of keys) {
-    const c = cityOf(k);
-    if (c && !rank.has(c)) rank.set(c, rank.size);
-  }
-  if (rank.size === 0) return keys;
-  return keys
-    .map((k, i) => ({ k, i, r: cityOf(k) ? rank.get(cityOf(k)!)! : Infinity }))
-    .sort((a, b) => a.r - b.r || a.i - b.i)
-    .map((e) => e.k);
-}
-
 function videoQuality(w: number, h: number) {
   const p = Math.min(w, h);
   if (p >= 2160) return { label: "4K", tier: 4 };
@@ -147,27 +127,49 @@ export default function MomentsAdminPage() {
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
   );
-  const featuredItems = publicOrder(featuredKeys, (k) => itemByKey.get(k)?.city, legCities)
+  const featuredItems = featuredKeys
     .map((k) => itemByKey.get(k))
     .filter((it): it is MomentItem => Boolean(it));
 
   async function toggleFeatured(key: string, next: boolean) {
+    if (next) {
+      if (featuredKeys.includes(key)) return;
+      const city = itemByKey.get(key)?.city;
+      const state = city?.split(", ").pop();
+      const cities = featuredKeys.map((k) => itemByKey.get(k)?.city);
+      let at = city ? cities.lastIndexOf(city) : -1;
+      if (at < 0 && state) {
+        for (let j = cities.length - 1; j >= 0; j--) {
+          if (cities[j]?.split(", ").pop() === state) {
+            at = j;
+            break;
+          }
+        }
+      }
+      const keys = [...featuredKeys];
+      keys.splice(at >= 0 ? at + 1 : keys.length, 0, key);
+      const r = await fetch("/api/admin/moments/feature", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || "Failed");
+      }
+      setFeaturedKeys(keys);
+      return;
+    }
     const r = await fetch("/api/admin/moments/feature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, featured: next }),
+      body: JSON.stringify({ key, featured: false }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
       throw new Error(d.error || "Failed");
     }
-    setFeaturedKeys((prev) =>
-      next
-        ? prev.includes(key)
-          ? prev
-          : [...prev, key]
-        : prev.filter((k) => k !== key),
-    );
+    setFeaturedKeys((prev) => prev.filter((k) => k !== key));
   }
 
   async function persistOrder(nextKeys: string[]) {
@@ -694,8 +696,8 @@ function SlideshowReorder({
   );
   const cityOf = (k: string) => byKey.get(k)?.city;
   const legSet = useMemo(() => new Set(legCities), [legCities]);
-  const snap = (next: string[]) => publicOrder(next, cityOf, legCities);
-  const [drag, setDrag] = useState<{ key: string; order: string[] } | null>(null);
+  type DragStart = { kind: "tile"; key: string } | { kind: "city"; city: string };
+  const [drag, setDrag] = useState<(DragStart & { order: string[] }) | null>(null);
   const order = drag ? drag.order : keys;
 
   const [ready, setReady] = useState(false);
@@ -733,6 +735,8 @@ function SlideshowReorder({
 
   const press = useRef<{ timer: number; x: number; y: number } | null>(null);
   const blockScroll = useRef<((e: TouchEvent) => void) | null>(null);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(
     () => () => {
@@ -754,22 +758,28 @@ function SlideshowReorder({
       blockScroll.current = null;
     }
   }
-  function lift(el: HTMLElement, pointerId: number, key: string) {
+  // Capture on the strip, not the pressed tile: reordering moves the tile in
+  // the DOM, which silently releases its capture and strands the drag.
+  function capture(pointerId: number) {
+    try {
+      stripRef.current?.setPointerCapture(pointerId);
+    } catch {}
+  }
+  function lift(pointerId: number, start: DragStart) {
     const stop = (ev: TouchEvent) => ev.preventDefault();
     document.addEventListener("touchmove", stop, { passive: false });
     blockScroll.current = stop;
-    try {
-      el.setPointerCapture(pointerId);
-    } catch {}
-    setDrag({ key, order: keys });
+    capture(pointerId);
+    setDrag({ ...start, order: keys });
   }
   // Mouse drags immediately; touch lifts after a hold so horizontal swipes still
   // scroll the strip.
-  function startDrag(e: React.PointerEvent, key: string) {
-    const el = e.currentTarget as HTMLElement;
+  function startDrag(e: React.PointerEvent, start: DragStart) {
+    pointer.current = { x: e.clientX, y: e.clientY };
     if (e.pointerType === "mouse") {
-      el.setPointerCapture(e.pointerId);
-      setDrag({ key, order: keys });
+      e.preventDefault();
+      capture(e.pointerId);
+      setDrag({ ...start, order: keys });
       return;
     }
     const pointerId = e.pointerId;
@@ -778,7 +788,7 @@ function SlideshowReorder({
       y: e.clientY,
       timer: window.setTimeout(() => {
         press.current = null;
-        lift(el, pointerId, key);
+        lift(pointerId, start);
       }, 350),
     };
   }
@@ -790,32 +800,88 @@ function SlideshowReorder({
       return;
     }
     if (!drag) return;
-    const overKey = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest<HTMLElement>("[data-key]")?.dataset.key;
-    if (!overKey || overKey === drag.key) return;
-    const next = [...drag.order];
-    next.splice(next.indexOf(drag.key), 1);
-    next.splice(next.indexOf(overKey), 0, drag.key);
-    if (next.join("|") !== drag.order.join("|")) setDrag({ key: drag.key, order: next });
+    pointer.current = { x: e.clientX, y: e.clientY };
+    hitTest(e.clientX, e.clientY);
   }
+  function hitTest(x: number, y: number) {
+    if (!drag) return;
+    const under = document.elementFromPoint(x, y);
+    if (drag.kind === "tile") {
+      const overKey = under?.closest<HTMLElement>("[data-key]")?.dataset.key;
+      if (!overKey || overKey === drag.key) return;
+      const next = [...drag.order];
+      next.splice(next.indexOf(drag.key), 1);
+      next.splice(next.indexOf(overKey), 0, drag.key);
+      if (next.join("|") !== drag.order.join("|")) setDrag({ ...drag, order: next });
+      return;
+    }
+    const overCity = under?.closest<HTMLElement>("[data-city]")?.dataset.city;
+    if (overCity === undefined || overCity === drag.city) return;
+    const groups: { city: string; keys: string[] }[] = [];
+    for (const k of drag.order) {
+      const c = byKey.get(k)?.city ?? "";
+      const last = groups[groups.length - 1];
+      if (last && last.city === c) last.keys.push(k);
+      else groups.push({ city: c, keys: [k] });
+    }
+    const from = groups.findIndex((g) => g.city === drag.city);
+    if (from < 0) return;
+    const [grp] = groups.splice(from, 1);
+    const to = groups.findIndex((g) => g.city === overCity);
+    if (to < 0) return;
+    groups.splice(to, 0, grp);
+    const next = groups.flatMap((g) => g.keys);
+    if (next.join("|") !== drag.order.join("|")) setDrag({ ...drag, order: next });
+  }
+  // Edge auto-scroll: while dragging, glide the strip when the pointer nears
+  // either edge, then re-run the hit test since no pointermove fires while
+  // content slides under a stationary finger.
+  useEffect(() => {
+    if (!drag) return;
+    const el = stripRef.current;
+    if (!el) return;
+    const EDGE = 56;
+    const MAX = 14;
+    const speed = (depth: number) => Math.ceil((Math.min(depth, EDGE) / EDGE) * MAX);
+    let raf = 0;
+    const tick = () => {
+      const p = pointer.current;
+      if (p) {
+        const r = el.getBoundingClientRect();
+        let dx = 0;
+        if (p.x < r.left + EDGE) dx = -speed(r.left + EDGE - p.x);
+        else if (p.x > r.right - EDGE) dx = speed(p.x - (r.right - EDGE));
+        if (dx) {
+          const before = el.scrollLeft;
+          el.scrollLeft += dx;
+          if (el.scrollLeft !== before) hitTest(p.x, p.y);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag]);
+
   function endDrag() {
     clearPress();
     releaseScroll();
     if (!drag) return;
-    const next = snap(drag.order);
-    if (next.join("|") !== keys.join("|")) onReorder(next);
+    if (drag.order.join("|") !== keys.join("|")) onReorder(drag.order);
     setDrag(null);
   }
-  function step(key: string, delta: number) {
+  function moveTo(key: string, pos: number) {
     const from = keys.indexOf(key);
-    const to = from + delta;
-    if (to < 0 || to >= keys.length) return;
-    const stepped = [...keys];
-    stepped.splice(from, 1);
-    stepped.splice(to, 0, key);
-    const next = snap(stepped);
-    if (next.join("|") !== keys.join("|")) onReorder(next);
+    const to = Math.min(keys.length - 1, Math.max(0, pos - 1));
+    if (to === from) return;
+    const moved = [...keys];
+    moved.splice(from, 1);
+    moved.splice(to, 0, key);
+    onReorder(moved);
+  }
+  function step(key: string, delta: number) {
+    moveTo(key, keys.indexOf(key) + 1 + delta);
   }
 
   return (
@@ -829,18 +895,31 @@ function SlideshowReorder({
           {items.length}
         </span>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div
+        ref={stripRef}
+        onPointerMove={dragOver}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
+        className={`mr-[calc(50%-50vw)] flex select-none gap-3 overflow-x-auto pb-2 ${drag ? "cursor-grabbing" : ""}`}
+      >
         {order.map((key, i) => {
           const item = byKey.get(key);
           if (!item) return null;
-          const dragging = drag?.key === key;
           const city = item.city;
+          const cityKey = city ?? "";
+          const cityDragging = drag?.kind === "city" && drag.city === cityKey;
+          const dragging = cityDragging || (drag?.kind === "tile" && drag.key === key);
           const groupStart = i === 0 || cityOf(order[i - 1]) !== city;
           const isLeg = !!city && legSet.has(city);
           return (
             <div key={key} className="flex shrink-0 gap-3">
               {groupStart && (
-                <div className="flex items-center">
+                <div
+                  data-city={cityKey}
+                  onPointerDown={(e) => startDrag(e, { kind: "city", city: cityKey })}
+                  className={`flex items-center px-1 ${cityDragging ? "cursor-grabbing" : "cursor-grab"}`}
+                >
                   <span
                     style={{ writingMode: "vertical-rl" }}
                     className={`rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
@@ -857,10 +936,8 @@ function SlideshowReorder({
               )}
             <div
               data-key={key}
-              onPointerDown={(e) => startDrag(e, key)}
-              onPointerMove={dragOver}
-              onPointerUp={endDrag}
-              onPointerCancel={endDrag}
+              data-city={cityKey}
+              onPointerDown={(e) => startDrag(e, { kind: "tile", key })}
               className={`relative shrink-0 w-28 cursor-grab select-none overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 transition-shadow ${
                 dragging ? "cursor-grabbing opacity-60 shadow-lg ring-2 ring-[#d4a553]" : ""
               }`}
@@ -868,9 +945,7 @@ function SlideshowReorder({
               <div className="pointer-events-none aspect-square">
                 <SlideThumb item={item} index={i} ready={ready} />
               </div>
-              <span className="absolute top-1 left-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#d4a553] px-1 text-[10px] font-bold text-[#0a0a0a]">
-                {i + 1}
-              </span>
+              <PositionInput value={i + 1} max={order.length} onCommit={(pos) => moveTo(key, pos)} />
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -909,8 +984,9 @@ function SlideshowReorder({
         })}
       </div>
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        Drag to reorder, hold first on mobile, or nudge with the arrows. ✕ removes it.
-        Gold cities lead while their leg is active.
+        Drag tiles or city labels to reorder, hold first on mobile, nudge with the arrows, or type
+        a new number on the badge. ✕ removes it. This order is what /moments shows; gold marks the
+        active fund leg&apos;s cities, which lead only on the fund page.
       </p>
     </section>
   );
@@ -928,6 +1004,44 @@ function SlideThumb({ item, index, ready }: { item: MomentItem; index: number; r
   }
   return (
     <img src={item.thumb ?? item.url} alt="" decoding="async" className={cls} style={style} />
+  );
+}
+
+function PositionInput({
+  value,
+  max,
+  onCommit,
+}: {
+  value: number;
+  max: number;
+  onCommit: (pos: number) => void;
+}) {
+  return (
+    <input
+      key={value}
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      defaultValue={value}
+      aria-label="Slideshow position"
+      title="Type a position and press Enter"
+      onPointerDown={(e) => e.stopPropagation()}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") {
+          e.currentTarget.value = String(value);
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={(e) => {
+        const n = parseInt(e.currentTarget.value, 10);
+        const pos = Number.isNaN(n) ? value : Math.min(max, Math.max(1, n));
+        e.currentTarget.value = String(value);
+        if (pos !== value) onCommit(pos);
+      }}
+      className="absolute top-1 left-1 h-8 w-9 sm:h-5 sm:w-7 select-text rounded-full bg-[#d4a553] text-center text-xs sm:text-[10px] font-bold tabular-nums text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-white/80"
+    />
   );
 }
 

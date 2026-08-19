@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     ),
     resolveCities(featured),
   ]);
-  const keys = await orderByFundingLeg(featured, cities, leg);
+  const keys = leg ? await orderByFundingLeg(featured, cities, leg) : featured;
   const previewKeys = new Set(
     (previewList.Contents || [])
       .map((o) => o.Key || "")

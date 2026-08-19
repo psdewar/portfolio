@@ -213,13 +213,11 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
   return out;
 }
 
-// "The first" is autopicked: the strip opens on the funding leg's first stop.
-// Order is derived per request, never stored. The funding leg's stops lead in
-// show-date order; every other city groups its moments where it first appears,
-// so each stop gets exactly one slate; cityless moments keep featured order at
-// the end.
-// The current funding leg's city labels in show-date order; these cities always
-// lead the public slideshow.
+// Leg ordering applies only when a gallery asks for a leg (the /fund pages);
+// /moments shows the stored featured order as-is. The leg's stops lead in
+// show-date order; every other city groups its moments where it first appears;
+// cityless moments keep featured order at the end.
+// The funding leg's city labels in show-date order.
 export async function legCityOrder(legSlug?: string): Promise<string[]> {
   try {
     const slug = legSlug || (await getFundingLegSlug());
