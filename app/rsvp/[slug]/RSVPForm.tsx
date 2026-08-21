@@ -6,6 +6,7 @@ import posthog from "posthog-js";
 import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import FormInput from "../../components/FormInput";
 import Poster from "../../components/Poster";
+import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
@@ -68,6 +69,8 @@ export default function RSVPForm({
   const optIn = !!flights?.includes(PAYMENT_MODEL);
   const flightLabel = optIn ? "opt-in" : "opt-out";
   const [supportCents, setSupportCents] = useState(optIn ? 0 : 2000);
+  const [showPay, setShowPay] = useState(false);
+  const [payError, setPayError] = useState("");
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
   const formatCents = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
@@ -149,38 +152,48 @@ export default function RSVPForm({
         [flightProp(PAYMENT_MODEL)]: flightLabel,
       });
 
-      if (supportCents > 0) {
-        const checkoutRes = await fetch("/api/create-checkout-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: "support-next-concert",
-            amount: totalWithFeesCents,
-            customerEmail: formData.email,
-            successPath: `/rsvp/${eventId}`,
-            cancelPath: `/rsvp/${eventId}`,
-            metadata: {
-              eventId,
-              name: formData.name,
-              flightPaymentModel: flightLabel,
-              phDistinctId: posthog.get_distinct_id?.() ?? "",
-            },
-          }),
-        });
-        const checkoutData = await checkoutRes.json();
-        if (checkoutRes.ok && checkoutData.url) {
-          window.location.href = checkoutData.url;
-          return;
-        }
-        setErrors({ email: checkoutData.error || "Couldn't start checkout. Try again." });
-        return;
-      }
-
       setSubmitted(true);
+      if (supportCents > 0) setShowPay(true);
     } catch {
       setErrors({ email: "Failed to submit. Please try again." });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const cardLoadingRef = useRef(false);
+  const startCardCheckout = async () => {
+    if (cardLoadingRef.current) return;
+    cardLoadingRef.current = true;
+    setPayError("");
+    try {
+      const checkoutRes = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: "support-next-concert",
+          amount: totalWithFeesCents,
+          customerEmail: formData.email,
+          successPath: `/rsvp/${eventId}`,
+          cancelPath: `/rsvp/${eventId}`,
+          metadata: {
+            eventId,
+            name: formData.name,
+            flightPaymentModel: flightLabel,
+            phDistinctId: posthog.get_distinct_id?.() ?? "",
+          },
+        }),
+      });
+      const checkoutData = await checkoutRes.json();
+      if (checkoutRes.ok && checkoutData.url) {
+        window.location.href = checkoutData.url;
+        return;
+      }
+      setPayError(checkoutData.error || "Couldn't start checkout. Try Venmo or Zelle instead.");
+    } catch {
+      setPayError("Couldn't start checkout. Try Venmo or Zelle instead.");
+    } finally {
+      cardLoadingRef.current = false;
     }
   };
 
@@ -247,7 +260,7 @@ export default function RSVPForm({
   );
 
   function submitLabel(): string {
-    if (isLoading) return supportCents > 0 ? "Redirecting..." : "Reserving...";
+    if (isLoading) return "Reserving...";
     return "I'll Be There";
   }
 
@@ -287,7 +300,7 @@ export default function RSVPForm({
           className="mt-1.5 text-xs lg:text-sm text-neutral-500 dark:text-neutral-400 tabular-nums"
           style={{ fontFamily: '"Space Mono", monospace' }}
         >
-          {supportCents > 0 ? `${formatCents(totalWithFeesCents)} total with fees` : "no charges"}
+          {supportCents > 0 ? "no fees with Venmo or Zelle" : "no charges"}
         </p>
       </div>
       <div className="flex items-center gap-3 text-xs lg:text-sm uppercase tracking-wider text-neutral-400 dark:text-neutral-500 select-none">
@@ -352,6 +365,17 @@ export default function RSVPForm({
 
   return (
     <div className="fixed left-0 right-0 top-14 bg-white dark:bg-neutral-950 overflow-hidden" style={{ bottom: "var(--player-h, 0px)" }}>
+      {showPay && (
+        <PaymentModal
+          venmoUrl={venmoPayUrl(supportCents / 100, `Concert support ${city}`)}
+          label={`Concert support · ${city}`}
+          amount={formatCents(supportCents)}
+          hint={`No fees with Venmo or Zelle. Card adds processing fees (${formatCents(totalWithFeesCents)} total).`}
+          error={payError}
+          onCard={startCardCheckout}
+          onClose={() => setShowPay(false)}
+        />
+      )}
       {/* Mobile layout */}
       <div className="lg:hidden flex flex-col h-full overflow-y-auto touch-pan-y">
         <div className="px-4 sm:px-6 py-8">

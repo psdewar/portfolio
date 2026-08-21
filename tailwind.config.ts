@@ -10,6 +10,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        lgtall: { raw: "(min-width: 1024px) and (min-height: 900px)" },
+      },
       fontFamily: {
         bebas: ["var(--font-bebas)", "sans-serif"],
       },

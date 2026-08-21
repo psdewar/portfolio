@@ -14,6 +14,7 @@ import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
+import SupportModal from "app/components/SupportModal";
 import { useToast } from "../contexts/ToastContext";
 import ListenLoading from "./loading";
 
@@ -94,6 +95,7 @@ export default function Page() {
   const isSimulatingLoad = useSimulatedLoading();
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
   const [patronWelcome, setPatronWelcome] = useState(false);
@@ -173,6 +175,8 @@ export default function Page() {
         </div>
       )}
 
+      <SupportModal open={showSupportModal} onOpenChange={setShowSupportModal} source="listen" />
+
       {isPatron && (
         <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -227,6 +231,10 @@ export default function Page() {
               key={t.id}
               type="button"
               onClick={() => {
+                if (!isPatron && WELCOME_PACK_IDS.has(t.id)) {
+                  setShowSupportModal(true);
+                  return;
+                }
                 setSuppressHoverId(t.id);
                 router.push(`/listen?play=${t.id}`);
               }}

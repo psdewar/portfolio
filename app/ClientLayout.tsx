@@ -17,17 +17,42 @@ import { isPatronTrack } from "./data/patron-config";
 import { usePatronStatus } from "./hooks/usePatronStatus";
 import SingleOverlay from "./components/SingleOverlay";
 
-const Navbar = dynamic(() => import("./Navbar").then((mod) => mod.Navbar), { ssr: false });
+const RELOAD_KEY = "chunk-reloaded";
+function withChunkRecovery<T>(load: () => Promise<T>): () => Promise<T> {
+  return () =>
+    load().then(
+      (mod) => {
+        sessionStorage.removeItem(RELOAD_KEY);
+        return mod;
+      },
+      (err) => {
+        if (!sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, "1");
+          window.location.reload();
+        }
+        throw err;
+      },
+    );
+}
+
+const Navbar = dynamic(
+  withChunkRecovery(() => import("./Navbar").then((mod) => mod.Navbar)),
+  { ssr: false },
+);
 const GlobalAudioPlayer = dynamic(
-  () => import("./components/GlobalAudioPlayer").then((mod) => mod.GlobalAudioPlayer),
+  withChunkRecovery(() =>
+    import("./components/GlobalAudioPlayer").then((mod) => mod.GlobalAudioPlayer),
+  ),
   { ssr: false },
 );
 const MissingResourceIndicator = dynamic(
-  () => import("./components/MissingResourceIndicator").then((mod) => mod.MissingResourceIndicator),
+  withChunkRecovery(() =>
+    import("./components/MissingResourceIndicator").then((mod) => mod.MissingResourceIndicator),
+  ),
   { ssr: false },
 );
 const DevToolsPanel = dynamic(
-  () => import("./components/DevToolsPanel").then((mod) => mod.DevToolsPanel),
+  withChunkRecovery(() => import("./components/DevToolsPanel").then((mod) => mod.DevToolsPanel)),
   { ssr: false },
 );
 

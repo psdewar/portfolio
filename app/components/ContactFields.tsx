@@ -12,10 +12,11 @@ interface ContactFieldsProps {
   onPhoneChange: (value: string) => void;
   errors?: { email?: string; name?: string };
   variant?: Variant;
+  compact?: boolean;
 }
 
 const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
-  ({ email, name, phone, onEmailChange, onNameChange, onPhoneChange, errors, variant = "neutral" }, ref) => {
+  ({ email, name, phone, onEmailChange, onNameChange, onPhoneChange, errors, variant = "neutral", compact = false }, ref) => {
     return (
       <>
         <FormInput
@@ -26,6 +27,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           onChange={(e) => onEmailChange(e.target.value)}
           error={errors?.email}
           variant={variant}
+          compact={compact}
           enterKeyHint="next"
           autoComplete="email"
         />
@@ -36,6 +38,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           onChange={(e) => onNameChange(e.target.value)}
           error={errors?.name}
           variant={variant}
+          compact={compact}
           enterKeyHint="next"
           autoComplete="name"
         />
@@ -45,6 +48,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           value={phone}
           onChange={(e) => onPhoneChange(e.target.value)}
           variant={variant}
+          compact={compact}
           enterKeyHint="done"
           autoComplete="tel"
         />

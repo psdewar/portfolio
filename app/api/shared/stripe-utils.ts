@@ -7,7 +7,17 @@ import {
   type ProductConfig,
 } from "./products";
 
-export const stripe = new Stripe(getSecureEnv("STRIPE_SECRET_KEY"), {
+const secretKey = getSecureEnv("STRIPE_SECRET_KEY");
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+const keyIdentity = (key: string) =>
+  key.match(/^[a-z]+_(test|live)_(51[A-Za-z0-9]{14})/)?.slice(1).join(":");
+if (publishableKey && keyIdentity(secretKey) !== keyIdentity(publishableKey)) {
+  throw new Error(
+    "Stripe key mismatch: STRIPE_SECRET_KEY and NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY are from different accounts or modes.",
+  );
+}
+
+export const stripe = new Stripe(secretKey, {
   apiVersion: "2025-08-27.basil",
 });
 

@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
+import CheckoutEmbed from "../components/CheckoutEmbed";
 
 const PRESETS = [25, 50, 100];
 
@@ -76,12 +73,7 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
               <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-neutral-200 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white" />
             </div>
           ) : paying ? (
-            <EmbeddedCheckoutProvider
-              stripe={stripePromise}
-              options={{ fetchClientSecret, onComplete: () => setComplete(true) }}
-            >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
+            <CheckoutEmbed fetchClientSecret={fetchClientSecret} onComplete={() => setComplete(true)} />
           ) : (
             <>
               <div className="grid grid-cols-3 gap-2 mb-3">

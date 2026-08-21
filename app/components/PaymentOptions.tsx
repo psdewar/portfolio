@@ -8,11 +8,13 @@ const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 export default function PaymentOptions({
   venmoUrl,
   onCard,
+  zelle = true,
   interac = false,
   interacFirst = false,
 }: {
   venmoUrl: string;
   onCard?: () => void;
+  zelle?: boolean;
   interac?: boolean;
   interacFirst?: boolean;
 }) {
@@ -46,7 +48,7 @@ export default function PaymentOptions({
         <span className="cc-tag">no fees</span>
         <img className="cc-venmo-logo" src="/Venmo_Logo_Blue.png" alt="Venmo" />
       </a>
-      {ZELLE_EMAIL && (
+      {zelle && ZELLE_EMAIL && (
         <button className="cc-btn cc-zelle" onClick={() => copy(ZELLE_EMAIL, "zelle")}>
           {copied === "zelle" ? (
             <span className="cc-copied">You copied my email</span>
@@ -80,7 +82,7 @@ export default function PaymentOptions({
         .cc-btn:hover { opacity: 0.92; }
         .cc-venmo { background: #008CFF; color: #fff; }
         .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
-        .cc-card { background: #1a1915; color: #fff; font-size: 20px; }
+        .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
         .cc-venmo, .cc-zelle, .cc-interac { position: relative; }
         .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
         .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }

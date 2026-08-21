@@ -60,7 +60,7 @@ const siteConfig = {
     tt: "https://tiktok.com/@peytspencer",
     yt: "https://youtube.com/@peytspencer",
     tw: "https://twitter.com/peytspencer",
-    fb: "https://facebook.com/9psd2",
+    fb: "https://facebook.com/peytspencer",
   },
 };
 

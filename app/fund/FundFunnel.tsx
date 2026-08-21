@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
+import CheckoutEmbed from "../components/CheckoutEmbed";
+import { venmoPayUrl } from "../components/PaymentModal";
 import MomentsGallery from "../moments/MomentsGallery";
 import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
@@ -13,8 +13,6 @@ import SponsorHeader from "app/sponsor/SponsorHeader";
 import { PlayIcon } from "@phosphor-icons/react";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 
@@ -172,12 +170,7 @@ function ContributeOverlay({
             <div className="contribute-thanks-spinner" aria-label="Loading" />
           </div>
         ) : method === "card" ? (
-          <EmbeddedCheckoutProvider
-            stripe={stripePromise}
-            options={{ fetchClientSecret, onComplete: () => setComplete(true) }}
-          >
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
+          <CheckoutEmbed fetchClientSecret={fetchClientSecret} onComplete={() => setComplete(true)} />
         ) : (
           <div className="contribute-choice">
             <PaymentOptions venmoUrl={venmoUrl} onCard={() => setMethod("card")} />
@@ -307,7 +300,7 @@ export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: R
     venmoParts.push(`Honorarium $${honorariumAmt}`);
   }
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
-  const venmoUrl = `https://venmo.com/psdewar?txn=pay&audience=private&amount=${total}&note=${encodeURIComponent(venmoNote)}`;
+  const venmoUrl = venmoPayUrl(total, venmoNote);
 
   const slugged = booked.filter(
     (b): b is FundBooked & { slug: string } => Boolean(b.slug) && !isPastStop(b),

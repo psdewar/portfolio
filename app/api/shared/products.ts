@@ -249,19 +249,11 @@ export const PRODUCTS: Record<string, Product> = {
     name: "From The Archives: Exhibit PSD",
     description: "100% cotton t-shirt with original PSD logo",
     type: "physical",
-    basePriceCents: 2500,
+    basePriceCents: calculateStripeFee(3000),
     images: ["https://peytspencer.com/images/merch/exhibit-psd-merch.JPG"],
     successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
-    requiresShipping: true,
-    shipping: {
-      amountCents: 700,
-      displayName: "Standard US Shipping",
-      deliveryEstimate: {
-        minimum: { unit: "business_day", value: 5 },
-        maximum: { unit: "business_day", value: 7 },
-      },
-    },
+    requiresShipping: false,
     allowedCountries: ["US"],
     variants: {
       sizes: ["S", "M", "L"],
@@ -269,7 +261,7 @@ export const PRODUCTS: Record<string, Product> = {
     },
   },
 
-  // Pre-order: All I Need Is Patience tee (3 colorways, XS–XL)
+  // All I Need Is Patience tee (3 colorways, XS–XL)
   "tee-patience": {
     id: "tee-patience",
     name: "All I Need Is Patience Tee",
@@ -288,8 +280,8 @@ export const PRODUCTS: Record<string, Product> = {
       amountCents: 0,
       displayName: "Free shipping",
       deliveryEstimate: {
-        minimum: { unit: "week", value: 2 },
-        maximum: { unit: "week", value: 5 },
+        minimum: { unit: "business_day", value: 5 },
+        maximum: { unit: "business_day", value: 7 },
       },
     },
     allowedCountries: ["US"],

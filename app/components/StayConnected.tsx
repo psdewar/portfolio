@@ -14,6 +14,7 @@ interface SelectedTier {
 
 interface StayConnectedProps {
   onClose?: (email?: string) => void;
+  onChangeTier?: () => void;
   isModal?: boolean;
   shouldShow?: boolean;
   selectedTier?: SelectedTier;
@@ -36,10 +37,10 @@ function formatCountdown(seconds: number): string {
 }
 
 const PRIMARY_BUTTON_CLASS =
-  "w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-2 sm:py-3 md:py-5 px-3 sm:px-4 md:px-6 text-sm sm:text-base md:text-2xl rounded-xl border-2 border-transparent transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed";
+  "w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-3 px-4 text-base rounded-lg transition-colors disabled:cursor-not-allowed";
 
 const MODE_SWITCH_BUTTON_CLASS =
-  "w-full text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors";
+  "w-full py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 underline underline-offset-2 transition-colors";
 
 // This should only be called client-side (inside useEffect)
 export const shouldShowStayConnected = (): boolean => {
@@ -58,6 +59,7 @@ export const shouldShowStayConnected = (): boolean => {
 
 export default function StayConnected({
   onClose,
+  onChangeTier,
   isModal = false,
   shouldShow: externalShouldShow,
   selectedTier,
@@ -240,7 +242,7 @@ export default function StayConnected({
   if (!componentShouldShow) return null;
 
   const containerClass = isModal
-    ? "bg-white dark:bg-neutral-800 rounded-xl p-4 sm:p-6 md:p-8 max-w-sm sm:max-w-md w-full mx-4"
+    ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
     : "bg-white dark:bg-neutral-800 rounded-xl p-4 sm:p-6";
 
   const validateForm = (): boolean => {
@@ -290,65 +292,91 @@ export default function StayConnected({
     );
   }
 
-  return (
-    <div className={`${containerClass} shadow-2xl relative`}>
-      {isModal && onClose && (
-        <button
-          onClick={() => handleClose()}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 md:top-8 md:right-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10"
-          aria-label="Close"
-        >
-          <svg
-            className="w-5 h-5 sm:w-6 sm:h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      )}
+  const headerTitle =
+    step === "code"
+      ? "Check your email"
+      : selectedTier
+        ? `Join the ${selectedTier.name} tier`
+        : mode === "signup"
+          ? "Stay connected"
+          : "Welcome back";
 
-      <div className="my-4 inline-flex items-center gap-3 pr-6">
-        {!(selectedTier && step !== "code") && (
-          <Image
-            src="/images/home/openmic-square.jpeg"
-            alt="Peyt rhymes with heat"
-            width={48}
-            height={48}
-            className="sm:w-16 sm:h-16 mx-auto rounded-full"
-          />
-        )}
-        <div className="text-left">
-          <p className="text-gray-600 dark:text-gray-100 text-sm sm:text-base font-medium">
-            {step === "code"
-              ? "Enter the verification code sent to your email."
-              : selectedTier
-                ? `Sign in to join the ${selectedTier.name} tier.`
-                : mode === "signup"
-                  ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
-                  : "Enter your email to get a verification code."}
-          </p>
+  const headerSub =
+    step === "code"
+      ? `Code sent to ${mode === "signup" ? contactFormData.email : signInEmail}`
+      : selectedTier
+        ? `Sign ${mode === "signup" ? "up" : "in"} to continue to checkout`
+        : mode === "signup"
+          ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
+          : "Enter your email to get a verification code.";
+
+  return (
+    <div className={`${containerClass} shadow-2xl`}>
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {!(selectedTier && step !== "code") && (
+            <Image
+              src="/images/home/openmic-square.jpeg"
+              alt="Peyt rhymes with heat"
+              width={48}
+              height={48}
+              className="rounded-full shrink-0"
+            />
+          )}
+          <div className="min-w-0">
+            <h3 className="font-bebas text-2xl leading-none text-neutral-900 dark:text-white">
+              {headerTitle}
+            </h3>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              {headerSub}
+              {selectedTier && onChangeTier && step === "form" ? (
+                <>
+                  , or{" "}
+                  <button
+                    type="button"
+                    onClick={onChangeTier}
+                    className="underline underline-offset-2 hover:text-neutral-900 dark:hover:text-white transition-colors py-3 -my-3"
+                  >
+                    change tier
+                  </button>
+                  .
+                </>
+              ) : (
+                selectedTier && step === "form" && "."
+              )}
+            </p>
+          </div>
         </div>
+        {isModal && onClose && (
+          <button
+            onClick={() => handleClose()}
+            className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 flex items-center justify-center transition-colors shrink-0"
+            aria-label="Close"
+          >
+            <svg
+              className="w-4 h-4 text-neutral-500 dark:text-neutral-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       {step === "code" ? (
         <div className="space-y-3 sm:space-y-4">
-          <div className="text-center mb-2">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Code sent to {mode === "signup" ? contactFormData.email : signInEmail}
+          {countdown > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              Expires in {formatCountdown(countdown)}
             </p>
-            {countdown > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Expires in {formatCountdown(countdown)}
-              </p>
-            )}
-          </div>
+          )}
           <div>
             <input
               ref={otpRef}
@@ -363,7 +391,7 @@ export default function StayConnected({
                 if (errors.otp) setErrors({});
               }}
               onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
-              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-center tracking-[0.5em] font-mono ${
+              className={`w-full px-4 py-3 text-base rounded-lg border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 text-center tracking-[0.5em] font-mono ${
                 errors.otp
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-200 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-neutral-100"
@@ -385,18 +413,11 @@ export default function StayConnected({
             <button
               type="button"
               onClick={() => setStep("form")}
-              className="w-full text-sm text-neutral-900 dark:text-neutral-100 underline hover:underline"
+              className="w-full py-3 text-sm text-neutral-900 dark:text-neutral-100 underline hover:underline"
             >
               Request new code
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
-            className={MODE_SWITCH_BUTTON_CLASS}
-          >
-            {mode === "signup" ? "Already signed up? Sign in" : "New here? Sign up"}
-          </button>
         </div>
       ) : mode === "signup" ? (
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
@@ -409,6 +430,7 @@ export default function StayConnected({
             onNameChange={(v) => handleInputChange("name", v)}
             onPhoneChange={(v) => handleInputChange("phone", v)}
             errors={errors}
+            compact
           />
           <button
             type="submit"
@@ -438,6 +460,7 @@ export default function StayConnected({
             }}
             onKeyDown={(e) => e.key === "Enter" && handleRequestSignInCode()}
             error={errors.email}
+            compact
           />
           <button
             type="button"

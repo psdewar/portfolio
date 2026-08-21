@@ -83,11 +83,10 @@ export const GlobalAudioPlayer: React.FC = () => {
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
-  const isQuickShop = pathname === "/shop/quick";
   const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
   const { online: isStreamLive } = useLiveStatus({ enabled: isLivePage });
-  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isQuickShop && !isOverlayOpen && !(isLivePage && isStreamLive);
+  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isOverlayOpen && !(isLivePage && isStreamLive);
 
   useEffect(() => {
     if (isVisible) {

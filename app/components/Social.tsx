@@ -45,9 +45,9 @@ export const SOCIAL_LINKS: { href: string; label: string; username: string; icon
     color: "#1DA1F2",
   },
   {
-    href: "https://facebook.com/9psd2",
+    href: "https://facebook.com/peytspencer",
     label: "Facebook",
-    username: "9psd2",
+    username: "@peytspencer",
     icon: FacebookLogoIcon,
     color: "#1877F2",
   },
@@ -63,7 +63,7 @@ export function Social({ isMobilePanel = false, isHorizontal = false }: SocialPr
     isMobilePanel || isHorizontal
       ? "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
       : "text-white hover:text-[#FFFFFF]"
-  } hover:scale-110 transition-all duration-200`;
+  } hover:scale-110 transition-all duration-200 p-2 -m-2`;
 
   const iconSize = isHorizontal ? 20 : 24;
 

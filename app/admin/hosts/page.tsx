@@ -369,7 +369,6 @@ function showTypeOf(show: Pick<Show, "guestSet" | "unlisted">): string {
 }
 
 const ADMIN_NAV = [
-  { href: "/admin/ledger", label: "Ledger" },
   { href: "/admin/catalog", label: "Catalog" },
 ];
 

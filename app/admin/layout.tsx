@@ -10,6 +10,7 @@ const adminPages = [
   { segment: "livestream", title: "Livestream", href: "/admin/livestream" },
   { segment: "audience", title: "Stay connected", href: "/admin/audience" },
   { segment: "moments", title: "Moments", href: "/admin/moments" },
+  { segment: "ledger", title: "Ledger", href: "/admin/ledger" },
   { segment: "printouts", title: "Printouts", href: "/admin/printouts" },
   { segment: "sync", title: "Sync lyrics", href: "/admin/sync" },
 ];

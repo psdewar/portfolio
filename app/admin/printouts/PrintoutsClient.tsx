@@ -468,7 +468,7 @@ function SupportPreorderPage({ supportPath, shopPath }: { supportPath: string; s
         <QrColumn
           qrPath={shopPath}
           caption={`peytspencer.com${shopPath}`}
-          alt="Scan to pre-order the Patience tee"
+          alt="Scan to get the Patience tee"
         />
       </div>
     </div>
@@ -612,7 +612,7 @@ const STATIC_LEGEND: Record<"general" | "screensavers", QrDef[]> = {
   screensavers: [
     { label: "Support", path: "/support" },
     { label: "RSVP", path: "/rsvp" },
-    { label: "Patience pre-order", path: "/shop" },
+    { label: "Patience tee", path: "/shop" },
   ],
 };
 
@@ -784,7 +784,7 @@ export default function PrintoutsClient({
       nonce: 0,
     },
     { id: "support", label: "Fund the tour", path: "/fund", enabled: true, status: "idle", nonce: 0 },
-    { id: "shop", label: "Patience pre-order", path: "/shop", enabled: true, status: "idle", nonce: 0 },
+    { id: "shop", label: "Patience tee", path: "/shop", enabled: true, status: "idle", nonce: 0 },
   ]);
 
   const byId = Object.fromEntries(items.map((it) => [it.id, it])) as Record<QrItem["id"], QrItem>;

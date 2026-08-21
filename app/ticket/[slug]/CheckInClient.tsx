@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import posthog from "posthog-js";
 import { useDocumentReady } from "../../hooks/useDocumentReady";
 
@@ -62,7 +63,6 @@ export default function CheckInClient({
   ticketNoOverride,
   rsvpdOverride,
 }: Props) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState(""); // honeypot: only bots fill it
@@ -544,20 +544,44 @@ export default function CheckInClient({
                           {ticketBlob ? "Keep Your Ticket" : "Preparing…"}
                         </button>
                         {saveAttempted && (
-                          <button
-                            type="button"
-                            onClick={() => router.push("/support")}
-                            className="mt-3 flex w-full items-center justify-center gap-2 text-xs uppercase tracking-[0.2em]"
-                            style={{ ...mono, color: INK }}
-                          >
-                            <span style={{ textDecoration: "underline", textUnderlineOffset: 4 }}>
-                              Fund the Tour
-                            </span>
-                            <svg width="22" height="10" viewBox="0 0 22 10" fill="none" aria-hidden style={{ flexShrink: 0 }}>
-                              <path d="M0 5H17.5" stroke={INK} strokeWidth="1.6" />
-                              <path d="M13.5 1L19.5 5L13.5 9" stroke={INK} strokeWidth="1.6" strokeLinecap="square" strokeLinejoin="miter" />
-                            </svg>
-                          </button>
+                          <div className="-mx-6 -mb-5 mt-4 flex">
+                            {[
+                              {
+                                path: "/support",
+                                label: "Fund the Tour",
+                                src: "/images/covers/exhibit-psd-live-cover.jpg",
+                                position: "center 30%",
+                              },
+                              {
+                                path: "/shop",
+                                label: "Patience Tee",
+                                src: "/images/merch/patience-navy.jpeg",
+                                position: "center 43%",
+                              },
+                            ].map((cta) => (
+                              <Link key={cta.path} href={cta.path} className="relative block w-1/2 min-w-0">
+                                <Image
+                                  src={cta.src}
+                                  alt={cta.label}
+                                  width={300}
+                                  height={200}
+                                  className="h-24 w-full object-cover"
+                                  style={{ objectPosition: cta.position }}
+                                  unoptimized
+                                />
+                                <span
+                                  className="absolute inset-x-0 bottom-0 pb-1.5 pt-4 text-center text-[9px] uppercase tracking-[0.18em]"
+                                  style={{
+                                    ...mono,
+                                    color: PAPER,
+                                    background: `linear-gradient(180deg, transparent, ${INK}cc)`,
+                                  }}
+                                >
+                                  {cta.label}
+                                </span>
+                              </Link>
+                            ))}
+                          </div>
                         )}
                       </>
                     ) : null

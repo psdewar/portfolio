@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
-import { ShopContent } from "../components/ShopContent";
+import { ShopTabs, type ShopTab } from "../components/ShopTabs";
+
+const DESCRIPTION =
+  "The All I Need Is Patience tee in navy, forest, or maroon, and Exhibit PSD, the 2015 design that used to only sell at shows.";
 
 export const metadata: Metadata = {
-  title: "Pre-Order: All I Need Is Patience Tee",
-  description:
-    "Pre-order the All I Need Is Patience tee in navy, forest, or maroon. First pressing, made to order, shipped within the US.",
+  title: "Shop: Patience & Exhibit PSD Tees",
+  description: DESCRIPTION,
   alternates: { canonical: "/shop" },
   openGraph: {
-    title: "Pre-Order: All I Need Is Patience Tee",
-    description:
-      "Pre-order the All I Need Is Patience tee in navy, forest, or maroon. First pressing, made to order.",
+    title: "Shop: Patience & Exhibit PSD Tees",
+    description: DESCRIPTION,
     images: ["/images/merch/patience-navy.jpeg"],
   },
 };
 
-export default function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const initialTab: ShopTab = tab === "exhibit" ? "exhibit" : "patience";
+
   return (
-    <div className="mx-auto w-full max-w-lg px-4 py-8 sm:px-6">
-      <ShopContent embedded />
+    <div className="mx-auto w-full max-w-7xl px-4 pt-3 pb-8 sm:px-6 lg:px-8 lg:pt-8">
+      <ShopTabs initialTab={initialTab} />
     </div>
   );
 }

@@ -1,9 +1,14 @@
 import { Suspense } from "react";
-import TourStops from "../components/TourStops";
 import TipsAndSocials, { SocialSection } from "./TipsAndSocials";
 import { SupporterSection } from "../components/SupporterSection";
-import { ShopContent } from "../components/ShopContent";
-import { getShows, isShowListable } from "../lib/shows";
+import {
+  getShows,
+  isShowListable,
+  isShowDraft,
+  needsHostLocation,
+  isShowUpcoming,
+} from "../lib/shows";
+import { confirmPath } from "../lib/confirm";
 
 const REGION_TZ: Record<string, string> = {
   BC: "America/Vancouver",
@@ -28,9 +33,13 @@ export default async function SupportPage({
   searchParams: Promise<{ now?: string }>;
 }) {
   const params = await searchParams;
-  const liveShows = (await getShows())
+  const shows = await getShows();
+  const liveShows = shows
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const upcomingShows = liveShows.filter(isShowUpcoming);
+  const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
+  const sponsorHref = draft ? confirmPath(draft.slug) : "/sponsor";
   const todayShow = liveShows.find((s) => {
     if (s.country !== "CA") return false;
     if (params.now) return params.now === s.date;
@@ -41,26 +50,8 @@ export default async function SupportPage({
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">
       <Suspense>
-        <TipsAndSocials interacFirst={!!todayShow} />
+        <TipsAndSocials interacFirst={!!todayShow} sponsorHref={sponsorHref} />
       </Suspense>
-
-      <section id="preorder" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-16">
-        <div className="max-w-lg mx-auto">
-          <ShopContent embedded />
-        </div>
-      </section>
-
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
-        <div className="flex flex-col gap-4 max-w-lg mx-auto">
-          <TourStops shows={liveShows} />
-          <a
-            href="/sponsor"
-            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"
-          >
-            Interested in sponsoring a live concert?
-          </a>
-        </div>
-      </section>
 
       <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-20">
         <div className="max-w-lg mx-auto">
@@ -68,7 +59,7 @@ export default async function SupportPage({
         </div>
       </section>
 
-      <SupporterSection />
+      <SupporterSection upcomingShows={upcomingShows} />
     </div>
   );
 }
