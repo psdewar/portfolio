@@ -22,9 +22,9 @@ const STEPS = [
 ];
 
 const CONTRIBUTE_STEPS = [
-  "You cover a piece of the trip below.",
-  "Tap Contribute at the bottom.",
-  "Pay with Venmo, Zelle, or card.",
+  "Choose an item to cover with any amount or tap +$25",
+  "Tap Contribute when it appears",
+  "Pay with Venmo, Zelle, or card",
 ];
 
 function isShowPast(dateStr: string): boolean {
@@ -159,7 +159,7 @@ function ContributeOverlay({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="contribute-header">
-          {!complete && !method && <span className="contribute-title">Select one:</span>}
+          {!complete && !method && <span className="contribute-title">Select one</span>}
           <button className="contribute-close" onClick={onClose} aria-label="Close">
             &#x2715;
           </button>
@@ -625,7 +625,7 @@ html { scroll-behavior: smooth; }
   overflow: hidden;
 }
 .contribute-header { display: flex; align-items: center; padding: 10px 10px 0 28px; }
-.contribute-title { font-family: 'Outfit', system-ui, -apple-system, sans-serif; font-size: 24px; font-weight: 400; color: #1a1915; letter-spacing: -0.01em; }
+.contribute-title { font-family: 'Outfit', system-ui, -apple-system, sans-serif; font-size: 24px; font-weight: 500; color: #1a1915; letter-spacing: -0.01em; }
 .contribute-close {
   margin-left: auto;
   background: rgba(0,0,0,0.06);
