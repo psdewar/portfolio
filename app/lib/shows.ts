@@ -29,6 +29,9 @@ export interface Show {
   // Custom poster artwork replacing the generated one: a /public file
   // ("posters/woodinville-wa-0.jpg") or an image URL. Blank keeps the generated poster.
   posterImg?: string | null;
+  // Photo behind the generated poster, replacing the default concert shot. Same
+  // input as posterImg, but the layout, text, date, and QR still render on top.
+  bgImg?: string | null;
   // Optional reason shown on the private-concert overlay (e.g. "Youth camp", "Private house concert").
   privateNote?: string | null;
   // Hide the private reason from the public tour list; the locked row falls back to "No public RSVP".

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
 import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { HONORARIUM_ITEM, HONORARIUM_DEFINITION } from "../../../lib/sponsor";
+import { HONORARIUM_ITEM, HONORARIUM_DEFINITION, orderItems } from "../../../lib/sponsor";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
@@ -70,6 +70,7 @@ export default async function ConfirmPage({
       taglineSuffix={show.taglineSuffix ?? undefined}
       tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
       posterImg={show.posterImg ?? undefined}
+      bgImg={show.bgImg ?? undefined}
       venueImg={show.venueImg ?? undefined}
       venueImgWidth={show.venueImgWidth ?? undefined}
       venueImgOffsetY={show.venueImgOffsetY ?? undefined}
@@ -81,12 +82,6 @@ export default async function ConfirmPage({
       hideDetails={show.visibility === "private"}
     />
   );
-
-  // Already confirmed — send them to the live show (public) or the tour list (private),
-  // where the show speaks for itself; no replayed "thank you".
-  if (!isShowDraft(show)) {
-    redirect(show.visibility === "private" ? "/rsvp" : `/rsvp/${slug}`);
-  }
 
   const hostRecord = await getHostForShow(slug);
   const host = {
@@ -100,8 +95,12 @@ export default async function ConfirmPage({
     : isResidence(show)
       ? "your home"
       : show.venue || `${show.city}, ${show.region}`;
+  // The show can exist before its host signs: I create it for the leg's funding,
+  // then send this link. Same relationship, different order — so status never gates
+  // the page, and the publish note only holds while the show is still a draft.
+  const showsPublishNote = isShowDraft(show) && show.visibility !== "private";
   const splitItem = "50/50 donation split";
-  const contributeItems = host.items.filter((i) => i !== splitItem);
+  const contributeItems = orderItems(host.items.filter((i) => i !== splitItem));
   const hasSplit = host.items.includes(splitItem);
 
   return (
@@ -168,12 +167,12 @@ export default async function ConfirmPage({
             </div>
           )}
 
-          {(show.visibility !== "private" || hasSplit) && (
+          {(showsPublishNote || hasSplit) && (
             <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
               {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
-                (show.visibility === "private"
-                  ? ""
-                  : "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden.")}
+                (showsPublishNote
+                  ? "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden."
+                  : "")}
             </div>
           )}
 

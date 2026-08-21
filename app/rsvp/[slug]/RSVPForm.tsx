@@ -24,6 +24,7 @@ interface RSVPFormProps {
   address?: string | null;
   tags?: string | null;
   posterImg?: string | null;
+  bgImg?: string | null;
   flights?: string[] | null;
   onBack?: () => void;
 }
@@ -50,6 +51,7 @@ export default function RSVPForm({
   address,
   tags,
   posterImg,
+  bgImg,
   flights,
   onBack,
 }: RSVPFormProps) {
@@ -245,6 +247,7 @@ export default function RSVPForm({
       address={address}
       tags={tags ?? PAY_WHAT_YOU_WANT_TAG}
       posterImg={posterImg ?? undefined}
+      bgImg={bgImg ?? undefined}
     />
   );
 

@@ -162,13 +162,13 @@ export function ExhibitPsdContent({
             storyOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <h3 className="mt-auto font-bebas text-[clamp(1.75rem,6.5cqw,4rem)] leading-none text-white">
+          <h3 className="mt-auto font-bebas text-[clamp(2.25rem,6.5cqw,4rem)] leading-none text-white">
             Exhibit PSD
           </h3>
-          <p className="text-[clamp(0.8rem,2.9cqw,1.5rem)] leading-relaxed text-white/85">
+          <p className="text-[clamp(1rem,3.1cqw,1.5rem)] leading-relaxed text-white/85">
             {EXHIBIT_STORY}
           </p>
-          <span className="mt-auto text-[clamp(0.55rem,1.2cqw,0.75rem)] uppercase tracking-[0.16em] text-white/50">
+          <span className="mt-auto text-[clamp(0.65rem,1.2cqw,0.8rem)] uppercase tracking-[0.16em] text-white/50">
             Tap to close
           </span>
         </div>

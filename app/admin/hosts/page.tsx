@@ -12,8 +12,9 @@ import {
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
-import { type Show, isShowDraft, isShowListed, isShowListable } from "../../lib/shows";
+import { type Show, isShowDraft, isShowListed, isShowOnTrip } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
+import { orderItems } from "../../lib/sponsor";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { type Leg, type PamphletFacet, FUND_LEGS } from "../../fund/legs";
 import projectsData from "../../../data/projects.json";
@@ -451,13 +452,14 @@ export default function HostsAdminPage() {
     }
   }
 
-  // Shows without a host record: press-kit invites awaiting a host, plus listed
-  // shows added directly (e.g. logged after the fact). Surface each as its own
-  // group, carrying the show's own date/location so it lands in the right
-  // section. Unlisted and cancelled bookings don't count as stops here.
+  // Shows without a host record: press-kit invites awaiting a host, plus stops
+  // added directly (e.g. logged after the fact, or an unlisted guest set).
+  // Surface each as its own group, carrying the show's own date/location so it
+  // lands in the right section. Unlisted stops belong here because the fund page
+  // counts them on the leg; only cancelled bookings drop out.
   const representedSlugs = new Set(groups.map((g) => g.showSlug));
   for (const show of shows) {
-    if (!representedSlugs.has(show.slug) && (isShowDraft(show) || isShowListable(show))) {
+    if (!representedSlugs.has(show.slug) && (isShowDraft(show) || isShowOnTrip(show))) {
       groups.push({
         showSlug: show.slug,
         show,
@@ -889,7 +891,7 @@ function CompletedSection({
                     {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
                     {s.phone && <span className="text-neutral-500 ml-2">{s.phone}</span>}
                     {s.items.length > 0 && (
-                      <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
+                      <div className="text-xs text-neutral-500 mt-0.5">{orderItems(s.items).join(" · ")}</div>
                     )}
                   </div>
                 ))}
@@ -1373,6 +1375,7 @@ function PosterEditor({
   );
   const [privateNote, setPrivateNote] = useState(soloShow?.privateNote ?? "");
   const [posterImg, setPosterImg] = useState(isSingle ? (soloShow?.posterImg ?? "") : "");
+  const [bgImg, setBgImg] = useState(isSingle ? (soloShow?.bgImg ?? "") : "");
   const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -1552,6 +1555,7 @@ function PosterEditor({
     if (tags.trim()) params.set("tags", tags.trim());
     if (tagline.trim()) params.set("label", tagline.trim());
     params.set("posterImg", posterImg.trim());
+    params.set("bgImg", bgImg.trim());
     if (venueImg.trim()) params.set("venueImg", venueImg.trim());
     if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
     if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
@@ -1578,6 +1582,7 @@ function PosterEditor({
       privateNote: privateNote.trim() || null,
       taglineAlign,
       posterImg: posterImg.trim() || null,
+      bgImg: bgImg.trim() || null,
     };
     await fetch("/api/shows", {
       method: "PATCH",
@@ -1749,6 +1754,7 @@ function PosterEditor({
     centerLogo,
     privateNote,
     posterImg,
+    bgImg,
     scale,
     showDoors,
     showQr,
@@ -1825,6 +1831,15 @@ function PosterEditor({
                 </div>
               )}
               <div className={posterImg.trim() ? "opacity-40" : undefined}>
+              {isSingle && (
+                <input
+                  type="text"
+                  value={bgImg}
+                  onChange={(e) => setBgImg(e.target.value)}
+                  placeholder="Background photo: /public file (posters/dawnbreakers-open-mic.webp) or image URL"
+                  className={`${inputCls} mb-2`}
+                />
+              )}
               <textarea
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
@@ -2187,6 +2202,7 @@ function PosterEditor({
                   taglineSuffix={tagline}
                   tags={tags}
                   posterImg={posterImg}
+                  bgImg={bgImg}
                   venueImg={venueImg}
                   venueImgWidth={Number(committedImgWidth) || undefined}
                   venueImgOffsetY={Number(committedOffsetY) || undefined}
@@ -2637,14 +2653,16 @@ function ManageModal({
           </section>
         )}
 
-        {show?.slug && isShowDraft(show) && (
+        {show?.slug && (
           <section>
             <h5 className={sectionLabel}>Confirm</h5>
             <div className={groupList}>
-              <button className={drawerRow} onClick={onEditHost}>
-                <span className="text-neutral-800 dark:text-neutral-200">Amend booking</span>
-                <span className="text-neutral-400 truncate ml-3">date, venue, host</span>
-              </button>
+              {isShowDraft(show) && (
+                <button className={drawerRow} onClick={onEditHost}>
+                  <span className="text-neutral-800 dark:text-neutral-200">Amend booking</span>
+                  <span className="text-neutral-400 truncate ml-3">date, venue, host</span>
+                </button>
+              )}
               <button className={drawerRow} onClick={copyConfirmLink}>
                 <span className="text-neutral-800 dark:text-neutral-200">Copy confirm link</span>
                 <span className="text-neutral-400">{copiedLink ? "Copied" : "for the host"}</span>
@@ -3049,7 +3067,7 @@ function ShowGroupCard({
                     {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
                   </div>
                   {s.items.length > 0 && (
-                    <div className="text-xs text-neutral-500 mt-0.5">{s.items.join(" · ")}</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">{orderItems(s.items).join(" · ")}</div>
                   )}
                 </button>
               ))}

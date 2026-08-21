@@ -60,6 +60,7 @@ export default function RSVPShell({
           address={selected.address}
           tags={selected.tags}
           posterImg={selected.posterImg}
+          bgImg={selected.bgImg}
           flights={selected.flights}
           onBack={handleBack}
         />

@@ -19,6 +19,7 @@ export async function screenshotPoster(show: Show): Promise<Response> {
     const html = posterHtml(show, {
       tags: show.tags ?? PAY_WHAT_YOU_WANT_TAG,
       posterImgSrc: await inlineVenueImg(show.posterImg ?? ""),
+      bgImgSrc: await inlineVenueImg(show.bgImg ?? ""),
       invite: needsHostLocation(show),
     });
 

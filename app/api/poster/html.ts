@@ -95,6 +95,8 @@ export type PosterOptions = {
   taglineAlign?: string;
   // Inlined custom artwork that replaces the generated poster.
   posterImgSrc?: string;
+  // Inlined photo behind the generated poster, replacing the default concert shot.
+  bgImgSrc?: string;
   // Press-kit invite: no date to announce, so the poster asks for one instead.
   invite?: boolean;
 };
@@ -126,6 +128,7 @@ export function posterHtml(
     centerLogo = false,
     taglineAlign = "left",
     posterImgSrc = "",
+    bgImgSrc = "",
     invite = false,
   } = opts;
   const { W, H } = POSTER_DIMS[format];
@@ -159,9 +162,11 @@ export function posterHtml(
     .filter(Boolean)
     .join(";");
   const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
-  const bgSrc = isWideBanner
-    ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
-    : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg");
+  const bgSrc =
+    bgImgSrc ||
+    (isWideBanner
+      ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
+      : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg"));
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
   const loc = getPosterLocation(show);
   const location =

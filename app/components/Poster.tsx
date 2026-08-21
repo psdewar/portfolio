@@ -41,6 +41,9 @@ interface PosterProps {
   // (posters/woodinville.jpg) or an image URL. Anything the page layers on top
   // (the private-concert overlay) still sits above it.
   posterImg?: string;
+  // Photo behind the generated poster, replacing the default concert shot. The
+  // layout, text, and QR still render on top — unlike posterImg, which replaces them.
+  bgImg?: string;
   taglineAlign?: string;
   debug?: boolean;
   centerLogo?: boolean;
@@ -75,6 +78,7 @@ function Poster({
   venueImgWidth,
   venueImgOffsetY,
   posterImg = "",
+  bgImg = "",
   taglineAlign = "left",
   debug = false,
   centerLogo = false,
@@ -90,6 +94,7 @@ function Poster({
   const aspectRatio = `${dims.W} / ${dims.H}`;
   const venueImgSrc = resolveImgSrc(venueImg);
   const customSrc = resolveImgSrc(posterImg);
+  const bgSrc = resolveImgSrc(bgImg);
 
   // Debug: measure the tagline block (the minimum logo width) vs the logo.
   const taglineRef = useRef<HTMLDivElement>(null);
@@ -533,14 +538,30 @@ function Poster({
           <img src={customSrc} alt="" className="poster-custom" />
         ) : (
           <>
-        <Image
-          src="/Jan23OpenMicNight-08_Original.jpg"
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 50vw"
-          style={{ objectFit: "cover", objectPosition: "center", zIndex: 1 }}
-        />
+        {bgSrc ? (
+          <img
+            src={bgSrc}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              zIndex: 1,
+            }}
+          />
+        ) : (
+          <Image
+            src="/Jan23OpenMicNight-08_Original.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
+            style={{ objectFit: "cover", objectPosition: "center", zIndex: 1 }}
+          />
+        )}
         <div className="photo-overlay" />
         <div className="bottom-overlay" />
         <div className="poster-content">

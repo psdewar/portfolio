@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
     doorsOpenOverride: sp.get("doorsOpen") ?? "",
     posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),
+    bgImgSrc: await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? ""),
     venueImgSrc: await inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
     venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
     venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
