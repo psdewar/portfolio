@@ -73,7 +73,7 @@ export function ExhibitPsdContent({
       <div className="relative w-full overflow-hidden bg-neutral-900 [container-type:inline-size] lg:h-full lg:min-h-60 lg:rounded-2xl">
         <div className="grid lg:absolute lg:inset-0 lg:grid-rows-[3fr_4fr]">
           <div
-            className="relative aspect-[3/2] min-h-0 cursor-pointer lg:aspect-auto"
+            className="relative aspect-[2/1] min-h-0 cursor-pointer lg:aspect-auto"
             onClick={() => setStoryOpen(true)}
           >
             <Image

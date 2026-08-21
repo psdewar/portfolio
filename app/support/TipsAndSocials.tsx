@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { activatePatronStatus } from "../lib/patron";
+import { getTourConcertCount } from "../data/timeline";
 import SocialCards from "../components/SocialCards";
 import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
@@ -22,10 +23,13 @@ function TipsSection({
   return (
     <div className="flex-1 min-w-0">
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Fund My Tour</h2>
+      {isOg && (
+        <p className="text-base text-neutral-500 dark:text-neutral-400 mb-1">
+          Your contribution helps me remain independent while funding my next tour stop.
+        </p>
+      )}
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
-        {isOg
-          ? "Your contribution helps me remain independent while funding my next tour stop."
-          : "Tap Venmo to send directly, copy my email for Zelle, or pay by card."}
+        {getTourConcertCount()} concerts so far &middot; hundreds of participants
       </p>
       {!isOg && (
         <PaymentOptions

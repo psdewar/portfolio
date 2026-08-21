@@ -127,7 +127,7 @@ export default function SocialCards() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${card.label}: ${card.handle}`}
-            className="snap-start shrink-0 w-[150px] aspect-[4/5] rounded-xl overflow-hidden flex flex-col transition-transform duration-200 hover:scale-[1.02]"
+            className="snap-start shrink-0 w-[150px] aspect-square rounded-xl overflow-hidden flex flex-col transition-transform duration-200 hover:scale-[1.02]"
             style={{ background: card.background }}
           >
             <div className="flex-1 min-h-0 flex items-center justify-center px-5">

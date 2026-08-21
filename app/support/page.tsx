@@ -53,13 +53,13 @@ export default async function SupportPage({
         <TipsAndSocials interacFirst={!!todayShow} sponsorHref={sponsorHref} />
       </Suspense>
 
-      <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-20">
-        <div className="max-w-lg mx-auto">
-          <SocialSection />
-        </div>
-      </section>
-
-      <SupporterSection upcomingShows={upcomingShows} />
+      <SupporterSection upcomingShows={upcomingShows}>
+        <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-20">
+          <div className="max-w-lg mx-auto">
+            <SocialSection />
+          </div>
+        </section>
+      </SupporterSection>
     </div>
   );
 }

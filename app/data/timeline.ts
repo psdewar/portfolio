@@ -394,3 +394,7 @@ export const formatEventDate = (dateStr: string) => {
     year: date.getFullYear().toString(),
   };
 };
+
+export const getTourConcertCount = () =>
+  getJourneyEvents().filter((e) => e.type === "show" && e.title.includes("From The Ground Up"))
+    .length;

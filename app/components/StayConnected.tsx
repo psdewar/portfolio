@@ -328,21 +328,25 @@ export default function StayConnected({
               {headerTitle}
             </h3>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-              {headerSub}
-              {selectedTier && onChangeTier && step === "form" ? (
+              {selectedTier && step === "form" ? (
                 <>
-                  , or{" "}
-                  <button
-                    type="button"
-                    onClick={onChangeTier}
-                    className="underline underline-offset-2 hover:text-neutral-900 dark:hover:text-white transition-colors py-3 -my-3"
-                  >
-                    change tier
-                  </button>
-                  .
+                  ${selectedTier.amount}
+                  {selectedTier.period === "annually" ? "/yr" : "/mo"}
+                  {onChangeTier ? (
+                    <>
+                      {" or "}
+                      <button
+                        type="button"
+                        onClick={onChangeTier}
+                        className="inline-block underline underline-offset-2 hover:text-neutral-900 dark:hover:text-white transition-colors py-3 -my-3"
+                      >
+                        change tier
+                      </button>
+                    </>
+                  ) : null}
                 </>
               ) : (
-                selectedTier && step === "form" && "."
+                headerSub
               )}
             </p>
           </div>
@@ -373,7 +377,7 @@ export default function StayConnected({
       {step === "code" ? (
         <div className="space-y-3 sm:space-y-4">
           {countdown > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
               Expires in {formatCountdown(countdown)}
             </p>
           )}
@@ -398,7 +402,7 @@ export default function StayConnected({
               } focus:outline-none`}
             />
             {errors.otp && (
-              <p className="text-red-500 text-xs sm:text-sm mt-1 text-center">{errors.otp}</p>
+              <p className="text-red-500 text-sm mt-1 text-center">{errors.otp}</p>
             )}
           </div>
           <button

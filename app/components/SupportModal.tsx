@@ -11,13 +11,16 @@ import {
   FireIcon,
 } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
-import { TIER_ELEMENTS } from "../data/patron-config";
 import StayConnected from "./StayConnected";
+import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
 
 const TIER_ICONS = [PencilIcon, WavesIcon, LightbulbIcon, FireIcon];
 const TIER_COLORS = ["#f97316", "#f56542", "#f0566d", "#ec4899"];
 
 const TIER_NAMES = ["Pen", "Flow", "Mind", "Soul"];
+const MAX_CUSTOM_AMOUNT = 100000;
+
+const grossUpCents = (net: number) => Math.round(Math.ceil(((net + 0.3) / 0.971) * 100));
 const SUPPORT_AMOUNTS = [5, 10, 25, 50].map((net, i) => {
   const charge = Math.ceil(((net + 0.3) / 0.971) * 100) / 100;
   return { net, charge, chargeCents: Math.round(charge * 100), name: TIER_NAMES[i] };
@@ -64,6 +67,7 @@ function useModalStage(open: boolean) {
 interface SupportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preview?: { title: string; src: string } | null;
   source: string;
   absoluteOverlay?: boolean;
 }
@@ -71,6 +75,7 @@ interface SupportModalProps {
 export default function SupportModal({
   open,
   onOpenChange,
+  preview = null,
   source,
   absoluteOverlay = false,
 }: SupportModalProps) {
@@ -78,17 +83,39 @@ export default function SupportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAmount, setPendingAmount] = useState<number | null>(null);
+  const [pendingTier, setPendingTier] = useState<{ name: string; amount: number } | null>(
+    null,
+  );
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly");
+  const [customAmount, setCustomAmount] = useState("50");
+  const amountSizerRef = useRef<HTMLSpanElement>(null);
+  const [amountWidth, setAmountWidth] = useState(0);
+  const soulPointerRef = useRef(false);
+  const markSoulPointer = useRef(() => {
+    soulPointerRef.current = true;
+  }).current;
 
   const tierFlashedRef = useRef(false);
   const tierFlashingRef = useRef(false);
   const tierRowsRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const previewPlayedRef = useRef<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [previewStarted, setPreviewStarted] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
 
   const tierModal = useModalStage(open);
   const authModal = useModalStage(showAuthModal);
+  const backdropStage = useModalStage(open || showAuthModal);
 
   useEffect(() => {
-    if (!open || tierFlashedRef.current) return;
+    const el = amountSizerRef.current;
+    if (!el) return;
+    setAmountWidth(el.getBoundingClientRect().width);
+  }, [customAmount, open, tierModal.mounted, billingPeriod]);
+
+  useEffect(() => {
+    if (!open || !tierModal.mounted || (preview && !previewStarted) || tierFlashedRef.current) return;
     const rows = tierRowsRef.current?.querySelectorAll("button");
     if (!rows || rows.length === 0) return;
     tierFlashedRef.current = true;
@@ -147,6 +174,24 @@ export default function SupportModal({
       tierFlashingRef.current = false;
       timeouts.forEach(clearTimeout);
     };
+  }, [open, tierModal.mounted, preview, previewStarted]);
+
+  useEffect(() => {
+    if (!open || !tierModal.mounted || !preview) return;
+    const el = audioRef.current;
+    if (!el) return;
+    if (previewPlayedRef.current === preview.src) return;
+    previewPlayedRef.current = preview.src;
+    setProgress(0);
+    setPreviewStarted(false);
+    el.currentTime = 0;
+    el.play().catch(() => {});
+  }, [open, tierModal.mounted, preview]);
+
+  useEffect(() => {
+    if (open) return;
+    audioRef.current?.pause();
+    setPreviewPlaying(false);
   }, [open]);
 
   const proceedToCheckout = async (
@@ -221,9 +266,33 @@ export default function SupportModal({
     proceedToCheckout(amountCents, period);
   };
 
-  const authTier = authModal.mounted
-    ? SUPPORT_AMOUNTS.find((t) => t.chargeCents === pendingAmount)
-    : undefined;
+  const dismissTierModal = () => {
+    previewPlayedRef.current = null;
+    setProgress(0);
+    onOpenChange(false);
+  };
+
+  const togglePreview = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (!el.paused) {
+      el.pause();
+      return;
+    }
+    if (el.ended) el.currentTime = 0;
+    el.play().catch(() => {});
+  };
+
+  const submitSoulTier = () => {
+    if (isLoading || !hydrated || soulPointerRef.current) return;
+    const net = parseInt(customAmount, 10);
+    if (!net || net < 1) return;
+    soulPointerRef.current = true;
+    const monthlyNet = billingPeriod === "annually" ? net / 10 : net;
+    setPendingTier({ name: "Soul", amount: net });
+    handleSubscribe(grossUpCents(monthlyNet), billingPeriod);
+  };
+
   const authSavedPeriod = authModal.mounted
     ? (sessionStorage.getItem("pendingPatronPeriod") as "monthly" | "annually" | null)
     : null;
@@ -231,36 +300,41 @@ export default function SupportModal({
 
   return (
     <>
-      {tierModal.mounted && (
+      {backdropStage.mounted && (
         <div
-          className={`t-modal-backdrop ${tierModal.stageClass} ${absoluteOverlay ? "absolute" : "fixed"} inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
-          onClick={() => onOpenChange(false)}
+          ref={backdropStage.ref}
+          className={`t-modal-backdrop ${backdropStage.stageClass} ${absoluteOverlay ? "absolute" : "fixed"} inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
+          onClick={() => open && dismissTierModal()}
         >
+          {tierModal.mounted && (
           <div
             ref={tierModal.ref}
-            className={`t-modal ${tierModal.stageClass} bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-md w-full shadow-xl max-h-full overflow-y-auto`}
+            className={`t-modal ${tierModal.stageClass} ${authModal.mounted ? "absolute" : ""} bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-md w-full shadow-xl max-h-full overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-bebas text-2xl text-neutral-900 dark:text-white">
-                Become a Monthly Supporter
+                Choose a Tier
               </h3>
               <button
-                onClick={() => onOpenChange(false)}
+                onClick={dismissTierModal}
                 className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
               >
                 <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
               </button>
             </div>
-            <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
-              Everyone who joins gets the same unreleased music, behind-the-scenes videos and more.
-              Give what you can!
-            </p>
-            <div className="flex items-center justify-start mb-4 text-base">
+            <div className={`flex items-center justify-start text-sm ${preview ? "" : "mb-4"}`}>
               <button
-                onClick={() =>
-                  setBillingPeriod(billingPeriod === "monthly" ? "annually" : "monthly")
-                }
+                onClick={() => {
+                  const nextPeriod = billingPeriod === "monthly" ? "annually" : "monthly";
+                  setBillingPeriod(nextPeriod);
+                  setCustomAmount((prev) => {
+                    const net = parseInt(prev, 10);
+                    if (!net) return prev;
+                    const scaled = nextPeriod === "annually" ? net * 10 : Math.round(net / 10);
+                    return scaled.toString();
+                  });
+                }}
                 className="w-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors py-2 flex items-center gap-2"
               >
                 <span
@@ -284,18 +358,75 @@ export default function SupportModal({
                 <span className="text-green-600 dark:text-green-500">(2 months free)</span>
               </button>
             </div>
-            <div
-              ref={tierRowsRef}
-              className="-mx-6 -mb-6 border-t-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800"
-            >
+            {preview && (
+              <div className="mb-2">
+                <audio
+                  ref={audioRef}
+                  src={preview.src}
+                  preload="auto"
+                  onPlaying={() => setPreviewStarted(true)}
+                  onPlay={() => setPreviewPlaying(true)}
+                  onPause={() => setPreviewPlaying(false)}
+                  onEnded={() => setPreviewPlaying(false)}
+                  onTimeUpdate={(e) => {
+                    const el = e.currentTarget;
+                    if (el.duration) setProgress(el.currentTime / el.duration);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={togglePreview}
+                  aria-label={previewPlaying ? "Pause preview" : "Play preview"}
+                  className="flex w-full items-center gap-2 py-1 text-left"
+                >
+                  <span
+                    aria-hidden
+                    className="w-6 h-6 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
+                    style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
+                  />
+                  <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
+                    {preview.title}
+                  </span>
+                </button>
+              </div>
+            )}
+            <div className="relative -mx-6 -mb-6">
+              <form
+                id="soul-price-form"
+                className="hidden"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitSoulTier();
+                }}
+              />
+              {preview && (
+                <div
+                  aria-hidden
+                  className="absolute top-0 left-0 z-10 h-0.5 bg-gradient-to-r from-orange-400 to-pink-500"
+                  style={{ width: `${Math.min(100, progress * 100)}%` }}
+                />
+              )}
+              <div
+                ref={tierRowsRef}
+                className="border-t-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800"
+              >
               {SUPPORT_AMOUNTS.map((tier, index) => {
                 const TierIcon = TIER_ICONS[index];
+                const isSoul = tier.name === "Soul";
                 const price = billingPeriod === "annually" ? tier.net * 10 : tier.net;
                 const period = billingPeriod === "annually" ? "yr" : "mo";
                 return (
                   <button
                     key={tier.name}
-                    onClick={() => handleSubscribe(tier.chargeCents)}
+                    onClick={() => {
+                      if (isSoul) {
+                        soulPointerRef.current = false;
+                        submitSoulTier();
+                        return;
+                      }
+                      setPendingTier({ name: tier.name, amount: price });
+                      handleSubscribe(tier.chargeCents);
+                    }}
                     disabled={isLoading || !hydrated}
                     className="w-full flex items-center gap-3 px-4 py-3 transition-colors group text-left"
                     onMouseEnter={(e) => {
@@ -325,13 +456,62 @@ export default function SupportModal({
                       <span className="text-neutral-900 dark:text-white font-medium text-xl">
                         {tier.name}
                       </span>
-                      <div className="text-neutral-500 dark:text-neutral-400 text-sm">
-                        {TIER_ELEMENTS[tier.name]}
-                      </div>
+                      {isSoul && (
+                        <div className="text-neutral-500 dark:text-neutral-400 text-sm">
+                          Name your price
+                        </div>
+                      )}
                     </div>
-                    <span className="text-neutral-900 dark:text-white font-medium text-4xl shrink-0 tabular-nums ml-auto">
+                    <span className="relative text-neutral-900 dark:text-white font-medium text-4xl shrink-0 tabular-nums ml-auto">
                       {isLoading ? (
                         <span className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-white rounded-full animate-spin inline-block" />
+                      ) : isSoul ? (
+                        <>
+                          $
+                          <span
+                            ref={amountSizerRef}
+                            aria-hidden
+                            className="invisible absolute left-0 top-0 whitespace-pre"
+                          >
+                            {customAmount || "0"}
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            enterKeyHint="go"
+                            form="soul-price-form"
+                            value={customAmount}
+                            onChange={(e) => {
+                              const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
+                              const clamped =
+                                digitsOnly && parseInt(digitsOnly, 10) > MAX_CUSTOM_AMOUNT
+                                  ? String(MAX_CUSTOM_AMOUNT)
+                                  : digitsOnly;
+                              setCustomAmount(clamped);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onFocus={(e) => {
+                              e.stopPropagation();
+                              soulPointerRef.current = false;
+                              document.addEventListener("pointerdown", markSoulPointer, true);
+                            }}
+                            onBlur={() => {
+                              document.removeEventListener("pointerdown", markSoulPointer, true);
+                              if (!document.hasFocus()) return;
+                              submitSoulTier();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter") return;
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }}
+                            className="text-neutral-900 dark:text-white font-medium text-4xl tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white text-right"
+                            style={{ width: amountWidth ? `${Math.ceil(amountWidth)}px` : undefined }}
+                          />
+                          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                            /{period}
+                          </span>
+                        </>
                       ) : (
                         <>
                           ${price}
@@ -344,30 +524,28 @@ export default function SupportModal({
                   </button>
                 );
               })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+          )}
 
-      {authModal.mounted && (
-        <div
-          className={`t-modal-backdrop ${authModal.stageClass} fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
-        >
-          <div ref={authModal.ref} className={`t-modal ${authModal.stageClass}`}>
+          {authModal.mounted && (
+          <div ref={authModal.ref} className={`t-modal ${authModal.stageClass} w-full max-w-md flex justify-center`}>
             <StayConnected
               isModal
               onChangeTier={() => {
                 setShowAuthModal(false);
                 setPendingAmount(null);
+                    setPendingTier(null);
                 sessionStorage.removeItem("pendingPatronAmount");
                 sessionStorage.removeItem("pendingPatronPeriod");
                 onOpenChange(true);
               }}
               selectedTier={
-                authTier
+                pendingTier
                   ? {
-                      name: authTier.name,
-                      amount: authPeriod === "annually" ? authTier.net * 10 : authTier.net,
+                      name: pendingTier.name,
+                      amount: pendingTier.amount,
                       period: authPeriod,
                     }
                   : undefined
@@ -387,17 +565,20 @@ export default function SupportModal({
                     sessionStorage.removeItem("pendingPatronAmount");
                     sessionStorage.removeItem("pendingPatronPeriod");
                     setPendingAmount(null);
+                    setPendingTier(null);
                     proceedToCheckout(amount, savedPeriod || billingPeriod, email);
                     return;
                   }
                 }
                 setPendingAmount(null);
+                    setPendingTier(null);
                 sessionStorage.removeItem("pendingPatronAmount");
                 sessionStorage.removeItem("pendingPatronPeriod");
               }}
               shouldShow={true}
             />
           </div>
+          )}
         </div>
       )}
     </>

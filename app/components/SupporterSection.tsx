@@ -13,29 +13,21 @@ import {
 } from "@phosphor-icons/react";
 
 import SupportModal from "./SupportModal";
-import { getJourneyEvents, formatEventDate, EventType, TimelineEvent } from "../data/timeline";
+import {
+  getJourneyEvents,
+  getTourConcertCount,
+  formatEventDate,
+  EventType,
+  TimelineEvent,
+} from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG } from "../data/patron-config";
 import { useDevTools } from "../contexts/DevToolsContext";
 import { useAudio } from "../contexts/AudioContext";
 import { type Show, isResidence, getVenueLabel } from "../lib/shows";
+import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
 
 const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-
-const PLAY_MASK = `url("data:image/svg+xml,${encodeURIComponent(
-  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><path d='M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z'/></svg>",
-)}")`;
-
-const PLAY_MASK_STYLE: React.CSSProperties = {
-  WebkitMaskImage: PLAY_MASK,
-  maskImage: PLAY_MASK,
-  WebkitMaskSize: "contain",
-  maskSize: "contain",
-  WebkitMaskRepeat: "no-repeat",
-  maskRepeat: "no-repeat",
-  WebkitMaskPosition: "center",
-  maskPosition: "center",
-};
 
 const eventTypeStyles: Record<EventType, { bg: string; text: string; label: string } | null> = {
   show: {
@@ -72,6 +64,7 @@ interface SupporterSectionProps {
   isModal?: boolean;
   forcePatron?: boolean;
   upcomingShows?: Show[];
+  children?: React.ReactNode;
 }
 
 export function SupporterSection({
@@ -79,11 +72,13 @@ export function SupporterSection({
   isModal = false,
   forcePatron = false,
   upcomingShows = [],
+  children,
 }: SupporterSectionProps) {
   const { simulatePatron } = useDevTools();
   const { loadTrack, toggle, isPlaying, currentTrack, isLoading: isAudioLoading } = useAudio();
 
   const [showTierModal, setShowTierModal] = useState(false);
+  const [previewTrack, setPreviewTrack] = useState<{ title: string; src: string } | null>(null);
   const [isPatron, setIsPatron] = useState(forcePatron);
 
   const [showCalendarInfo, setShowCalendarInfo] = useState(false);
@@ -207,7 +202,9 @@ export function SupporterSection({
     type: "show",
     ...(s.visibility !== "private" ? { url: `/rsvp/${s.slug}`, urlLabel: "RSVP" } : {}),
   }));
-  const journeyEvents = [...upcomingEvents, ...getJourneyEvents()];
+  const pastEvents = getJourneyEvents();
+  const journeyEvents = [...upcomingEvents, ...pastEvents];
+  const showCount = getTourConcertCount();
 
   const eventsByYear = journeyEvents.reduce<Record<string, typeof journeyEvents>>((acc, event) => {
     const year = new Date(event.date + "T12:00:00").getFullYear().toString();
@@ -237,15 +234,26 @@ export function SupporterSection({
           }}
           className="mb-16"
         >
-          <h2
-            className={`font-bebas text-[56px] md:text-[80px] leading-none pointer-events-none select-none sticky ${isModal ? "top-0" : "top-16"} backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-4 transition-colors ${
-              isActiveYear
-                ? "text-neutral-900 dark:text-neutral-100"
-                : "text-neutral-200 dark:text-neutral-800"
-            }`}
+          <div
+            className={`flex items-end justify-between gap-3 sticky ${isModal ? "top-0" : "top-16"} backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-4`}
+            style={{ alignItems: "last baseline" }}
           >
-            {year}
-          </h2>
+            <h2
+              className={`font-bebas text-[56px] md:text-[80px] leading-none pointer-events-none select-none transition-colors ${
+                isActiveYear
+                  ? "text-neutral-900 dark:text-neutral-100"
+                  : "text-neutral-200 dark:text-neutral-800"
+              }`}
+            >
+              {year}
+            </h2>
+            {year === years[0] && (
+              <span className="shrink-0 select-none pointer-events-none text-right font-mono text-[10px] uppercase leading-tight tracking-wider text-neutral-400 dark:text-neutral-500 sm:text-xs">
+                <span className="block">{showCount} concerts so far</span>
+                <span className="block">hundreds of participants</span>
+              </span>
+            )}
+          </div>
 
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {eventsByYear[year].map((event) => {
@@ -315,17 +323,17 @@ export function SupporterSection({
                           {style.label}
                         </span>
                         {event.location && (
-                          <span className="text-neutral-500 text-xs sm:text-sm truncate">
+                          <span className="text-neutral-500 text-sm truncate">
                             {event.location}
                           </span>
                         )}
                         {isContent && event.relatedSong && (
-                          <span className="text-neutral-500 text-xs sm:text-sm truncate">
+                          <span className="text-neutral-500 text-sm truncate">
                             {event.relatedSong}
                           </span>
                         )}
                         {isFeature && event.artist && (
-                          <span className="text-neutral-500 text-xs sm:text-sm truncate flex items-center gap-1">
+                          <span className="text-neutral-500 text-sm truncate flex items-center gap-1">
                             <UserIcon className="w-3 h-3" />
                             {event.artist}
                           </span>
@@ -339,7 +347,7 @@ export function SupporterSection({
                       {event.title}
                     </h3>
                     {event.description && (
-                      <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
+                      <p className="text-neutral-500 dark:text-neutral-400 text-sm">
                         {event.description}
                       </p>
                     )}
@@ -348,7 +356,7 @@ export function SupporterSection({
                         href={event.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block mt-1.5 text-xs sm:text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
+                        className="inline-block mt-1.5 text-sm text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
                       >
                         {event.urlLabel}
                       </Link>
@@ -427,7 +435,7 @@ export function SupporterSection({
             From The Archives: Exhibit PSD
           </h3>
         </div>
-        <div className="shrink-0 pr-4 font-mono text-xs sm:text-sm text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors whitespace-nowrap">
+        <div className="shrink-0 pr-4 font-mono text-sm text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors whitespace-nowrap">
           2013-2015 &rarr;
         </div>
       </Link>
@@ -467,7 +475,8 @@ export function SupporterSection({
                 </span>
               </h1>
               <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                Everyone who joins gets the same unreleased music, behind-the-scenes videos and more. Give what you can!
+                Everyone gets the same access to unreleased music and behind-the-scenes content, no
+                matter your tier.
               </p>
             </div>
             {earlyAccessTracks.length > 0 && (
@@ -480,7 +489,10 @@ export function SupporterSection({
                     <button
                       type="button"
                       key={track.id}
-                      onClick={() => setShowTierModal(true)}
+                      onClick={() => {
+                        setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
+                        setShowTierModal(true);
+                      }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
                     >
                       <span
@@ -503,13 +515,13 @@ export function SupporterSection({
                 </div>
               </div>
             )}
-            <div className="text-center mt-6 md:mt-8">
+            <div className="text-center mt-2">
               {!showVerifyForm ? (
                 <button
                   onClick={() => setShowVerifyForm(true)}
                   className="inline-block py-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2"
                 >
-                  Already a monthly supporter? Log in
+                  Already a monthly supporter? Sign in
                 </button>
               ) : (
                 <div className="max-w-sm mx-auto space-y-3">
@@ -548,6 +560,8 @@ export function SupporterSection({
         </section>
       )}
 
+      {children}
+
       {/* Journey timeline */}
       <section className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isPatron ? "pb-8" : "pb-32"}`}>
         <div className="max-w-lg mx-auto">
@@ -561,7 +575,10 @@ export function SupporterSection({
       {/* Floating CTA */}
       {!isPatron && showBottomCta && (
         <button
-          onClick={() => setShowTierModal(true)}
+          onClick={() => {
+            setPreviewTrack(null);
+            setShowTierModal(true);
+          }}
           className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 ${atBottom ? "px-8 py-4 text-base md:px-10 md:py-5 md:text-lg" : "px-5 py-3 text-sm md:px-8 md:py-4 md:text-base"} cursor-pointer text-white font-medium flex items-center gap-2 md:gap-3 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
@@ -579,6 +596,7 @@ export function SupporterSection({
       <SupportModal
         open={showTierModal && !isPatron}
         onOpenChange={setShowTierModal}
+        preview={previewTrack}
         source={isModal ? "modal" : "page"}
         absoluteOverlay={isModal}
       />
