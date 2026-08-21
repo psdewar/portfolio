@@ -137,7 +137,7 @@ export default async function ConfirmPage({
             style={{ aspectRatio: "480 / 720" }}
           >
             {posterEl}
-            {show.visibility === "private" && (
+            {show.visibility === "private" && !show.posterImg && (
               <PosterScrollOverlay
                 note={show.privateNote ?? undefined}
                 inPromo={!show.hidePrivateNote}

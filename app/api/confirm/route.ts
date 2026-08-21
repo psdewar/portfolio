@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite } from "../../lib/eventbrite";
-import { getShowBySlug, needsHostLocation, type Show } from "../../lib/shows";
+import { getShowBySlug, isShowListed, needsHostLocation, type Show } from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -143,7 +143,9 @@ export async function POST(request: NextRequest) {
       await upsertHost(newSlug, contact, bookedShow);
 
       const eventbrite =
-        spawned.visibility === "private" ? undefined : await publishEventbrite(bookedShow);
+        !isShowListed(spawned) || spawned.visibility === "private"
+          ? undefined
+          : await publishEventbrite(bookedShow);
 
       return NextResponse.json({ ok: true, slug: newSlug, eventbrite });
     }
@@ -167,11 +169,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Eventbrite was deferred at creation — create it now, unless this is invite-only.
+    // Eventbrite was deferred at creation, so create it now. Same rule as /api/shows:
+    // drafts defer, private and unlisted never publish.
+    const nextShow = { ...booked, stage: "booked" as const, visibility };
     const eventbrite =
-      visibility === "private"
+      !isShowListed(nextShow) || visibility === "private"
         ? undefined
-        : await publishEventbrite({ ...booked, stage: "booked", visibility });
+        : await publishEventbrite(nextShow);
 
     return NextResponse.json({ ok: true, slug, eventbrite });
   } catch (error) {
