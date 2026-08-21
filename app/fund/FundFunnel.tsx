@@ -159,7 +159,11 @@ function ContributeOverlay({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="contribute-header">
-          {!complete && !method && <span className="contribute-title">Select one</span>}
+          {!complete && (
+            <span className="contribute-title">
+              {method === "card" ? "Fund my From The Ground Up tour" : "Select one"}
+            </span>
+          )}
           <button className="contribute-close" onClick={onClose} aria-label="Close">
             &#x2715;
           </button>

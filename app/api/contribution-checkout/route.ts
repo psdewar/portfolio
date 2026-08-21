@@ -10,7 +10,7 @@ const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   food: { name: "Food", description: "breakfast, lunch, and dinner on the road" },
   buffer: { name: "Just in case", description: "life happens, like cancellations out of my control" },
   honorarium: { name: "Honorarium", description: "recognizes the artistic performance itself" },
-  tour: { name: "Tour contribution", description: "helps fund the next tour stop" },
+  tour: { name: "Contribution", description: "helps fund the next tour stop" },
 };
 
 export async function POST(request: NextRequest) {
@@ -50,7 +50,12 @@ export async function POST(request: NextRequest) {
       const cents = Math.round(amountCents);
       total += cents;
       breakdown[item.key] = (breakdown[item.key] ?? 0) + cents;
-      lineItems.push({ name: meta.name, description: meta.description, amountCents: cents, quantity: 1 });
+      lineItems.push({
+        name: meta.name,
+        description: meta.description,
+        amountCents: cents,
+        quantity: 1,
+      });
     }
 
     if (total < 100) {
