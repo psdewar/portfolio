@@ -2653,7 +2653,7 @@ function ManageModal({
           </section>
         )}
 
-        {show?.slug && (
+        {show?.slug && (isShowDraft(show) || !host.email?.trim()) && (
           <section>
             <h5 className={sectionLabel}>Confirm</h5>
             <div className={groupList}>

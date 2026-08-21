@@ -42,7 +42,7 @@ interface PosterProps {
   // (the private-concert overlay) still sits above it.
   posterImg?: string;
   // Photo behind the generated poster, replacing the default concert shot. The
-  // layout, text, and QR still render on top — unlike posterImg, which replaces them.
+  // layout, text, and QR still render on top, unlike posterImg, which replaces them.
   bgImg?: string;
   taglineAlign?: string;
   debug?: boolean;

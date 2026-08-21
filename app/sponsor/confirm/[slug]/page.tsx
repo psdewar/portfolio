@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
 import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../../lib/shows";
@@ -90,14 +90,18 @@ export default async function ConfirmPage({
     phone: hostRecord?.phone || "",
     items: hostRecord?.items || [],
   };
+  // An email on file means this host already signed (the confirm POST requires one),
+  // so the booking is done; a show I created for the leg still needs its host.
+  if (!isShowDraft(show) && host.email.trim()) {
+    redirect(show.visibility === "private" ? "/rsvp" : `/rsvp/${slug}`);
+  }
+
   const location = needsLocation
     ? ""
     : isResidence(show)
       ? "your home"
       : show.venue || `${show.city}, ${show.region}`;
-  // The show can exist before its host signs: I create it for the leg's funding,
-  // then send this link. Same relationship, different order — so status never gates
-  // the page, and the publish note only holds while the show is still a draft.
+  // The publish note only holds while the show is still a draft.
   const showsPublishNote = isShowDraft(show) && show.visibility !== "private";
   const splitItem = "50/50 donation split";
   const contributeItems = orderItems(host.items.filter((i) => i !== splitItem));
