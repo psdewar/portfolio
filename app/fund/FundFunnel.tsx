@@ -211,7 +211,17 @@ function LegIntroVideo({ videoId }: { videoId: string }) {
   );
 }
 
-export function FundFunnel({ leg, intro, og = false }: { leg: FundLeg; intro?: ReactNode; og?: boolean }) {
+export function FundFunnel({
+  leg,
+  intro,
+  og = false,
+  nextTrip,
+}: {
+  leg: FundLeg;
+  intro?: ReactNode;
+  og?: boolean;
+  nextTrip?: { slug: string; destination: string };
+}) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
@@ -491,6 +501,11 @@ html { scroll-behavior: smooth; }
 .inkind-link:hover { text-decoration: underline; }
 .p-price--gifted { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
 .lodging-or { display: block; padding: 12px 18px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--ink-dim); text-decoration: none; }
+.bf-root a.next-trip { margin-top: 36px; display: inline-flex; align-items: baseline; gap: 14px; font-size: clamp(30px, 6vw, 44px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--gold-text); text-decoration: none; }
+.next-trip:hover .next-trip-title, .next-trip:focus-visible .next-trip-title { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
+.next-trip-arrow { transition: transform 0.2s ease; }
+.next-trip:hover .next-trip-arrow { transform: translateX(6px); }
+@media (prefers-reduced-motion: reduce) { .next-trip-arrow, .next-trip:hover .next-trip-arrow { transition: none; transform: none; } }
 .total-box { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
 .total-label { color: var(--paper); font-weight: 600; font-size: 18px; }
 .total-amount { color: var(--paper); font-weight: 700; font-size: 24px; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
@@ -874,12 +889,20 @@ html { scroll-behavior: smooth; }
             These figures are estimates based on previous tour stops, subject to change due to need
             and circumstances. At every stop, I bring merch and a donation box to earn it all back.
           </p>
-
           <div className="section-head">Honorarium</div>
           <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
             A gift that recognizes the artistic performance itself, separate from the trip.
           </p>
           <HonorariumControl value={honorarium} onChange={setHonorariumVal} />
+
+          {nextTrip && (
+            <a className="next-trip" href={`/fund/${nextTrip.slug}#cover`}>
+              <span className="next-trip-title">
+                Up next: {nextTrip.destination.replace(/^the /, "")}
+              </span>
+              <span className="next-trip-arrow" aria-hidden="true">&rarr;</span>
+            </a>
+          )}
 
           {(leg.previousTrips ?? []).map((trip) => {
             const prevLines = trip.lines.filter((l) => l.amount > 0);

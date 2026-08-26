@@ -5,7 +5,7 @@ import { FundFunnel } from "../FundFunnel";
 import PrivateNudgeToast from "../PrivateNudgeToast";
 import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
-import { getLeg, toFundView, FUND_LEGS, type FundBooked } from "../legs";
+import { getLeg, getLegs, toFundView, FUND_LEGS, type FundBooked } from "../legs";
 import { getShows, isShowOnTrip, getVenueLabel, isResidence } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
 import { doorTimeMinutes } from "../../lib/dates";
@@ -121,11 +121,32 @@ export default async function Page({
       };
     });
     const booked = derived.length ? derived : fund.booked;
+    // Cross-pointer: another fund leg still raising (upcoming shows, or a fresh
+    // campaign with no settled trip yet) gets a hand-off card under the budget.
+    // Singly linked list of campaigns: every fund page points forward to the
+    // newest still-raising leg (chorus appends, so last wins); the newest
+    // itself is the tail and points nowhere.
+    const today = new Date().toISOString().slice(0, 10);
+    const legs = await getLegs();
+    const hasUpcoming = (l: (typeof legs)[number]) =>
+      shows.some((s) => s.leg === l.slug && isShowOnTrip(s) && s.date >= today);
+    const tail = [...legs]
+      .reverse()
+      .find((l) => l.fund && (!l.fund.previousTrips?.length || hasUpcoming(l)));
+    const nextTrip =
+      tail?.fund && tail.slug !== slug
+        ? { slug: tail.slug, destination: tail.fund.destination }
+        : undefined;
     return (
       <>
         {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
         <HashScroll />
-        <FundFunnel leg={{ ...fund, booked }} intro={<ArtistIntro />} og={sp?.og === "true"} />
+        <FundFunnel
+          leg={{ ...fund, booked }}
+          intro={<ArtistIntro />}
+          og={sp?.og === "true"}
+          nextTrip={nextTrip}
+        />
       </>
     );
   }

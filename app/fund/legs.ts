@@ -116,12 +116,17 @@ export async function getLeg(slug: string): Promise<Leg | undefined> {
 }
 
 // The leg the funding currently points at: the next upcoming show on a
-// fund-faceted leg wins, else the first fund-faceted leg.
+// fund-faceted leg wins, else the newest fund leg still raising (no settled
+// previous trip; chorus appends, so last wins), else the first fund-faceted leg.
 export async function getFundingLegSlug(): Promise<string | undefined> {
   const [legs, shows] = await Promise.all([getLegs(), getUpcomingShows()]);
   const fundable = new Set(legs.filter((l) => l.fund).map((l) => l.slug));
   const next = shows.find((s) => s.leg && fundable.has(s.leg));
-  return next?.leg ?? legs.find((l) => l.fund)?.slug;
+  return (
+    next?.leg ??
+    [...legs].reverse().find((l) => l.fund && !l.fund.previousTrips?.length)?.slug ??
+    legs.find((l) => l.fund)?.slug
+  );
 }
 
 // Back-compat: seed-only sync map used by the /fund redirect and SSG params.
