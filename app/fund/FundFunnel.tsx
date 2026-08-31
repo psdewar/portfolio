@@ -1,31 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import posthog from "posthog-js";
 import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
 import CheckoutEmbed from "../components/CheckoutEmbed";
 import { venmoPayUrl } from "../components/PaymentModal";
 import MomentsGallery from "../moments/MomentsGallery";
+import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
 import { type FundLeg, type FundLine, type FundBooked } from "./legs";
-import SponsorHeader from "app/sponsor/SponsorHeader";
 import { PlayIcon } from "@phosphor-icons/react";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
-
-const STEPS = [
-  "I write original songs, record, rehearse, and sequence them into an hour-long concert-conversation.",
-  "I work with people in your community to book concert dates.",
-];
-
-const CONTRIBUTE_STEPS = [
-  "Choose an item to cover with any amount or tap +$25",
-  "Tap Contribute when it appears",
-  "Pay with Venmo, Zelle, or card",
-];
 
 function isShowPast(dateStr: string): boolean {
   return new Date(`${dateStr}T23:59:59`) < new Date();
@@ -35,21 +25,56 @@ function money(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
 }
 
-function HonorariumControl({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function CheckIcon() {
   return (
-    <div className="match-ctrl">
-      <div className="match-input-row">
-        <div className="match-field">
-          <span className="match-prefix">$</span>
-          <input
-            className="match-input"
-            type="number"
-            min="1"
-            placeholder="0"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        </div>
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="34"
+      height="34"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
+  return (
+    <div className="loc">
+      {done && (
+        <span className="loc-check is-done" role="img" aria-label="Completed">
+          <CheckIcon />
+        </span>
+      )}
+      <div className="loc-info">
+        <span className="loc-venue">{booking.venue}</span>
+        {booking.date && (
+          <span className="loc-when">
+            {booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}
+            {formatEventDateShort(booking.date)}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -66,18 +91,20 @@ function LinePrice({ amount, gifted }: { amount: number; gifted: boolean }) {
   );
 }
 
-const QUICK_PICKS = [25];
+const QUICK_PICKS = [25, 50];
 
 function LineMatchControl({
-  line,
   value,
   onChange,
+  full,
+  presets,
 }: {
-  line: FundLine;
   value: string;
   onChange: (v: string) => void;
+  full?: number;
+  presets: number[];
 }) {
-  const presets = QUICK_PICKS.filter((p) => p < line.amount);
+  const pressed = full !== undefined && value === String(full);
   return (
     <div className="match-ctrl">
       <div className="match-input-row">
@@ -92,9 +119,15 @@ function LineMatchControl({
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
-        <button className="match-btn match-full" onClick={() => onChange(String(line.amount))}>
-          Full
-        </button>
+        {full !== undefined && (
+          <button
+            className="match-btn match-full"
+            aria-pressed={pressed}
+            onClick={() => onChange(pressed ? "" : String(full))}
+          >
+            Full
+          </button>
+        )}
         {presets.map((p) => (
           <button
             key={p}
@@ -113,11 +146,13 @@ function ContributeOverlay({
   items,
   trip,
   venmoUrl,
+  amountCents,
   onClose,
 }: {
   items: { key: string; amountCents: number }[];
   trip: string;
   venmoUrl: string;
+  amountCents: number;
   onClose: () => void;
 }) {
   const [complete, setComplete] = useState(false);
@@ -161,7 +196,9 @@ function ContributeOverlay({
         <div className="contribute-header">
           {!complete && (
             <span className="contribute-title">
-              {method === "card" ? "Fund my From The Ground Up tour" : "Select one"}
+              {method === "card"
+                ? "Fund my From The Ground Up tour"
+                : `Send ${money(amountCents / 100)} with`}
             </span>
           )}
           <button className="contribute-close" onClick={onClose} aria-label="Close">
@@ -174,10 +211,26 @@ function ContributeOverlay({
             <div className="contribute-thanks-spinner" aria-label="Loading" />
           </div>
         ) : method === "card" ? (
-          <CheckoutEmbed fetchClientSecret={fetchClientSecret} onComplete={() => setComplete(true)} />
+          <CheckoutEmbed
+            fetchClientSecret={fetchClientSecret}
+            onComplete={() => {
+              posthog.capture("fund_contribution_completed", {
+                trip,
+                method: "card",
+                amount_cents: amountCents,
+              });
+              setComplete(true);
+            }}
+          />
         ) : (
           <div className="contribute-choice">
-            <PaymentOptions venmoUrl={venmoUrl} onCard={() => setMethod("card")} />
+            <PaymentOptions
+              venmoUrl={venmoUrl}
+              onCard={() => setMethod("card")}
+              onSelect={(method) =>
+                posthog.capture("fund_payment_method", { trip, method, amount_cents: amountCents })
+              }
+            />
           </div>
         )}
       </div>
@@ -216,20 +269,35 @@ export function FundFunnel({
   intro,
   og = false,
   nextTrip,
+  completedTotal = 0,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
   og?: boolean;
   nextTrip?: { slug: string; destination: string };
+  completedTotal?: number;
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
   const isPastStop = (b: FundBooked) => Boolean(b.date && isShowPast(b.date));
-  // Repeat trips: new dates first, completed stops below them as proof of work.
   const allBooked = leg.booked ?? [];
-  const booked = [...allBooked.filter((b) => !isPastStop(b)), ...allBooked.filter(isPastStop)];
-  const hasBooked = booked.length > 0;
+  const upcoming = allBooked.filter((b) => !isPastStop(b));
+  const past = allBooked.filter(isPastStop);
+  const hasBooked = allBooked.length > 0;
+  const showsVisible = upcoming.length > 0 || past.length > 0 || completedTotal > 0;
+  const lastPastDate = past.filter((b) => b.date).map((b) => b.date!).sort().pop();
+  const pastMonth = lastPastDate
+    ? new Date(`${lastPastDate}T00:00:00`).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+  const completedText =
+    past.length > 0
+      ? `I brought my tour here in ${pastMonth}`
+      : `I have made ${completedTotal} tour stop${completedTotal === 1 ? "" : "s"} so far`;
+  const completedHint = `See the ${past.length} stop${past.length === 1 ? "" : "s"}`;
   const flightBy = leg.flightBy
     ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
         month: "long",
@@ -237,12 +305,20 @@ export function FundFunnel({
       })
     : "";
   const tripTotal = LINES.reduce((sum, line) => sum + line.amount, 0);
+
+
+  const navItems = [
+    ...(showsVisible ? [{ id: "schedule", label: "Schedule" }] : []),
+    { id: "cover", label: "Cover my trip" },
+    ...(intro ? [{ id: "who", label: "Who you're funding" }] : []),
+    { id: "help", label: "You can also" },
+  ];
+
   const otherWays = [
     {
       key: "host",
-      label: hasBooked ? "Host another concert for this trip" : "Host a concert in your living room",
-      note: hasBooked ? "your living room or a bigger venue" : "or a bigger venue",
-      smsBody: `Hi Peyt, I'd love to host a concert for your trip!`,
+      label: hasBooked ? "Host another concert" : "Host a concert in your living room",
+      note: hasBooked ? "in your living room or local venue" : "or local venue",
     },
   ];
 
@@ -251,38 +327,13 @@ export function FundFunnel({
   );
   const [honorarium, setHonorariumVal] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [introOpen, setIntroOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(true);
+  const openIntro = () => {
+    if (!introOpen) posthog.capture("fund_intro_opened", { trip: leg.slug });
+    setIntroOpen(true);
+  };
   const [hostOpen, setHostOpen] = useState(false);
   const [posterLoading, setPosterLoading] = useState(false);
-
-  const mastheadRef = useRef<HTMLDivElement>(null);
-  const kickerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLDivElement>(null);
-
-  const fit = useCallback(() => {
-    const wrap = mastheadRef.current;
-    if (!wrap) return;
-    const target = wrap.clientWidth;
-    if (target <= 0) return;
-    for (const el of [kickerRef.current, titleRef.current]) {
-      if (!el) continue;
-      el.style.fontSize = "100px";
-      const w = el.scrollWidth;
-      if (w <= 0) continue;
-      el.style.fontSize = `${(100 * target) / w}px`;
-      if (el.scrollWidth > target) {
-        el.style.fontSize = `${(parseFloat(el.style.fontSize) * target) / el.scrollWidth}px`;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    fit();
-    const ro = new ResizeObserver(fit);
-    if (mastheadRef.current) ro.observe(mastheadRef.current);
-    if (document.fonts) document.fonts.ready.then(fit);
-    return () => ro.disconnect();
-  }, [fit]);
 
   useEffect(() => {
     if (!hostOpen) return;
@@ -315,9 +366,10 @@ export function FundFunnel({
   }
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
   const venmoUrl = venmoPayUrl(total, venmoNote);
+  const amountCents = items.reduce((sum, it) => sum + it.amountCents, 0);
 
-  const slugged = booked.filter(
-    (b): b is FundBooked & { slug: string } => Boolean(b.slug) && !isPastStop(b),
+  const slugged = upcoming.filter(
+    (b): b is FundBooked & { slug: string } => Boolean(b.slug),
   );
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
   const sharePoster = async (slug: string) => {
@@ -326,16 +378,12 @@ export function FundFunnel({
       const res = await fetch(`/api/poster/${slug}?format=ig&jpg=true`);
       const blob = await res.blob();
       const file = new File([blob], `poster-${slug}.jpg`, { type: "image/jpeg" });
-      // Mobile: native share sheet (text it, post it) with the image attached.
       if (navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file] });
-        } catch {
-          // share sheet dismissed — do nothing
-        }
+        } catch {}
         return;
       }
-      // Desktop / unsupported: download the image directly.
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -356,6 +404,20 @@ export function FundFunnel({
   --surface-2: #1b1e25;
   --rule: rgba(232,229,221,0.07);
   --rule-strong: rgba(232,229,221,0.18);
+  --btn-border: rgba(232,229,221,0.42);
+  --navy: #262b3f;
+  --fs-xs: 13px;
+  --fs-sm: 15px;
+  --fs-base: 16px;
+  --fs-md: 18px;
+  --fs-lg: 21px;
+  --fs-xl: 24px;
+  --fs-2xl: 28px;
+  --fs-head: clamp(30px, 6vw, 46px);
+  --fs-hero: clamp(40px, 10vw, 72px);
+  --act-bg: rgba(167,177,214,0.08);
+  --act-border: rgba(167,177,214,0.45);
+  --act-text: #a7b1d6;
   --paper: #ece9e0;
   --ink: #b8b5ab;
   --ink-dim: #898780;
@@ -370,15 +432,19 @@ export function FundFunnel({
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f5f2ea;
-    --surface: #ece8dc;
-    --surface-2: #e4dfd0;
-    --rule: rgba(26,25,21,0.08);
-    --rule-strong: rgba(26,25,21,0.20);
-    --paper: #1a1915;
-    --ink: #4b4940;
-    --ink-dim: #75736a;
-    --ghost: #a9a79a;
+    --act-bg: rgba(38,43,63,0.05);
+    --act-border: rgba(38,43,63,0.4);
+    --act-text: #262b3f;
+    --bg: #fafafa;
+    --surface: #f0f0f1;
+    --surface-2: #e8e8ea;
+    --rule: rgba(20,20,24,0.08);
+    --rule-strong: rgba(20,20,24,0.20);
+    --btn-border: rgba(20,20,24,0.45);
+    --paper: #17181a;
+    --ink: #45464b;
+    --ink-dim: #707278;
+    --ghost: #a5a7ad;
     --scarlet: #bc3a20;
     --teal: #2f8073;
     --gold: #d4a553;
@@ -393,8 +459,8 @@ export function FundFunnel({
 .bf-root {
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  font-size: 16px;
+  font-family: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-base);
   line-height: 1.55;
   font-variant-numeric: tabular-nums lining-nums;
   -webkit-font-smoothing: antialiased;
@@ -416,40 +482,17 @@ export function FundFunnel({
 .bf-root ::-webkit-scrollbar-thumb { background: var(--rule-strong); border: 2px solid var(--bg); border-radius: 10px; }
 
 .bf-root a { color: inherit; }
-.wrap { max-width: 780px; margin: 0 auto; padding: 48px 16px 120px; position: relative; }
-@media (min-width: 640px) { .wrap { padding: 60px 40px 140px; } }
+.wrap { max-width: 780px; margin: 0 auto; padding: 28px 16px 340px; position: relative; }
+@media (min-width: 640px) { .wrap { padding: 44px 40px 400px; } }
 
-.mono {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  letter-spacing: 0.16em; text-transform: uppercase;
-}
 
-.eyebrow {
-  font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--ghost); font-weight: 500;
-  display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
-}
-.eyebrow::after { content: ''; height: 1px; flex: 1 1 auto; background: var(--rule-strong); }
-.eyebrow-tag { text-transform: none; letter-spacing: 0.01em; font-family: 'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--gold-text); }
-.masthead { width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.masthead-kicker { display: flex; align-items: center; justify-content: center; gap: 0.3em; white-space: nowrap; font-family: var(--font-parkinsans), "Parkinsans", sans-serif; font-weight: 700; font-size: clamp(20px, 4.8vw, 42px); text-transform: uppercase; letter-spacing: 0.025em; color: var(--gold); line-height: 1.05; margin: 0; }
-.masthead-title { font-family: 'Fraunces', serif; font-style: italic; font-size: clamp(18px, 3.2vw, 26px); font-weight: 500; color: var(--paper); letter-spacing: 0; line-height: 1.2; margin: 0; text-align: center; white-space: nowrap; }
-.mt-text { flex: 0 1 auto; text-align: center; }
-.masthead-sub { font-size: 16px; line-height: 1.5; margin-top: 10px; text-align: center; text-transform: uppercase; }
-.ms-tour { font-family: var(--font-parkinsans), sans-serif; font-weight: 700; letter-spacing: 0.06em; }
-.ms-tag { display: block; font-family: var(--font-space-mono), monospace; font-weight: 500; letter-spacing: 0.06em; font-size: 0.85em; }
-.masthead-flag { height: 0.72em; width: auto; flex: 0 0 auto; }
-.hook {
-  font-size: 16px; color: var(--ink-dim); margin: 0 0 28px;
-}
-.hook b { color: var(--teal); font-weight: 600; }
+.masthead { width: 100%; }
 .bf-h1 {
-  font-size: clamp(38px, 8vw, 66px); line-height: 0.98;
-  letter-spacing: -0.025em; color: var(--paper); margin: 0; font-weight: 600;
+  font-size: var(--fs-hero); line-height: 0.98; text-align: left;
+  letter-spacing: -0.025em; color: var(--paper); margin: 10px 0 0; font-weight: 600;
 }
 .bf-h1 em { font-style: normal; color: var(--gold); }
-.bf-h1 .nights { font-size: 0.6em; font-weight: 500; color: var(--ink-dim); white-space: nowrap; }
-.bf-h1 .nights .dot { margin: 0 0.35em; }
+
 .dateline { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
 .loc { display: flex; align-items: center; gap: 10px; }
 .loc-check {
@@ -458,69 +501,78 @@ export function FundFunnel({
 }
 .loc-check.is-done { background: #16a34a; }
 .loc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 26px); line-height: 1.1; }
+.loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 24px); line-height: 1.1; }
 .loc-venue em { font-style: italic; font-weight: 400; opacity: 0.75; font-size: 0.66em; }
-.loc-when { color: var(--ink-dim); font-size: 15px; }
+.loc-when { color: var(--ink-dim); font-size: var(--fs-sm); }
 
 html { scroll-behavior: smooth; }
+.bf-section { scroll-margin-top: 86px; margin-top: 48px; }
 .section-head {
-  font-size: clamp(30px, 6vw, 46px); letter-spacing: -0.01em; text-transform: none;
-  color: var(--paper); margin: 52px 0 16px; font-weight: 500;
+  font-size: var(--fs-head); letter-spacing: -0.01em; text-transform: none;
+  color: var(--paper); margin: 0 0 16px; font-weight: 500;
   display: flex; align-items: baseline; gap: 12px;
-  scroll-margin-top: 24px;
 }
-.section-head .sh-note { letter-spacing: 0.01em; text-transform: none; font-weight: 400; color: var(--ink-dim); font-size: 16px; }
-
-.stake { list-style: none; margin: 0; padding: 0; }
-.stake li { padding: 14px 0; border-bottom: 1px solid var(--rule); display: flex; gap: 16px; align-items: baseline; }
-.stake .s-label { color: var(--paper); font-weight: 600; flex: 0 0 34%; }
-.stake .s-note { color: var(--ink-dim); font-size: 16px; }
-.steps { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: step; }
-.steps li { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; font-size: 19px; font-weight: 400; color: var(--paper); border-bottom: 1px solid var(--rule); counter-increment: step; }
-.steps li:last-child { border-bottom: none; }
-.steps li::before { content: counter(step); flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--paper); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-@media (max-width: 520px) {
-  .stake li { flex-direction: column; gap: 3px; }
-  .stake .s-label { flex-basis: auto; }
+.section-sub { margin: -8px 0 24px; }
+@media (max-width: 639px) {
+  .section-head { display: none; }
+  .section-sub { margin: 0 0 20px; }
+  .piece { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 }
 
+.done { margin-top: 16px; border-radius: 12px; background: var(--act-bg); overflow: hidden; }
+.done summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 12px; padding: 16px 18px;
+}
+.done summary::-webkit-details-marker { display: none; }
+.done summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.done-row { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
+.done-summary-text { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
+.row-hint { display: block; color: var(--ink-dim); font-weight: 400; font-size: var(--fs-sm); margin-top: 2px; }
+.expander { flex: 0 0 auto; margin-left: auto; color: var(--act-text); display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s ease; }
+details[open] .expander { transform: rotate(180deg); }
+.done-dateline { margin-top: 0; padding: 14px 18px 18px; border-top: 1px solid var(--rule); }
 
-.pieces { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.pieces { list-style: none; margin: 0; padding: 0; }
 .piece {
-  border: 1px solid var(--rule); border-radius: 12px; background: var(--surface);
-  overflow: hidden; display: flex; flex-direction: column;
+  border-bottom: 1px solid var(--rule); display: flex; flex-direction: column;
 }
-.piece-row { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.piece-row { display: flex; flex-direction: column; gap: 12px; padding: 18px 0; }
 .p-head { display: flex; align-items: baseline; gap: 12px; }
 .p-text { flex: 1 1 auto; min-width: 0; line-height: 1.4; }
-.p-price { flex: 0 0 auto; color: var(--paper); font-weight: 700; font-size: 24px; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-.p-label { color: var(--paper); font-weight: 600; font-size: 18px; }
-.p-note { color: var(--ink-dim); font-size: 16px; }
-.inkind-link { display: block; font-size: 16px; color: var(--ink-dim); margin-top: 6px; text-decoration: none; }
+.p-price { flex: 0 0 auto; color: var(--paper); font-weight: 700; font-size: var(--fs-xl); line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.p-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
+.p-note { color: var(--ink-dim); font-size: var(--fs-base); }
 .inkind-cta { color: var(--paper); text-decoration: underline; }
-.inkind-link:hover { text-decoration: underline; }
 .p-price--gifted { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
-.lodging-or { display: block; padding: 12px 18px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--ink-dim); text-decoration: none; }
-.bf-root a.next-trip { margin-top: 36px; display: inline-flex; align-items: baseline; gap: 14px; font-size: clamp(30px, 6vw, 44px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--gold-text); text-decoration: none; }
+.lodging-or { display: block; padding: 0 0 16px; font-size: var(--fs-base); color: var(--ink-dim); text-decoration: none; }
+.bf-root a.next-trip { margin-top: 48px; display: inline-flex; align-items: baseline; gap: 14px; font-size: var(--fs-head); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--gold); text-decoration: none; }
 .next-trip:hover .next-trip-title, .next-trip:focus-visible .next-trip-title { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
 .next-trip-arrow { transition: transform 0.2s ease; }
 .next-trip:hover .next-trip-arrow { transform: translateX(6px); }
 @media (prefers-reduced-motion: reduce) { .next-trip-arrow, .next-trip:hover .next-trip-arrow { transition: none; transform: none; } }
-.total-box { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
-.total-label { color: var(--paper); font-weight: 600; font-size: 18px; }
-.total-amount { color: var(--paper); font-weight: 700; font-size: 24px; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.total-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0 0; }
+.total-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
+.total-amount { color: var(--paper); font-weight: 700; font-size: var(--fs-xl); line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+.prev-band { margin: 48px calc(50% - 50vw) 0; width: 100vw; background: var(--navy); }
+.prev-band-inner { max-width: 780px; margin: 0 auto; padding: 30px 16px 34px; }
+@media (min-width: 640px) { .prev-band-inner { padding: 36px 40px 40px; } }
+.prev-trip + .prev-trip { margin-top: 26px; }
+.prev-label { color: var(--gold); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.prev-note { margin-top: 10px; font-family: var(--font-fraunces), Georgia, serif; font-size: var(--fs-lg); line-height: 1.5; color: #ece9e0; }
 
 .match-ctrl { flex: 0 0 auto; }
 .match-input-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.match-prefix { color: var(--ink-dim); font-size: 24px; font-weight: 600; }
+.match-prefix { color: var(--ink-dim); font-size: var(--fs-xl); font-weight: 600; }
 .match-field {
-  display: inline-flex; align-items: center; gap: 4px; height: 44px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px;
   background: var(--surface-2); border: 1px solid var(--rule-strong); border-radius: 8px;
 }
 .match-field:focus-within { border-color: var(--paper); }
 .match-input {
   width: 60px; background: transparent; border: none;
-  color: var(--paper); font: inherit; font-size: 24px; font-weight: 700;
+  color: var(--paper); font: inherit; font-size: var(--fs-xl); font-weight: 700;
   text-align: right; padding: 0; outline: none;
   -moz-appearance: textfield;
 }
@@ -528,75 +580,65 @@ html { scroll-behavior: smooth; }
 .match-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .match-input:invalid { box-shadow: none; }
 .match-btn {
-  cursor: pointer; background: var(--surface-2); border: 1px solid var(--rule-strong);
-  border-radius: 8px; color: var(--ink); font: inherit; font-size: 16px; font-weight: 600;
-  flex: 0 0 auto; height: 44px; padding: 7px 11px; white-space: nowrap; text-decoration: none;
+  cursor: pointer; background: var(--act-bg); border: 1.5px solid var(--act-border);
+  border-radius: 8px; color: var(--act-text); font: inherit; font-size: var(--fs-base); font-weight: 600;
+  flex: 0 0 auto; height: 44px; padding: 7px 12px; white-space: nowrap; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
-.match-btn:hover { color: var(--paper); border-color: var(--rule-strong); }
-.match-full { margin-left: auto; background: transparent; border-color: transparent; color: var(--ink-dim); }
-.match-full:hover { color: var(--paper); border-color: transparent; }
-.match-chip { flex: 0 0 auto; padding: 7px 8px; }
-.match-chip::before { content: '+$'; color: var(--ink-dim); }
-.match-btn-text { background: var(--scarlet); color: #fff; border-color: transparent; }
-.match-btn-text:hover { opacity: 0.88; color: #fff; }
-.other-ways { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.match-btn:hover { background: var(--navy); border-color: var(--navy); color: var(--gold); }
+.match-btn:active { transform: scale(0.97); }
+.match-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.match-full, .match-field + .match-chip { margin-left: auto; }
+.match-full, .match-chip { width: 60px; padding: 7px 0; }
+.match-full[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--gold); }
+.match-chip::before { content: '+$'; opacity: 0.8; }
+@media (max-width: 359px) {
+  .match-field { padding: 0 8px; }
+  .match-input { width: 44px; }
+  .match-full, .match-chip { width: 52px; }
+  .match-input-row { gap: 5px; }
+}
+.other-ways { list-style: none; margin: 0; padding: 0; }
 .other-item {
-  border: 1px solid var(--rule); border-radius: 12px; background: var(--surface);
-  padding: 16px 18px; display: flex; gap: 16px; align-items: center; min-width: 0;
+  padding: 22px 0; display: flex; gap: 12px 16px; align-items: center; min-width: 0;
+}
+@media (min-width: 640px) {
+  .other-ways + .other-ways { border-top: 1px solid var(--rule); }
 }
 .other-body { flex: 1 1 auto; min-width: 0; }
-.other-label { color: var(--paper); font-weight: 600; font-size: 18px; }
-.other-note { color: var(--ink-dim); font-size: 16px; margin-top: 3px; }
+.other-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
+.other-note { color: var(--ink-dim); font-size: var(--fs-base); margin-top: 4px; }
 .other-action {
   flex: 0 0 auto; cursor: pointer; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 16px;
-  border: 1px solid var(--rule-strong); border-radius: 9px; min-height: 48px; padding: 10px 16px; white-space: nowrap;
-  max-width: 100%; min-width: 0; transition: color 0.15s ease;
+  background: var(--act-bg); color: var(--act-text); font: inherit; font-weight: 600; font-size: var(--fs-base);
+  border: 1.5px solid var(--act-border); border-radius: 8px; min-height: 48px; padding: 10px 18px; white-space: nowrap;
+  max-width: 100%; min-width: 0; transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.other-action:hover { color: var(--paper); }
+.other-action:hover { background: var(--navy); border-color: var(--navy); color: var(--gold); }
+.other-action:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 @media (min-width: 561px) { select.other-action { width: 17rem; } }
-.other-soon { flex: 0 0 auto; color: var(--ghost); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
 @media (max-width: 560px) {
   .other-item { flex-wrap: wrap; }
   .other-action, .other-soon { flex-basis: 100%; width: 100%; text-align: center; }
 }
 
-.faq { display: grid; gap: 10px; }
-.faq details { border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); padding: 0 18px; }
-.faq summary { cursor: pointer; list-style: none; padding: 16px 0; color: var(--paper); font-weight: 600; font-size: 17px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: '+'; flex: 0 0 auto; color: var(--ink-dim); font-weight: 400; font-size: 22px; line-height: 1; }
-.faq details[open] summary::after { content: '\\2212'; }
-.faq-a { padding: 0 0 16px; color: var(--ink-dim); font-size: 16px; line-height: 1.6; }
-
-.cta {
-  margin-top: 56px; padding: 32px; border-radius: 16px;
-  background: var(--surface); border: 1px solid var(--rule-strong); text-align: center;
+.intro-row {
+  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; cursor: pointer;
+  padding: 16px 18px; border: 0; border-radius: 12px; background: var(--act-bg);
+  color: var(--paper); font: inherit; font-size: var(--fs-base); line-height: 1.45;
 }
-.cta h2 { margin: 0 0 8px; font-size: clamp(22px, 4vw, 30px); color: var(--paper); font-weight: 500; letter-spacing: -0.01em; }
-.cta p { margin: 0 0 22px; color: var(--ink-dim); font-size: 16px; }
-.cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.btn {
-  text-decoration: none; font-weight: 600; font-size: 16px; border-radius: 10px; padding: 13px 24px;
-  transition: opacity 0.2s ease, transform 0.1s ease;
+.intro-face {
+  flex: 0 0 auto; align-self: stretch; width: 76px; min-height: 76px; object-fit: cover;
+  object-position: 50% 30%; margin: -16px 0 -16px -18px; border-radius: 12px 0 0 12px;
 }
-.btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--scarlet); color: #fff; }
-.btn-secondary { background: transparent; color: var(--paper); border: 1px solid var(--rule-strong); }
-.btn:hover { opacity: 0.9; }
-
-.intro-toggle {
-  cursor: pointer; background: var(--surface-2); border: 1px solid var(--rule-strong);
-  border-radius: 9px; color: var(--ink); font: inherit; font-size: 16px; font-weight: 600;
-  min-height: 44px; padding: 10px 18px; transition: color 0.15s ease;
-}
-.intro-toggle:hover { color: var(--paper); }
+.intro-row-text { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.intro-row:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.expander.is-open { transform: rotate(180deg); }
 .intro-reveal { margin-top: 24px; }
 
-.bf-footer { margin-top: 44px; font-size: 16px; color: var(--ink-dim); line-height: 1.65; }
+.bf-footer { margin-top: 44px; font-size: var(--fs-base); color: var(--ink-dim); line-height: 1.65; }
 .bf-footer b { color: var(--ink-dim); font-weight: 600; }
 
 .contribute-fab {
@@ -614,8 +656,8 @@ html { scroll-behavior: smooth; }
   border: none;
   border-radius: 999px;
   padding: 18px 48px;
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  font-size: 30px;
+  font-family: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-2xl);
   font-weight: 400;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -625,7 +667,7 @@ html { scroll-behavior: smooth; }
 }
 .contribute-fab:hover { opacity: 0.9; }
 .contribute-fab:active { transform: translateX(-50%) translateY(1px); }
-.fab-split { font-size: 14px; font-weight: 600; opacity: 0.85; letter-spacing: 0; }
+.fab-split { font-size: var(--fs-xs); font-weight: 600; opacity: 0.85; letter-spacing: 0; }
 
 .contribute-overlay {
   position: fixed; inset: 0; z-index: 950;
@@ -644,14 +686,14 @@ html { scroll-behavior: smooth; }
   overflow: hidden;
 }
 .contribute-header { display: flex; align-items: center; padding: 10px 10px 0 28px; }
-.contribute-title { font-family: 'Outfit', system-ui, -apple-system, sans-serif; font-size: 24px; font-weight: 500; color: #1a1915; letter-spacing: -0.01em; }
+.contribute-title { font-family: var(--font-outfit), system-ui, -apple-system, sans-serif; font-size: var(--fs-xl); font-weight: 500; color: #1a1915; letter-spacing: -0.01em; }
 .contribute-close {
   margin-left: auto;
   background: rgba(0,0,0,0.06);
   border: none; border-radius: 50%;
   width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 14px; color: #555;
+  cursor: pointer; font-size: var(--fs-xs); color: #555;
   transition: color 0.15s ease;
 }
 .contribute-close:hover { color: #000; }
@@ -660,7 +702,7 @@ html { scroll-behavior: smooth; }
   padding: 20px 32px 48px; text-align: center;
 }
 .contribute-thanks-title {
-  font-size: 36px; font-weight: 700; color: #1a1915; letter-spacing: -0.02em; margin-bottom: 12px;
+  font-size: var(--fs-2xl); font-weight: 700; color: #1a1915; letter-spacing: -0.02em; margin-bottom: 12px;
 }
 .contribute-thanks-spinner {
   width: 28px; height: 28px; margin: 22px auto 0;
@@ -704,11 +746,11 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.01em; text-shadow: 0 1px 10px rgba(0,0,0,0.55);
 }
 .camp-intro-kicker {
-  font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 13px;
+  font-family: var(--font-fraunces), Georgia, serif; font-style: italic; font-weight: 500; font-size: var(--fs-xs);
   letter-spacing: 0.02em; color: var(--gold); text-shadow: none;
 }
-.camp-intro-song { font-size: 22px; font-weight: 700; }
-.camp-intro-by { font-size: 13px; font-weight: 500; letter-spacing: 0.01em; color: rgba(255,255,255,0.92); }
+.camp-intro-song { font-size: var(--fs-lg); font-weight: 700; }
+.camp-intro-by { font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0.01em; color: rgba(255,255,255,0.92); }
 @media (max-width: 639px) {
   .wrap--intro { padding-top: 0; }
   .camp-intro {
@@ -721,7 +763,6 @@ html { scroll-behavior: smooth; }
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
   .match-ctrl, .other-action, .cta-row, .progress .bar, .contribute-fab, .contribute-overlay { display: none; }
-  .steps--contribute { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-root *, .bf-root *::before, .bf-root *::after {
@@ -731,169 +772,256 @@ html { scroll-behavior: smooth; }
 }
       `}</style>
 
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
-      />
-
       <div className="bf-root">
         <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
           {introVideoId && <LegIntroVideo videoId={introVideoId} />}
-          <div className="masthead" ref={mastheadRef}>
-            <div className="masthead-title" ref={titleRef}>
-              Help fund my concert tour
-            </div>
-            <div className="masthead-kicker" ref={kickerRef}>
-              <img
-                className="masthead-flag"
-                src="/flag-ca.svg"
-                alt="Canada"
-                style={{ aspectRatio: "2 / 1" }}
-                onLoad={fit}
-              />
-              From The Ground Up
-              <img
-                className="masthead-flag"
-                src="/flag-us.svg"
-                alt="US"
-                style={{ aspectRatio: "1235 / 650" }}
-                onLoad={fit}
-              />
-            </div>
+
+          <div className="masthead">
+            <h1 className="bf-h1">
+              <em>{leg.destination.replace(/^the /, "")}</em>
+            </h1>
           </div>
 
-          <div style={{ marginTop: 24 }}>
+          {!og && (
+            <SectionNav
+              items={navItems}
+              trip={leg.slug}
+              onJump={(id) => {
+                if (id === "who") openIntro();
+              }}
+            />
+          )}
+
+          {showsVisible && (
+            <section id="schedule" className="bf-section" style={{ marginTop: 16 }}>
+              {upcoming.length > 0 && (
+                <div className="dateline">
+                  {upcoming.map((b, i) => (
+                    <BookedRow key={i} booking={b} done={false} />
+                  ))}
+                </div>
+              )}
+              {past.length === 0 && completedTotal > 0 && (
+                <div className="done done-row">
+                  <span className="done-summary-text">{completedText}</span>
+                </div>
+              )}
+              {past.length > 0 && (
+                <details className="done">
+                  <summary>
+                    <span className="done-summary-text">
+                      {completedText}
+                      <span className="row-hint">{completedHint}</span>
+                    </span>
+                    <span className="expander" aria-hidden="true">
+                      <ChevronIcon />
+                    </span>
+                  </summary>
+                  <div className="dateline done-dateline">
+                    {past.map((b, i) => (
+                      <BookedRow key={i} booking={b} done />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
+
+          <div style={{ marginTop: 48 }}>
             <MomentsGallery og={og} leg={leg.slug} />
           </div>
 
+          <section id="cover" className="bf-section">
+            <div className="section-head">Cover my trip</div>
+            <p className="p-note section-sub">
+              Any amount helps. Venmo, Zelle, or card.
+            </p>
+            <ul className="pieces">
+              {LINES.map((line) => {
+                const note =
+                  line.key === "flight" && flightBy ? `${line.note} · booked by ${flightBy}` : line.note;
+                return (
+                  <li key={line.key} className="piece">
+                    <div className="piece-row">
+                      <div className="p-head">
+                        <div className="p-text">
+                          <span className="p-label">{line.label}</span>{" "}
+                          {note ? <span className="p-note">{note}</span> : null}
+                        </div>
+                        <LinePrice amount={line.amount} gifted={coveredKeys.has(line.key)} />
+                      </div>
+                      {!coveredKeys.has(line.key) && (
+                        <LineMatchControl
+                          value={lineVals[line.key]}
+                          onChange={(v) => setLineVals((prev) => ({ ...prev, [line.key]: v }))}
+                          full={line.amount}
+                          presets={QUICK_PICKS.filter((p) => p < line.amount)}
+                        />
+                      )}
+                    </div>
+                    {line.key === "lodging" && !coveredKeys.has("lodging") && (
+                      <a
+                        className="lodging-or"
+                        href={`sms:${PHONE}?&body=${encodeURIComponent(
+                          `Hi Peyt, I've got a place you could stay for your trip!`,
+                        )}`}
+                      >
+                        or <span className="inkind-cta">offer your home or Center to stay</span>
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+              <li className="piece piece--honorarium">
+                <div className="piece-row">
+                  <div className="p-head">
+                    <div className="p-text">
+                      <span className="p-label">Honorarium</span>{" "}
+                      <span className="p-note">for the performance itself, separate from the trip</span>
+                    </div>
+                  </div>
+                  <LineMatchControl
+                    value={honorarium}
+                    onChange={setHonorariumVal}
+                    presets={[...QUICK_PICKS, 100]}
+                  />
+                </div>
+              </li>
+            </ul>
+            <div className="total-box">
+              <div className="total-label">Total</div>
+              <div className="total-amount">~{money(tripTotal)}</div>
+            </div>
+            <p className="bf-footer" style={{ marginTop: 8 }}>
+              Estimates from my previous tour stops, subject to change. I also bring merch and a
+              donation box to every concert.
+            </p>
+
+            {(leg.previousTrips ?? []).length > 0 && (
+              <>
+                <div className="prev-band">
+                  <div className="prev-band-inner">
+                    {(leg.previousTrips ?? []).map((trip) => (
+                      <div key={trip.label} className="prev-trip">
+                        <div className="prev-label">{trip.label}</div>
+                        <div className="prev-note">{trip.note}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+
           {intro && (
-            <section>
+            <section id="who" className="bf-section">
               <div className="section-head">Who you&apos;re funding</div>
               <button
-                className="intro-toggle"
-                onClick={() => setIntroOpen((v) => !v)}
+                type="button"
+                className="intro-row"
+                onClick={() => (introOpen ? setIntroOpen(false) : openIntro())}
                 aria-expanded={introOpen}
               >
-                {introOpen ? "Show less" : "See more"}
+                <img src="/images/home/bio.jpeg" alt="" className="intro-face" />
+                <span className="intro-row-text">
+                  Rapper and software engineer from Bellevue, Washington
+                  <span className="row-hint">{introOpen ? "Show less" : "See my story and videos"}</span>
+                </span>
+                <span className={introOpen ? "expander is-open" : "expander"} aria-hidden="true">
+                  <ChevronIcon />
+                </span>
               </button>
               {introOpen && <div className="intro-reveal space-y-8">{intro}</div>}
             </section>
           )}
 
-          <div className="section-head">How this works</div>
-          <ol className="steps">
-            {STEPS.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-            <li>I purchase flights{flightBy ? ` by ${flightBy}` : ""} to arrive in</li>
-          </ol>
-          <h1 className="bf-h1">
-            <em>{leg.destination}</em>
-            <span className="nights">
-              <span className="dot">&middot;</span>
-              {leg.nights} night{leg.nights === 1 ? "" : "s"}
-            </span>
-          </h1>
-          {booked.length > 0 && (
-            <div className="dateline">
-              {booked.map((b, i) => {
-                const done = isPastStop(b);
-                return (
-                  <div className="loc" key={i}>
-                    <span
-                      className={`loc-check${done ? " is-done" : ""}`}
-                      role={done ? "img" : undefined}
-                      aria-label={done ? "Completed" : undefined}
-                      aria-hidden={done ? undefined : true}
+          <section id="help" className="bf-section">
+            <div className="section-head">You can also</div>
+            {posterSlugs.length > 0 && (
+              <ul className="other-ways">
+                <li className="other-item">
+                  <div className="other-body">
+                    <div className="other-label">Spread the word</div>
+                    <div className="other-note">
+                      personal texts work best, group chats help too
+                      {slugged.length === 1 && (
+                        <>
+                          {" · "}
+                          <a href={`/api/poster/${posterSlugs[0]}?format=print`} className="inkind-cta">
+                            print version
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {slugged.length === 1 ? (
+                    <button
+                      className="other-action"
+                      onClick={() => sharePoster(posterSlugs[0])}
+                      disabled={posterLoading}
+                      style={{ opacity: posterLoading ? 0.6 : 1 }}
                     >
-                      {done && (
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="14"
-                          height="14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </span>
-                    <div className="loc-info">
-                      <span className="loc-venue">{b.venue}</span>
-                      {b.date && (
-                        <span className="loc-when">
-                          {b.doorTime ? `${b.doorTime.toLowerCase()} ` : ""}
-                          {formatEventDateShort(b.date)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <ol
-            className="steps steps--contribute"
-            style={{ counterReset: `step ${STEPS.length + 1}` }}
-          >
-            {CONTRIBUTE_STEPS.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ol>
-          <div className="section-head" id="cover">Cover my trip</div>
-          <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
-            Contribute any amount
-          </p>
-          <ul className="pieces">
-            {LINES.map((line) => (
-              <li key={line.key} className="piece">
-                <div className="piece-row">
-                  <div className="p-head">
-                    <div className="p-text">
-                      <span className="p-label">{line.label}</span>{" "}
-                      {line.note ? <span className="p-note">{line.note}</span> : null}
-                    </div>
-                    <LinePrice amount={line.amount} gifted={coveredKeys.has(line.key)} />
-                  </div>
-                  {!coveredKeys.has(line.key) && (
-                    <LineMatchControl
-                      line={line}
-                      value={lineVals[line.key]}
-                      onChange={(v) => setLineVals((prev) => ({ ...prev, [line.key]: v }))}
-                    />
+                      {posterLoading ? "Preparing…" : "Download my concert poster"}
+                    </button>
+                  ) : (
+                    <select
+                      className="other-action"
+                      value=""
+                      disabled={posterLoading}
+                      onChange={(e) => e.target.value && sharePoster(e.target.value)}
+                      style={{ opacity: posterLoading ? 0.6 : 1 }}
+                    >
+                      <option value="">
+                        {posterLoading ? "Preparing…" : "Download my concert poster"}
+                      </option>
+                      {slugged.map((b) => (
+                        <option key={b.slug} value={b.slug} disabled={b.private}>
+                          {b.private ? `${b.venue} (private, no poster)` : b.venue}
+                        </option>
+                      ))}
+                    </select>
                   )}
+                </li>
+              </ul>
+            )}
+            <ul className="other-ways">
+              <li className="other-item">
+                <div className="other-body">
+                  <div className="other-label">Donate in person</div>
+                  <div className="other-note">find me at one of my concerts</div>
                 </div>
-                {line.key === "lodging" && !coveredKeys.has("lodging") && (
-                  <a
-                    className="lodging-or"
-                    href={`sms:${PHONE}?&body=${encodeURIComponent(
-                      `Hi Peyt, I've got a place you could stay for your trip!`,
-                    )}`}
-                  >
-                    or <span className="inkind-cta">offer your home or Center to stay</span>
-                  </a>
-                )}
+                <a className="other-action" href="/shop">
+                  Or buy merch
+                </a>
               </li>
-            ))}
-          </ul>
-          <div className="total-box">
-            <div className="total-label">Total</div>
-            <div className="total-amount">~{money(tripTotal)}</div>
-          </div>
-          <p className="bf-footer" style={{ marginTop: 8 }}>
-            These figures are estimates based on previous tour stops, subject to change due to need
-            and circumstances. At every stop, I bring merch and a donation box to earn it all back.
-          </p>
-          <div className="section-head">Honorarium</div>
-          <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
-            A gift that recognizes the artistic performance itself, separate from the trip.
-          </p>
-          <HonorariumControl value={honorarium} onChange={setHonorariumVal} />
+            </ul>
+
+            <ul className="other-ways">
+              {otherWays.map((item) => (
+                <li key={item.key} className="other-item">
+                  <div className="other-body">
+                    <div className="other-label">{item.label}</div>
+                    {item.note ? <div className="other-note">{item.note}</div> : null}
+                  </div>
+                  {item.key === "host" && (
+                    <a
+                      className="other-action"
+                      href="/sponsor/host"
+                      onMouseEnter={preloadGoogleMaps}
+                      onFocus={preloadGoogleMaps}
+                      onTouchStart={preloadGoogleMaps}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setHostOpen(true);
+                      }}
+                    >
+                      Become a concert host
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
 
           {nextTrip && (
             <a className="next-trip" href={`/fund/${nextTrip.slug}#cover`}>
@@ -903,136 +1031,24 @@ html { scroll-behavior: smooth; }
               <span className="next-trip-arrow" aria-hidden="true">&rarr;</span>
             </a>
           )}
-
-          {(leg.previousTrips ?? []).map((trip) => {
-            const prevLines = trip.lines.filter((l) => l.amount > 0);
-            const prevCovered = new Set(trip.coveredInKind ?? []);
-            const prevTotal = prevLines.reduce((sum, line) => sum + line.amount, 0);
-            return (
-              <section key={trip.label}>
-                <div className="section-head">{trip.label}</div>
-                {trip.note && (
-                  <p className="p-note" style={{ marginTop: -16, marginBottom: 24 }}>
-                    {trip.note}
-                  </p>
-                )}
-                <ul className="pieces">
-                  {prevLines.map((line) => (
-                    <li key={line.key} className="piece">
-                      <div className="piece-row">
-                        <div className="p-head">
-                          <div className="p-text">
-                            <span className="p-label">{line.label}</span>{" "}
-                            {line.note ? <span className="p-note">{line.note}</span> : null}
-                          </div>
-                          <LinePrice amount={line.amount} gifted={prevCovered.has(line.key)} />
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <div className="total-box">
-                  <div className="total-label">Total</div>
-                  <div className="total-amount">~{money(prevTotal)}</div>
-                </div>
-              </section>
-            );
-          })}
-
-          <div className="section-head" id="help">Other ways to help</div>
-          <ul className="other-ways">
-            {otherWays.map((item) => (
-              <li key={item.key} className="other-item">
-                <div className="other-body">
-                  <div className="other-label">{item.label}</div>
-                  {item.note ? <div className="other-note">{item.note}</div> : null}
-                </div>
-                {item.key === "host" ? (
-                  <a
-                    className="other-action"
-                    href="/sponsor/host"
-                    onMouseEnter={preloadGoogleMaps}
-                    onFocus={preloadGoogleMaps}
-                    onTouchStart={preloadGoogleMaps}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setHostOpen(true);
-                    }}
-                  >
-                    Become a concert host
-                  </a>
-                ) : (
-                  <a
-                    className="other-action"
-                    href={`sms:${PHONE}?&body=${encodeURIComponent(item.smsBody)}`}
-                  >
-                    Text me
-                  </a>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {posterSlugs.length > 0 && (
-            <ul className="other-ways" style={{ marginTop: 10 }}>
-              <li className="other-item">
-                <div className="other-body">
-                  <div className="other-label">Spread the word</div>
-                  <div className="other-note">
-                    personal text &gt; group chat
-                    {slugged.length === 1 && (
-                      <>
-                        {" · "}
-                        <a href={`/api/poster/${posterSlugs[0]}?format=print`} className="inkind-cta">
-                          print version
-                        </a>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {slugged.length === 1 ? (
-                  <button
-                    className="other-action"
-                    onClick={() => sharePoster(posterSlugs[0])}
-                    disabled={posterLoading}
-                    style={{ opacity: posterLoading ? 0.6 : 1 }}
-                  >
-                    {posterLoading ? "Preparing…" : "Download my concert poster"}
-                  </button>
-                ) : (
-                  <select
-                    className="other-action"
-                    value=""
-                    disabled={posterLoading}
-                    onChange={(e) => e.target.value && sharePoster(e.target.value)}
-                    style={{ opacity: posterLoading ? 0.6 : 1 }}
-                  >
-                    <option value="">
-                      {posterLoading ? "Preparing…" : "Download my concert poster"}
-                    </option>
-                    {slugged.map((b) => (
-                      <option key={b.slug} value={b.slug} disabled={b.private}>
-                        {b.private ? `${b.venue} (private, no poster)` : b.venue}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </li>
-            </ul>
-          )}
-
-          <div className="section-head">Good to know</div>
-          <div className="faq">
-            <details>
-              <summary>Can I give cash in person?</summary>
-              <div className="faq-a">Yes, find me at one of my concerts in {leg.destination}.</div>
-            </details>
-          </div>
         </div>
       </div>
 
       {total > 0 && (
-        <button className="contribute-fab" onClick={() => setCheckoutOpen(true)}>
+        <button
+          className="contribute-fab"
+          onClick={() => {
+            posthog.capture("checkout_initiated", {
+              product: "fund",
+              trip: leg.slug,
+              amount_cents: Math.round(total * 100),
+              trip_cents: Math.round(lineTotal * 100),
+              honorarium_cents: Math.round(honorariumAmt * 100),
+              lines: items.map((i) => i.key),
+            });
+            setCheckoutOpen(true);
+          }}
+        >
           Contribute {money(total)}
           {honorariumAmt > 0 && lineTotal > 0 && (
             <span className="fab-split">
@@ -1047,6 +1063,7 @@ html { scroll-behavior: smooth; }
           items={items}
           trip={leg.slug}
           venmoUrl={venmoUrl}
+          amountCents={amountCents}
           onClose={() => setCheckoutOpen(false)}
         />
       )}
@@ -1057,7 +1074,7 @@ html { scroll-behavior: smooth; }
           onClick={() => setHostOpen(false)}
         >
           <div
-            className="relative my-auto w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-neutral-900"
+            className="relative my-auto w-full max-w-lg lg:max-w-3xl rounded-2xl bg-white p-6 lg:p-8 shadow-2xl dark:bg-neutral-900"
             role="dialog"
             aria-modal="true"
             aria-label="Become a concert host"

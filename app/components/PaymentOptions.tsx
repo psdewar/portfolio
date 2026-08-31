@@ -8,12 +8,14 @@ const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 export default function PaymentOptions({
   venmoUrl,
   onCard,
+  onSelect,
   zelle = true,
   interac = false,
   interacFirst = false,
 }: {
   venmoUrl: string;
   onCard?: () => void;
+  onSelect?: (method: "venmo" | "zelle" | "card") => void;
   zelle?: boolean;
   interac?: boolean;
   interacFirst?: boolean;
@@ -44,12 +46,24 @@ export default function PaymentOptions({
   return (
     <div className="payment-options">
       {interacFirst && interacRail}
-      <a className="cc-btn cc-venmo" href={venmoUrl} target="_blank" rel="noopener noreferrer">
+      <a
+        className="cc-btn cc-venmo"
+        href={venmoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => onSelect?.("venmo")}
+      >
         <span className="cc-tag">no fees</span>
         <img className="cc-venmo-logo" src="/Venmo_Logo_Blue.png" alt="Venmo" />
       </a>
       {zelle && ZELLE_EMAIL && (
-        <button className="cc-btn cc-zelle" onClick={() => copy(ZELLE_EMAIL, "zelle")}>
+        <button
+          className="cc-btn cc-zelle"
+          onClick={() => {
+            copy(ZELLE_EMAIL, "zelle");
+            onSelect?.("zelle");
+          }}
+        >
           {copied === "zelle" ? (
             <span className="cc-copied">You copied my email</span>
           ) : (
@@ -73,7 +87,13 @@ export default function PaymentOptions({
       )}
       {!interacFirst && interacRail}
       {onCard && (
-        <button className="cc-btn cc-card" onClick={onCard}>
+        <button
+          className="cc-btn cc-card"
+          onClick={() => {
+            onSelect?.("card");
+            onCard();
+          }}
+        >
           Pay with your card
         </button>
       )}

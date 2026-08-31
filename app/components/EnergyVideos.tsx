@@ -35,16 +35,25 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
 
   const [canRight, setCanRight] = useState(clips.length > 1);
 
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settled = useRef(0);
+
+  const indexOf = useCallback(
+    (el: HTMLElement) => {
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      const idx = atEnd ? clips.length - 1 : Math.round(el.scrollLeft / stepOf(el));
+      return Math.min(clips.length - 1, Math.max(0, idx));
+    },
+    [clips.length],
+  );
+
   const sync = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
     setCanLeft(el.scrollLeft > 4);
-    setCanRight(!atEnd);
-    const step = stepOf(el);
-    const idx = atEnd ? clips.length - 1 : Math.round(el.scrollLeft / step);
-    setActive(Math.min(clips.length - 1, Math.max(0, idx)));
-  }, [clips.length]);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    setActive(indexOf(el));
+  }, [indexOf]);
 
   useEffect(() => {
     sync();
@@ -54,6 +63,20 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
 
   const play = (id: string) => players.current.get(id)?.play().catch(() => {});
 
+  const onStripScroll = () => {
+    sync();
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      const idx = indexOf(el);
+      if (idx === settled.current) return;
+      settled.current = idx;
+      const clip = clips[idx];
+      if (clip) play(clip.id);
+    }, 160);
+  };
+
   const nudge = (dir: 1 | -1) => {
     const el = ref.current;
     if (!el) return;
@@ -61,6 +84,7 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
     const current = Math.round(el.scrollLeft / step);
     const target = Math.min(clips.length - 1, Math.max(0, current + dir));
     el.scrollTo({ left: target * step, behavior: "smooth" });
+    settled.current = target;
     const clip = clips[target];
     if (clip) play(clip.id);
   };
@@ -96,7 +120,7 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
       <div className="relative">
         <div
           ref={ref}
-          onScroll={sync}
+          onScroll={onStripScroll}
           className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {clips.map((clip) => (

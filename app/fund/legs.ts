@@ -67,7 +67,7 @@ const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com"
 // canonical template; the artist edits these per trip and can drop any a trip
 // does not need. Remove a line, or zero it, and it stays gone.
 export const PRIME_LINES: readonly FundLine[] = [
-  { key: "flight", label: "Flight", note: "round-trip, includes checked bags for equipment", amount: 450 },
+  { key: "flight", label: "Flight", note: "round-trip, includes checked bags for my equipment", amount: 450 },
   { key: "car", label: "Rental car", note: "includes gas, tolls, and parking", amount: 550 },
   { key: "lodging", label: "Lodging", note: "hotel or Airbnb", amount: 900 },
   { key: "food", label: "Food", note: "breakfast, lunch, and dinner on the road", amount: 350 },

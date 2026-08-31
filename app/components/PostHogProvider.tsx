@@ -21,20 +21,15 @@ function dropFramelessExceptions(
   return event;
 }
 
-function dropAdminEvents(event: CaptureResult | null): CaptureResult | null {
-  return window.location.pathname.startsWith("/admin") ? null : event;
-}
-
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (window.location.pathname.startsWith("/admin")) return;
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
       api_host: "/ingest",
       ui_host: "https://us.posthog.com",
       defaults: "2025-05-24",
       capture_exceptions: true,
       error_tracking: { captureExtensionExceptions: false },
-      before_send: [dropAdminEvents, dropFramelessExceptions],
+      before_send: [dropFramelessExceptions],
       debug: process.env.NODE_ENV === "development",
     });
   }, []);

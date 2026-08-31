@@ -1,4 +1,18 @@
 import type { Metadata } from "next";
+import { Fraunces, Outfit } from "next/font/google";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-fraunces",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-outfit",
+});
 
 export const metadata: Metadata = {
   alternates: { canonical: "/fund" },
@@ -25,5 +39,9 @@ export const metadata: Metadata = {
 };
 
 export default function FundLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <div className={`${fraunces.variable} ${outfit.variable}`}>
+      {children}
+    </div>
+  );
 }

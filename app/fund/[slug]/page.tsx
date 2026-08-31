@@ -6,7 +6,13 @@ import PrivateNudgeToast from "../PrivateNudgeToast";
 import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
 import { getLeg, getLegs, toFundView, FUND_LEGS, type FundBooked } from "../legs";
-import { getShows, isShowOnTrip, getVenueLabel, isResidence } from "../../lib/shows";
+import {
+  getShows,
+  isShowOnTrip,
+  isShowCompleted,
+  getVenueLabel,
+  isResidence,
+} from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
 import { doorTimeMinutes } from "../../lib/dates";
 import type { Metadata } from "next";
@@ -24,7 +30,7 @@ export async function generateMetadata({
   const fund = toFundView(await getLeg(slug));
   if (fund) {
     const title = `Help fund my concert-conversation in ${fund.destination}`;
-    const description = `From The Ground Up: My Path of Growth and the Principles that Connect Us by Microsoft engineer Peyt Spencer`;
+    const description = `From The Ground Up: My Path of Growth and the Principles that Connect Us by rapper and software engineer Peyt Spencer`;
     const url = `https://peytspencer.com/fund/${fund.slug}`;
     return {
       title,
@@ -146,6 +152,7 @@ export default async function Page({
           intro={<ArtistIntro />}
           og={sp?.og === "true"}
           nextTrip={nextTrip}
+          completedTotal={shows.filter((s) => s.leg && isShowCompleted(s)).length}
         />
       </>
     );

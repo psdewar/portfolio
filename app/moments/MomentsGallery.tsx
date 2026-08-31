@@ -567,6 +567,7 @@ function Tile({
           alt=""
           loading={priority ? "eager" : "lazy"}
           decoding="async"
+          fetchPriority={priority ? "high" : undefined}
           className={mediaClass}
           style={fadeStyle}
           onLoad={(e) => {
