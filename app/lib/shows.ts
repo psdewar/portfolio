@@ -41,6 +41,8 @@ export interface Show {
   privateRedirect?: string | null;
   // Tagline alignment: "left" (default) or "justify".
   taglineAlign?: string | null;
+  // Poster location line size multiplier; blank/null renders at 1.
+  locationScale?: number | null;
   // Manual override: never chain this show into a pamphlet leg.
   standalone?: boolean | null;
   // The night belongs to the host's own gathering and I play a set inside it.

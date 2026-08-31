@@ -40,6 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
     centerLogo: sp.has("centerLogo") ? sp.get("centerLogo") === "1" : !!show.centerLogo,
     taglineAlign: sp.get("align") || show.taglineAlign || "left",
+    scale: Math.min(2, Math.max(0.5, Number(sp.get("scale")) || show.locationScale || 1)),
     invite: needsHostLocation(show),
   });
   const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";

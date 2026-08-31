@@ -33,6 +33,7 @@ import { useDebouncedSave } from "../../hooks/useDebouncedSave";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import {
   type PosterFormat,
+  JPG_FORMATS,
   PAMPHLET_PREVIEW_FORMATS,
   POSTER_PREVIEW_FORMATS,
 } from "../../lib/poster-formats";
@@ -1269,6 +1270,39 @@ function BlankPamphletButton() {
   );
 }
 
+function ScaleSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <span className="text-xs text-neutral-500 shrink-0">{label}</span>
+      <input
+        type="range"
+        min={0.6}
+        max={1.5}
+        step={0.01}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 accent-indigo-500"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(1)}
+        className="text-xs tabular-nums text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 w-10 text-right transition-colors"
+        title="Reset to 100%"
+      >
+        {Math.round(value * 100)}%
+      </button>
+    </div>
+  );
+}
+
 // Unified poster / pamphlet editor. One date renders a poster (/api/poster),
 // multiple dates render a pamphlet (/api/pamphlet) — the only difference is
 // date grouping. Single-date edits persist to the Show record; multi-date
@@ -1333,7 +1367,9 @@ function PosterEditor({
     const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
     return a === "justify" ? "justify" : "left";
   });
-  const [scale, setScale] = useState(matchedPamphlet?.scale ?? 1);
+  const [scale, setScale] = useState(
+    isSingle ? (soloShow?.locationScale ?? 1) : (matchedPamphlet?.scale ?? 1),
+  );
   const perShow = (
     read: (ps: PamphletShow | undefined, show: Show) => string,
   ): Record<string, string> =>
@@ -1561,6 +1597,7 @@ function PosterEditor({
     if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
     params.set("centerLogo", centerLogo ? "1" : "0");
     params.set("align", taglineAlign);
+    params.set("scale", String(scale));
     // Always sent so a download reflects the editor exactly, even unsaved.
     params.set("venueLabel", venueLabels[soloShow!.slug] ?? "");
     params.set("doorLabel", doorLabels[soloShow!.slug] ?? "");
@@ -1581,6 +1618,7 @@ function PosterEditor({
       centerLogo,
       privateNote: privateNote.trim() || null,
       taglineAlign,
+      locationScale: scale !== 1 ? scale : null,
       posterImg: posterImg.trim() || null,
       bgImg: bgImg.trim() || null,
     };
@@ -1592,69 +1630,42 @@ function PosterEditor({
     onShowUpdate(slug, fields);
   };
 
+  const downloadName = (fmt: PosterFormat) => {
+    const ext = JPG_FORMATS.has(fmt) ? "jpg" : "pdf";
+    return isSingle
+      ? `poster-${soloShow!.slug}${fmt === "standard" ? "" : `-${fmt}`}.${ext}`
+      : `pamphlet-${legId.trim() || first.date}-${fmt}.${ext}`;
+  };
+
+  // forceSlugs so the download reflects current edits without a save.
+  const fetchFormat = (fmt: PosterFormat) => {
+    const jpg = JPG_FORMATS.has(fmt);
+    return fetch(isSingle ? buildPosterHref(fmt, jpg) : buildPamphletHref(fmt, !jpg, true));
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      if (isSingle) {
-        const slug = soloShow!.slug;
-        const pdfFmts = ["standard", "ig", "yt", "eb", "print"] as const;
-        const jpgFmts = ["fb", "fbe"] as const;
-        const entries = await Promise.all([
-          ...pdfFmts.map((fmt) =>
-            fetch(buildPosterHref(fmt))
-              .then((r) => r.arrayBuffer())
-              .then((buf) => ({
-                name: `poster-${slug}${fmt === "standard" ? "" : `-${fmt}`}.pdf`,
-                data: new Uint8Array(buf),
-              })),
-          ),
-          ...jpgFmts.map((fmt) =>
-            fetch(buildPosterHref(fmt, true))
-              .then((r) => r.arrayBuffer())
-              .then((buf) => ({ name: `poster-${slug}-${fmt}.jpg`, data: new Uint8Array(buf) })),
-          ),
-        ]);
-        zipAndDownload(entries, `poster-${slug}.zip`);
-      } else {
-        const name = legId.trim() || first.date;
-        const pdfFmts = ["print", "ig", "yt", "eb"] as const;
-        const jpgFmts = ["fb", "fbe"] as const;
-        // forceSlugs so the download reflects current edits without a save.
-        const entries = await Promise.all([
-          ...pdfFmts.map((fmt) =>
-            fetch(buildPamphletHref(fmt, true, true))
-              .then((r) => r.arrayBuffer())
-              .then((buf) => ({ name: `pamphlet-${name}-${fmt}.pdf`, data: new Uint8Array(buf) })),
-          ),
-          ...jpgFmts.map((fmt) =>
-            fetch(buildPamphletHref(fmt, false, true))
-              .then((r) => r.arrayBuffer())
-              .then((buf) => ({ name: `pamphlet-${name}-${fmt}.jpg`, data: new Uint8Array(buf) })),
-          ),
-        ]);
-        zipAndDownload(entries, `pamphlet-${name}.zip`);
-      }
+      const formats = isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS;
+      const entries = await Promise.all(
+        formats.map(async (fmt) => ({
+          name: downloadName(fmt),
+          data: new Uint8Array(await (await fetchFormat(fmt)).arrayBuffer()),
+        })),
+      );
+      zipAndDownload(
+        entries,
+        isSingle ? `poster-${soloShow!.slug}.zip` : `pamphlet-${legId.trim() || first.date}.zip`,
+      );
     } finally {
       setDownloading(false);
     }
   };
 
-  // Download just the format currently shown in the preview.
   const downloadOne = async (fmt: PosterFormat) => {
     setDownloading(true);
     try {
-      const jpg = fmt === "fb" || fmt === "fbe";
-      const ext = jpg ? "jpg" : "pdf";
-      if (isSingle) {
-        const slug = soloShow!.slug;
-        const res = await fetch(buildPosterHref(fmt, jpg));
-        const suffix = fmt === "standard" ? "" : `-${fmt}`;
-        downloadBlob(await res.blob(), `poster-${slug}${suffix}.${ext}`);
-      } else {
-        const name = legId.trim() || first.date;
-        const res = await fetch(buildPamphletHref(fmt, !jpg, true));
-        downloadBlob(await res.blob(), `pamphlet-${name}-${fmt}.${ext}`);
-      }
+      downloadBlob(await (await fetchFormat(fmt)).blob(), downloadName(fmt));
     } finally {
       setDownloading(false);
     }
@@ -1674,6 +1685,7 @@ function PosterEditor({
     setPosterImg("");
     liveLogo("", "");
     setDoorLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+    setScale(1);
     if (isSingle) {
       setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     } else {
@@ -1682,7 +1694,6 @@ function PosterEditor({
       setDoorsByShow(
         Object.fromEntries(group.map((g) => [g.show!.slug, defaultDoorsText(g.show!)])),
       );
-      setScale(1);
       setShowDoors(false);
       setShowQr(false);
       setPinTopRsvp(true);
@@ -1935,8 +1946,9 @@ function PosterEditor({
                       setDoorLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
                     }
                     placeholder={`Doors open at ${soloShow?.doorTime || "7PM"}`}
-                    className={`${inputCls} mb-3`}
+                    className={`${inputCls} mb-2`}
                   />
+                  <ScaleSlider label="Location size" value={scale} onChange={setScale} />
                 </>
               ) : (
                 <>
@@ -1967,26 +1979,7 @@ function PosterEditor({
                     />
                     <span>Pin RSVP link to top</span>
                   </label>
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-xs text-neutral-500 shrink-0">Schedule size</span>
-                    <input
-                      type="range"
-                      min={0.6}
-                      max={1.5}
-                      step={0.01}
-                      value={scale}
-                      onChange={(e) => setScale(Number(e.target.value))}
-                      className="flex-1 accent-indigo-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setScale(1)}
-                      className="text-xs tabular-nums text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 w-10 text-right transition-colors"
-                      title="Reset to 100%"
-                    >
-                      {Math.round(scale * 100)}%
-                    </button>
-                  </div>
+                  <ScaleSlider label="Schedule size" value={scale} onChange={setScale} />
                   <div className="space-y-3 mb-4">
                     {group.map((g) => {
                       const slug = g.show!.slug;
@@ -2207,6 +2200,7 @@ function PosterEditor({
                   venueImgWidth={Number(committedImgWidth) || undefined}
                   venueImgOffsetY={Number(committedOffsetY) || undefined}
                   taglineAlign={taglineAlign}
+                  scale={scale}
                   showQr
                   debug
                   centerLogo={centerLogo}

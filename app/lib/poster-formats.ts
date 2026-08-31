@@ -12,3 +12,4 @@ export const POSTER_DIMS: Record<PosterFormat, { W: number; H: number }> = {
 
 export const PAMPHLET_PREVIEW_FORMATS: PosterFormat[] = ["print", "ig", "yt", "eb", "fb", "fbe"];
 export const POSTER_PREVIEW_FORMATS: PosterFormat[] = ["standard", "ig", "yt", "print", "eb", "fb", "fbe"];
+export const JPG_FORMATS: ReadonlySet<PosterFormat> = new Set(["ig", "yt", "fb", "fbe"]);

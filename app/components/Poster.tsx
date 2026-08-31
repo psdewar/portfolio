@@ -362,6 +362,9 @@ function Poster({
         .bottom-left.three-line .detail-value.date.long {
           font-size: 4.167cqw;
         }
+        .bottom-left .detail-value.location {
+          font-size: calc(2.917cqw * var(--detail-scale, 1));
+        }
         .tags {
           font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
@@ -452,7 +455,7 @@ function Poster({
           flex: 1;
           flex-direction: column;
           justify-content: center;
-          gap: calc(1.667cqw * var(--pamphlet-scale, 1));
+          gap: calc(1.667cqw * var(--detail-scale, 1));
         }
         .pamphlet-debug-line {
           position: absolute;
@@ -478,7 +481,7 @@ function Poster({
           z-index: 10;
         }
         .pamphlet-date {
-          font-size: calc(4.167cqw * var(--pamphlet-scale, 1));
+          font-size: calc(4.167cqw * var(--detail-scale, 1));
           font-weight: 700;
           color: #f0ede6;
           letter-spacing: 0;
@@ -486,7 +489,7 @@ function Poster({
           flex-shrink: 0;
         }
         .pamphlet-detail {
-          font-size: calc(2.917cqw * var(--pamphlet-scale, 1));
+          font-size: calc(2.917cqw * var(--detail-scale, 1));
           font-weight: 500;
           color: #f0ede6;
           letter-spacing: 0.02em;
@@ -498,8 +501,8 @@ function Poster({
         .poster[data-format="yt"] .title-from { font-size: 3.611cqw; }
         .poster[data-format="yt"] .title-big { font-size: 10cqw; }
         .poster[data-format="yt"] .venue-img { height: 16cqw; max-width: 32cqw; margin: 2cqw 0 1.5cqw; }
-        .poster[data-format="yt"] .pamphlet-date { font-size: calc(3.2cqw * var(--pamphlet-scale, 1)); }
-        .poster[data-format="yt"] .pamphlet-detail { font-size: calc(2.2cqw * var(--pamphlet-scale, 1)); }
+        .poster[data-format="yt"] .pamphlet-date { font-size: calc(3.2cqw * var(--detail-scale, 1)); }
+        .poster[data-format="yt"] .pamphlet-detail { font-size: calc(2.2cqw * var(--detail-scale, 1)); }
         .poster[data-format="yt"] .qr-label { font-size: 1.8cqw; }
         .poster[data-format="eb"] .bottom-overlay,
         .poster[data-format="fb"] .bottom-overlay,
@@ -532,7 +535,7 @@ function Poster({
       <div
         className="poster"
         data-format={format}
-        style={{ aspectRatio, "--pamphlet-scale": scale } as CSSProperties}
+        style={{ aspectRatio, "--detail-scale": scale } as CSSProperties}
       >
         {customSrc ? (
           <img src={customSrc} alt="" className="poster-custom" />
@@ -688,7 +691,7 @@ function Poster({
                   {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
                   <div className={`detail-value date${longDate ? " long" : ""}`}>{dateText}</div>
                   {hasLocation && (
-                    <div className="detail-value">
+                    <div className="detail-value location">
                       {loc.label ?? (
                         <>
                           {loc.prefix}

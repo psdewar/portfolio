@@ -74,6 +74,7 @@ export default async function ConfirmPage({
       venueImg={show.venueImg ?? undefined}
       venueImgWidth={show.venueImgWidth ?? undefined}
       venueImgOffsetY={show.venueImgOffsetY ?? undefined}
+      scale={show.locationScale ?? undefined}
       centerLogo={show.centerLogo ?? undefined}
       taglineAlign={show.taglineAlign ?? undefined}
       slug={slug}
