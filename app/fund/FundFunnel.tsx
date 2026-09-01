@@ -1,7 +1,7 @@
 "use client";
 
 import { Social } from "../components/Social";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import posthog from "posthog-js";
 import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
@@ -13,6 +13,7 @@ import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
 import { type FundLeg, type FundLine, type FundBooked } from "./legs";
 import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
+import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 
@@ -359,17 +360,16 @@ export function FundFunnel({
     if (!introOpen) posthog.capture("fund_intro_opened", { trip: leg.slug });
     setIntroOpen(true);
   };
-  const [hostOpen, setHostOpen] = useState(false);
-  const [posterLoading, setPosterLoading] = useState(false);
+  const [modal, setModal] = useState<"host" | "shop" | null>(null);
 
   useEffect(() => {
-    if (!hostOpen) return;
+    if (!modal) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setHostOpen(false);
+      if (e.key === "Escape") setModal(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [hostOpen]);
+  }, [modal]);
 
   const lineTotal = LINES.reduce((sum, line) => {
     const n = parseFloat(lineVals[line.key] ?? "");
@@ -399,27 +399,60 @@ export function FundFunnel({
     (b): b is FundBooked & { slug: string } => Boolean(b.slug),
   );
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
-  const sharePoster = async (slug: string) => {
-    setPosterLoading(true);
-    try {
-      const res = await fetch(`/api/poster/${slug}?format=ig&jpg=true`);
-      const blob = await res.blob();
-      const file = new File([blob], `poster-${slug}.jpg`, { type: "image/jpeg" });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] });
-        } catch {}
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `poster-${slug}.jpg`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setPosterLoading(false);
+  const posterUrl = (slug: string) => `/api/poster/${slug}?format=ig&jpg=true`;
+  const posterFiles = useRef(new Map<string, File>());
+  const [shareHint, setShareHint] = useState("");
+  const shareable = slugged.filter((b) => !b.private);
+
+  useEffect(() => {
+    if (shareable.length === 0 || typeof navigator === "undefined" || !navigator.canShare) return;
+    const target = document.getElementById("help");
+    if (!target) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        for (const b of shareable) {
+          fetch(posterUrl(b.slug))
+            .then((r) => (r.ok ? r.blob() : Promise.reject(r.status)))
+            .then((blob) => posterFiles.current.set(b.slug, new File([blob], `poster-${b.slug}.jpg`, { type: "image/jpeg" })))
+            .catch(() => {});
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(target);
+    return () => io.disconnect();
+  }, [shareable.map((b) => b.slug).join(",")]);
+
+  const shareText = (b: FundBooked) => {
+    const parts = b.venue.split(", ");
+    const hasState = parts.length >= 3 && /^[A-Z]{2}$/.test(parts[parts.length - 1]);
+    const city = hasState ? parts[parts.length - 2] : "";
+    const events = parts.slice(1, hasState ? -2 : undefined);
+    const where = `${events.length ? `the ${events.join(", ")} at ` : "at "}${parts[0]}${city ? ` in ${city}` : ""}`;
+    const d = b.date ? new Date(`${b.date}T00:00:00`) : null;
+    const n = d?.getDate() ?? 0;
+    const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
+    const day = d ? ` this ${d.toLocaleDateString("en-US", { weekday: "long" })} the ${n}${suffix}` : "";
+    const time = b.doorTime ? `, ${b.doorTime.toLowerCase().replace(":00", "")}` : "";
+    return `Come to Peyt's rap concert with me${day}! It's ${where}${time}. ${window.location.origin}/rsvp/${b.slug}`;
+  };
+
+  const sharePoster = (e: React.MouseEvent<HTMLAnchorElement>, b: FundBooked) => {
+    if (!b.slug) return;
+    const text = shareText(b);
+    const file = posterFiles.current.get(b.slug);
+    if (file && navigator.canShare?.({ files: [file] })) {
+      e.preventDefault();
+      navigator.share({ files: [file], text }).catch(() => {});
+      return;
     }
+    navigator.clipboard?.writeText(text).then(
+      () => setShareHint("Message copied. Long-press the poster to save it."),
+      () => setShareHint("Long-press the poster to save it."),
+    );
+    window.setTimeout(() => setShareHint(""), 6000);
   };
 
   return (
@@ -570,7 +603,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .loc-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 
 html { scroll-behavior: smooth; }
-.bf-section { scroll-margin-top: 66px; margin-top: 48px; }
+.bf-section { scroll-margin-top: 64px; margin-top: 48px; }
 .section-head { display: none; }
 .section-sub { margin: 0 0 20px; }
 @media (max-width: 639px) {
@@ -691,10 +724,32 @@ details[open] .row-hint-open { display: block; }
 }
 .other-action:hover { background: var(--navy); border-color: var(--navy); color: var(--gold); }
 .other-action:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-@media (min-width: 561px) { select.other-action { width: 17rem; } }
+.poster-menu { position: relative; flex: 0 0 auto; }
+.poster-hint { flex-basis: 100%; margin: 0; color: var(--ink-dim); font-size: var(--fs-sm); line-height: 20px; }
+@media (min-width: 561px) {
+  .other-item { position: relative; }
+  .poster-hint { position: absolute; right: 0; bottom: 1px; flex-basis: auto; white-space: nowrap; }
+}
+.poster-menu summary { list-style: none; gap: 10px; }
+.poster-menu summary::-webkit-details-marker { display: none; }
+.poster-menu-caret { display: inline-flex; transition: transform 0.2s ease; }
+.poster-menu-caret svg { width: 20px; height: 20px; }
+.poster-menu[open] .poster-menu-caret { transform: rotate(180deg); }
+.poster-menu-list {
+  margin-top: 6px; background: var(--surface); border: 1.5px solid var(--act-border); border-radius: 8px; overflow: hidden;
+}
+.poster-menu-list a {
+  display: flex; align-items: center; min-height: 48px; padding: 0 18px; color: var(--paper); font-weight: 600; text-decoration: none;
+}
+.poster-menu-list a + a { border-top: 1px solid var(--rule); }
+.poster-menu-list a:hover { background: var(--navy); color: var(--gold); }
+@media (min-width: 561px) {
+  .poster-menu-list { position: absolute; right: 0; top: 100%; min-width: 100%; z-index: 5; }
+}
 @media (max-width: 560px) {
   .other-item { flex-wrap: wrap; }
-  .other-action, .other-soon { flex-basis: 100%; width: 100%; text-align: center; }
+  .other-action, .other-soon, .poster-menu { flex-basis: 100%; width: 100%; text-align: center; }
+  .poster-menu summary { width: 100%; }
 }
 
 .intro-row {
@@ -1029,33 +1084,40 @@ details[open] .row-hint-open { display: block; }
                       )}
                     </div>
                   </div>
-                  {slugged.length === 1 ? (
-                    <button
+                  {shareable.length === 1 ? (
+                    <a
                       className="other-action"
-                      onClick={() => sharePoster(posterSlugs[0])}
-                      disabled={posterLoading}
-                      style={{ opacity: posterLoading ? 0.6 : 1 }}
+                      href={posterUrl(shareable[0].slug)}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={(e) => sharePoster(e, shareable[0])}
                     >
-                      {posterLoading ? "Preparing…" : "Download my concert poster"}
-                    </button>
+                      Share concert poster
+                    </a>
                   ) : (
-                    <select
-                      className="other-action"
-                      value=""
-                      disabled={posterLoading}
-                      onChange={(e) => e.target.value && sharePoster(e.target.value)}
-                      style={{ opacity: posterLoading ? 0.6 : 1 }}
-                    >
-                      <option value="">
-                        {posterLoading ? "Preparing…" : "Download my concert poster"}
-                      </option>
-                      {slugged.map((b) => (
-                        <option key={b.slug} value={b.slug} disabled={b.private}>
-                          {b.private ? `${b.venue} (private, no poster)` : b.venue}
-                        </option>
-                      ))}
-                    </select>
+                    <details className="poster-menu">
+                      <summary className="other-action">
+                        Share concert poster
+                        <span className="poster-menu-caret" aria-hidden="true">
+                          <ChevronIcon />
+                        </span>
+                      </summary>
+                      <div className="poster-menu-list">
+                        {shareable.map((b) => (
+                          <a
+                            key={b.slug}
+                            href={posterUrl(b.slug)}
+                            target="_blank"
+                            rel="noopener"
+                            onClick={(e) => sharePoster(e, b)}
+                          >
+                            {b.venue.split(", ")[0]}
+                          </a>
+                        ))}
+                      </div>
+                    </details>
                   )}
+                  {shareHint && <p className="poster-hint">{shareHint}</p>}
                 </li>
               </ul>
             )}
@@ -1065,7 +1127,14 @@ details[open] .row-hint-open { display: block; }
                   <div className="other-label">Donate in person</div>
                   <div className="other-note">find me at one of my concerts</div>
                 </div>
-                <a className="other-action" href="/shop">
+                <a
+                  className="other-action"
+                  href="/shop"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setModal("shop");
+                  }}
+                >
                   Or buy merch
                 </a>
               </li>
@@ -1087,10 +1156,10 @@ details[open] .row-hint-open { display: block; }
                       onTouchStart={preloadGoogleMaps}
                       onClick={(e) => {
                         e.preventDefault();
-                        setHostOpen(true);
+                        setModal("host");
                       }}
                     >
-                      Become a concert host
+                      Become concert host
                     </a>
                   )}
                 </li>
@@ -1156,31 +1225,41 @@ details[open] .row-hint-open { display: block; }
         />
       )}
 
-      {hostOpen && (
+      {modal && (
         <div
-          className="fixed inset-0 z-[950] flex items-start justify-center overflow-y-auto bg-black/65 p-4 backdrop-blur-sm"
-          onClick={() => setHostOpen(false)}
+          className={`fixed inset-0 z-[950] flex items-start justify-center overflow-y-auto bg-black/65 backdrop-blur-sm ${
+            modal === "shop" ? "p-0 sm:p-4" : "p-4"
+          }`}
+          onClick={() => setModal(null)}
         >
           <div
-            className="relative my-auto w-full max-w-lg lg:max-w-3xl rounded-2xl bg-white p-6 lg:p-8 shadow-2xl dark:bg-neutral-900"
+            className={`relative my-auto w-full bg-white shadow-2xl ${
+              modal === "shop"
+                ? "min-h-full sm:min-h-0 max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6 dark:bg-gray-900"
+                : "max-w-lg lg:max-w-3xl rounded-2xl p-6 lg:p-8 dark:bg-neutral-900"
+            }`}
             role="dialog"
             aria-modal="true"
-            aria-label="Become a concert host"
+            aria-label={modal === "shop" ? "Shop" : "Become concert host"}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex justify-between items-center">
               <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
-                Become a Concert Host
+                {modal === "shop" ? "Shop" : "Become Concert Host"}
               </h1>
               <button
-                onClick={() => setHostOpen(false)}
+                onClick={() => setModal(null)}
                 aria-label="Close"
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-neutral-500 transition-colors hover:text-neutral-900 dark:bg-white/10 dark:hover:text-white"
               >
                 &#x2715;
               </button>
             </div>
-            <SponsorForm mode="host" hideBack />
+            {modal === "shop" ? (
+              <ShopTabs initialTab="patience" syncUrl={false} stacked />
+            ) : (
+              <SponsorForm mode="host" hideBack />
+            )}
           </div>
         </div>
       )}

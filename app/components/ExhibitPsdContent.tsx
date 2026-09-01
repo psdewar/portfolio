@@ -30,8 +30,14 @@ const FINE_PRINT = [
 export function ExhibitPsdContent({
   section,
   embedded = true,
+  stacked = false,
   onCrossSell,
-}: { section?: "media" | "controls"; embedded?: boolean; onCrossSell?: () => void } = {}) {
+}: {
+  section?: "media" | "controls";
+  embedded?: boolean;
+  stacked?: boolean;
+  onCrossSell?: () => void;
+} = {}) {
   const [storyOpen, setStoryOpen] = useState(false);
   const [videoStarted, setVideoStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -70,10 +76,10 @@ export function ExhibitPsdContent({
 
   if (section === "media") {
     return (
-      <div className="relative w-full overflow-hidden bg-neutral-900 [container-type:inline-size] lg:h-full lg:min-h-60 lg:rounded-2xl">
-        <div className="grid lg:absolute lg:inset-0 lg:grid-rows-[3fr_4fr]">
+      <div className={`relative w-full overflow-hidden bg-neutral-900 [container-type:inline-size] ${stacked ? "" : "lg:h-full lg:min-h-60 lg:rounded-2xl"}`}>
+        <div className={`grid ${stacked ? "" : "lg:absolute lg:inset-0 lg:grid-rows-[3fr_4fr]"}`}>
           <div
-            className="relative aspect-[2/1] min-h-0 cursor-pointer lg:aspect-auto"
+            className={`relative aspect-[2/1] min-h-0 cursor-pointer ${stacked ? "" : "lg:aspect-auto"}`}
             onClick={() => setStoryOpen(true)}
           >
             <Image
@@ -93,7 +99,7 @@ export function ExhibitPsdContent({
           </div>
           <div className="grid min-h-0 grid-cols-2">
             <div
-              className="relative aspect-[3/4] min-h-0 cursor-pointer lg:aspect-auto"
+              className={`relative aspect-[3/4] min-h-0 cursor-pointer ${stacked ? "" : "lg:aspect-auto"}`}
               onClick={() => setStoryOpen(true)}
             >
               <Image
@@ -104,7 +110,7 @@ export function ExhibitPsdContent({
                 className="object-cover"
               />
             </div>
-            <div className="relative aspect-[3/4] min-h-0 lg:aspect-auto">
+            <div className={`relative aspect-[3/4] min-h-0 ${stacked ? "" : "lg:aspect-auto"}`}>
               <video
                 ref={videoRef}
                 src="https://assets.peytspencer.com/videos/exhibit-psd-live.mp4"

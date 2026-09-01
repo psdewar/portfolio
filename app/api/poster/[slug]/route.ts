@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
+import { getLegs } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
@@ -23,9 +24,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // venueLabel/doorLabel params let a download reflect unsaved editor state.
   const venueLabelParam = sp.get("venueLabel");
   const doorLabelParam = sp.get("doorLabel");
+  // The leg's pamphlet facet carries print-only overrides saved from the poster editor.
+  const legs = show.leg ? await getLegs() : [];
+  const posterLabel = legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[slug]?.venueLabel;
   const effShow = {
     ...show,
-    venueLabel: venueLabelParam !== null ? venueLabelParam : show.venueLabel,
+    venueLabel: venueLabelParam !== null ? venueLabelParam : (posterLabel ?? show.venueLabel),
     doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
   };
   const html = posterHtml(effShow, {
@@ -59,8 +63,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return new Response(screenshot, {
         headers: {
           "Content-Type": "image/jpeg",
-          "Content-Disposition": `${square ? "inline" : "attachment"}; filename="poster-${slug}${suffix}.jpg"`,
-          "Cache-Control": "no-store",
+          "Content-Disposition": `inline; filename="poster-${slug}${suffix}.jpg"`,
+          "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
         },
       });
     }

@@ -121,11 +121,23 @@ export default async function Page({
       const label = isResidence(s)
         ? s.venueLabel || `${s.city}, ${s.region}`
         : getVenueLabel(s) ?? s.city;
-      const parts = label.split(", ");
+      const streetNo = (s.address ?? "").match(/^\d+/)?.[0];
+      const parts = label
+        .split(", ")
+        .filter((part) => !(streetNo && !isResidence(s) && part.startsWith(`${streetNo} `)));
       const city = s.city?.toLowerCase() ?? "";
+      const venueIdx = parts.findIndex(
+        (part) => s.venue && part.toLowerCase() === s.venue.toLowerCase(),
+      );
       const eventThenVenue =
         parts.length === 2 && city !== "" && parts[1].toLowerCase().includes(city) && !parts[0].toLowerCase().includes(city);
-      const base = eventThenVenue ? `${parts[1]}, ${parts[0]}` : label;
+      const ordered =
+        venueIdx > 0
+          ? [parts[venueIdx], ...parts.filter((_, i) => i !== venueIdx)]
+          : eventThenVenue
+            ? [parts[1], parts[0]]
+            : parts;
+      const base = ordered.join(", ");
       const venue =
         s.city && !base.toLowerCase().includes(s.city.toLowerCase())
           ? `${base}, ${s.city}, ${s.region}`

@@ -239,7 +239,11 @@ export default function RSVPForm({
   const mapsHref = addressLine
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
     : null;
-  const placeLabel = venueLabel || venue || address || "";
+  const streetNo = (address ?? "").match(/^\d+/)?.[0];
+  const placeLabel = (venueLabel || venue || address || "")
+    .split(", ")
+    .filter((part) => !(showAddress && streetNo && part.startsWith(`${streetNo} `)))
+    .join(", ");
   const citySuffix = [`, ${city}, ${region}`, `, ${city}`].find((tail) => placeLabel.endsWith(tail));
   const navLabel = (addressLine && citySuffix ? placeLabel.slice(0, -citySuffix.length) : placeLabel) || null;
   const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);

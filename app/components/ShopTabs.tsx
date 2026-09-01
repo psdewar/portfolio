@@ -24,11 +24,20 @@ const TEES = [
   },
 ];
 
-export function ShopTabs({ initialTab }: { initialTab: ShopTab }) {
+export function ShopTabs({
+  initialTab,
+  syncUrl = true,
+  stacked = false,
+}: {
+  initialTab: ShopTab;
+  syncUrl?: boolean;
+  stacked?: boolean;
+}) {
   const [tab, setTab] = useState<ShopTab>(initialTab);
 
   const select = (id: ShopTab) => {
     setTab(id);
+    if (!syncUrl) return;
     const url = new URL(window.location.href);
     if (id === "patience") url.searchParams.delete("tab");
     else url.searchParams.set("tab", id);
@@ -38,8 +47,18 @@ export function ShopTabs({ initialTab }: { initialTab: ShopTab }) {
   const Content = tab === "patience" ? ShopContent : ExhibitPsdContent;
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 lg:grid lg:h-[calc(100svh-8rem-var(--player-h,0px))] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-4 xl:grid-cols-[minmax(0,1fr)_27rem]">
-      <div role="tablist" aria-label="Shirts" className="grid shrink-0 grid-cols-2 gap-3 lg:col-start-1 lg:row-start-1 lg:max-w-[25rem]">
+    <div
+      className={`flex min-w-0 flex-col gap-5 ${
+        stacked
+          ? ""
+          : "lg:grid lg:h-[calc(100svh-8rem-var(--player-h,0px))] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-4 xl:grid-cols-[minmax(0,1fr)_27rem]"
+      }`}
+    >
+      <div
+        role="tablist"
+        aria-label="Shirts"
+        className={`grid shrink-0 grid-cols-2 gap-3 ${stacked ? "" : "lg:col-start-1 lg:row-start-1 lg:max-w-[25rem]"}`}
+      >
           {TEES.map((t) => {
             const active = t.id === tab;
             return (
@@ -86,13 +105,18 @@ export function ShopTabs({ initialTab }: { initialTab: ShopTab }) {
         id={`shop-panel-${tab}`}
         role="tabpanel"
         aria-labelledby={`shop-tab-${tab}`}
-        className="-mx-4 min-w-0 sm:-mx-6 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:min-h-0"
+        className={`-mx-4 min-w-0 sm:-mx-6 ${stacked ? "" : "lg:col-start-1 lg:row-start-2 lg:mx-0 lg:min-h-0"}`}
       >
-        <Content section="media" />
+        <Content section="media" stacked={stacked} />
       </div>
 
-      <div className="flex min-w-0 flex-col justify-center lg:col-start-2 lg:row-start-2 lg:min-h-0">
-        <Content section="controls" embedded onCrossSell={() => select(tab === "patience" ? "exhibit" : "patience")} />
+      <div className={`flex min-w-0 flex-col justify-center ${stacked ? "" : "lg:col-start-2 lg:row-start-2 lg:min-h-0"}`}>
+        <Content
+          section="controls"
+          embedded
+          stacked={stacked}
+          onCrossSell={() => select(tab === "patience" ? "exhibit" : "patience")}
+        />
       </div>
     </div>
   );

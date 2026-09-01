@@ -26,10 +26,12 @@ const FINE_PRINT = ["Available when you attend From The Ground Up"];
 export function ShopContent({
   embedded = false,
   section,
+  stacked = false,
   onCrossSell,
 }: {
   embedded?: boolean;
   section?: "media" | "controls";
+  stacked?: boolean;
   onCrossSell?: () => void;
 } = {}) {
   const {
@@ -70,7 +72,7 @@ export function ShopContent({
 
   if (section === "media") {
     return (
-      <div className="relative aspect-square w-full overflow-hidden bg-white lg:aspect-auto lg:h-full lg:min-h-60 lg:rounded-2xl">
+      <div className={`relative aspect-square w-full overflow-hidden bg-white ${stacked ? "" : "lg:aspect-auto lg:h-full lg:min-h-60 lg:rounded-2xl"}`}>
         {COLORS.map((c) => {
           const active = c.id === colorId;
           const beneath = c.id === prevColorId && !active;

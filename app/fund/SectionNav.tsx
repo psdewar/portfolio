@@ -35,7 +35,8 @@ export default function SectionNav({
         return;
       }
       const navH = rowRef.current?.parentElement?.offsetHeight ?? 48;
-      const line = navH + 20;
+      const gap = parseFloat(getComputedStyle(sections[sections.length - 1]).marginTop) || 0;
+      const line = navH + gap;
       const y = window.scrollY;
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       const points = sections.map((el) => el.getBoundingClientRect().top + y - line);
@@ -49,7 +50,7 @@ export default function SectionNav({
       }
       let current = sections[0].id;
       points.forEach((p, i) => {
-        if (y + 2 >= p) current = sections[i].id;
+        if (y >= p) current = sections[i].id;
       });
       setActive(current);
     };
