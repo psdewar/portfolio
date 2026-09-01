@@ -263,14 +263,52 @@ export async function sendShowBlast(params: {
       },
     );
 
+  const boldify = (text: string) =>
+    text.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+
+  const extractMarkdownLinks = (text: string) => {
+    const links: string[] = [];
+    const withPlaceholders = text.replace(
+      /\[([^\]]+)\]\(((?:https?:\/\/)?(?:[\w-]+\.)+[\w]{2,}[^\s)]*)\)/g,
+      (_match, label, url) => {
+        const href = url.startsWith("http") ? url : `https://${url}`;
+        links.push(
+          `<a href="${href}" style="color:#d4a553;text-decoration:none;">${boldify(label)}</a>`,
+        );
+        return `\x00${links.length - 1}\x00`;
+      },
+    );
+    return { withPlaceholders, links };
+  };
+
   const renderParagraphs = (text: string) =>
     text
       .split("\n\n")
-      .map(
-        (p) =>
-          `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${linkify(escapeAttr(p)).replace(/\n/g, "<br>")}</div>`,
-      )
+      .map((p) => {
+        const { withPlaceholders, links } = extractMarkdownLinks(
+          escapeAttr(p),
+        );
+        const withLinks = linkify(boldify(withPlaceholders)).replace(
+          /\x00(\d+)\x00/g,
+          (_match, i) => links[Number(i)],
+        );
+        return `<div style="color:#1a1a1a;font-size:15px;line-height:1.6;margin-bottom:16px;">${withLinks.replace(/\n/g, "<br>")}</div>`;
+      })
       .join("");
+
+  const stripBold = (text: string) => text.replace(/\*\*([^*\n]+)\*\*/g, "$1");
+
+  const stripMarkdownLinks = (text: string) =>
+    text.replace(
+      /\[([^\]]+)\]\(((?:https?:\/\/)?(?:[\w-]+\.)+[\w]{2,}[^\s)]*)\)/g,
+      (_match, label, url) => {
+        const bareLabel = label.replace(/^https?:\/\//, "");
+        const bareUrl = url.replace(/^https?:\/\//, "");
+        return bareUrl.startsWith(bareLabel) ? label : `${label} (${url})`;
+      },
+    );
+
+  const plainTextify = (text: string) => stripMarkdownLinks(stripBold(text));
 
   const cid = "hero-image";
   const heroImg = image
@@ -291,8 +329,8 @@ export async function sendShowBlast(params: {
   }
 
   const textBody = image
-    ? body.split(IMAGE_MARKER).join(`\n${IMAGE_MARKER}\n`)
-    : body;
+    ? plainTextify(body).split(IMAGE_MARKER).join(`\n${IMAGE_MARKER}\n`)
+    : plainTextify(body);
 
   const msg: Parameters<typeof sgMail.send>[0] = {
     personalizations: recipients.map((r) => ({ to: [{ email: r.email }] })),
