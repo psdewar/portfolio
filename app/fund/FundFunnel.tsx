@@ -589,7 +589,8 @@ details[open] .expander { transform: rotate(180deg); }
 .row-hint-open, details[open] .row-hint-closed { display: none; }
 details[open] .row-hint-open { display: block; }
 .done-dateline { margin-top: 0; padding: 14px 18px 18px; border-top: 1px solid var(--rule); }
-.done-count { color: var(--ink-dim); font-size: var(--fs-sm); }
+.done-count { color: var(--ink-dim); font-size: var(--fs-sm); display: flex; align-items: baseline; gap: 8px; }
+.done-count strong { color: var(--gold); font-size: var(--fs-xl); font-weight: 700; line-height: 1; }
 
 
 .pieces { list-style: none; margin: 0; padding: 0; }
@@ -614,9 +615,21 @@ details[open] .row-hint-open { display: block; }
 .total-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
 .total-amount { color: var(--paper); font-weight: 700; font-size: var(--fs-xl); line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 
-.prev-band { margin: 48px calc(50% - 50vw) 0; width: 100vw; background: var(--navy); }
-.prev-band-inner { max-width: 780px; margin: 0 auto; padding: 30px 16px 34px; }
-@media (min-width: 640px) { .prev-band-inner { padding: 36px 40px 40px; } }
+.prev-band { margin: 28px calc(50% - 50vw) 0; width: 100vw; background: var(--navy); }
+.done--band { margin-top: 0; border-radius: 0; background: transparent; overflow: visible; }
+.done--band summary { display: block; padding: 30px 16px 30px; }
+@media (min-width: 640px) { .done--band summary { padding: 36px 40px 36px; } }
+.done--band[open] summary { padding-bottom: 14px; }
+.done--band .prev-trip, .done--band .prev-label, .done--band .prev-note { display: block; }
+.done-toggle-row { display: flex; align-items: center; margin-top: 18px; }
+.done--band .row-hint { color: rgba(236, 233, 224, 0.72); margin-top: 0; }
+@media (hover: hover) { .done--band summary:hover .row-hint { color: #fff; } }
+.done--band .expander { color: var(--gold); }
+.done--band .done-dateline { margin: 0; padding: 16px 16px 30px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+@media (min-width: 640px) { .done--band .done-dateline { margin: 0 40px; padding: 16px 0 36px; } }
+.done--band .loc-venue { color: #ece9e0; }
+.done--band .loc-when, .done--band .done-count { color: rgba(236, 233, 224, 0.72); }
+.prev-band-inner { max-width: 780px; margin: 0 auto; }
 .prev-trip + .prev-trip { margin-top: 26px; }
 .prev-label { color: var(--gold); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 .prev-note { margin-top: 10px; font-family: var(--font-fraunces), Georgia, serif; font-size: var(--fs-lg); line-height: 1.5; color: #ece9e0; }
@@ -862,31 +875,46 @@ details[open] .row-hint-open { display: block; }
                 </div>
               )}
               {displayPast.length > 0 && (
-                <details className="done">
-                  <summary>
-                    <span className="done-summary-text">
-                      {completedText}
-                      <span className="row-hint row-hint-closed">{completedHint}</span>
-                      <span className="row-hint row-hint-open">See less</span>
-                    </span>
-                    <span className="expander" aria-hidden="true">
-                      <ChevronIcon />
-                    </span>
-                  </summary>
-                  <div className="dateline done-dateline">
-                    {displayPast.map((b, i) => (
-                      <BookedRow key={i} booking={b} done />
-                    ))}
-                    {concertsSoFar > 0 && (
-                      <span className="done-count">{concertsSoFar} concerts across North America so far</span>
-                    )}
+                <div className="prev-band">
+                  <div className="prev-band-inner">
+                    <details className="done done--band">
+                      <summary>
+                        {(leg.previousTrips ?? []).length > 0 ? (
+                          (leg.previousTrips ?? []).map((trip) => (
+                            <span key={trip.label} className="prev-trip">
+                              <span className="prev-label">{trip.label}</span>
+                              <span className="prev-note">{trip.note}</span>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="prev-note">{completedText}.</span>
+                        )}
+                        <span className="done-toggle-row">
+                          <span className="row-hint row-hint-closed">{completedHint}</span>
+                          <span className="row-hint row-hint-open">See less</span>
+                          <span className="expander" aria-hidden="true">
+                            <ChevronIcon />
+                          </span>
+                        </span>
+                      </summary>
+                      <div className="dateline done-dateline">
+                        {displayPast.map((b, i) => (
+                          <BookedRow key={i} booking={b} done />
+                        ))}
+                        {concertsSoFar > 0 && (
+                          <span className="done-count">
+                            <strong>{concertsSoFar}</strong> concerts across North America so far
+                          </span>
+                        )}
+                      </div>
+                    </details>
                   </div>
-                </details>
+                </div>
               )}
             </section>
           )}
 
-          <div className="gallery-slot" style={{ marginTop: 48 }}>
+          <div className="gallery-slot" style={{ marginTop: displayPast.length > 0 ? 0 : 48 }}>
             <MomentsGallery og={og} leg={leg.slug} />
           </div>
 
@@ -956,20 +984,6 @@ details[open] .row-hint-open { display: block; }
               donation box to every concert.
             </p>
 
-            {(leg.previousTrips ?? []).length > 0 && (
-              <>
-                <div className="prev-band">
-                  <div className="prev-band-inner">
-                    {(leg.previousTrips ?? []).map((trip) => (
-                      <div key={trip.label} className="prev-trip">
-                        <div className="prev-label">{trip.label}</div>
-                        <div className="prev-note">{trip.note}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
           </section>
 
           {intro && (
