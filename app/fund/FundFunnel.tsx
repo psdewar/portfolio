@@ -521,13 +521,14 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 @media (min-width: 640px) { .bf-brand { font-size: 30px; } }
 .tail { display: flex; flex-direction: column; min-height: calc(100vh - 18px); }
 .bf-root > .wrap { padding-bottom: 0; }
-.bf-eyebrow { display: block; white-space: nowrap; font-size: var(--fs-md); font-weight: 500; letter-spacing: 0; color: var(--ink); margin-bottom: 6px; }
-.bf-root--og .rsvp-chip, .bf-root--og .done, .bf-root--og #cover, .bf-root--og .prev-band, .bf-root--og #who, .bf-root--og .tail { display: none; }
-.bf-root--og > .wrap { min-height: 100vh; display: flex; flex-direction: column; padding-top: 20px; }
-.bf-root--og .masthead { margin-top: 0; }
-.bf-root--og .gallery-slot { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-top: 36px !important; }
-.bf-root--og .gallery-slot section { flex: 1; display: flex; }
-.bf-root--og .gallery-slot img { flex: 1; height: auto; min-height: 0; object-fit: cover; object-position: 50% 70%; }
+.bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail, .bf-root--og .done-toggle-row { display: none; }
+.bf-root--og .done--band summary { padding: 24px 16px; }
+.bf-root--og .masthead { margin-top: 12px; }
+.bf-root--og .prev-band { margin-top: 20px; }
+.bf-root--og > .wrap { height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column; }
+.bf-root--og .gallery-slot { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.bf-root--og .gallery-slot section { flex: 1; display: flex; min-height: 0; }
+.bf-root--og .gallery-slot img { flex: 1 1 0; height: auto; min-height: 0; object-fit: cover; object-position: 50% 100%; }
 .tail .wrap { width: 100%; padding-top: 0; }
 .site-foot { margin-top: auto; border-top: 1px solid var(--surface-2); padding-bottom: 120px; }
 .site-foot-inner { max-width: 780px; margin: 0 auto; padding: 20px 16px 0; }
@@ -846,21 +847,19 @@ details[open] .row-hint-open { display: block; }
 
       <div className={og ? "bf-root bf-root--og" : "bf-root"}>
         <div className="status-shield" aria-hidden="true" />
-        {!og && (
-          <SectionNav
-            items={navItems}
-            trip={leg.slug}
-            onJump={(id) => {
-              if (id === "who") openIntro();
-            }}
-          />
-        )}
+        <SectionNav
+          items={navItems}
+          trip={leg.slug}
+          frozen={og}
+          onJump={(id) => {
+            if (id === "who") openIntro();
+          }}
+        />
         <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
           {introVideoId && <LegIntroVideo videoId={introVideoId} />}
 
           <div className="masthead">
             <h1 className="bf-h1">
-              {og && <span className="bf-eyebrow">Support my rap concert tour for all ages in</span>}
               <em>{leg.destination.replace(/^the /, "")}</em>
             </h1>
           </div>

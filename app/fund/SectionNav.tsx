@@ -6,10 +6,12 @@ import posthog from "posthog-js";
 export default function SectionNav({
   items,
   trip,
+  frozen = false,
   onJump,
 }: {
   items: { id: string; label: string }[];
   trip: string;
+  frozen?: boolean;
   onJump?: (id: string) => void;
 }) {
   const [active, setActive] = useState(items[0]?.id ?? "");
@@ -20,6 +22,7 @@ export default function SectionNav({
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
+    if (frozen) return;
     const sections = items
       .map((item) => document.getElementById(item.id))
       .filter((el): el is HTMLElement => Boolean(el));
@@ -71,7 +74,7 @@ export default function SectionNav({
       window.removeEventListener("touchstart", unpin);
       window.removeEventListener("keydown", unpin);
     };
-  }, [items]);
+  }, [items, frozen]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -105,7 +108,7 @@ export default function SectionNav({
   return (
     <>
       <div className="secnav-sentinel" ref={sentinelRef} aria-hidden="true" />
-      <nav aria-label="On this page" className="secnav" data-stuck={stuck || undefined}>
+      <div role="navigation" aria-label="On this page" className="secnav" data-stuck={stuck || undefined}>
         <div className="secnav-row" ref={rowRef}>
           <span className="secnav-ind" ref={indRef} aria-hidden="true" />
           {items.map((item) => (
@@ -229,7 +232,7 @@ export default function SectionNav({
           .secnav .secnav-chip, .secnav-ind[data-live] { transition: none; }
         }
       `}</style>
-      </nav>
+      </div>
     </>
   );
 }
