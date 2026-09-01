@@ -22,8 +22,10 @@ interface RSVPFormProps {
   doorLabel?: string | null;
   venue?: string | null;
   venueLabel?: string | null;
+  eventName?: string | null;
   address?: string | null;
   tags?: string | null;
+  posterLine?: string | null;
   posterImg?: string | null;
   bgImg?: string | null;
   flights?: string[] | null;
@@ -49,8 +51,10 @@ export default function RSVPForm({
   doorLabel,
   venue,
   venueLabel,
+  eventName,
   address,
   tags,
+  posterLine,
   posterImg,
   bgImg,
   flights,
@@ -239,13 +243,7 @@ export default function RSVPForm({
   const mapsHref = addressLine
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
     : null;
-  const streetNo = (address ?? "").match(/^\d+/)?.[0];
-  const placeLabel = (venueLabel || venue || address || "")
-    .split(", ")
-    .filter((part) => !(showAddress && streetNo && part.startsWith(`${streetNo} `)))
-    .join(", ");
-  const citySuffix = [`, ${city}, ${region}`, `, ${city}`].find((tail) => placeLabel.endsWith(tail));
-  const navLabel = (addressLine && citySuffix ? placeLabel.slice(0, -citySuffix.length) : placeLabel) || null;
+  const navLabel = [eventName, venueLabel || venue].filter(Boolean).join(", ") || address || null;
   const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);
   const poster = (
     <Poster
@@ -258,6 +256,7 @@ export default function RSVPForm({
       venueLabel={venueLabel}
       address={address}
       tags={tags ?? PAY_WHAT_YOU_WANT_TAG}
+      posterLine={posterLine}
       posterImg={posterImg ?? undefined}
       bgImg={bgImg ?? undefined}
     />

@@ -1326,7 +1326,7 @@ function PosterEditor({
   const soloShow = group[0].show;
 
   const defaultLoc = (s: Show) =>
-    s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+    [s.venueLabel || s.venue, s.city, s.region].filter(Boolean).join(", ");
   const defaultDoorsText = (s: Show) =>
     s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : "");
   const defaultDateText = (s: Show) => formatEventDateShort(s.date);
@@ -1389,7 +1389,13 @@ function PosterEditor({
     perShow((ps, s) => ps?.doorsOpen ?? (isSingle ? "" : defaultDoorsText(s))),
   );
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() =>
-    perShow((ps, s) => ps?.venueLabel ?? (isSingle ? (s.venueLabel ?? "") : defaultLoc(s))),
+    perShow((ps, s) => (isSingle ? (s.venueLabel ?? "") : (ps?.venueLabel ?? defaultLoc(s)))),
+  );
+  const [eventNames, setEventNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.eventName ?? ""])),
+  );
+  const [posterLines, setPosterLines] = useState<Record<string, string>>(() =>
+    perShow((ps) => ps?.venueLabel ?? ""),
   );
   const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
     Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
@@ -1598,8 +1604,10 @@ function PosterEditor({
     params.set("centerLogo", centerLogo ? "1" : "0");
     params.set("align", taglineAlign);
     params.set("scale", String(scale));
-    // Always sent so a download reflects the editor exactly, even unsaved.
-    params.set("venueLabel", venueLabels[soloShow!.slug] ?? "");
+    // Sent so an unsaved poster-line edit still shows up in the download; blank
+    // leaves the param off so the route falls back to the facet/default.
+    const posterLine = posterLines[soloShow!.slug]?.trim();
+    if (posterLine) params.set("venueLabel", posterLine);
     params.set("doorLabel", doorLabels[soloShow!.slug] ?? "");
     if (asJpg) params.set("jpg", "true");
     return `/api/poster/${soloShow!.slug}?${params.toString()}`;
@@ -1609,6 +1617,7 @@ function PosterEditor({
     const slug = soloShow!.slug;
     const fields: Partial<Show> = {
       venueLabel: venueLabels[slug]?.trim() || null,
+      eventName: eventNames[slug]?.trim() || null,
       doorLabel: doorLabels[slug]?.trim() || null,
       tags: tags.trim() || null,
       taglineSuffix: tagline.trim() || null,
@@ -1628,6 +1637,52 @@ function PosterEditor({
       body: JSON.stringify({ slug, ...fields }),
     });
     onShowUpdate(slug, fields);
+  };
+
+  const savePosterLine = async (): Promise<boolean> => {
+    const slug = soloShow!.slug;
+    const legSlug = soloShow!.leg;
+    if (!legSlug) return true;
+    const val = posterLines[slug]?.trim() ?? "";
+    const shows: Record<string, { venueLabel?: string; dateLabel?: string; doorsOpen?: string }> =
+      Object.fromEntries((matchedPamphlet?.shows ?? []).map(({ slug: s, ...rest }) => [s, rest]));
+    if (val) {
+      shows[slug] = { ...shows[slug], venueLabel: val };
+    } else if (shows[slug]) {
+      const { venueLabel: _drop, ...rest } = shows[slug];
+      if (Object.keys(rest).length) shows[slug] = rest;
+      else delete shows[slug];
+    }
+    const pamphlet: PamphletFacet = {
+      label: matchedPamphlet?.label,
+      showDoors: matchedPamphlet?.showDoors,
+      showQr: matchedPamphlet?.showQr,
+      pinTopRsvp: matchedPamphlet?.pinTopRsvp,
+      tags: matchedPamphlet?.tags,
+      venueImg: matchedPamphlet?.venueImg,
+      venueImgWidth: matchedPamphlet?.venueImgWidth,
+      venueImgOffsetY: matchedPamphlet?.venueImgOffsetY,
+      centerLogo: matchedPamphlet?.centerLogo,
+      taglineAlign: matchedPamphlet?.taglineAlign,
+      doorsOpen: matchedPamphlet?.doorsOpen,
+      scale: matchedPamphlet?.scale,
+      shows,
+    };
+    let res = await fetch("/api/legs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: legSlug, pamphlet }),
+    });
+    if (res.status === 404) {
+      res = await fetch("/api/legs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: legSlug, pamphlet }),
+      });
+    }
+    if (!res.ok) return false;
+    onPamphletSaved(legSlug, pamphlet);
+    return true;
   };
 
   const downloadName = (fmt: PosterFormat) => {
@@ -1688,6 +1743,8 @@ function PosterEditor({
     setScale(1);
     if (isSingle) {
       setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+      setEventNames(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
+      setPosterLines(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     } else {
       setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultLoc(g.show!)])));
       setDateLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultDateText(g.show!)])));
@@ -1745,8 +1802,10 @@ function PosterEditor({
     const t = setTimeout(async () => {
       setAutoState("saving");
       try {
-        if (isSingle) await persistShow();
-        else if (legId.trim()) await savePamphlet();
+        if (isSingle) {
+          await persistShow();
+          await savePosterLine();
+        } else if (legId.trim()) await savePamphlet();
         setAutoState("saved");
         setTimeout(() => setAutoState("idle"), 1800);
       } catch {
@@ -1772,6 +1831,8 @@ function PosterEditor({
     pinTopRsvp,
     legId,
     JSON.stringify(venueLabels),
+    JSON.stringify(eventNames),
+    JSON.stringify(posterLines),
     JSON.stringify(dateLabels),
     JSON.stringify(doorsByShow),
     JSON.stringify(doorLabels),
@@ -1936,7 +1997,25 @@ function PosterEditor({
                     onChange={(e) =>
                       setVenueLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
                     }
-                    placeholder={`${soloShow?.venue || "Venue"}, ${soloShow?.city}, ${soloShow?.region}`}
+                    placeholder={`Venue name (e.g. ${soloShow?.venue || "the venue"})`}
+                    className={`${inputCls} mb-2`}
+                  />
+                  <input
+                    type="text"
+                    value={eventNames[soloSlug] ?? ""}
+                    onChange={(e) =>
+                      setEventNames((prev) => ({ ...prev, [soloSlug]: e.target.value }))
+                    }
+                    placeholder="Event name (optional)"
+                    className={`${inputCls} mb-2`}
+                  />
+                  <input
+                    type="text"
+                    value={posterLines[soloSlug] ?? ""}
+                    onChange={(e) =>
+                      setPosterLines((prev) => ({ ...prev, [soloSlug]: e.target.value }))
+                    }
+                    placeholder="Poster line (optional, print only)"
                     className={`${inputCls} mb-2`}
                   />
                   <input
@@ -2044,7 +2123,7 @@ function PosterEditor({
                               setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
                             }
                             disabled={!isIncluded}
-                            placeholder={`${g.show!.venue || "Venue"}, ${g.show!.city}, ${g.show!.region}`}
+                            placeholder={`Poster line (e.g. ${g.show!.venue || "the venue"}, ${g.show!.city}, ${g.show!.region})`}
                             className={subInputCls}
                           />
                           <input
@@ -2191,6 +2270,7 @@ function PosterEditor({
                   doorLabel={doorLabels[soloSlug] || null}
                   venue={soloShow.venue}
                   venueLabel={venueLabels[soloSlug] || null}
+                  posterLine={posterLines[soloSlug] || null}
                   address={soloShow.address}
                   taglineSuffix={tagline}
                   tags={tags}

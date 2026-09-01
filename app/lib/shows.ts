@@ -10,6 +10,7 @@ export interface Show {
   country: string;
   venue: string | null;
   venueLabel: string | null;
+  eventName?: string | null;
   doorLabel: string | null;
   address: string | null;
   status?: "cancelled";
@@ -170,23 +171,32 @@ export function getDoorLabel(show: { doorLabel?: string | null; doorTime?: strin
 }
 
 // The poster's location line, split so each renderer can keep city/region on one
-// line. A manual venueLabel wins; otherwise venue (or address) leads the city and
-// region. Parts a show doesn't have yet are dropped rather than printed empty.
-export function getPosterLocation(show: {
-  venueLabel?: string | null;
-  venue?: string | null;
-  address?: string | null;
-  city?: string | null;
-  region?: string | null;
-}): { label: string | null; prefix: string; cityRegion: string } {
+// line. venueLabel (the venue's name) leads the city/region; otherwise venue (or
+// address) does. A posterLine is a fully composed override (print-only facet) and
+// wins outright, unmodified. Parts a show doesn't have yet are dropped rather than
+// printed empty.
+export function getPosterLocation(
+  show: {
+    venueLabel?: string | null;
+    venue?: string | null;
+    address?: string | null;
+    city?: string | null;
+    region?: string | null;
+  },
+  posterLine?: string | null,
+): { label: string | null; prefix: string; cityRegion: string } {
   const cityRegion = [show.city, show.region]
     .map((p) => p?.trim())
     .filter(Boolean)
     .join(", ");
   const lead = (show.venue || show.address || "").trim();
+  const prefix = lead && cityRegion ? `${lead}, ` : lead;
+  const override = posterLine?.trim();
+  if (override) return { label: override, prefix, cityRegion };
+  const venueLabel = show.venueLabel?.trim() || null;
   return {
-    label: show.venueLabel?.trim() || null,
-    prefix: lead && cityRegion ? `${lead}, ` : lead,
+    label: venueLabel ? (cityRegion ? `${venueLabel}, ${cityRegion}` : venueLabel) : null,
+    prefix,
     cityRegion,
   };
 }

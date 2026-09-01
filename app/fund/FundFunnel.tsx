@@ -63,8 +63,10 @@ function ChevronIcon() {
 
 function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
   const linkable = !done && Boolean(booking.slug) && !booking.private;
-  const [name, ...rest] = booking.venue.split(", ");
-  const place = rest.join(", ");
+  const timeAndDate = booking.date
+    ? `${booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}${formatEventDateShort(booking.date)}`
+    : "";
+  const meta = [booking.eventName || booking.place, timeAndDate].filter(Boolean).join(" · ");
   const content = (
     <>
       {done && (
@@ -74,7 +76,7 @@ function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
       )}
       <div className="loc-info">
         <span className="loc-venue">
-          {name}
+          {booking.venue}
           {linkable && (
             <span className="rsvp-chip">
               RSVP
@@ -82,14 +84,7 @@ function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
             </span>
           )}
         </span>
-        {(place || booking.date) && (
-          <span className="loc-when">
-            {place}
-            {place && booking.date ? " · " : ""}
-            {booking.date && booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}
-            {booking.date ? formatEventDateShort(booking.date) : ""}
-          </span>
-        )}
+        {meta && <span className="loc-when">{meta}</span>}
       </div>
     </>
   );
@@ -403,11 +398,9 @@ export function FundFunnel({
   const [shareHint, setShareHint] = useState("");
 
   const inviteFor = (b: FundBooked) => {
-    const parts = b.venue.split(", ");
-    const hasState = parts.length >= 3 && /^[A-Z]{2}$/.test(parts[parts.length - 1]);
-    const city = hasState ? parts[parts.length - 2] : "";
-    const events = parts.slice(1, hasState ? -2 : undefined);
-    const where = `${events.length ? `the ${events.join(", ")} at ` : "at "}${parts[0]}${city ? ` in ${city}` : ""}`;
+    const city = (b.place ?? "").split(", ")[0];
+    const inCity = city && !b.venue.toLowerCase().includes(city.toLowerCase()) ? ` in ${city}` : "";
+    const where = b.eventName ? `the ${b.eventName} at ${b.venue}${inCity}` : `at ${b.venue}${inCity}`;
     const d = b.date ? new Date(`${b.date}T00:00:00`) : null;
     const n = d?.getDate() ?? 0;
     const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
@@ -719,12 +712,12 @@ details[open] .row-hint-open { display: block; }
   margin-top: 6px; background: var(--surface); border: 1.5px solid var(--act-border); border-radius: 8px; overflow: hidden;
 }
 .poster-menu-list a {
-  display: flex; align-items: center; min-height: 48px; padding: 0 18px; color: var(--paper); font-weight: 600; text-decoration: none;
+  display: flex; align-items: center; min-height: 48px; padding: 0 18px; color: var(--paper); font-weight: 600; text-decoration: none; white-space: nowrap;
 }
 .poster-menu-list a + a { border-top: 1px solid var(--rule); }
 .poster-menu-list a:hover { background: var(--navy); color: var(--gold); }
 @media (min-width: 561px) {
-  .poster-menu-list { position: absolute; right: 0; top: 100%; min-width: 100%; z-index: 5; }
+  .poster-menu-list { position: absolute; right: 0; top: 100%; min-width: 100%; width: max-content; z-index: 5; }
 }
 @media (max-width: 560px) {
   .other-item { flex-wrap: wrap; }
@@ -1083,7 +1076,7 @@ details[open] .row-hint-open { display: block; }
                       <div className="poster-menu-list">
                         {shareable.map((b) => (
                           <a key={b.slug} href={`/rsvp/${b.slug}`} onClick={(e) => shareInvite(e, b)}>
-                            {b.venue.split(", ")[0]}
+                            {b.eventName || b.venue}
                           </a>
                         ))}
                       </div>

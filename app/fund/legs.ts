@@ -5,6 +5,8 @@ export type FundLine = { key: string; label: string; note: string; amount: numbe
 export type FundBooked = {
   slug?: string;
   venue: string;
+  eventName?: string | null;
+  place?: string;
   date?: string;
   doorTime?: string;
   private?: boolean;
@@ -95,6 +97,17 @@ const SEED_LEGS: Record<string, Leg> = {
 
 export function toFundView(leg: Leg | undefined): FundLeg | undefined {
   return leg?.fund ? { ...leg.fund, slug: leg.slug } : undefined;
+}
+
+export function posterLineFor(legs: Leg[], show: { slug: string; leg?: string | null }): string | null {
+  return legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]?.venueLabel ?? null;
+}
+
+export async function withPosterLines<T extends { slug: string; leg?: string | null }>(
+  shows: T[],
+): Promise<(T & { posterLine: string | null })[]> {
+  const legs = await getLegs();
+  return shows.map((s) => ({ ...s, posterLine: posterLineFor(legs, s) }));
 }
 
 export async function getLegs(): Promise<Leg[]> {

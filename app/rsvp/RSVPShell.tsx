@@ -12,12 +12,12 @@ export default function RSVPShell({
   slug,
   initialSlug,
 }: {
-  shows: Show[];
+  shows: (Show & { posterLine?: string | null })[];
   slug?: string;
   initialSlug?: string;
 }) {
   const initial = initialSlug ? (shows.find((s) => s.slug === initialSlug) ?? null) : null;
-  const [selected, setSelected] = useState<Show | null>(initial);
+  const [selected, setSelected] = useState<(Show & { posterLine?: string | null }) | null>(initial);
   const [toastDismissed, setToastDismissed] = useState(false);
   const [fromList, setFromList] = useState(false);
   const [extBack, setExtBack] = useState<{ href: string } | null>(null);
@@ -74,8 +74,10 @@ export default function RSVPShell({
           doorLabel={selected.doorLabel}
           venue={selected.venue}
           venueLabel={selected.venueLabel}
+          eventName={selected.eventName}
           address={selected.address}
           tags={selected.tags}
+          posterLine={selected.posterLine}
           posterImg={selected.posterImg}
           bgImg={selected.bgImg}
           flights={selected.flights}

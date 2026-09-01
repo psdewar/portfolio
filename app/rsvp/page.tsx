@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUpcomingShows } from "../lib/shows";
+import { withPosterLines } from "../fund/legs";
 import RSVPShell from "./RSVPShell";
 
 export default async function RSVPPage({
@@ -8,7 +9,7 @@ export default async function RSVPPage({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const params = await searchParams;
-  const shows = await getUpcomingShows();
+  const shows = await withPosterLines(await getUpcomingShows());
 
   if (shows.length === 0) {
     redirect("/support?success=no_shows");

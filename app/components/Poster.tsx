@@ -28,6 +28,7 @@ interface PosterProps {
   doorLabel?: string | null;
   venue?: string | null;
   venueLabel?: string | null;
+  posterLine?: string | null;
   address?: string | null;
   taglineSuffix?: string;
   tags?: string;
@@ -68,6 +69,7 @@ function Poster({
   doorLabel,
   venue,
   venueLabel,
+  posterLine,
   address,
   taglineSuffix,
   tags = "",
@@ -134,7 +136,7 @@ function Poster({
     .filter(Boolean)
     .slice(0, 3);
 
-  const loc = getPosterLocation({ venueLabel, venue, address, city, region });
+  const loc = getPosterLocation({ venueLabel, venue, address, city, region }, posterLine);
   const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);
   const dateText = date ? formatEventDate(date) : "";
   // Long weekday + month combos ("Saturday, September 12, 2026") wrap at full size.

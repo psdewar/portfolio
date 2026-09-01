@@ -118,33 +118,14 @@ export default async function Page({
           doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
       );
     const toBooked = (s: (typeof shows)[number]): FundBooked => {
-      const label = isResidence(s)
+      const venue = isResidence(s)
         ? s.venueLabel || `${s.city}, ${s.region}`
-        : getVenueLabel(s) ?? s.city;
-      const streetNo = (s.address ?? "").match(/^\d+/)?.[0];
-      const parts = label
-        .split(", ")
-        .filter((part) => !(streetNo && !isResidence(s) && part.startsWith(`${streetNo} `)));
-      const city = s.city?.toLowerCase() ?? "";
-      const venueIdx = parts.findIndex(
-        (part) => s.venue && part.toLowerCase() === s.venue.toLowerCase(),
-      );
-      const eventThenVenue =
-        parts.length === 2 && city !== "" && parts[1].toLowerCase().includes(city) && !parts[0].toLowerCase().includes(city);
-      const ordered =
-        venueIdx > 0
-          ? [parts[venueIdx], ...parts.filter((_, i) => i !== venueIdx)]
-          : eventThenVenue
-            ? [parts[1], parts[0]]
-            : parts;
-      const base = ordered.join(", ");
-      const venue =
-        s.city && !base.toLowerCase().includes(s.city.toLowerCase())
-          ? `${base}, ${s.city}, ${s.region}`
-          : base;
+        : (getVenueLabel(s) ?? s.venue ?? s.city);
       return {
         slug: s.slug,
         venue,
+        eventName: s.eventName ?? null,
+        place: [s.city, s.region].filter(Boolean).join(", "),
         date: s.date,
         doorTime: s.doorTime,
         private: s.visibility === "private",

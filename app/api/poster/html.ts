@@ -100,6 +100,7 @@ export type PosterOptions = {
   bgImgSrc?: string;
   // Press-kit invite: no date to announce, so the poster asks for one instead.
   invite?: boolean;
+  posterLine?: string | null;
 };
 
 export function posterHtml(
@@ -132,6 +133,7 @@ export function posterHtml(
     posterImgSrc = "",
     bgImgSrc = "",
     invite = false,
+    posterLine,
   } = opts;
   const { W, H } = POSTER_DIMS[format];
 
@@ -170,7 +172,7 @@ export function posterHtml(
       ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
       : inlineAsset("Jan23OpenMicNight-08_Original.jpg", "image/jpeg"));
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
-  const loc = getPosterLocation(show);
+  const loc = getPosterLocation(show, posterLine);
   const location =
     loc.label ?? `${loc.prefix}<span style="white-space:nowrap">${loc.cityRegion}</span>`;
   const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);

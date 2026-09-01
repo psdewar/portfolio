@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
-import { getLegs } from "../../../fund/legs";
+import { getLegs, posterLineFor } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
@@ -25,11 +25,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const venueLabelParam = sp.get("venueLabel");
   const doorLabelParam = sp.get("doorLabel");
   // The leg's pamphlet facet carries print-only overrides saved from the poster editor.
-  const legs = show.leg ? await getLegs() : [];
-  const posterLabel = legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[slug]?.venueLabel;
+  const posterLabel = show.leg ? posterLineFor(await getLegs(), show) : null;
   const effShow = {
     ...show,
-    venueLabel: venueLabelParam !== null ? venueLabelParam : (posterLabel ?? show.venueLabel),
     doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
   };
   const html = posterHtml(effShow, {
@@ -37,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
     tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
     doorsOpenOverride: sp.get("doorsOpen") ?? "",
+    posterLine: venueLabelParam !== null ? venueLabelParam : posterLabel,
     posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),
     bgImgSrc: await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? ""),
     venueImgSrc: await inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
