@@ -399,33 +399,10 @@ export function FundFunnel({
     (b): b is FundBooked & { slug: string } => Boolean(b.slug),
   );
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
-  const posterUrl = (slug: string) => `/api/poster/${slug}?format=ig&jpg=true`;
-  const posterFiles = useRef(new Map<string, File>());
-  const [shareHint, setShareHint] = useState("");
   const shareable = slugged.filter((b) => !b.private);
+  const [shareHint, setShareHint] = useState("");
 
-  useEffect(() => {
-    if (shareable.length === 0 || typeof navigator === "undefined" || !navigator.canShare) return;
-    const target = document.getElementById("help");
-    if (!target) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return;
-        io.disconnect();
-        for (const b of shareable) {
-          fetch(posterUrl(b.slug))
-            .then((r) => (r.ok ? r.blob() : Promise.reject(r.status)))
-            .then((blob) => posterFiles.current.set(b.slug, new File([blob], `poster-${b.slug}.jpg`, { type: "image/jpeg" })))
-            .catch(() => {});
-        }
-      },
-      { rootMargin: "600px 0px" },
-    );
-    io.observe(target);
-    return () => io.disconnect();
-  }, [shareable.map((b) => b.slug).join(",")]);
-
-  const shareText = (b: FundBooked) => {
+  const inviteFor = (b: FundBooked) => {
     const parts = b.venue.split(", ");
     const hasState = parts.length >= 3 && /^[A-Z]{2}$/.test(parts[parts.length - 1]);
     const city = hasState ? parts[parts.length - 2] : "";
@@ -436,23 +413,26 @@ export function FundFunnel({
     const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
     const day = d ? ` this ${d.toLocaleDateString("en-US", { weekday: "long" })} the ${n}${suffix}` : "";
     const time = b.doorTime ? `, ${b.doorTime.toLowerCase().replace(":00", "")}` : "";
-    return `Come to Peyt's rap concert with me${day}! It's ${where}${time}. ${window.location.origin}/rsvp/${b.slug}`;
+    return {
+      text: `Come to Peyt's rap concert with me${day}! It's ${where}${time}.`,
+      url: `${window.location.origin}/rsvp/${b.slug}`,
+    };
   };
 
-  const sharePoster = (e: React.MouseEvent<HTMLAnchorElement>, b: FundBooked) => {
-    if (!b.slug) return;
-    const text = shareText(b);
-    const file = posterFiles.current.get(b.slug);
-    if (file && navigator.canShare?.({ files: [file] })) {
+  const shareInvite = (e: React.MouseEvent<HTMLAnchorElement>, b: FundBooked) => {
+    const invite = inviteFor(b);
+    if (typeof navigator.share === "function") {
       e.preventDefault();
-      navigator.share({ files: [file], text }).catch(() => {});
+      navigator.share(invite).catch(() => {});
       return;
     }
-    navigator.clipboard?.writeText(text).then(
-      () => setShareHint("Message copied. Long-press the poster to save it."),
-      () => setShareHint("Long-press the poster to save it."),
+    if (!navigator.clipboard) return;
+    e.preventDefault();
+    navigator.clipboard.writeText(`${invite.text} ${invite.url}`).then(
+      () => setShareHint("Message copied."),
+      () => setShareHint(""),
     );
-    window.setTimeout(() => setShareHint(""), 6000);
+    window.setTimeout(() => setShareHint(""), 5000);
   };
 
   return (
@@ -1087,30 +1067,22 @@ details[open] .row-hint-open { display: block; }
                   {shareable.length === 1 ? (
                     <a
                       className="other-action"
-                      href={posterUrl(shareable[0].slug)}
-                      target="_blank"
-                      rel="noopener"
-                      onClick={(e) => sharePoster(e, shareable[0])}
+                      href={`/rsvp/${shareable[0].slug}`}
+                      onClick={(e) => shareInvite(e, shareable[0])}
                     >
-                      Share concert poster
+                      Invite a friend
                     </a>
                   ) : (
                     <details className="poster-menu">
                       <summary className="other-action">
-                        Share concert poster
+                        Invite a friend
                         <span className="poster-menu-caret" aria-hidden="true">
                           <ChevronIcon />
                         </span>
                       </summary>
                       <div className="poster-menu-list">
                         {shareable.map((b) => (
-                          <a
-                            key={b.slug}
-                            href={posterUrl(b.slug)}
-                            target="_blank"
-                            rel="noopener"
-                            onClick={(e) => sharePoster(e, b)}
-                          >
+                          <a key={b.slug} href={`/rsvp/${b.slug}`} onClick={(e) => shareInvite(e, b)}>
                             {b.venue.split(", ")[0]}
                           </a>
                         ))}
