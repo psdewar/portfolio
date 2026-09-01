@@ -293,8 +293,8 @@ export default async function FtguPage({
           </div>
 
           <div className="ftgu-credits">
-            <div>a rap concert for all ages</div>
-            <div>by microsoft engineer peyt spencer</div>
+            <div>rap concert for all ages</div>
+            <div>by software engineer peyt spencer</div>
           </div>
         </section>
 

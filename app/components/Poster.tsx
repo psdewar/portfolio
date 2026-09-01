@@ -569,8 +569,8 @@ function Poster({
         <div className="bottom-overlay" />
         <div className="poster-content">
           <div className="theme-topright">
-            <div>a rap concert for all ages</div>
-            <div>by microsoft engineer</div>
+            <div>rap concert for all ages</div>
+            <div>by software engineer</div>
             <div>peyt spencer</div>
           </div>
           <div className="lockup">

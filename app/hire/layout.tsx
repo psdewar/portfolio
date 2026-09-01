@@ -4,11 +4,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/hire" },
   title: "Hire",
   description:
-    "Hire Peyt Spencer - Microsoft engineer and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe. Based in Bellevue, WA.",
+    "Hire Peyt Spencer - Software engineer (Microsoft alum) and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe. Based in Bellevue, WA.",
   openGraph: {
     title: "Hire Peyt Spencer | Developer",
     description:
-      "Microsoft engineer and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe.",
+      "Software engineer (Microsoft alum) and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe.",
     images: [
       {
         url: "https://peytspencer.com/api/og/hire",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Hire Peyt Spencer | Developer",
     description:
-      "Microsoft engineer and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe.",
+      "Software engineer (Microsoft alum) and founder of Lyrist. Full-stack development with TypeScript, React, Next.js, Supabase, and Stripe.",
     images: ["https://peytspencer.com/api/og/hire"],
   },
 };

@@ -43,6 +43,8 @@ export function Navbar() {
     return pathname === path || pathname.startsWith(path + "/");
   };
 
+  if (isFundPage) return null;
+
   return (
     <header
       className={`${isFundPage ? "" : `sticky ${hidden && !menuOpen ? "-top-16" : "top-0"}`} w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 transition-[top] duration-300`}

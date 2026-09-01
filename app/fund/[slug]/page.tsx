@@ -10,15 +10,22 @@ import {
   getShows,
   isShowOnTrip,
   isShowCompleted,
+  isShowListable,
   getVenueLabel,
   isResidence,
 } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
-import { doorTimeMinutes } from "../../lib/dates";
-import type { Metadata } from "next";
+import { doorTimeMinutes, isDatePast } from "../../lib/dates";
+import type { Metadata, Viewport } from "next";
 
 // Use ISR with 1 hour TTL + on-demand revalidation from webhooks
 export const revalidate = 3600;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export async function generateMetadata({
   params,
@@ -29,7 +36,7 @@ export async function generateMetadata({
 
   const fund = toFundView(await getLeg(slug));
   if (fund) {
-    const title = `Help fund my concert-conversation in ${fund.destination}`;
+    const title = `Support my rap concert tour for all ages in ${fund.destination}`;
     const description = `From The Ground Up: My Path of Growth and the Principles that Connect Us by rapper and software engineer Peyt Spencer`;
     const url = `https://peytspencer.com/fund/${fund.slug}`;
     return {
@@ -110,10 +117,15 @@ export default async function Page({
           new Date(a.date).getTime() - new Date(b.date).getTime() ||
           doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
       );
-    const derived: FundBooked[] = legShows.map((s) => {
-      const base = isResidence(s)
+    const toBooked = (s: (typeof shows)[number]): FundBooked => {
+      const label = isResidence(s)
         ? s.venueLabel || `${s.city}, ${s.region}`
         : getVenueLabel(s) ?? s.city;
+      const parts = label.split(", ");
+      const city = s.city?.toLowerCase() ?? "";
+      const eventThenVenue =
+        parts.length === 2 && city !== "" && parts[1].toLowerCase().includes(city) && !parts[0].toLowerCase().includes(city);
+      const base = eventThenVenue ? `${parts[1]}, ${parts[0]}` : label;
       const venue =
         s.city && !base.toLowerCase().includes(s.city.toLowerCase())
           ? `${base}, ${s.city}, ${s.region}`
@@ -125,7 +137,8 @@ export default async function Page({
         doorTime: s.doorTime,
         private: s.visibility === "private",
       };
-    });
+    };
+    const derived: FundBooked[] = legShows.map(toBooked);
     const booked = derived.length ? derived : fund.booked;
     // Cross-pointer: another fund leg still raising (upcoming shows, or a fresh
     // campaign with no settled trip yet) gets a hand-off card under the budget.
@@ -143,16 +156,29 @@ export default async function Page({
       tail?.fund && tail.slug !== slug
         ? { slug: tail.slug, destination: tail.fund.destination }
         : undefined;
+    const completedShows = shows
+      .filter((s) => s.leg && isShowCompleted(s))
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    const recentLegSlug = completedShows[completedShows.length - 1]?.leg;
+    const recentTrip =
+      recentLegSlug && recentLegSlug !== slug
+        ? {
+            destination:
+              legs.find((l) => l.slug === recentLegSlug)?.fund?.destination ?? recentLegSlug,
+            stops: completedShows.filter((s) => s.leg === recentLegSlug).map(toBooked),
+          }
+        : undefined;
     return (
       <>
         {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
         <HashScroll />
         <FundFunnel
           leg={{ ...fund, booked }}
-          intro={<ArtistIntro />}
+          intro={<ArtistIntro tourStops={false} />}
           og={sp?.og === "true"}
           nextTrip={nextTrip}
-          completedTotal={shows.filter((s) => s.leg && isShowCompleted(s)).length}
+          recentTrip={recentTrip}
+          concertsSoFar={shows.filter((s) => isShowListable(s) && isDatePast(s.date)).length}
         />
       </>
     );

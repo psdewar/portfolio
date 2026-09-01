@@ -19,6 +19,16 @@ export default function RSVPShell({
   const initial = initialSlug ? (shows.find((s) => s.slug === initialSlug) ?? null) : null;
   const [selected, setSelected] = useState<Show | null>(initial);
   const [toastDismissed, setToastDismissed] = useState(false);
+  const [fromList, setFromList] = useState(false);
+  const [extBack, setExtBack] = useState<{ href: string } | null>(null);
+
+  useEffect(() => {
+    if (!document.referrer) return;
+    const ref = new URL(document.referrer);
+    if (ref.origin !== window.location.origin) return;
+    if (ref.pathname.startsWith("/rsvp")) return;
+    setExtBack({ href: ref.pathname + ref.search + ref.hash });
+  }, []);
 
   useEffect(() => {
     const onPopState = () => {
@@ -32,10 +42,17 @@ export default function RSVPShell({
 
   const handleSelect = (show: Show) => {
     window.history.pushState(null, "", `/rsvp/${show.slug}`);
+    setFromList(true);
     setSelected(show);
   };
 
+  const contextBack = !fromList && extBack ? extBack : null;
+
   const handleBack = () => {
+    if (contextBack) {
+      window.location.href = contextBack.href;
+      return;
+    }
     window.history.pushState(null, "", "/rsvp");
     setSelected(null);
   };

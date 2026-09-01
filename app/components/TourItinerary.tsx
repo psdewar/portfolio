@@ -58,9 +58,9 @@ export default function TourItinerary({ stops }: { stops: TourStop[] }) {
               {formatMonthDay(stop.date)}
             </span>
             {linkable && (
-              <span className="shrink-0 font-mono text-xs uppercase tracking-wider rounded px-1.5 py-0.5 bg-[#d4a553] text-neutral-950 inline-flex items-center gap-1 transition-transform group-hover:translate-x-0.5">
+              <span className="shrink-0 text-[13px] font-bold uppercase tracking-wider rounded-md px-2 py-0.5 bg-[#d4a553] text-[#17181a] inline-flex items-center gap-1">
                 RSVP
-                <ArrowRightIcon size={12} weight="bold" />
+                <ArrowRightIcon size={13} weight="bold" />
               </span>
             )}
           </>

@@ -6,7 +6,7 @@ import EnergyVideos from "./EnergyVideos";
 // Newest first. Captions and covers live in the video registry (videos.config).
 const ENERGY_VIDEO_IDS = ["concert-fulton-md", "concert-so-gone-mexico", "concert-ftgu-intro"];
 
-export default async function ArtistIntro() {
+export default async function ArtistIntro({ tourStops = true }: { tourStops?: boolean }) {
   const tourShows = (await getShows())
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -45,8 +45,8 @@ export default async function ArtistIntro() {
         </div>
       </section>
 
-      {tourShows.length > 0 && (
-        <section className="max-w-lg">
+      {tourStops && tourShows.length > 0 && (
+        <section className="max-w-md">
           <TourStops shows={tourShows} variant="label" />
         </section>
       )}

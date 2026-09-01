@@ -1,9 +1,10 @@
 "use client";
 
+import { isResidence } from "../../lib/shows";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
-import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon } from "@phosphor-icons/react";
+import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon, MapPinIcon } from "@phosphor-icons/react";
 import FormInput from "../../components/FormInput";
 import Poster from "../../components/Poster";
 import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
@@ -233,7 +234,14 @@ export default function RSVPForm({
   });
 
   const dateLabel = formatEventDateShort(date);
-  const navLabel = venueLabel || venue || address || null;
+  const showAddress = Boolean(address) && !isResidence({ venue: venue ?? null, address: address ?? null });
+  const addressLine = showAddress ? `${address}, ${city}, ${region}` : null;
+  const mapsHref = addressLine
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
+    : null;
+  const placeLabel = venueLabel || venue || address || "";
+  const citySuffix = [`, ${city}, ${region}`, `, ${city}`].find((tail) => placeLabel.endsWith(tail));
+  const navLabel = (addressLine && citySuffix ? placeLabel.slice(0, -citySuffix.length) : placeLabel) || null;
   const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);
   const poster = (
     <Poster
@@ -254,8 +262,7 @@ export default function RSVPForm({
   const backButton = onBack && (
     <button
       onClick={onBack}
-      className="inline-flex items-center gap-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-xs uppercase tracking-wider"
-      style={{ fontFamily: '"Space Mono", monospace' }}
+      className="inline-flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-sm lg:text-lg"
     >
       <ArrowLeftIcon size={20} weight="bold" />
       All shows
@@ -406,14 +413,35 @@ export default function RSVPForm({
                     {city}
                   </span>
                 </h1>
-                <p
-                  className="text-neutral-500 dark:text-neutral-400 text-xs md:text-sm uppercase tracking-wider"
-                  style={{ fontFamily: '"Space Mono", monospace' }}
-                >
-                  {dateLabel}
-                  {navLabel ? ` · ${navLabel}` : ""}
-                  {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
-                </p>
+                <div className="space-y-1.5">
+                  <p
+                    className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                    style={{ fontFamily: '"Space Mono", monospace' }}
+                  >
+                    {dateLabel}
+                    {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
+                  </p>
+                  {navLabel && (
+                    <p
+                      className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                      style={{ fontFamily: '"Space Mono", monospace' }}
+                    >
+                      {navLabel}
+                    </p>
+                  )}
+                  {addressLine && mapsHref && (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                      style={{ fontFamily: '"Space Mono", monospace' }}
+                    >
+                      <MapPinIcon size={16} weight="bold" aria-hidden="true" />
+                      {addressLine}
+                    </a>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -513,14 +541,35 @@ export default function RSVPForm({
                     {city}
                   </span>
                 </h1>
-                <p
-                  className="text-neutral-500 dark:text-neutral-400 text-sm uppercase tracking-wider"
-                  style={{ fontFamily: '"Space Mono", monospace' }}
-                >
-                  {dateLabel}
-                  {navLabel ? ` · ${navLabel}` : ""}
-                  {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
-                </p>
+                <div className="space-y-1.5">
+                  <p
+                    className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                    style={{ fontFamily: '"Space Mono", monospace' }}
+                  >
+                    {dateLabel}
+                    {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
+                  </p>
+                  {navLabel && (
+                    <p
+                      className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                      style={{ fontFamily: '"Space Mono", monospace' }}
+                    >
+                      {navLabel}
+                    </p>
+                  )}
+                  {addressLine && mapsHref && (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
+                      style={{ fontFamily: '"Space Mono", monospace' }}
+                    >
+                      <MapPinIcon size={16} weight="bold" aria-hidden="true" />
+                      {addressLine}
+                    </a>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">

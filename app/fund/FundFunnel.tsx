@@ -1,5 +1,6 @@
 "use client";
 
+import { Social } from "../components/Social";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import posthog from "posthog-js";
 import SponsorForm from "../components/SponsorForm";
@@ -11,7 +12,7 @@ import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
 import { type FundLeg, type FundLine, type FundBooked } from "./legs";
-import { PlayIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 
@@ -60,23 +61,43 @@ function ChevronIcon() {
 }
 
 function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
-  return (
-    <div className="loc">
+  const linkable = !done && Boolean(booking.slug) && !booking.private;
+  const [name, ...rest] = booking.venue.split(", ");
+  const place = rest.join(", ");
+  const content = (
+    <>
       {done && (
         <span className="loc-check is-done" role="img" aria-label="Completed">
           <CheckIcon />
         </span>
       )}
       <div className="loc-info">
-        <span className="loc-venue">{booking.venue}</span>
-        {booking.date && (
+        <span className="loc-venue">
+          {name}
+          {linkable && (
+            <span className="rsvp-chip">
+              RSVP
+              <ArrowRightIcon size={13} weight="bold" />
+            </span>
+          )}
+        </span>
+        {(place || booking.date) && (
           <span className="loc-when">
-            {booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}
-            {formatEventDateShort(booking.date)}
+            {place}
+            {place && booking.date ? " · " : ""}
+            {booking.date && booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}
+            {booking.date ? formatEventDateShort(booking.date) : ""}
           </span>
         )}
       </div>
-    </div>
+    </>
+  );
+  return linkable ? (
+    <a className="loc loc-link" href={`/rsvp/${booking.slug}`}>
+      {content}
+    </a>
+  ) : (
+    <div className="loc">{content}</div>
   );
 }
 
@@ -269,13 +290,15 @@ export function FundFunnel({
   intro,
   og = false,
   nextTrip,
-  completedTotal = 0,
+  recentTrip,
+  concertsSoFar = 0,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
   og?: boolean;
   nextTrip?: { slug: string; destination: string };
-  completedTotal?: number;
+  recentTrip?: { destination: string; stops: FundBooked[] };
+  concertsSoFar?: number;
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
@@ -285,8 +308,9 @@ export function FundFunnel({
   const upcoming = allBooked.filter((b) => !isPastStop(b));
   const past = allBooked.filter(isPastStop);
   const hasBooked = allBooked.length > 0;
-  const showsVisible = upcoming.length > 0 || past.length > 0 || completedTotal > 0;
-  const lastPastDate = past.filter((b) => b.date).map((b) => b.date!).sort().pop();
+  const displayPast = past.length > 0 ? past : (recentTrip?.stops ?? []);
+  const showsVisible = upcoming.length > 0 || displayPast.length > 0;
+  const lastPastDate = displayPast.filter((b) => b.date).map((b) => b.date!).sort().pop();
   const pastMonth = lastPastDate
     ? new Date(`${lastPastDate}T00:00:00`).toLocaleDateString("en-US", {
         month: "long",
@@ -296,8 +320,11 @@ export function FundFunnel({
   const completedText =
     past.length > 0
       ? `I brought my tour here in ${pastMonth}`
-      : `I have made ${completedTotal} tour stop${completedTotal === 1 ? "" : "s"} so far`;
-  const completedHint = `See the ${past.length} stop${past.length === 1 ? "" : "s"}`;
+      : recentTrip
+        ? `I brought my tour to ${recentTrip.destination} in ${pastMonth}`
+        : "";
+  const completedHint = "Expand for past locations and dates";
+
   const flightBy = leg.flightBy
     ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
         month: "long",
@@ -470,7 +497,7 @@ export function FundFunnel({
 }
 .bf-root::before {
   content: '';
-  position: fixed; inset: 0;
+  position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; bottom: 0;
   pointer-events: none; z-index: 1000;
   opacity: var(--grain-opacity);
   mix-blend-mode: var(--grain-blend);
@@ -482,40 +509,70 @@ export function FundFunnel({
 .bf-root ::-webkit-scrollbar-thumb { background: var(--rule-strong); border: 2px solid var(--bg); border-radius: 10px; }
 
 .bf-root a { color: inherit; }
-.wrap { max-width: 780px; margin: 0 auto; padding: 28px 16px 340px; position: relative; }
-@media (min-width: 640px) { .wrap { padding: 44px 40px 400px; } }
+.status-shield { display: none; position: fixed; top: 0; left: 0; right: 0; height: calc(env(safe-area-inset-top, 0px) + 6px); background: var(--navy); z-index: 1500; pointer-events: none; }
+@media (hover: none) and (pointer: coarse) { .status-shield { display: block; } }
+body { padding-top: env(safe-area-inset-top, 0px); }
+.wrap { max-width: 780px; margin: 0 auto; padding: 0 16px 72px; position: relative; }
+@media (min-width: 640px) { .wrap { padding: 0 40px 80px; } }
 
 
-.masthead { width: 100%; }
+.masthead { width: 100%; margin-top: 28px; }
+.bf-brand { font-family: var(--font-bebas), sans-serif; font-size: 24px; letter-spacing: -0.025em; line-height: 1; text-decoration: none; }
+@media (min-width: 640px) { .bf-brand { font-size: 30px; } }
+.tail { display: flex; flex-direction: column; min-height: calc(100vh - 18px); }
+.bf-root > .wrap { padding-bottom: 0; }
+.bf-eyebrow { display: block; white-space: nowrap; font-size: var(--fs-md); font-weight: 500; letter-spacing: 0; color: var(--ink); margin-bottom: 6px; }
+.bf-root--og .rsvp-chip, .bf-root--og .done, .bf-root--og #cover, .bf-root--og .prev-band, .bf-root--og #who, .bf-root--og .tail { display: none; }
+.bf-root--og > .wrap { min-height: 100vh; display: flex; flex-direction: column; padding-top: 20px; }
+.bf-root--og .masthead { margin-top: 0; }
+.bf-root--og .gallery-slot { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-top: 36px !important; }
+.bf-root--og .gallery-slot section { flex: 1; display: flex; }
+.bf-root--og .gallery-slot img { flex: 1; height: auto; min-height: 0; object-fit: cover; object-position: 50% 70%; }
+.tail .wrap { width: 100%; padding-top: 0; }
+.site-foot { margin-top: auto; border-top: 1px solid var(--surface-2); padding-bottom: 120px; }
+.site-foot-inner { max-width: 780px; margin: 0 auto; padding: 20px 16px 0; }
+@media (min-width: 640px) { .site-foot-inner { padding: 20px 40px 0; } }
+.site-foot-row { display: flex; flex-direction: column; gap: 8px; }
+@media (min-width: 640px) { .site-foot-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; } }
+.site-foot .bf-brand { color: var(--paper); align-self: flex-start; }
+@media (min-width: 640px) { .site-foot .bf-brand { align-self: center; } }
+.site-foot-social { margin-left: -12px; }
+@media (min-width: 640px) { .site-foot-social { margin-left: 0; margin-right: -12px; } }
+.site-foot-social a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; padding: 0; color: var(--ink-dim); }
+.site-foot-social a:hover { color: var(--paper); }
+.site-foot-social svg { width: 28px; height: 28px; }
 .bf-h1 {
   font-size: var(--fs-hero); line-height: 0.98; text-align: left;
   letter-spacing: -0.025em; color: var(--paper); margin: 10px 0 0; font-weight: 600;
 }
 .bf-h1 em { font-style: normal; color: var(--gold); }
 
-.dateline { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.dateline { margin-top: 8px; display: flex; flex-direction: column; gap: 14px; }
 .loc { display: flex; align-items: center; gap: 10px; }
 .loc-check {
   flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center; color: #fff;
 }
 .loc-check.is-done { background: #16a34a; }
-.loc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 24px); line-height: 1.1; }
+.loc-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 24px); line-height: 1.1; display: flex; align-items: center; gap: 10px; }
 .loc-venue em { font-style: italic; font-weight: 400; opacity: 0.75; font-size: 0.66em; }
 .loc-when { color: var(--ink-dim); font-size: var(--fs-sm); }
+.rsvp-chip {
+  flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  background: var(--gold); color: #17181a; border-radius: 6px; padding: 2px 8px; line-height: 20px;
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  text-decoration: none;
+}
+.loc-link { text-decoration: none; color: inherit; margin: -6px -12px; padding: 6px 12px; transition: background 0.15s ease; }
+.loc-link:hover, .loc-link:active { background: var(--act-bg); }
+.loc-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 
 html { scroll-behavior: smooth; }
-.bf-section { scroll-margin-top: 86px; margin-top: 48px; }
-.section-head {
-  font-size: var(--fs-head); letter-spacing: -0.01em; text-transform: none;
-  color: var(--paper); margin: 0 0 16px; font-weight: 500;
-  display: flex; align-items: baseline; gap: 12px;
-}
-.section-sub { margin: -8px 0 24px; }
+.bf-section { scroll-margin-top: 66px; margin-top: 48px; }
+.section-head { display: none; }
+.section-sub { margin: 0 0 20px; }
 @media (max-width: 639px) {
-  .section-head { display: none; }
-  .section-sub { margin: 0 0 20px; }
   .piece { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 }
 
@@ -525,12 +582,14 @@ html { scroll-behavior: smooth; }
 }
 .done summary::-webkit-details-marker { display: none; }
 .done summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.done-row { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
 .done-summary-text { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
 .row-hint { display: block; color: var(--ink-dim); font-weight: 400; font-size: var(--fs-sm); margin-top: 2px; }
 .expander { flex: 0 0 auto; margin-left: auto; color: var(--act-text); display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s ease; }
 details[open] .expander { transform: rotate(180deg); }
+.row-hint-open, details[open] .row-hint-closed { display: none; }
+details[open] .row-hint-open { display: block; }
 .done-dateline { margin-top: 0; padding: 14px 18px 18px; border-top: 1px solid var(--rule); }
+.done-count { color: var(--ink-dim); font-size: var(--fs-sm); }
 
 
 .pieces { list-style: none; margin: 0; padding: 0; }
@@ -548,7 +607,7 @@ details[open] .expander { transform: rotate(180deg); }
 .lodging-or { display: block; padding: 0 0 16px; font-size: var(--fs-base); color: var(--ink-dim); text-decoration: none; }
 .bf-root a.next-trip { margin-top: 48px; display: inline-flex; align-items: baseline; gap: 14px; font-size: var(--fs-head); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--gold); text-decoration: none; }
 .next-trip:hover .next-trip-title, .next-trip:focus-visible .next-trip-title { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
-.next-trip-arrow { transition: transform 0.2s ease; }
+.next-trip-arrow { display: inline-flex; align-self: center; transition: transform 0.2s ease; }
 .next-trip:hover .next-trip-arrow { transform: translateX(6px); }
 @media (prefers-reduced-motion: reduce) { .next-trip-arrow, .next-trip:hover .next-trip-arrow { transition: none; transform: none; } }
 .total-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0 0; }
@@ -772,25 +831,26 @@ details[open] .expander { transform: rotate(180deg); }
 }
       `}</style>
 
-      <div className="bf-root">
+      <div className={og ? "bf-root bf-root--og" : "bf-root"}>
+        <div className="status-shield" aria-hidden="true" />
+        {!og && (
+          <SectionNav
+            items={navItems}
+            trip={leg.slug}
+            onJump={(id) => {
+              if (id === "who") openIntro();
+            }}
+          />
+        )}
         <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
           {introVideoId && <LegIntroVideo videoId={introVideoId} />}
 
           <div className="masthead">
             <h1 className="bf-h1">
+              {og && <span className="bf-eyebrow">Support my rap concert tour for all ages in</span>}
               <em>{leg.destination.replace(/^the /, "")}</em>
             </h1>
           </div>
-
-          {!og && (
-            <SectionNav
-              items={navItems}
-              trip={leg.slug}
-              onJump={(id) => {
-                if (id === "who") openIntro();
-              }}
-            />
-          )}
 
           {showsVisible && (
             <section id="schedule" className="bf-section" style={{ marginTop: 16 }}>
@@ -801,33 +861,32 @@ details[open] .expander { transform: rotate(180deg); }
                   ))}
                 </div>
               )}
-              {past.length === 0 && completedTotal > 0 && (
-                <div className="done done-row">
-                  <span className="done-summary-text">{completedText}</span>
-                </div>
-              )}
-              {past.length > 0 && (
+              {displayPast.length > 0 && (
                 <details className="done">
                   <summary>
                     <span className="done-summary-text">
                       {completedText}
-                      <span className="row-hint">{completedHint}</span>
+                      <span className="row-hint row-hint-closed">{completedHint}</span>
+                      <span className="row-hint row-hint-open">See less</span>
                     </span>
                     <span className="expander" aria-hidden="true">
                       <ChevronIcon />
                     </span>
                   </summary>
                   <div className="dateline done-dateline">
-                    {past.map((b, i) => (
+                    {displayPast.map((b, i) => (
                       <BookedRow key={i} booking={b} done />
                     ))}
+                    {concertsSoFar > 0 && (
+                      <span className="done-count">{concertsSoFar} concerts across North America so far</span>
+                    )}
                   </div>
                 </details>
               )}
             </section>
           )}
 
-          <div style={{ marginTop: 48 }}>
+          <div className="gallery-slot" style={{ marginTop: 48 }}>
             <MomentsGallery og={og} leg={leg.slug} />
           </div>
 
@@ -925,7 +984,7 @@ details[open] .expander { transform: rotate(180deg); }
                 <img src="/images/home/bio.jpeg" alt="" className="intro-face" />
                 <span className="intro-row-text">
                   Rapper and software engineer from Bellevue, Washington
-                  <span className="row-hint">{introOpen ? "Show less" : "See my story and videos"}</span>
+                  <span className="row-hint">{introOpen ? "See less" : "Expand for more info"}</span>
                 </span>
                 <span className={introOpen ? "expander is-open" : "expander"} aria-hidden="true">
                   <ChevronIcon />
@@ -934,7 +993,10 @@ details[open] .expander { transform: rotate(180deg); }
               {introOpen && <div className="intro-reveal space-y-8">{intro}</div>}
             </section>
           )}
+        </div>
 
+        <div className="tail">
+          <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
           <section id="help" className="bf-section">
             <div className="section-head">You can also</div>
             {posterSlugs.length > 0 && (
@@ -1028,9 +1090,22 @@ details[open] .expander { transform: rotate(180deg); }
               <span className="next-trip-title">
                 Up next: {nextTrip.destination.replace(/^the /, "")}
               </span>
-              <span className="next-trip-arrow" aria-hidden="true">&rarr;</span>
+              <span className="next-trip-arrow" aria-hidden="true">
+                <ArrowRightIcon size={34} weight="bold" />
+              </span>
             </a>
           )}
+          </div>
+          <footer className="site-foot">
+          <div className="site-foot-inner">
+            <div className="site-foot-row">
+              <a href="/" className="bf-brand">Peyt Spencer</a>
+              <div className="site-foot-social">
+                <Social isHorizontal />
+              </div>
+            </div>
+          </div>
+          </footer>
         </div>
       </div>
 

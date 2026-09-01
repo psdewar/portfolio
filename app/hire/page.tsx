@@ -88,7 +88,7 @@ export default function Page() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <p className="text-white/80 text-sm leading-relaxed">
-                    Software engineer at Microsoft. Founder of Lyrist. I build full-stack
+                    Software engineer. Founder of Lyrist. I build full-stack
                     applications from idea to production.
                   </p>
                 </div>
@@ -103,7 +103,7 @@ export default function Page() {
                 Hire Peyt Spencer
               </h1>
               <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                I'm a software engineer at Microsoft and the founder of Lyrist, a songwriting app
+                I'm a software engineer and the founder of Lyrist, a songwriting app
                 used by independent artists. I build full-stack applications with TypeScript, React,
                 Next.js, Supabase, and Stripe - from idea to production. I also built my own live
                 streaming infrastructure from scratch. If you have a product idea, I can help you

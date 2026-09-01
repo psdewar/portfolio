@@ -40,14 +40,14 @@ const siteConfig = {
   name: "Peyt Spencer",
   title: "Peyt Spencer | Rapper & Software Engineer",
   description:
-    "Rapper and Software Engineer at Microsoft. Stream original singles, attend live shows, and support independent music from Bellevue, WA.",
+    "Rapper and software engineer (Microsoft alum). Stream original singles, attend live shows, and support independent music from Bellevue, WA.",
   url: "https://peytspencer.com",
   keywords: [
     "Peyt Spencer",
     "rapper software engineer",
     "hip-hop Bellevue WA",
     "independent rapper Seattle",
-    "rapper Microsoft engineer",
+    "Microsoft alum rapper",
     "East Coast rap Pacific Northwest",
     "Lyrist app",
     "live hip-hop stream",
@@ -123,7 +123,7 @@ export default function RootLayout({
     name: siteConfig.name,
     alternateName: siteConfig.name,
     description:
-      "Rapper and Microsoft engineer from Bellevue, WA known for East Coast cadence and confident delivery. Built Lyrist (songwriting app) and his own live streaming infrastructure. Influenced by Jay-Z, Ja Rule, LL Cool J, Ludacris, and T.I.",
+      "Rapper and software engineer from Bellevue, WA known for East Coast cadence and confident delivery. Built Lyrist (songwriting app) and his own live streaming infrastructure. Influenced by Jay-Z, Ja Rule, LL Cool J, Ludacris, and T.I.",
     url: siteConfig.url,
     sameAs: [
       ...Object.values(siteConfig.social),
@@ -131,10 +131,7 @@ export default function RootLayout({
       "https://lyrist.app/records/peyt-spencer",
     ],
     jobTitle: ["Rapper", "Software Engineer", "Founder"],
-    worksFor: [
-      { "@type": "Organization", name: "Microsoft" },
-      { "@type": "Organization", name: "Lyrist", url: "https://lyrist.app" },
-    ],
+    worksFor: [{ "@type": "Organization", name: "Lyrist", url: "https://lyrist.app" }],
     homeLocation: {
       "@type": "Place",
       name: "Bellevue, Washington",
@@ -160,7 +157,8 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111827" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

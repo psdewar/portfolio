@@ -13,10 +13,11 @@ export default function SectionNav({
   onJump?: (id: string) => void;
 }) {
   const [active, setActive] = useState(items[0]?.id ?? "");
-  const [stuck, setStuck] = useState(false);
-  const navRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
+  const indRef = useRef<HTMLSpanElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const pinned = useRef<string | null>(null);
+  const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
     const sections = items
@@ -26,23 +27,27 @@ export default function SectionNav({
     let raf = 0;
     const update = () => {
       raf = 0;
-      if (navRef.current) setStuck(navRef.current.getBoundingClientRect().top <= 0 && window.scrollY > 0);
       if (pinned.current) {
         setActive(pinned.current);
         return;
       }
-      if (navRef.current) setStuck(navRef.current.getBoundingClientRect().top <= 0 && window.scrollY > 0);
-      const doc = document.documentElement;
-      const atBottom = window.innerHeight + window.scrollY >= doc.scrollHeight - 2;
-      if (atBottom) {
-        setActive(sections[sections.length - 1].id);
-        return;
+      const navH = rowRef.current?.parentElement?.offsetHeight ?? 48;
+      const line = navH + 20;
+      const y = window.scrollY;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const points = sections.map((el) => el.getBoundingClientRect().top + y - line);
+      const clamped = points.findIndex((p) => p > maxScroll);
+      if (clamped !== -1) {
+        const start = clamped === 0 ? 0 : points[clamped - 1];
+        const n = points.length - clamped;
+        for (let i = 0; i < n; i++) {
+          points[clamped + i] = start + ((maxScroll - start) * (i + 1)) / n;
+        }
       }
-      const line = window.innerHeight * 0.35;
       let current = sections[0].id;
-      for (const el of sections) {
-        if (el.getBoundingClientRect().top <= line) current = el.id;
-      }
+      points.forEach((p, i) => {
+        if (y + 2 >= p) current = sections[i].id;
+      });
       setActive(current);
     };
     const onScroll = () => {
@@ -69,102 +74,162 @@ export default function SectionNav({
   }, [items]);
 
   useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setStuck(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+      { threshold: 0 }
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
     const row = rowRef.current;
+    const ind = indRef.current;
     const chip = row?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (!row || !chip) return;
-    const pad = window.innerWidth >= 640 ? 40 : 16;
+    if (!row || !ind || !chip) return;
+    ind.style.transform = `translateX(${chip.offsetLeft}px)`;
+    ind.style.width = `${chip.offsetWidth}px`;
+    const margin = parseFloat(getComputedStyle(chip).marginLeft) || 0;
     const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "auto"
       : "smooth";
-    row.scrollTo({ left: Math.max(0, chip.offsetLeft - pad), behavior });
+    const padLeft = parseFloat(getComputedStyle(row).paddingLeft) || 0;
+    row.scrollTo({ left: Math.max(0, chip.offsetLeft - margin - padLeft), behavior });
+    requestAnimationFrame(() => ind.setAttribute("data-live", ""));
   }, [active]);
 
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="On this page" className="secnav" ref={navRef} data-stuck={stuck || undefined}>
-      <div className="secnav-row" ref={rowRef}>
-        {items.map((item) => (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            className="secnav-chip"
-            aria-current={active === item.id ? "true" : undefined}
-            onClick={() => {
-              pinned.current = item.id;
-              setActive(item.id);
-              posthog.capture("fund_section_jump", { trip, section: item.id });
-              onJump?.(item.id);
-            }}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>
-      <style>{`
+    <>
+      <div className="secnav-sentinel" ref={sentinelRef} aria-hidden="true" />
+      <nav aria-label="On this page" className="secnav" data-stuck={stuck || undefined}>
+        <div className="secnav-row" ref={rowRef}>
+          <span className="secnav-ind" ref={indRef} aria-hidden="true" />
+          {items.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="secnav-chip"
+              aria-current={active === item.id ? "true" : undefined}
+              onClick={() => {
+                pinned.current = item.id;
+                setActive(item.id);
+                posthog.capture("fund_section_jump", { trip, section: item.id });
+                onJump?.(item.id);
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+        <style>{`
+        .secnav-sentinel { height: 1px; margin-bottom: -1px; }
         .secnav {
           position: sticky;
-          top: 0;
+          top: env(safe-area-inset-top, 0px);
           z-index: 20;
-          background: var(--bg);
-          border-bottom: 1px solid transparent;
-          margin: 16px calc(50% - 50vw) 0;
+          background: var(--navy);
+          margin: 0 calc(50% - 50vw);
           width: 100vw;
         }
+        .secnav::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 100%;
+          height: 48px;
+          background: var(--navy);
+          opacity: 0;
+          pointer-events: none;
+        }
+        .secnav[data-stuck]::before { opacity: 1; }
         .secnav-row {
           position: relative;
-          max-width: 780px;
-          margin: 0 auto;
           display: flex;
-          gap: 8px;
-          padding: 10px 16px;
           overflow-x: auto;
           scroll-snap-type: x mandatory;
-          scroll-padding: 0 16px;
           scrollbar-width: none;
           -ms-overflow-style: none;
         }
-        .secnav[data-stuck] { border-bottom-color: var(--rule); }
         .secnav-row::-webkit-scrollbar { display: none; }
-        @media (max-width: 639px) {
-          .secnav-row::after { content: ""; flex: 0 0 calc(100% - 120px); }
-        }
+        .secnav-row::after { content: ""; flex: 0 0 calc(100% - 120px); }
         @media (min-width: 640px) {
-          .secnav-row { padding: 10px 40px; scroll-padding: 0 40px; }
+          .secnav-row { padding-left: max(24px, calc(50% - 366px)); scroll-padding-left: max(24px, calc(50% - 366px)); }
         }
-        .secnav-chip {
+        .secnav-ind {
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          height: 40px;
+          width: 0;
+          border-radius: 10px 10px 0 0;
+          background: var(--bg);
+          box-shadow: inset 0 3px 0 var(--gold);
+          pointer-events: none;
+        }
+        .secnav-ind[data-live] {
+          transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .secnav-ind::before,
+        .secnav-ind::after {
+          content: "";
+          position: absolute;
+          bottom: 0;
+          width: 8px;
+          height: 8px;
+        }
+        .secnav-ind::before {
+          right: 100%;
+          background: radial-gradient(circle at 0 0, transparent 8px, var(--bg) 8.5px);
+        }
+        .secnav-ind::after {
+          left: 100%;
+          background: radial-gradient(circle at 100% 0, transparent 8px, var(--bg) 8.5px);
+        }
+        .secnav .secnav-chip {
+          position: relative;
+          z-index: 1;
           flex: 0 0 auto;
           scroll-snap-align: start;
           display: inline-flex;
           align-items: center;
-          min-height: 44px;
-          padding: 0 18px;
-          border-radius: 999px;
+          min-height: 48px;
+          padding: 0 16px;
           font-size: var(--fs-sm);
-          font-weight: 700;
-          color: var(--act-text);
-          border: 1.5px solid var(--act-border);
-          background: var(--act-bg);
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.78);
           text-decoration: none;
           white-space: nowrap;
-          transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+          transition: color 0.2s ease 0.1s;
         }
-        .secnav-chip:focus-visible {
-          outline: 2px solid var(--gold);
-          outline-offset: 2px;
+        @media (hover: hover) {
+          .secnav .secnav-chip:hover { color: #fff; }
         }
-        .secnav-chip[aria-current="true"] {
-          color: var(--gold);
-          border-color: var(--navy);
-          background: var(--navy);
+        .secnav .secnav-chip:focus-visible {
+          outline: 2px solid #fff;
+          outline-offset: -2px;
+        }
+        .secnav .secnav-chip[aria-current="true"] {
+          align-self: flex-end;
+          min-height: 40px;
+          margin: 0 8px;
+          padding: 0 8px;
+          scroll-margin-left: 8px;
+          font-size: var(--fs-lg);
+          color: var(--paper);
         }
         @media print {
           .secnav { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .secnav-chip { transition: none; }
+          .secnav .secnav-chip, .secnav-ind[data-live] { transition: none; }
         }
       `}</style>
-    </nav>
+      </nav>
+    </>
   );
 }

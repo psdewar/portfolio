@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!show) return {};
 
   const title = `RSVP - ${show.city}, ${show.region} | From The Ground Up`;
-  const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft engineer Peyt Spencer. Pay what you want.`;
+  const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft alum Peyt Spencer. Pay what you want.`;
 
   return {
     alternates: { canonical: `/rsvp/${slug}` },
@@ -54,7 +54,7 @@ export default async function ShowRSVPLayout({ params, children }: Props) {
     region: show.region,
     country: show.country,
     description:
-      "A rap concert and a conversation on my path of growth and the principles that connect us. An event for all ages by Microsoft engineer Peyt Spencer.",
+      "A rap concert and a conversation on my path of growth and the principles that connect us. An event for all ages by Microsoft alum Peyt Spencer.",
     url: `https://peytspencer.com/rsvp/${slug}`,
     isAccessibleForFree: true,
   });

@@ -160,8 +160,8 @@ function pamphletHtml(
     <div class="bottom-overlay"></div>
     <div class="content">
       <div class="theme-topright">
-        <div>a rap concert for all ages</div>
-        <div>by microsoft engineer</div>
+        <div>rap concert for all ages</div>
+        <div>by software engineer</div>
         <div>peyt spencer</div>
       </div>
       <div class="lockup">
