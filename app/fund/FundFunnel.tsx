@@ -991,7 +991,7 @@ details[open] .row-hint-open { display: block; }
                   <div className="p-head">
                     <div className="p-text">
                       <span className="p-label">Honorarium</span>{" "}
-                      <span className="p-note">for the performance itself, separate from the trip</span>
+                      <span className="p-note">gift for performance, separate from tour expenses</span>
                     </div>
                   </div>
                   <LineMatchControl

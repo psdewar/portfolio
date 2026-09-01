@@ -9,7 +9,7 @@ const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   lodging: { name: "Lodging", description: "hotel, Airbnb, or local host" },
   food: { name: "Food", description: "breakfast, lunch, and dinner on the road" },
   buffer: { name: "Just in case", description: "life happens, like cancellations out of my control" },
-  honorarium: { name: "Honorarium", description: "recognizes the artistic performance itself" },
+  honorarium: { name: "Honorarium", description: "gift for performance, separate from tour expenses" },
   tour: { name: "Contribution", description: "helps fund the next tour stop" },
 };
 
