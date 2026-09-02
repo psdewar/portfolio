@@ -28,11 +28,15 @@ export function ShopContent({
   section,
   stacked = false,
   onCrossSell,
+  initialColor,
+  syncUrl = false,
 }: {
   embedded?: boolean;
   section?: "media" | "controls";
   stacked?: boolean;
   onCrossSell?: () => void;
+  initialColor?: string;
+  syncUrl?: boolean;
 } = {}) {
   const {
     colorId,
@@ -55,6 +59,8 @@ export function ShopContent({
     embedded,
     event: "checkout_initiated",
     errorText: "Something went wrong starting checkout. Please try again.",
+    initialColorId: initialColor,
+    urlParam: syncUrl ? "color" : undefined,
   });
 
   const [footerH, setFooterH] = useState(256);

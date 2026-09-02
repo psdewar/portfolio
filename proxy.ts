@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionToken } from "./app/api/shared/admin-auth";
 
+const TEE_COLOR_PATHS: Record<string, string> = { "/sHop": "maroon", "/Shop": "forest" };
+
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
@@ -13,6 +15,14 @@ export async function proxy(request: NextRequest) {
 
   // Admin gate (printouts stay public). Cookie is set by /api/admin-login.
   const { pathname } = request.nextUrl;
+  const teeColor = TEE_COLOR_PATHS[pathname];
+  if (teeColor) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/shop";
+    url.searchParams.set("color", teeColor);
+    return NextResponse.redirect(url, 307);
+  }
+
   const needsAdmin =
     (pathname.startsWith("/admin") && !pathname.startsWith("/admin/printouts")) ||
     pathname.startsWith("/api/admin/") ||

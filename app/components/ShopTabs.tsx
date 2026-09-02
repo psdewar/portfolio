@@ -26,10 +26,12 @@ const TEES = [
 
 export function ShopTabs({
   initialTab,
+  initialColor,
   syncUrl = true,
   stacked = false,
 }: {
   initialTab: ShopTab;
+  initialColor?: string;
   syncUrl?: boolean;
   stacked?: boolean;
 }) {
@@ -39,6 +41,7 @@ export function ShopTabs({
     setTab(id);
     if (!syncUrl) return;
     const url = new URL(window.location.href);
+    url.searchParams.delete("color");
     if (id === "patience") url.searchParams.delete("tab");
     else url.searchParams.set("tab", id);
     window.history.replaceState(null, "", url);
@@ -107,7 +110,7 @@ export function ShopTabs({
         aria-labelledby={`shop-tab-${tab}`}
         className={`-mx-4 min-w-0 sm:-mx-6 ${stacked ? "" : "lg:col-start-1 lg:row-start-2 lg:mx-0 lg:min-h-0"}`}
       >
-        <Content section="media" stacked={stacked} />
+        <Content section="media" stacked={stacked} initialColor={initialColor} syncUrl={syncUrl} />
       </div>
 
       <div className={`flex min-w-0 flex-col justify-center ${stacked ? "" : "lg:col-start-2 lg:row-start-2 lg:min-h-0"}`}>
@@ -115,6 +118,8 @@ export function ShopTabs({
           section="controls"
           embedded
           stacked={stacked}
+          initialColor={initialColor}
+          syncUrl={syncUrl}
           onCrossSell={() => select(tab === "patience" ? "exhibit" : "patience")}
         />
       </div>

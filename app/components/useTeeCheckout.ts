@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import posthog from "posthog-js";
 
 export const SIZE_LABELS: Record<string, string> = {
@@ -41,6 +41,8 @@ interface Options {
   embedded: boolean;
   event: string;
   errorText: string;
+  initialColorId?: string;
+  urlParam?: string;
 }
 
 export function useTeeCheckout({
@@ -51,12 +53,16 @@ export function useTeeCheckout({
   embedded,
   event,
   errorText,
+  initialColorId,
+  urlParam,
 }: Options) {
-  const store = getStore(productId, {
-    colorId: colors[0].id,
-    prevColorId: colors[0].id,
-    size: defaultSize,
-  });
+  const initial = useMemo(() => {
+    const colorId =
+      initialColorId && colors.some((c) => c.id === initialColorId) ? initialColorId : colors[0].id;
+    return { colorId, prevColorId: colorId, size: defaultSize };
+  }, [initialColorId, defaultSize, colors]);
+
+  const store = getStore(productId, initial);
 
   const subscribe = useCallback(
     (onChange: () => void) => {
@@ -68,7 +74,7 @@ export function useTeeCheckout({
   const sel = useSyncExternalStore(
     subscribe,
     () => store.sel,
-    () => store.sel,
+    () => initial,
   );
 
   const update = useCallback(
@@ -87,8 +93,19 @@ export function useTeeCheckout({
   const colorKey = `${productId}-color`;
   const sizeKey = `${productId}-size`;
 
+  const writeUrlParam = useCallback(
+    (id: string) => {
+      if (!urlParam) return;
+      const url = new URL(window.location.href);
+      if (id === colors[0].id) url.searchParams.delete(urlParam);
+      else url.searchParams.set(urlParam, id);
+      window.history.replaceState(null, "", url);
+    },
+    [urlParam, colors],
+  );
+
   useEffect(() => {
-    const c = sessionStorage.getItem(colorKey);
+    const c = initialColorId ?? sessionStorage.getItem(colorKey);
     const s = sessionStorage.getItem(sizeKey);
     const patch: Partial<Selection> = {};
     if (c && c !== store.sel.colorId && colors.some((x) => x.id === c)) {
@@ -97,11 +114,13 @@ export function useTeeCheckout({
     }
     if (s && s !== store.sel.size && sizes.includes(s)) patch.size = s;
     if (Object.keys(patch).length) update(patch);
-  }, [colorKey, sizeKey, colors, sizes, store, update]);
+    if (!initialColorId && patch.colorId) writeUrlParam(patch.colorId);
+  }, [colorKey, sizeKey, colors, sizes, store, update, initialColorId, writeUrlParam]);
 
   const selectColor = (id: string) => {
     if (id === sel.colorId) return;
     update({ prevColorId: sel.colorId, colorId: id });
+    writeUrlParam(id);
   };
 
   const setSize = (size: string) => update({ size });

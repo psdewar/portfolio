@@ -32,11 +32,15 @@ export function ExhibitPsdContent({
   embedded = true,
   stacked = false,
   onCrossSell,
+  initialColor,
+  syncUrl = false,
 }: {
   section?: "media" | "controls";
   embedded?: boolean;
   stacked?: boolean;
   onCrossSell?: () => void;
+  initialColor?: string;
+  syncUrl?: boolean;
 } = {}) {
   const [storyOpen, setStoryOpen] = useState(false);
   const [videoStarted, setVideoStarted] = useState(false);
@@ -72,6 +76,8 @@ export function ExhibitPsdContent({
     embedded,
     event: "checkout_initiated",
     errorText: "Something went wrong starting checkout. Please try again.",
+    initialColorId: initialColor,
+    urlParam: syncUrl ? "color" : undefined,
   });
 
   if (section === "media") {

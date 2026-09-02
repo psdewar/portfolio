@@ -18,14 +18,14 @@ export const metadata: Metadata = {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; color?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const { tab, color } = await searchParams;
   const initialTab: ShopTab = tab === "exhibit" ? "exhibit" : "patience";
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pt-3 pb-8 sm:px-6 lg:px-8 lg:pt-8">
-      <ShopTabs initialTab={initialTab} />
+      <ShopTabs initialTab={initialTab} initialColor={color} />
     </div>
   );
 }
