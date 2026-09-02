@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
-import { getLegs, posterLineFor } from "../../../fund/legs";
+import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // venueLabel/doorLabel params let a download reflect unsaved editor state.
   const venueLabelParam = sp.get("venueLabel");
   const doorLabelParam = sp.get("doorLabel");
-  // The leg's pamphlet facet carries print-only overrides saved from the poster editor.
-  const posterLabel = show.leg ? posterLineFor(await getLegs(), show) : null;
+  // The poster line saved from the editor: on the leg's pamphlet facet, or on the show before it has a leg.
+  const posterLabel = await posterLineForShow(show);
   const effShow = {
     ...show,
     doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,

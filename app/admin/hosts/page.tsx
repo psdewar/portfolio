@@ -1395,7 +1395,7 @@ function PosterEditor({
     Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.eventName ?? ""])),
   );
   const [posterLines, setPosterLines] = useState<Record<string, string>>(() =>
-    perShow((ps) => ps?.venueLabel ?? ""),
+    perShow((ps, show) => ps?.venueLabel ?? show.posterLine ?? ""),
   );
   const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
     Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
@@ -1642,8 +1642,16 @@ function PosterEditor({
   const savePosterLine = async (): Promise<boolean> => {
     const slug = soloShow!.slug;
     const legSlug = soloShow!.leg;
-    if (!legSlug) return true;
     const val = posterLines[slug]?.trim() ?? "";
+    if (!legSlug) {
+      const res = await fetch("/api/shows", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, posterLine: val || null }),
+      });
+      if (res.ok) onShowUpdate(slug, { posterLine: val || null });
+      return res.ok;
+    }
     const shows: Record<string, { venueLabel?: string; dateLabel?: string; doorsOpen?: string }> =
       Object.fromEntries((matchedPamphlet?.shows ?? []).map(({ slug: s, ...rest }) => [s, rest]));
     if (val) {
@@ -1682,6 +1690,14 @@ function PosterEditor({
     }
     if (!res.ok) return false;
     onPamphletSaved(legSlug, pamphlet);
+    if (soloShow!.posterLine) {
+      await fetch("/api/shows", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, posterLine: null }),
+      });
+      onShowUpdate(slug, { posterLine: null });
+    }
     return true;
   };
 

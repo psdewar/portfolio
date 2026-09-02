@@ -4,6 +4,7 @@ import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
 import Poster from "../../../components/Poster";
 import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../../lib/shows";
 import { getHostForShow } from "../../../lib/sponsors";
+import { posterLineForShow } from "../../../fund/legs";
 import { verifySlug } from "../../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
 import { HONORARIUM_ITEM, HONORARIUM_DEFINITION, orderItems } from "../../../lib/sponsor";
@@ -56,6 +57,7 @@ export default async function ConfirmPage({
 
   // A press-kit invite is created without a location; the host supplies it here.
   const needsLocation = needsHostLocation(show);
+  const posterLine = await posterLineForShow(show);
 
   const posterEl = (
     <Poster
@@ -64,6 +66,7 @@ export default async function ConfirmPage({
       region={show.region}
       venue={show.venue}
       venueLabel={show.venueLabel}
+      posterLine={posterLine}
       doorTime={show.doorTime}
       doorLabel={show.doorLabel}
       address={show.address}

@@ -99,11 +99,21 @@ export function toFundView(leg: Leg | undefined): FundLeg | undefined {
   return leg?.fund ? { ...leg.fund, slug: leg.slug } : undefined;
 }
 
-export function posterLineFor(legs: Leg[], show: { slug: string; leg?: string | null }): string | null {
-  return legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]?.venueLabel ?? null;
+type PosterLineShow = { slug: string; leg?: string | null; posterLine?: string | null };
+
+export function posterLineFor(legs: Leg[], show: PosterLineShow): string | null {
+  return (
+    legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]?.venueLabel ??
+    show.posterLine ??
+    null
+  );
 }
 
-export async function withPosterLines<T extends { slug: string; leg?: string | null }>(
+export async function posterLineForShow(show: PosterLineShow): Promise<string | null> {
+  return show.leg ? posterLineFor(await getLegs(), show) : (show.posterLine ?? null);
+}
+
+export async function withPosterLines<T extends PosterLineShow>(
   shows: T[],
 ): Promise<(T & { posterLine: string | null })[]> {
   const legs = await getLegs();

@@ -2,7 +2,7 @@ import { needsHostLocation, type Show } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS } from "../../poster/html";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { getLegs, posterLineFor } from "../../../fund/legs";
+import { posterLineForShow } from "../../../fund/legs";
 
 const FALLBACK_IMAGE = new URL("/Jan23OpenMicNight-08_Original.jpg", "https://peytspencer.com");
 
@@ -18,7 +18,7 @@ export async function screenshotPoster(show: Show): Promise<Response> {
     // deployed yet throws, and a link preview must degrade to the fallback
     // image rather than 500.
     const html = posterHtml(show, {
-      posterLine: show.leg ? posterLineFor(await getLegs(), show) : null,
+      posterLine: await posterLineForShow(show),
       tags: show.tags ?? PAY_WHAT_YOU_WANT_TAG,
       posterImgSrc: await inlineVenueImg(show.posterImg ?? ""),
       bgImgSrc: await inlineVenueImg(show.bgImg ?? ""),
