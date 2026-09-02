@@ -478,14 +478,15 @@ export async function probeImageDims(key: string): Promise<[number, number] | nu
 }
 
 const THUMBS_KEY = "thumbs.json";
-const THUMB_HEIGHT = 1280;
+export const THUMB_WIDTHS = [480, 960, 1440];
 const THUMB_QUALITY = 60;
 
-export type ThumbEntry = { key: string; w: number; h: number };
+export type ThumbSize = { w: number; h: number; key: string };
+export type ThumbEntry = { key: string; w: number; h: number; sizes: ThumbSize[] };
 
-export function thumbKeyFor(originalKey: string): string {
+export function thumbKeyFor(originalKey: string, width?: number): string {
   const base = originalKey.replace(/^drops\//, "").replace(/\.[^./]+$/, "");
-  return `thumbs/${base}.avif`;
+  return width ? `thumbs/${base}-${width}w.avif` : `thumbs/${base}.avif`;
 }
 
 export async function getThumbs(): Promise<Record<string, ThumbEntry>> {
@@ -500,27 +501,22 @@ export async function recordThumbs(entries: Record<string, ThumbEntry>): Promise
   await putJson(THUMBS_KEY, current);
 }
 
-export async function makeThumb(input: Uint8Array): Promise<{ data: Buffer; w: number; h: number }> {
-  const out = await sharp(input)
-    .rotate()
-    .resize({ height: THUMB_HEIGHT, withoutEnlargement: true })
-    .avif({ quality: THUMB_QUALITY })
-    .toBuffer({ resolveWithObject: true });
-  return { data: out.data, w: out.info.width, h: out.info.height };
-}
-
-export async function uploadThumb(originalKey: string, data: Buffer, w: number, h: number): Promise<ThumbEntry> {
-  const key = thumbKeyFor(originalKey);
-  await s3!.send(
-    new PutObjectCommand({
-      Bucket: s3Bucket!,
-      Key: key,
-      Body: data,
-      ContentType: "image/avif",
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
-  return { key, w, h };
+export async function makeThumbSizes(
+  input: Uint8Array,
+): Promise<Array<{ target: number; data: Buffer; w: number; h: number }>> {
+  const out: Array<{ target: number; data: Buffer; w: number; h: number }> = [];
+  let cappedAt: number | null = null;
+  for (const target of THUMB_WIDTHS) {
+    if (cappedAt !== null && target > cappedAt) break;
+    const rendered = await sharp(input)
+      .rotate()
+      .resize({ width: target, withoutEnlargement: true })
+      .avif({ quality: THUMB_QUALITY })
+      .toBuffer({ resolveWithObject: true });
+    out.push({ target, data: rendered.data, w: rendered.info.width, h: rendered.info.height });
+    if (rendered.info.width < target) cappedAt = rendered.info.width;
+  }
+  return out;
 }
 
 export async function generateThumb(originalKey: string): Promise<ThumbEntry | null> {
@@ -533,8 +529,24 @@ export async function generateThumb(originalKey: string): Promise<ThumbEntry | n
       const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: source }));
       const bytes = await res.Body?.transformToByteArray();
       if (!bytes) continue;
-      const { data, w, h } = await makeThumb(bytes);
-      return await uploadThumb(originalKey, data, w, h);
+      const renders = await makeThumbSizes(bytes);
+      if (!renders.length) continue;
+      const sizes: ThumbSize[] = [];
+      for (const r of renders) {
+        const key = thumbKeyFor(originalKey, r.target);
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: s3Bucket,
+            Key: key,
+            Body: r.data,
+            ContentType: "image/avif",
+            CacheControl: "public, max-age=31536000, immutable",
+          }),
+        );
+        sizes.push({ key, w: r.w, h: r.h });
+      }
+      const largest = sizes[sizes.length - 1];
+      return { key: largest.key, w: largest.w, h: largest.h, sizes };
     } catch {}
   }
   return null;
@@ -543,12 +555,17 @@ export async function generateThumb(originalKey: string): Promise<ThumbEntry | n
 export async function deleteMomentArtifacts(originalKey: string): Promise<void> {
   if (!s3 || !s3Bucket) return;
   const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
-  const thumbObject = thumbs[originalKey]?.key ?? thumbKeyFor(originalKey);
+  const entry = thumbs[originalKey];
+  const thumbObjects = entry?.sizes?.length
+    ? entry.sizes.map((s) => s.key)
+    : [entry?.key ?? thumbKeyFor(originalKey)];
   await Promise.all([
     s3.send(
       new DeleteObjectCommand({ Bucket: s3Bucket, Key: previewKeyFor(originalKey) }),
     ),
-    s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: thumbObject })),
+    ...thumbObjects.map((key) =>
+      s3!.send(new DeleteObjectCommand({ Bucket: s3Bucket!, Key: key })).catch(() => {}),
+    ),
   ]);
   const writes: Promise<void>[] = [];
   if (thumbs[originalKey]) {

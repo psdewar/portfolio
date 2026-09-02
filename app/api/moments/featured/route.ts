@@ -15,6 +15,7 @@ import {
   resolveCities,
   orderByFundingLeg,
   type ThumbEntry,
+  type ThumbSize,
 } from "../../shared/moments";
 
 export const maxDuration = 60;
@@ -36,6 +37,7 @@ function signView(key: string) {
 type CoreItem = {
   key: string;
   thumbKey?: string;
+  thumbSizes?: ThumbSize[];
   previewKey?: string;
   city?: string;
   w?: number;
@@ -100,7 +102,7 @@ const getCore = unstable_cache(
       const wh = t ? { w: t.w, h: t.h } : Array.isArray(d) ? { w: d[0], h: d[1] } : {};
       return {
         key,
-        ...(t ? { thumbKey: t.key } : {}),
+        ...(t ? { thumbKey: t.key, thumbSizes: t.sizes } : {}),
         ...(preview ? { previewKey: preview } : {}),
         ...(cities[key] ? { city: cities[key] } : {}),
         ...wh,
@@ -126,9 +128,20 @@ export async function GET(request: Request) {
         : c.previewKey
           ? await signView(c.previewKey)
           : undefined;
+      const srcSet = c.thumbSizes?.length
+        ? (
+            await Promise.all(
+              c.thumbSizes.map(async (s) => {
+                const url = MEDIA_BASE ? `${MEDIA_BASE}/${s.key}` : await signView(s.key);
+                return `${url} ${s.w}w`;
+              }),
+            )
+          ).join(", ")
+        : undefined;
       return {
         key: c.key,
         ...(thumb ? { thumb } : {}),
+        ...(srcSet ? { srcSet } : {}),
         ...(c.city ? { city: c.city } : {}),
         ...(c.w && c.h ? { w: c.w, h: c.h } : {}),
       };

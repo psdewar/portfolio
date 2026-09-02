@@ -154,8 +154,6 @@ export default function RootLayout({
       className={`${myFont.className} ${myFont.variable} ${bebasNeue.variable} ${parkinsans.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
     >
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111827" />
