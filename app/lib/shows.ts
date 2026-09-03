@@ -196,9 +196,19 @@ export function getPosterLocation(
   const override = posterLine?.trim();
   if (override) return { label: override, prefix, cityRegion };
   const venueLabel = show.venueLabel?.trim() || null;
+  const endsWithCity =
+    !!venueLabel && !!cityRegion && venueLabel.toLowerCase().endsWith(cityRegion.toLowerCase());
   return {
-    label: venueLabel ? (cityRegion ? `${venueLabel}, ${cityRegion}` : venueLabel) : null,
+    label: venueLabel ? (cityRegion && !endsWithCity ? `${venueLabel}, ${cityRegion}` : venueLabel) : null,
     prefix,
     cityRegion,
   };
+}
+
+export function getPosterLocationText(
+  show: Parameters<typeof getPosterLocation>[0],
+  posterLine?: string | null,
+): string {
+  const loc = getPosterLocation(show, posterLine);
+  return loc.label ?? `${loc.prefix}${loc.cityRegion}`;
 }

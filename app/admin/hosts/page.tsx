@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
-import { type Show, isShowDraft, isShowListed, isShowOnTrip } from "../../lib/shows";
+import { type Show, isShowDraft, isShowListed, isShowOnTrip, getPosterLocationText } from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { orderItems } from "../../lib/sponsor";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
@@ -1325,8 +1325,7 @@ function PosterEditor({
   const isSingle = group.length === 1;
   const soloShow = group[0].show;
 
-  const defaultLoc = (s: Show) =>
-    [s.venueLabel || s.venue, s.city, s.region].filter(Boolean).join(", ");
+  const defaultLoc = (s: Show) => getPosterLocationText(s);
   const defaultDoorsText = (s: Show) =>
     s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : "");
   const defaultDateText = (s: Show) => formatEventDateShort(s.date);

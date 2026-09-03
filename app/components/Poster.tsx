@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
-import { getDoorLabel, getPosterLocation } from "../lib/shows";
+import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/shows";
 import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
 import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
@@ -142,8 +142,7 @@ function Poster({
   // Long weekday + month combos ("Saturday, September 12, 2026") wrap at full size.
   const longDate = dateText.length >= 25;
 
-  const computedLoc = (s: PamphletShowItem) =>
-    `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const computedLoc = (s: PamphletShowItem) => getPosterLocationText(s);
   const resolveLoc = (s: PamphletShowItem) => s.venueLabel ?? computedLoc(s);
   const resolveDate = (s: PamphletShowItem) => s.dateLabel ?? formatEventDateShort(s.date);
   const resolveDoors = (s: PamphletShowItem) =>

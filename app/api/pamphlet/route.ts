@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { type Show, getShows } from "../../lib/shows";
+import { type Show, getShows, getPosterLocationText } from "../../lib/shows";
 import { getLegs, type PamphletFacet } from "../../fund/legs";
 import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
@@ -53,8 +53,7 @@ function pamphletHtml(
     .filter(Boolean)
     .join(";");
   const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
-  const locationLabelFor = (s: (typeof shows)[number]) =>
-    s.venueLabel ?? `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const locationLabelFor = (s: (typeof shows)[number]) => s.venueLabel ?? getPosterLocationText(s);
   const dateFor = (s: (typeof shows)[number]) => s.dateLabel ?? formatEventDateShort(s.date);
   const doorsFor = (s: (typeof shows)[number]) =>
     s.doorsOpen ?? (s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : ""));
@@ -233,8 +232,7 @@ export async function GET(request: NextRequest) {
     doorsOpen?: string | null;
   };
 
-  const defaultLoc = (s: Show) =>
-    s.venueLabel || `${s.venue ? `${s.venue}, ` : ""}${s.city}, ${s.region}`.trim();
+  const defaultLoc = (s: Show) => getPosterLocationText(s);
   const defaultDoors = (s: Show) =>
     s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : "");
 
