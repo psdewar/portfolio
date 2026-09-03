@@ -1,7 +1,7 @@
 import projectsData from "../../../data/projects.json";
 import { notFound } from "next/navigation";
 import { ProjectView } from "../ProjectView";
-import { FundFunnel } from "../FundFunnel";
+import { TripFund } from "../TripFund";
 import PrivateNudgeToast from "../PrivateNudgeToast";
 import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
@@ -16,6 +16,7 @@ import {
 } from "../../lib/shows";
 import { getFundingStats } from "../../lib/funding";
 import { doorTimeMinutes, isDatePast } from "../../lib/dates";
+import { getFeaturedGalleryItems } from "../../api/shared/moments";
 import type { Metadata, Viewport } from "next";
 
 // Use ISR with 1 hour TTL + on-demand revalidation from webhooks
@@ -110,6 +111,7 @@ export default async function Page({
     // shows are fine here (the page is unlisted), and so are unlisted bookings:
     // isShowOnTrip keeps every real stop and only drops drafts and cancellations.
     const shows = await getShows();
+    const galleryItems = await getFeaturedGalleryItems(slug);
     const legShows = shows
       .filter((s) => s.leg === slug && isShowOnTrip(s))
       .sort(
@@ -165,13 +167,14 @@ export default async function Page({
       <>
         {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
         <HashScroll />
-        <FundFunnel
+        <TripFund
           leg={{ ...fund, booked }}
           intro={<ArtistIntro tourStops={false} />}
           og={sp?.og === "true"}
           nextTrip={nextTrip}
           recentTrip={recentTrip}
           concertsSoFar={shows.filter((s) => isShowListable(s) && isDatePast(s.date)).length}
+          galleryItems={galleryItems}
         />
       </>
     );

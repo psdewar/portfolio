@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import MomentsGallery from "../MomentsGallery";
+import { getFeaturedGalleryItems } from "../../api/shared/moments";
 
 const title = "Moments from the road";
 const description = "Photos and videos from From The Ground Up concerts across North America.";
@@ -25,10 +26,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function GalleryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function GalleryPage() {
+  const items = await getFeaturedGalleryItems();
   return (
     <div className="mx-auto w-full max-w-5xl px-4">
-      <MomentsGallery />
+      <MomentsGallery items={items} />
     </div>
   );
 }

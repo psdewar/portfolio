@@ -79,7 +79,7 @@ export function isValidVideoId(videoId: string): videoId is VideoId {
   return videoId in VIDEO_REGISTRY;
 }
 
-// Per-leg intro video shown above the funnel, keyed by fund leg slug.
+// Per-leg intro video shown above the fund page, keyed by fund leg slug.
 export const LEG_INTRO_VIDEOS: Record<string, VideoId> = {
   dmv: "camp-oneness-true-happiness",
 };

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import MomentsClient from "./MomentsClient";
 import { getFundingLegSlug } from "../fund/legs";
+import { getFeaturedGalleryItems } from "../api/shared/moments";
 
 const title = "Moments from the concert";
 const description =
@@ -32,5 +33,6 @@ export const metadata: Metadata = {
 
 export default async function MomentsPage() {
   const fundSlug = await getFundingLegSlug().catch(() => undefined);
-  return <MomentsClient fundSlug={fundSlug} />;
+  const items = await getFeaturedGalleryItems(fundSlug);
+  return <MomentsClient fundSlug={fundSlug} items={items} />;
 }

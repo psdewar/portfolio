@@ -1,17 +1,8 @@
 "use client";
 
-import { memo, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
-import { preconnect } from "react-dom";
+import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import posthog from "posthog-js";
-
-interface FeaturedItem {
-  key: string;
-  thumb?: string;
-  srcSet?: string;
-  city?: string;
-  w?: number;
-  h?: number;
-}
+import type { GalleryItem } from "../api/shared/moments";
 
 // Full-res URLs are signed on demand and remembered for the session; the
 // featured payload itself stays stable so it can cache until an admin change.
@@ -31,12 +22,7 @@ function fetchView(key: string): Promise<string | null> {
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const SCROLL_SPEED = 0.06; // px per ms (~1px per frame at 60fps)
 const RESUME_DELAY_MS = 5000;
-const FADE_MS = 700;
-const STAGGER_MS = 70;
 const START_PAUSE_MS = 1000;
-const READY_FALLBACK_MS = 4000;
-const SLOW_LOAD_MS = 2500;
-const PRELOAD_MARGIN_TILES = 4;
 
 function wrap(x: number, half: number) {
   if (half <= 0) return x;
@@ -50,21 +36,14 @@ function tileSizes(item: { w?: number; h?: number }): string {
   return item.w && item.h ? `${Math.round((item.w / item.h) * 40)}svh` : "40svh";
 }
 
-function fadeIn(revealed: boolean, index: number): React.CSSProperties {
-  return revealed
-    ? {
-        animation: `momentThumbIn ${FADE_MS}ms ease-out both`,
-        animationDelay: `${index * STAGGER_MS}ms`,
-      }
-    : { opacity: 0 };
-}
-
-function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
-  const [items, setItems] = useState<FeaturedItem[]>([]);
-  const [open, setOpen] = useState<FeaturedItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [revealed, setRevealed] = useState(false);
-  const [warmed, setWarmed] = useState<Set<string>>(() => new Set());
+function MomentsGallery({
+  items,
+  og = false,
+}: {
+  items: GalleryItem[];
+  og?: boolean;
+}) {
+  const [open, setOpen] = useState<GalleryItem | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
@@ -81,12 +60,9 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   const barRef = useRef<HTMLDivElement>(null);
   const cycleStart = useRef(0);
   const firstReady = useRef(false);
-  const readyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lightboxOpen = useRef(false);
-  const pendingDims = useRef<Record<string, [number, number]>>({});
-  const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entries: Array<
-    { slate: string; index: number } | { item: FeaturedItem; index: number }
+    { slate: string; index: number } | { item: GalleryItem; index: number }
   > = [];
   {
     let lastCity = "";
@@ -98,43 +74,6 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
       entries.push({ item: it, index: i });
     });
   }
-
-  useEffect(() => {
-    // OG capture: skip the slider (the single moment is rendered server-side
-    // below) so we don't fetch or wait on the whole gallery.
-    if (og) {
-      setLoading(false);
-      return;
-    }
-    let active = true;
-    fetch(leg ? `/api/moments/featured?leg=${encodeURIComponent(leg)}` : "/api/moments/featured")
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((data) => {
-        if (!active) return;
-        const next: FeaturedItem[] = Array.isArray(data.items) ? data.items : [];
-        const first = next[0]?.thumb;
-        if (first) {
-          try {
-            preconnect(new URL(first).origin);
-          } catch {}
-        }
-        firstReady.current = false;
-        if (readyTimer.current) {
-          clearTimeout(readyTimer.current);
-          readyTimer.current = null;
-        }
-        setRevealed(false);
-        setWarmed(new Set());
-        setItems(next);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [og, leg]);
 
   useEffect(() => {
     lightboxOpen.current = open !== null;
@@ -162,45 +101,14 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   }, [items]);
 
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root || items.length === 0) return;
-    const totalWidth = setRef.current?.offsetWidth || 0;
-    const avgWidth = totalWidth > 0 ? totalWidth / Math.max(entries.length, 1) : root.clientWidth;
-    const margin = Math.round(avgWidth * PRELOAD_MARGIN_TILES);
-
-    const observer = new IntersectionObserver(
-      (observedEntries) => {
-        const keys: string[] = [];
-        for (const e of observedEntries) {
-          if (!e.isIntersecting) continue;
-          const key = (e.target as HTMLElement).dataset.photoKey;
-          if (key) keys.push(key);
-          observer.unobserve(e.target);
-        }
-        if (keys.length === 0) return;
-        setWarmed((prev) => {
-          const next = new Set(prev);
-          for (const k of keys) next.add(k);
-          return next;
-        });
-      },
-      { root, rootMargin: `0px ${margin}px 0px ${margin}px` },
-    );
-
-    root.querySelectorAll<HTMLElement>("[data-photo-key]").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [items]);
-
-  useEffect(() => {
     if (items.length === 0) return;
 
-    const fallback = setTimeout(() => {
+    const timer = setTimeout(() => {
       firstReady.current = true;
-      setRevealed(true);
-    }, READY_FALLBACK_MS);
+    }, START_PAUSE_MS);
 
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      return () => clearTimeout(fallback);
+      return () => clearTimeout(timer);
     }
 
     const step = (ts: number) => {
@@ -224,7 +132,7 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
     rafId.current = requestAnimationFrame(step);
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current);
-      clearTimeout(fallback);
+      clearTimeout(timer);
       lastTs.current = 0;
     };
   }, [items]);
@@ -233,43 +141,8 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
     return () => {
       if (resumeTimer.current) clearTimeout(resumeTimer.current);
       if (settleTimer.current) clearTimeout(settleTimer.current);
-      if (dimsTimer.current) clearTimeout(dimsTimer.current);
-      if (readyTimer.current) clearTimeout(readyTimer.current);
     };
   }, []);
-
-  const markReady = () => {
-    if (firstReady.current || readyTimer.current) return;
-    readyTimer.current = setTimeout(() => {
-      firstReady.current = true;
-      setRevealed(true);
-    }, FADE_MS + START_PAUSE_MS);
-  };
-
-  const reportDims = (key: string, w: number, h: number) => {
-    if (!w || !h || pendingDims.current[key]) return;
-    const it = items.find((x) => x.key === key);
-    if (!it) return;
-    if (it.w && it.h) {
-      // Served dims can be wrong for EXIF-rotated shots; trust what the
-      // browser actually decoded and fix the box in place.
-      if (Math.abs(it.w / it.h - w / h) > (w / h) * 0.02) {
-        setItems((prev) => prev.map((x) => (x.key === key ? { ...x, w, h } : x)));
-      }
-      return;
-    }
-    pendingDims.current[key] = [w, h];
-    if (dimsTimer.current) clearTimeout(dimsTimer.current);
-    dimsTimer.current = setTimeout(() => {
-      const dims = pendingDims.current;
-      pendingDims.current = {};
-      fetch("/api/moments/dims", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dims }),
-      }).catch(() => {});
-    }, 800);
-  };
 
   const pause = () => {
     paused.current = true;
@@ -331,22 +204,14 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
     );
   }
 
-  if (loading) {
-    return (
-      <div
-        className="flex h-[40svh] items-center justify-center gap-3 text-sm text-neutral-400"
-        aria-live="polite"
-      >
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-600 border-t-neutral-300" />
-        loading images...
-      </div>
-    );
-  }
   if (items.length === 0) return null;
+
+  const mediaOrigin = items[0].src ? new URL(items[0].src).origin : null;
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
-      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentThumbIn{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
+      {mediaOrigin && <link rel="preconnect" href={mediaOrigin} crossOrigin="" />}
+      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
 
       <div
         ref={scrollRef}
@@ -365,24 +230,13 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
           <div key={copy} ref={copy === 0 ? setRef : undefined} className="flex h-full flex-none">
             {entries.map((e, j) =>
               "slate" in e ? (
-                <Slate
-                  key={`${copy}-slate-${j}`}
-                  city={e.slate}
-                  index={e.index}
-                  revealed={revealed}
-                  decorative={copy !== 0}
-                />
+                <Slate key={`${copy}-slate-${j}`} city={e.slate} decorative={copy !== 0} />
               ) : (
                 <Tile
                   key={`${copy}-${e.item.key}`}
                   item={e.item}
-                  index={e.index}
-                  revealed={revealed}
                   decorative={copy !== 0}
                   priority={copy === 0 && e.index === 0}
-                  warmed={warmed.has(e.item.key)}
-                  onMeasure={copy === 0 ? reportDims : undefined}
-                  onReady={copy === 0 && e.index === 0 ? markReady : undefined}
                   onOpen={setOpen}
                 />
               ),
@@ -397,19 +251,9 @@ function MomentsGallery({ og = false, leg }: { og?: boolean; leg?: string }) {
   );
 }
 
-export default memo(MomentsGallery);
+export default MomentsGallery;
 
-function Slate({
-  city,
-  index,
-  revealed,
-  decorative,
-}: {
-  city: string;
-  index: number;
-  revealed: boolean;
-  decorative?: boolean;
-}) {
+function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
   const comma = city.lastIndexOf(", ");
   const name = comma > 0 ? city.slice(0, comma) : city;
   const region = comma > 0 ? city.slice(comma + 2) : "";
@@ -417,7 +261,6 @@ function Slate({
     <div
       aria-hidden={decorative || undefined}
       className="relative flex h-full w-24 flex-none flex-col items-center justify-center overflow-hidden bg-[#262b3f] text-center sm:w-28"
-      style={fadeIn(revealed, index)}
     >
       <div
         aria-hidden="true"
@@ -467,68 +310,29 @@ function Slate({
 
 function Tile({
   item,
-  index,
-  revealed,
   decorative,
   priority,
-  warmed,
-  onMeasure,
-  onReady,
   onOpen,
 }: {
-  item: FeaturedItem;
-  index: number;
-  revealed: boolean;
+  item: GalleryItem;
   decorative?: boolean;
   priority?: boolean;
-  warmed: boolean;
-  onMeasure?: (key: string, w: number, h: number) => void;
-  onReady?: () => void;
-  onOpen: (item: FeaturedItem) => void;
+  onOpen: (item: GalleryItem) => void;
 }) {
   const isVideo = VIDEO_EXT.test(item.key);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const startedAt = useRef(0);
+  const [loaded, setLoaded] = useState(false);
   const hasDims = !!(item.w && item.h);
-  const mediaClass = `transition-transform ease-out group-hover:scale-[1.04] ${
+  const mediaClass = `transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.04] ${
     hasDims ? "h-full w-full object-cover" : "h-full w-auto"
   }`;
   const sizes = tileSizes(item);
-  const fadeStyle = fadeIn(revealed, index);
-
-  const reveal = (w?: number, h?: number) => {
-    onReady?.();
-    if (w && h) onMeasure?.(item.key, w, h);
-  };
-
-  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!warmed) return;
-    startedAt.current = performance.now();
-    if (isVideo) {
-      reveal();
-      return;
-    }
-    if (item.thumb) {
-      setSrc(item.thumb);
-      return;
-    }
-    let on = true;
-    fetchView(item.key).then((u) => {
-      if (on && u) setSrc(u);
-    });
-    return () => {
-      on = false;
-    };
-  }, [warmed]);
+    if (imgRef.current?.complete) setLoaded(true);
+  }, []);
 
-  const trackLoad = () => {
-    if (decorative) return;
-    const ms = performance.now() - startedAt.current;
-    if (ms > SLOW_LOAD_MS) posthog.capture("moment_media_slow", { key: item.key, ms: Math.round(ms) });
-  };
   const trackError = () => {
     if (!decorative) posthog.capture("moment_media_error", { key: item.key });
   };
@@ -540,7 +344,6 @@ function Tile({
       el.play().catch(() => {});
       return;
     }
-    startedAt.current = performance.now();
     fetchView(item.key).then((u) => {
       const v = videoRef.current;
       if (!u || !v) return;
@@ -555,7 +358,6 @@ function Tile({
   return (
     <button
       type="button"
-      data-photo-key={item.key}
       onClick={() => onOpen(item)}
       onMouseEnter={playHover}
       onMouseLeave={pauseHover}
@@ -568,42 +370,27 @@ function Tile({
       {isVideo ? (
         <video
           ref={videoRef}
-          poster={warmed ? item.thumb : undefined}
+          poster={item.src}
           muted
           loop
           playsInline
           preload="none"
           className={mediaClass}
-          style={fadeStyle}
-          onLoadedMetadata={(e) => {
-            trackLoad();
-            reveal(e.currentTarget.videoWidth, e.currentTarget.videoHeight);
-          }}
-          onError={() => {
-            trackError();
-            reveal();
-          }}
+          onError={trackError}
         />
       ) : (
         <img
           ref={imgRef}
-          src={warmed ? (src ?? undefined) : undefined}
-          srcSet={warmed ? item.srcSet : undefined}
-          sizes={warmed && item.srcSet ? sizes : undefined}
+          src={item.src}
+          srcSet={item.srcSet}
+          sizes={item.srcSet ? sizes : undefined}
           alt=""
-          loading="eager"
+          loading={priority ? "eager" : "lazy"}
           decoding="async"
           fetchPriority={priority ? "high" : undefined}
-          className={mediaClass}
-          style={fadeStyle}
-          onLoad={(e) => {
-            trackLoad();
-            reveal(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
-          }}
-          onError={() => {
-            trackError();
-            reveal();
-          }}
+          className={`${mediaClass} ${loaded ? "opacity-100" : "opacity-0"}`}
+          onLoad={() => setLoaded(true)}
+          onError={trackError}
         />
       )}
 
@@ -618,7 +405,7 @@ function Tile({
   );
 }
 
-function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }) {
+function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void }) {
   const isVideo = VIDEO_EXT.test(item.key);
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -703,7 +490,7 @@ function Lightbox({ item, onClose }: { item: FeaturedItem; onClose: () => void }
           />
         ) : (
           <img
-            src={(isVideo ? item.thumb : full ?? item.thumb) ?? undefined}
+            src={(isVideo ? item.src : full ?? item.src) ?? undefined}
             alt=""
             onClick={(e) => e.stopPropagation()}
             className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"

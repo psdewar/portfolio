@@ -8,6 +8,7 @@ import PaymentOptions from "../components/PaymentOptions";
 import CheckoutEmbed from "../components/CheckoutEmbed";
 import { venmoPayUrl } from "../components/PaymentModal";
 import MomentsGallery from "../moments/MomentsGallery";
+import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
 import { formatEventDateShort } from "../lib/dates";
@@ -281,13 +282,14 @@ function LegIntroVideo({ videoId }: { videoId: string }) {
   );
 }
 
-export function FundFunnel({
+export function TripFund({
   leg,
   intro,
   og = false,
   nextTrip,
   recentTrip,
   concertsSoFar = 0,
+  galleryItems,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
@@ -295,6 +297,7 @@ export function FundFunnel({
   nextTrip?: { slug: string; destination: string };
   recentTrip?: { destination: string; stops: FundBooked[] };
   concertsSoFar?: number;
+  galleryItems: GalleryItem[];
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
@@ -942,7 +945,7 @@ details[open] .row-hint-open { display: block; }
           )}
 
           <div className="gallery-slot" style={{ marginTop: displayPast.length > 0 ? 0 : 48 }}>
-            <MomentsGallery og={og} leg={leg.slug} />
+            <MomentsGallery items={galleryItems} og={og} />
           </div>
 
           <section id="cover" className="bf-section">
@@ -1133,7 +1136,7 @@ details[open] .row-hint-open { display: block; }
           </section>
 
           {nextTrip && (
-            <a className="next-trip" href={`/fund/${nextTrip.slug}#cover`}>
+            <a className="next-trip" href={`/fund/${nextTrip.slug}`}>
               <span className="next-trip-title">
                 Up next: {nextTrip.destination.replace(/^the /, "")}
               </span>

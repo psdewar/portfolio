@@ -5,6 +5,7 @@ import { X, Images, CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
 import { uploadFile, makePreview, type PreviewResult, type UploadMeta } from "./upload";
+import type { GalleryItem } from "../api/shared/moments";
 
 type JobStatus = "queued" | "uploading" | "done" | "error";
 
@@ -25,7 +26,13 @@ const mono = { fontFamily: '"Space Mono", monospace' } as const;
 const epunda = { fontFamily: "var(--font-epunda)" } as const;
 const gold = "linear-gradient(to right, #d4a553, #e0b860)";
 
-export default function MomentsClient({ fundSlug }: { fundSlug?: string }) {
+export default function MomentsClient({
+  fundSlug,
+  items,
+}: {
+  fundSlug?: string;
+  items: GalleryItem[];
+}) {
   const [passcode, setPasscode] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [unlockError, setUnlockError] = useState("");
@@ -348,7 +355,7 @@ export default function MomentsClient({ fundSlug }: { fundSlug?: string }) {
 
   return (
     <main className="flex h-full flex-col overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-white">
-      <MomentsGallery />
+      <MomentsGallery items={items} />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
         {!unlocked ? (

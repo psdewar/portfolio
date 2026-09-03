@@ -60,7 +60,7 @@ export type Leg = {
   pamphlet?: PamphletFacet;
 };
 
-// Flat view consumed by FundFunnel: the fund facet plus the leg slug.
+// Flat view consumed by TripFund: the fund facet plus the leg slug.
 export type FundLeg = FundFacet & { slug: string };
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
