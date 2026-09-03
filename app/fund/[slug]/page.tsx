@@ -9,13 +9,15 @@ import { getLeg, getLegs, toFundView, FUND_LEGS, type FundBooked } from "../legs
 import {
   getShows,
   isShowOnTrip,
-  isShowCompleted,
   isShowListable,
+  isShowDraft,
+  needsHostLocation,
   getVenueLabel,
   isResidence,
 } from "../../lib/shows";
+import { confirmPath } from "../../lib/confirm";
 import { getFundingStats } from "../../lib/funding";
-import { doorTimeMinutes, isDatePast } from "../../lib/dates";
+import { doorTimeMinutes, isDatePast, parseLocalDate } from "../../lib/dates";
 import { getFeaturedGalleryItems } from "../../api/shared/moments";
 import type { Metadata, Viewport } from "next";
 
@@ -94,6 +96,18 @@ export async function generateMetadata({
   };
 }
 
+function lastCluster(dates: string[]): string[] {
+  if (dates.length === 0) return [];
+  const cluster = [dates[dates.length - 1]];
+  for (let i = dates.length - 2; i >= 0; i--) {
+    const gapDays =
+      (parseLocalDate(cluster[0]).getTime() - parseLocalDate(dates[i]).getTime()) / 86400000;
+    if (gapDays > 14) break;
+    cluster.unshift(dates[i]);
+  }
+  return cluster;
+}
+
 export default async function Page({
   params,
   searchParams,
@@ -112,6 +126,7 @@ export default async function Page({
     // isShowOnTrip keeps every real stop and only drops drafts and cancellations.
     const shows = await getShows();
     const galleryItems = await getFeaturedGalleryItems(slug);
+    const today = new Date().toISOString().slice(0, 10);
     const legShows = shows
       .filter((s) => s.leg === slug && isShowOnTrip(s))
       .sort(
@@ -133,35 +148,71 @@ export default async function Page({
         private: s.visibility === "private",
       };
     };
-    const derived: FundBooked[] = legShows.map(toBooked);
+    const legShowDates = new Set(legShows.map((s) => s.date));
+    const openInvites: FundBooked[] = shows
+      .filter(
+        (s) =>
+          s.leg === slug &&
+          isShowDraft(s) &&
+          needsHostLocation(s) &&
+          s.status !== "cancelled" &&
+          s.date >= today &&
+          !legShowDates.has(s.date),
+      )
+      .map((s) => ({ venue: "Open", date: s.date, hostHref: confirmPath(s.slug) }));
+    const derived: FundBooked[] = [...legShows.map(toBooked), ...openInvites].sort(
+      (a, b) =>
+        (a.date ?? "").localeCompare(b.date ?? "") ||
+        doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
+    );
     const booked = derived.length ? derived : fund.booked;
-    // Cross-pointer: another fund leg still raising (upcoming shows, or a fresh
-    // campaign with no settled trip yet) gets a hand-off card under the budget.
-    // Singly linked list of campaigns: every fund page points forward to the
-    // newest still-raising leg (chorus appends, so last wins); the newest
-    // itself is the tail and points nowhere.
-    const today = new Date().toISOString().slice(0, 10);
+
     const legs = await getLegs();
-    const hasUpcoming = (l: (typeof legs)[number]) =>
-      shows.some((s) => s.leg === l.slug && isShowOnTrip(s) && s.date >= today);
-    const tail = [...legs]
-      .reverse()
-      .find((l) => l.fund && (!l.fund.previousTrips?.length || hasUpcoming(l)));
-    const nextTrip =
-      tail?.fund && tail.slug !== slug
-        ? { slug: tail.slug, destination: tail.fund.destination }
+    const legRanges = new Map<string, { start: string; end: string; destination: string }>();
+    for (const l of legs) {
+      if (!l.fund) continue;
+      const dates = shows
+        .filter((s) => s.leg === l.slug && isShowOnTrip(s))
+        .map((s) => s.date)
+        .sort();
+      const cluster = lastCluster(dates);
+      if (cluster.length) {
+        legRanges.set(l.slug, {
+          start: cluster[0],
+          end: cluster[cluster.length - 1],
+          destination: l.fund.destination,
+        });
+      }
+    }
+    const page = legRanges.get(slug);
+    const pageDone = Boolean(page && page.end < today);
+    const otherRanges = [...legRanges.entries()].filter(([s]) => s !== slug);
+    const byStart = (a: (typeof otherRanges)[number], b: (typeof otherRanges)[number]) =>
+      a[1].start.localeCompare(b[1].start);
+    const nextCandidate = pageDone
+      ? otherRanges.filter(([, r]) => r.end >= today).sort(byStart)[0]
+      : page
+        ? otherRanges.filter(([, r]) => r.start > page.end).sort(byStart)[0]
         : undefined;
-    const completedShows = shows
-      .filter((s) => s.leg && isShowCompleted(s))
-      .sort((a, b) => (a.date < b.date ? -1 : 1));
-    const recentLegSlug = completedShows[completedShows.length - 1]?.leg;
-    const recentTrip =
-      recentLegSlug && recentLegSlug !== slug
-        ? {
-            destination:
-              legs.find((l) => l.slug === recentLegSlug)?.fund?.destination ?? recentLegSlug,
-            stops: completedShows.filter((s) => s.leg === recentLegSlug).map(toBooked),
-          }
+    const nextLabel: "Up next" | "After this" = pageDone ? "Up next" : "After this";
+    const pageStart = page?.start ?? "9999-12-31";
+    const prevCandidate = otherRanges
+      .filter(([, r]) => r.start < pageStart)
+      .sort((a, b) => byStart(b, a))[0];
+    const prevStops = prevCandidate
+      ? shows
+          .filter((s) => s.leg === prevCandidate[0] && isShowOnTrip(s))
+          .sort((a, b) => (a.date < b.date ? -1 : 1))
+          .map(toBooked)
+      : [];
+    const prevTrip =
+      prevCandidate && prevStops.some((b) => b.date && isDatePast(b.date))
+        ? { slug: prevCandidate[0], destination: prevCandidate[1].destination, stops: prevStops }
+        : undefined;
+    const tripCard = nextCandidate
+      ? { slug: nextCandidate[0], destination: nextCandidate[1].destination, label: nextLabel }
+      : prevTrip
+        ? { slug: prevTrip.slug, destination: prevTrip.destination, label: "Before this" as const }
         : undefined;
     return (
       <>
@@ -171,8 +222,8 @@ export default async function Page({
           leg={{ ...fund, booked }}
           intro={<ArtistIntro tourStops={false} />}
           og={sp?.og === "true"}
-          nextTrip={nextTrip}
-          recentTrip={recentTrip}
+          nextTrip={tripCard}
+          prevTrip={prevTrip}
           concertsSoFar={shows.filter((s) => isShowListable(s) && isDatePast(s.date)).length}
           galleryItems={galleryItems}
         />

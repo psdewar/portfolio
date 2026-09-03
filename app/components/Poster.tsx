@@ -366,6 +366,16 @@ function Poster({
         .bottom-left .detail-value.location {
           font-size: calc(2.917cqw * var(--detail-scale, 1));
         }
+
+        .fill-in {
+          display: inline-block;
+          padding: 0.35cqw 1.25cqw;
+          border-radius: 0.833cqw;
+          background: rgba(255, 255, 255, 0.16);
+          border: 0.125cqw solid rgba(255, 255, 255, 0.45);
+          color: rgba(240, 237, 230, 0.8);
+          line-height: 1.25;
+        }
         .tags {
           font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
@@ -691,7 +701,7 @@ function Poster({
                 <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
                   {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
                   <div className={`detail-value date${longDate ? " long" : ""}`}>{dateText}</div>
-                  {hasLocation && (
+                  {hasLocation ? (
                     <div className="detail-value location">
                       {loc.label ?? (
                         <>
@@ -700,9 +710,19 @@ function Poster({
                         </>
                       )}
                     </div>
-                  )}
+                  ) : invite ? (
+                    <div className="detail-value location">
+                      <span className="fill-in">Venue or address</span>
+                    </div>
+                  ) : null}
                   <div className="detail-value">
-                    {doorsOpen || getDoorLabel({ doorLabel, doorTime })}
+                    {invite ? (
+                      <>
+                        Doors open at <span className="fill-in">{doorTime || "7PM"}</span>
+                      </>
+                    ) : (
+                      doorsOpen || getDoorLabel({ doorLabel, doorTime })
+                    )}
                   </div>
                 </div>
                 {showQr && (

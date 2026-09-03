@@ -10,6 +10,7 @@ export type FundBooked = {
   date?: string;
   doorTime?: string;
   private?: boolean;
+  hostHref?: string;
 };
 
 // A completed earlier trip on the same fund page: shown as a settled budget

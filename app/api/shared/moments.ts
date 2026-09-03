@@ -225,8 +225,9 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
 
 // Leg ordering applies only when a gallery asks for a leg (the /fund pages);
 // /moments shows the stored featured order as-is. The leg's stops lead in
-// show-date order; every other city groups its moments where it first appears;
-// cityless moments keep featured order at the end.
+// show-date order; cities in the leg's region follow, then every other city
+// groups its moments where it first appears; cityless moments keep featured
+// order at the end.
 // The funding leg's city labels in show-date order.
 export async function legCityOrder(legSlug?: string): Promise<string[]> {
   try {
@@ -253,11 +254,17 @@ export async function orderByFundingLeg(
 ): Promise<string[]> {
   try {
     const rank = new Map<string, number>();
-    for (const label of await legCityOrder(legSlug)) rank.set(label, rank.size);
-    for (const k of keys) {
-      const city = cities[k];
-      if (city && !rank.has(city)) rank.set(city, rank.size);
-    }
+    const legLabels = await legCityOrder(legSlug);
+    for (const label of legLabels) rank.set(label, rank.size);
+    const regions = new Set(legLabels.map((l) => l.slice(l.lastIndexOf(", ") + 2)));
+    const seed = (match: (city: string) => boolean) => {
+      for (const k of keys) {
+        const city = cities[k];
+        if (city && !rank.has(city) && match(city)) rank.set(city, rank.size);
+      }
+    };
+    seed((city) => regions.has(city.slice(city.lastIndexOf(", ") + 2)));
+    seed(() => true);
     if (rank.size === 0) return keys;
     return keys
       .map((k, i) => ({ k, i, r: cities[k] ? rank.get(cities[k])! : Infinity }))

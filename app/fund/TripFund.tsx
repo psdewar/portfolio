@@ -84,11 +84,24 @@ function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
               <ArrowRightIcon size={13} weight="bold" />
             </span>
           )}
+          {booking.hostHref && (
+            <span className="rsvp-chip">
+              Become concert host
+              <ArrowRightIcon size={13} weight="bold" />
+            </span>
+          )}
         </span>
         {meta && <span className="loc-when">{meta}</span>}
       </div>
     </>
   );
+  if (booking.hostHref) {
+    return (
+      <a className="loc loc-link" href={booking.hostHref}>
+        {content}
+      </a>
+    );
+  }
   return linkable ? (
     <a className="loc loc-link" href={`/rsvp/${booking.slug}`}>
       {content}
@@ -287,15 +300,15 @@ export function TripFund({
   intro,
   og = false,
   nextTrip,
-  recentTrip,
+  prevTrip,
   concertsSoFar = 0,
   galleryItems,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
   og?: boolean;
-  nextTrip?: { slug: string; destination: string };
-  recentTrip?: { destination: string; stops: FundBooked[] };
+  nextTrip?: { slug: string; destination: string; label: "Up next" | "After this" | "Before this" };
+  prevTrip?: { slug: string; destination: string; stops: FundBooked[] };
   concertsSoFar?: number;
   galleryItems: GalleryItem[];
 }) {
@@ -307,7 +320,7 @@ export function TripFund({
   const upcoming = allBooked.filter((b) => !isPastStop(b));
   const past = allBooked.filter(isPastStop);
   const hasBooked = allBooked.length > 0;
-  const displayPast = past.length > 0 ? past : (recentTrip?.stops ?? []);
+  const displayPast = past.length > 0 ? past : (prevTrip?.stops ?? []);
   const showsVisible = upcoming.length > 0 || displayPast.length > 0;
   const lastPastDate = displayPast.filter((b) => b.date).map((b) => b.date!).sort().pop();
   const pastMonth = lastPastDate
@@ -316,13 +329,12 @@ export function TripFund({
         year: "numeric",
       })
     : "";
-  const completedText =
-    past.length > 0
-      ? `I brought my tour here in ${pastMonth}`
-      : recentTrip
-        ? `I brought my tour to ${recentTrip.destination} in ${pastMonth}`
-        : "";
-  const completedHint = "Expand for past locations and dates";
+  const completedText = past.length > 0 ? `I brought my tour here in ${pastMonth}` : "";
+  const hasPreviousTrips = (leg.previousTrips ?? []).length > 0;
+  const showPrevTrip = !hasPreviousTrips && past.length === 0 ? prevTrip : undefined;
+  const completedHint = showPrevTrip
+    ? "Expand for locations and dates"
+    : "Expand for past locations and dates";
 
   const flightBy = leg.flightBy
     ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
@@ -909,16 +921,20 @@ details[open] .row-hint-open { display: block; }
                   <div className="prev-band-inner">
                     <details className="done done--band">
                       <summary>
-                        {(leg.previousTrips ?? []).length > 0 ? (
+                        {hasPreviousTrips ? (
                           (leg.previousTrips ?? []).map((trip) => (
                             <span key={trip.label} className="prev-trip">
                               <span className="prev-label">{trip.label}</span>
                               <span className="prev-note">{trip.note}</span>
                             </span>
                           ))
-                        ) : (
+                        ) : past.length > 0 ? (
                           <span className="prev-note">{completedText}.</span>
-                        )}
+                        ) : showPrevTrip ? (
+                          <span className="prev-note">
+                            I went to {showPrevTrip.destination.replace(/^the /, "")}.
+                          </span>
+                        ) : null}
                         <span className="done-toggle-row">
                           <span className="row-hint row-hint-closed">{completedHint}</span>
                           <span className="row-hint row-hint-open">See less</span>
@@ -929,7 +945,7 @@ details[open] .row-hint-open { display: block; }
                       </summary>
                       <div className="dateline done-dateline">
                         {displayPast.map((b, i) => (
-                          <BookedRow key={i} booking={b} done />
+                          <BookedRow key={i} booking={b} done={isPastStop(b)} />
                         ))}
                         {concertsSoFar > 0 && (
                           <span className="done-count">
@@ -1138,7 +1154,7 @@ details[open] .row-hint-open { display: block; }
           {nextTrip && (
             <a className="next-trip" href={`/fund/${nextTrip.slug}`}>
               <span className="next-trip-title">
-                Up next: {nextTrip.destination.replace(/^the /, "")}
+                {nextTrip.label}: {nextTrip.destination.replace(/^the /, "")}
               </span>
               <span className="next-trip-arrow" aria-hidden="true">
                 <ArrowRightIcon size={34} weight="bold" />
