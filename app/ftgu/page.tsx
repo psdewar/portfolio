@@ -12,16 +12,13 @@ export const metadata: Metadata = {
 
 const CSS = `
 .ftgu {
-  --s: min(1vh, 0.5625vw);
+  --s: min(0.87vh, 0.5625vw);
   --bg: #262b3f;
   --ink: #f0ede6;
   --gold: #d4a553;
   --gold-lt: #e0b860;
   --hair: rgba(212, 165, 83, 0.28);
   --muted: rgba(240, 237, 230, 0.72);
-  --panel: rgba(255, 255, 255, 0.04);
-  --scrim: rgba(38, 43, 63, 0.78);
-  --lockup-filter: none;
   width: 100%;
   height: 100%;
   display: flex;
@@ -31,25 +28,51 @@ const CSS = `
   color: var(--ink);
   font-family: var(--font-parkinsans), sans-serif;
 }
-.ftgu[data-theme="light"] {
-  --bg: #ffffff;
-  --ink: #0a0a0a;
-  --gold: #9a6f21;
-  --gold-lt: #8a6119;
-  --hair: rgba(10, 10, 10, 0.18);
-  --muted: rgba(10, 10, 10, 0.66);
-  --panel: rgba(10, 10, 10, 0.02);
-  --scrim: rgba(255, 255, 255, 0.82);
-  --lockup-filter: invert(1);
-}
 
 .ftgu-hero {
+  position: relative;
   flex: 1.35;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   padding: calc(5 * var(--s)) calc(5 * var(--s));
+}
+.ftgu-hero > * {
+  position: relative;
+  z-index: 1;
+}
+.ftgu-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.ftgu-hero-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 26%;
+}
+.ftgu-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 72% at 0% 0%, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 35%, rgba(0, 0, 0, 0.25) 68%, transparent 100%);
+}
+.ftgu-hero-bg::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.45) 35%, transparent 100%);
+}
+.ftgu-hero-text {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+.ftgu-credits {
+  margin-top: auto;
 }
 .ftgu-lockup {
   display: flex;
@@ -57,25 +80,24 @@ const CSS = `
   gap: calc(0.7 * var(--s));
 }
 .ftgu-lockup-img {
-  height: calc(5 * var(--s));
+  height: calc(5.6 * var(--s));
   width: auto;
-  filter: var(--lockup-filter);
 }
 .ftgu-lockup-records {
   font-family: var(--font-fira-sans), sans-serif;
-  font-size: calc(3.6 * var(--s));
+  font-size: calc(4 * var(--s));
   font-weight: 500;
 }
 .ftgu-presents {
   font-family: var(--font-space-mono), monospace;
-  font-size: calc(2.2 * var(--s));
+  font-size: calc(2.5 * var(--s));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--gold-lt);
-  margin-bottom: calc(1.6 * var(--s));
+  margin: calc(1.2 * var(--s)) 0 calc(1.2 * var(--s));
 }
 .ftgu-from {
-  font-size: calc(6.4 * var(--s));
+  font-size: calc(5 * var(--s));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -83,7 +105,7 @@ const CSS = `
   line-height: 0.9;
 }
 .ftgu-big {
-  font-size: calc(17 * var(--s));
+  font-size: calc(10.5 * var(--s));
   font-weight: 800;
   line-height: 0.88;
   letter-spacing: -0.01em;
@@ -91,14 +113,14 @@ const CSS = `
   margin-left: calc(-0.6 * var(--s));
 }
 .ftgu-rule {
-  width: calc(18 * var(--s));
+  width: calc(14 * var(--s));
   height: calc(0.9 * var(--s));
   background: linear-gradient(to right, var(--gold), var(--gold-lt));
   margin: calc(2 * var(--s)) 0 calc(2.2 * var(--s));
 }
 .ftgu-tagline div {
   font-family: var(--font-space-mono), monospace;
-  font-size: calc(2.4 * var(--s));
+  font-size: calc(2.8 * var(--s));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--gold-lt);
@@ -106,44 +128,20 @@ const CSS = `
 }
 .ftgu-credits div {
   font-family: var(--font-space-mono), monospace;
-  font-size: calc(2.2 * var(--s));
+  font-size: calc(2.8 * var(--s));
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .ftgu-dates {
-  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   padding: calc(5 * var(--s)) calc(5 * var(--s));
   border-left: 1px solid var(--hair);
-  background: var(--panel);
-}
-.ftgu-dates > * {
-  position: relative;
-  z-index: 1;
-}
-.ftgu-dates-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-}
-.ftgu-dates-bg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 26%;
-  filter: grayscale(1) brightness(0.9) contrast(1.05);
-}
-.ftgu-dates-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--scrim);
+  background: var(--bg);
 }
 .ftgu-heading {
   font-family: var(--font-space-mono), monospace;
@@ -160,27 +158,27 @@ const CSS = `
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: calc(3.5 * var(--rs) * var(--s));
-  padding: calc(3 * var(--s)) 0 calc(2 * var(--s));
+  gap: calc(5 * var(--rs) * var(--s));
+  padding: calc(2 * var(--s)) 0 calc(3 * var(--s));
 }
 .ftgu-row {
   display: flex;
   flex-direction: column;
-  gap: calc(1.2 * var(--rs) * var(--s));
+  gap: calc(1.6 * var(--rs) * var(--s));
 }
 .ftgu-date {
-  font-size: calc(4.8 * var(--rs) * var(--s));
+  font-size: calc(5.2 * var(--rs) * var(--s));
   font-weight: 800;
   line-height: 1.08;
 }
 .ftgu-place {
-  font-size: calc(3.2 * var(--rs) * var(--s));
+  font-size: calc(3.4 * var(--rs) * var(--s));
   font-weight: 500;
   line-height: 1.25;
   margin-top: calc(0.8 * var(--rs) * var(--s));
 }
 .ftgu-doors {
-  font-size: calc(2.8 * var(--rs) * var(--s));
+  font-size: calc(3.4 * var(--rs) * var(--s));
   color: var(--muted);
   line-height: 1.25;
 }
@@ -232,7 +230,7 @@ const CSS = `
 
 function rowScaleFor(count: number): number {
   if (count <= 2) return 1;
-  if (count === 3) return 0.85;
+  if (count === 3) return 0.9;
   if (count === 4) return 0.62;
   return 0.5;
 }
@@ -256,30 +254,35 @@ export default async function FtguPage({
   } else if (params.leg) {
     selected = upcoming.filter((s) => s.leg === params.leg);
   } else {
-    const city = (params.city ?? upcoming[0]?.city ?? "").trim().toLowerCase();
-    selected = city ? upcoming.filter((s) => s.city.toLowerCase() === city) : [];
+    const city = (params.city ?? "").trim().toLowerCase();
+    const leg = city ? null : upcoming[0]?.leg;
+    selected = leg
+      ? upcoming.filter((s) => s.leg === leg)
+      : upcoming.filter((s) => s.city.toLowerCase() === (city || upcoming[0]?.city.toLowerCase()));
   }
 
   const places = new Set(selected.map((s) => `${s.city}, ${s.region}`));
   const sameCity = places.size === 1;
-  const heading =
-    params.title?.trim() || (sameCity ? [...places][0] : "Upcoming Shows");
+  const heading = params.title?.trim() || (sameCity ? [...places][0] : null);
   const rowScale = rowScaleFor(selected.length);
-  const theme = params.light === "1" ? "light" : "dark";
 
   return (
     <>
       <style>{CSS}</style>
-      <div className="ftgu" data-theme={theme}>
+      <div className="ftgu">
         <section className="ftgu-hero">
+          <div className="ftgu-hero-bg">
+            <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" />
+          </div>
+
           <div>
-            <div className="ftgu-lockup">
+            <div className="ftgu-lockup ftgu-hero-text">
               <img src="/lyrist-trademark-white.png" alt="Lyrist" className="ftgu-lockup-img" />
               <span className="ftgu-lockup-records">Records</span>
             </div>
           </div>
 
-          <div>
+          <div className="ftgu-hero-text">
             <div className="ftgu-presents">presents</div>
             <div className="ftgu-from">From The</div>
             <div className="ftgu-big">Ground</div>
@@ -292,18 +295,15 @@ export default async function FtguPage({
             </div>
           </div>
 
-          <div className="ftgu-credits">
+          <div className="ftgu-credits ftgu-hero-text">
             <div>rap concert for all ages</div>
-            <div>by software engineer peyt spencer</div>
+            <div>by software engineer</div>
+            <div>peyt spencer</div>
           </div>
         </section>
 
         <section className="ftgu-dates" style={{ "--rs": rowScale } as React.CSSProperties}>
-          <div className="ftgu-dates-bg">
-            <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" />
-          </div>
-
-          <div className="ftgu-heading">{heading}</div>
+          {heading && <div className="ftgu-heading">{heading}</div>}
 
           <div className="ftgu-rows">
             {selected.length === 0 ? (
@@ -321,11 +321,9 @@ export default async function FtguPage({
                 return (
                   <div key={show.slug} className="ftgu-row">
                     <div className="ftgu-date">
-                      {d.toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {d
+                        .toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+                        .replace("September", "Sept")}
                     </div>
                     <div className="ftgu-place">{place}</div>
                     <div className="ftgu-doors">{getDoorLabel(show)}</div>
