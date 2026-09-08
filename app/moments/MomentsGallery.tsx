@@ -23,16 +23,15 @@ function fetchView(key: string): Promise<string | null> {
 }
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
-const SCROLL_SPEED = 0.06; // px per ms (~1px per frame at 60fps)
+const SCROLL_SPEED = 0.15;
 const RESUME_DELAY_MS = 5000;
 const START_PAUSE_MS = 1000;
-const CAR_W = 46;
 
-function wrap(x: number, half: number) {
+function wrap(x: number, half: number, base = half) {
   if (half <= 0) return x;
   let v = x;
-  while (v >= half * 2) v -= half;
-  while (v < half) v += half;
+  while (v >= base + half) v -= half;
+  while (v < base) v += half;
   return v;
 }
 
@@ -67,6 +66,7 @@ function MomentsGallery({
   const prevOffset = useRef(0);
   const traveled = useRef(0);
   const viewCenter = useRef(0);
+  const lead = useRef(0);
   const groupLefts = useRef<number[]>([]);
   const stopIndexRef = useRef(0);
   const [stopIndex, setStopIndex] = useState(0);
@@ -123,7 +123,9 @@ function MomentsGallery({
       const strip = scrollRef.current;
       if (strip) viewCenter.current = strip.clientWidth / 2;
       if (!initialized.current && setWidth.current > 0 && strip) {
-        const start = setWidth.current - (viewCenter.current - CAR_W / 2);
+        const firstTile = el.querySelector<HTMLElement>('[data-tile="0"]');
+        lead.current = Math.max(0, viewCenter.current - (firstTile?.offsetWidth ?? 0) / 2);
+        const start = setWidth.current - lead.current;
         scrollRef.current.scrollLeft = start;
         offset.current = start;
         prevOffset.current = start;
@@ -155,7 +157,7 @@ function MomentsGallery({
       const el = scrollRef.current;
       const w = setWidth.current;
       if (el && w > 0 && initialized.current && firstReady.current && inView.current && !lightboxOpen.current && !paused.current) {
-        offset.current = wrap(offset.current + delta * SCROLL_SPEED, w);
+        offset.current = wrap(offset.current + delta * SCROLL_SPEED, w, w - lead.current);
         el.scrollLeft = offset.current;
         paintCar();
       }
@@ -222,7 +224,7 @@ function MomentsGallery({
     const el = scrollRef.current;
     const w = setWidth.current;
     if (!el || w <= 0) return;
-    const wrapped = wrap(el.scrollLeft, w);
+    const wrapped = wrap(el.scrollLeft, w, w - lead.current);
     if (wrapped !== el.scrollLeft) el.scrollLeft = wrapped;
     offset.current = el.scrollLeft;
     paintCar();
@@ -256,20 +258,20 @@ function MomentsGallery({
     const el = scrollRef.current;
     const w = setWidth.current;
     if (!el || w <= 0) return;
-    const x = wrap(el.scrollLeft + viewCenter.current, w);
+    const x = el.scrollLeft + viewCenter.current;
+    const stripLeft = el.getBoundingClientRect().left - el.scrollLeft;
     let cur = 0;
-    for (let i = 0; i < items.length; i++) {
-      const tile = el.querySelector<HTMLElement>(`[data-copy="1"] [data-tile="${i}"]`);
-      if (!tile) continue;
-      const left = tile.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
-      const right = left + tile.offsetWidth;
-      if (x >= left && x < right) {
-        cur = i;
+    let copy = 1;
+    for (const tile of el.querySelectorAll<HTMLElement>("[data-tile]")) {
+      const left = tile.getBoundingClientRect().left - stripLeft;
+      if (x >= left && x < left + tile.offsetWidth) {
+        cur = Number(tile.dataset.tile);
+        copy = Number(tile.closest<HTMLElement>("[data-copy]")?.dataset.copy ?? 1);
         break;
       }
     }
     const next = (cur + dir + items.length) % items.length;
-    const nextCopy = dir === 1 && next < cur ? 2 : dir === -1 && next > cur ? 0 : 1;
+    const nextCopy = next === cur + dir ? copy : copy + dir;
     const center = tileCenter(el, nextCopy, next);
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     pause();
@@ -481,14 +483,22 @@ function MomentsGallery({
         </svg>
       </div>
 
-      {open !== null && <Lightbox items={items} index={open} onClose={closeLightbox} onStep={stepLightbox} />}
+      {open !== null && (
+        <Lightbox
+          items={items}
+          index={open}
+          group={groups.find((g) => g.tiles.some((t) => t.index === open))}
+          onClose={closeLightbox}
+          onStep={stepLightbox}
+        />
+      )}
     </section>
   );
 }
 
 export default MomentsGallery;
 
-function Stop({ city, visit, count }: { city: string; visit?: string; count: number }) {
+function Stop({ city, visit, count, position }: { city: string; visit?: string; count: number; position?: number }) {
   return (
     <div
       aria-hidden
@@ -499,7 +509,7 @@ function Stop({ city, visit, count }: { city: string; visit?: string; count: num
       {visit && <span className="text-base leading-none text-[#b8bec8]">{formatShortDate(visit)}</span>}
       <span className="flex items-center gap-1 text-base leading-none text-white">
         <CameraIcon weight="fill" size={16} className="-translate-y-[0.6px]" />
-        {count}
+        {position ? `${position}/${count}` : count}
       </span>
     </div>
   );
@@ -607,11 +617,13 @@ function Tile({
 function Lightbox({
   items,
   index,
+  group,
   onClose,
   onStep,
 }: {
   items: GalleryItem[];
   index: number;
+  group?: { stop?: { city: string; visit?: string }; tiles: Array<{ index: number }> };
   onClose: () => void;
   onStep: (dir: 1 | -1) => void;
 }) {
@@ -697,7 +709,7 @@ function Lightbox({
       }}
     >
       <div
-        className="flex items-center justify-center"
+        className="relative flex items-center justify-center"
         style={{
           transform: `translateY(${dragY}px)`,
           transition: dragging ? "none" : "transform 0.25s ease",
@@ -723,6 +735,16 @@ function Lightbox({
             className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
             style={{ animation: "momentRise .25s ease both" }}
           />
+        )}
+        {group?.stop && (
+          <div className="pointer-events-none absolute inset-x-0 -bottom-8 flex justify-center">
+            <Stop
+              city={group.stop.city}
+              visit={group.stop.visit}
+              count={group.tiles.length}
+              position={group.tiles.findIndex((t) => t.index === index) + 1}
+            />
+          </div>
         )}
       </div>
       <button
