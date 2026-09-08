@@ -223,6 +223,69 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
   return out;
 }
 
+// A visit is the run of shows a moment belongs to: shows in its city are
+// clustered when fewer than 8 days apart, and the moment joins the cluster
+// whose date span it falls within, padded by 14 days on each side. The value
+// is the cluster's first show date (YYYY-MM-DD). A key with no capture time
+// joins its city's only cluster. Same city, different trip, different visit.
+export async function resolveVisits(
+  keys: string[],
+  cities: Record<string, string>,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const shows = await getShows();
+    const byLabel = new Map<string, number[]>();
+    for (const s of shows) {
+      if (!s.city || !isShowOnTrip(s)) continue;
+      const t = new Date(s.date).getTime();
+      if (!Number.isFinite(t)) continue;
+      const label = showLabel(s);
+      const list = byLabel.get(label) ?? [];
+      list.push(t);
+      byLabel.set(label, list);
+    }
+    const clusters = new Map<string, Array<{ start: number; end: number }>>();
+    for (const [label, times] of byLabel) {
+      times.sort((a, b) => a - b);
+      const list: Array<{ start: number; end: number }> = [];
+      for (const t of times) {
+        const last = list[list.length - 1];
+        if (last && t - last.end <= 7 * 86400000) last.end = t;
+        else list.push({ start: t, end: t });
+      }
+      clusters.set(label, list);
+    }
+    for (const key of keys) {
+      const city = cities[key];
+      const t = capturedAt(key);
+      if (!city) continue;
+      const list = clusters.get(city);
+      if (!list || list.length === 0) continue;
+      if (t == null) {
+        if (list.length === 1) out[key] = new Date(list[0].start).toISOString().slice(0, 10);
+        continue;
+      }
+      let best: { start: number; end: number } | null = null;
+      let bestD = Infinity;
+      for (const c of list) {
+        const d =
+          t >= c.start && t <= c.end
+            ? 0
+            : Math.min(Math.abs(t - c.start), Math.abs(t - c.end));
+        if (d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      if (best && bestD <= 14 * 86400000) {
+        out[key] = new Date(best.start).toISOString().slice(0, 10);
+      }
+    }
+  } catch {}
+  return out;
+}
+
 // Leg ordering applies only when a gallery asks for a leg (the /fund pages);
 // /moments shows the stored featured order as-is. The leg's stops lead in
 // show-date order; cities in the leg's region follow, then every other city
@@ -487,14 +550,15 @@ export async function probeImageDims(key: string): Promise<[number, number] | nu
 
 const THUMBS_KEY = "thumbs.json";
 export const THUMB_WIDTHS = [480, 960, 1440];
-const THUMB_QUALITY = 60;
+const THUMB_QUALITY = 75;
+const THUMB_FORMAT = "webp";
 
 export type ThumbSize = { w: number; h: number; key: string };
 export type ThumbEntry = { key: string; w: number; h: number; sizes: ThumbSize[] };
 
 export function thumbKeyFor(originalKey: string, width?: number): string {
   const base = originalKey.replace(/^drops\//, "").replace(/\.[^./]+$/, "");
-  return width ? `thumbs/${base}-${width}w.avif` : `thumbs/${base}.avif`;
+  return width ? `thumbs/${base}-${width}w.${THUMB_FORMAT}` : `thumbs/${base}.${THUMB_FORMAT}`;
 }
 
 export async function getThumbs(): Promise<Record<string, ThumbEntry>> {
@@ -519,7 +583,7 @@ export async function makeThumbSizes(
     const rendered = await sharp(input)
       .rotate()
       .resize({ width: target, withoutEnlargement: true })
-      .avif({ quality: THUMB_QUALITY })
+      .webp({ quality: THUMB_QUALITY })
       .toBuffer({ resolveWithObject: true });
     out.push({ target, data: rendered.data, w: rendered.info.width, h: rendered.info.height });
     if (rendered.info.width < target) cappedAt = rendered.info.width;
@@ -547,7 +611,7 @@ export async function generateThumb(originalKey: string): Promise<ThumbEntry | n
             Bucket: s3Bucket,
             Key: key,
             Body: r.data,
-            ContentType: "image/avif",
+            ContentType: `image/${THUMB_FORMAT}`,
             CacheControl: "public, max-age=31536000, immutable",
           }),
         );
@@ -558,6 +622,32 @@ export async function generateThumb(originalKey: string): Promise<ThumbEntry | n
     } catch {}
   }
   return null;
+}
+
+export async function ensureProcessed(keys: string[]): Promise<{ missing: string[] }> {
+  const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
+  const needThumb = keys.filter((k) => !thumbs[k]?.key.endsWith(`.${THUMB_FORMAT}`));
+  const needDims = keys.filter((k) => !dims[k] && IMAGE_EXT.test(k));
+  const foundThumbs: Record<string, ThumbEntry> = {};
+  const foundDims: Record<string, [number, number]> = {};
+  const queue = [...new Set([...needThumb, ...needDims])];
+  await Promise.all(
+    Array.from({ length: Math.min(4, queue.length) }, async () => {
+      for (let key = queue.shift(); key; key = queue.shift()) {
+        if (needThumb.includes(key)) {
+          const t = await generateThumb(key);
+          if (t) foundThumbs[key] = t;
+        }
+        if (needDims.includes(key)) {
+          const d = await probeImageDims(key);
+          if (d) foundDims[key] = d;
+        }
+      }
+    }),
+  );
+  if (Object.keys(foundThumbs).length) await recordThumbs(foundThumbs);
+  if (Object.keys(foundDims).length) await recordDims(foundDims);
+  return { missing: needThumb.filter((k) => !foundThumbs[k]) };
 }
 
 export async function deleteMomentArtifacts(originalKey: string): Promise<void> {
@@ -617,12 +707,11 @@ export async function renameMomentArtifacts(oldKey: string, newKey: string): Pro
 }
 
 const VIEW_TTL = 21600;
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif)$/i;
-const THUMB_BATCH = 8;
+export const IMAGE_EXT = /\.(jpe?g|png|webp|gif)$/i;
 
 const MEDIA_BASE = process.env.MOMENTS_MEDIA_BASE?.replace(/\/+$/, "");
 
-function signView(key: string) {
+export function signView(key: string) {
   return getSignedUrl(s3!, new GetObjectCommand({ Bucket: s3Bucket!, Key: key }), {
     expiresIn: VIEW_TTL,
   });
@@ -655,36 +744,6 @@ const getCore = unstable_cache(
         .map((o) => o.Key || "")
         .filter((k) => k && k !== "previews/"),
     );
-
-    const missingDims = keys.filter((k) => !dims[k] && IMAGE_EXT.test(k));
-    if (missingDims.length) {
-      const found: Record<string, [number, number]> = {};
-      await Promise.all(
-        missingDims.map(async (key) => {
-          const d = await probeImageDims(key);
-          if (d) {
-            dims[key] = d;
-            found[key] = d;
-          }
-        }),
-      );
-      if (Object.keys(found).length) await recordDims(found);
-    }
-
-    const missingThumbs = keys.filter((k) => !thumbs[k]).slice(0, THUMB_BATCH);
-    if (missingThumbs.length) {
-      const found: Record<string, ThumbEntry> = {};
-      await Promise.all(
-        missingThumbs.map(async (key) => {
-          const t = await generateThumb(key);
-          if (t) {
-            thumbs[key] = t;
-            found[key] = t;
-          }
-        }),
-      );
-      if (Object.keys(found).length) await recordThumbs(found);
-    }
 
     return keys.map((key) => {
       const t = thumbs[key];

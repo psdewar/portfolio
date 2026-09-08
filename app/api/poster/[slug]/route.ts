@@ -16,40 +16,40 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new Response("Show not found", { status: 404 });
   }
 
-  const sp = request.nextUrl.searchParams;
-  const square = sp.has("square");
-  const rawFormat = square ? "yt" : (sp.get("format") ?? "standard");
-  const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "standard";
-  const { W, H } = POSTER_DIMS[format];
-  // venueLabel/doorLabel params let a download reflect unsaved editor state.
-  const venueLabelParam = sp.get("venueLabel");
-  const doorLabelParam = sp.get("doorLabel");
-  // The poster line saved from the editor: on the leg's pamphlet facet, or on the show before it has a leg.
-  const posterLabel = await posterLineForShow(show);
-  const effShow = {
-    ...show,
-    doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
-  };
-  const html = posterHtml(effShow, {
-    format,
-    label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
-    tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
-    doorsOpenOverride: sp.get("doorsOpen") ?? "",
-    posterLine: venueLabelParam !== null ? venueLabelParam : posterLabel,
-    posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),
-    bgImgSrc: await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? ""),
-    venueImgSrc: await inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
-    venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
-    venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
-    centerLogo: sp.has("centerLogo") ? sp.get("centerLogo") === "1" : !!show.centerLogo,
-    taglineAlign: sp.get("align") || show.taglineAlign || "left",
-    scale: Math.min(2, Math.max(0.5, Number(sp.get("scale")) || show.locationScale || 1)),
-    invite: needsHostLocation(show),
-  });
-  const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
-  const suffix = format !== "standard" ? `-${format}` : "";
-
   try {
+    const sp = request.nextUrl.searchParams;
+    const square = sp.has("square");
+    const rawFormat = square ? "yt" : (sp.get("format") ?? "standard");
+    const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "standard";
+    const { W, H } = POSTER_DIMS[format];
+    // venueLabel/doorLabel params let a download reflect unsaved editor state.
+    const venueLabelParam = sp.get("venueLabel");
+    const doorLabelParam = sp.get("doorLabel");
+    // The poster line saved from the editor: on the leg's pamphlet facet, or on the show before it has a leg.
+    const posterLabel = await posterLineForShow(show);
+    const effShow = {
+      ...show,
+      doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
+    };
+    const html = posterHtml(effShow, {
+      format,
+      label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
+      tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
+      doorsOpenOverride: sp.get("doorsOpen") ?? "",
+      posterLine: venueLabelParam !== null ? venueLabelParam : posterLabel,
+      posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),
+      bgImgSrc: await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? ""),
+      venueImgSrc: await inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
+      venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
+      venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
+      centerLogo: sp.has("centerLogo") ? sp.get("centerLogo") === "1" : !!show.centerLogo,
+      taglineAlign: sp.get("align") || show.taglineAlign || "left",
+      scale: Math.min(2, Math.max(0.5, Number(sp.get("scale")) || show.locationScale || 1)),
+      invite: needsHostLocation(show),
+    });
+    const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
+    const suffix = format !== "standard" ? `-${format}` : "";
+
     if (asJpg) {
       const screenshot = await takeScreenshot({
         path: "about:blank",

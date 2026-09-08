@@ -354,6 +354,62 @@ function PatienceTeePage() {
   );
 }
 
+function TicketQrLandscape({ path }: { path: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        overflow: "hidden",
+        width: "100vw",
+        height: "100vh",
+      }}
+    >
+      <div
+        className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-white"
+        style={{ borderRight: "2px solid #0a0a0a" }}
+      >
+        <h2 className="font-bebas leading-[0.95] tracking-wide" style={{ fontSize: "9vw" }}>
+          <span style={{ color: "#262b3f" }}>
+            Tell Me
+            <br />
+            Your Name
+          </span>
+          <br />
+          <span style={{ color: "#d4a553" }}>
+            Get Your
+            <br />
+            Free Ticket
+          </span>
+        </h2>
+      </div>
+      <div className="flex-1 min-w-0 bg-white flex flex-col items-center justify-center">
+        <p
+          style={{
+            fontFamily: "var(--font-space-mono), monospace",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "#0a0a0a",
+            fontSize: "1.6vw",
+            marginBottom: "0.6rem",
+          }}
+        >
+          peytspencer.com{path}
+        </p>
+        <Image
+          src={`/api/qr?d=${encodeURIComponent(path)}`}
+          alt="Scan for your free ticket"
+          width={1120}
+          height={1120}
+          style={{ width: "78%", height: "auto", maxHeight: "78vh" }}
+          unoptimized
+        />
+      </div>
+    </div>
+  );
+}
+
 function TicketQrPage({ path }: { path: string }) {
   return (
     <div
@@ -814,6 +870,11 @@ export default function PrintoutsClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const legend =
+    tab === "screensavers" && byId.ticket.enabled
+      ? [{ label: byId.ticket.label, path: byId.ticket.path }, ...STATIC_LEGEND.screensavers]
+      : STATIC_LEGEND[tab === "concert" ? "general" : tab];
+
   return (
     <>
       <style>{TAB_CSS[tab]}</style>
@@ -841,7 +902,7 @@ export default function PrintoutsClient({
       {tab === "concert" ? (
         <EditableQrReference items={items} onCommit={commit} onToggle={toggle} />
       ) : (
-        <QrReference codes={STATIC_LEGEND[tab]} />
+        <QrReference codes={legend} />
       )}
 
       {tab === "general" ? (
@@ -860,6 +921,11 @@ export default function PrintoutsClient({
         </div>
       ) : tab === "screensavers" ? (
         <>
+          {byId.ticket.enabled && (
+            <div className="land-sheet">
+              <TicketQrLandscape path={byId.ticket.path} />
+            </div>
+          )}
           <div className="land-sheet">
             <QrPage city={currentCity} />
           </div>

@@ -72,7 +72,7 @@ export default function LedgerPage() {
   } catch {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
-        <div className="mx-auto max-w-3xl px-4 py-12 text-sm text-neutral-400 sm:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-sm text-neutral-400">
           Ledger data not available on this host.
         </div>
       </div>
@@ -81,7 +81,7 @@ export default function LedgerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         
 
         <div className="flex w-full items-end justify-between gap-x-4">

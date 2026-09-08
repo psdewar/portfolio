@@ -515,14 +515,14 @@ export function AudienceEmailer() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-10 text-sm text-neutral-500">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-sm text-neutral-500">
         Loading shows and recipients...
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 pb-96 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-96 space-y-8">
       <header>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
           Post-concert email

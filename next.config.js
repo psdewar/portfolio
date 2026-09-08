@@ -10,6 +10,7 @@ const posterAssets = [
   "public/images/home/**",
   "public/fonts/**",
   "public/*.webp",
+  "public/*.png",
 ];
 const posterBundle = [...chromiumBin, ...posterAssets];
 

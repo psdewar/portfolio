@@ -11,6 +11,7 @@ interface MomentItem {
   downloadUrl: string;
   featured: boolean;
   city?: string;
+  visit?: string;
 }
 
 interface PendingItem {
@@ -56,6 +57,17 @@ function formatBytes(bytes: number) {
   const mb = bytes / (1024 * 1024);
   if (mb >= 1) return `${mb.toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function groupOf(item: { city?: string; visit?: string } | undefined) {
+  return item?.city ? `${item.city}|${item.visit ?? ""}` : "";
+}
+
+function formatVisit(visit: string) {
+  return new Date(`${visit}T12:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatDuration(s: number) {
@@ -132,12 +144,16 @@ export default function MomentsAdminPage() {
     .filter((it): it is MomentItem => Boolean(it));
 
   async function toggleFeatured(key: string, next: boolean) {
+    let after: string | undefined;
     if (next) {
       if (featuredKeys.includes(key)) return;
       const city = itemByKey.get(key)?.city;
       const state = city?.split(", ").pop();
       const cities = featuredKeys.map((k) => itemByKey.get(k)?.city);
-      let at = city ? cities.lastIndexOf(city) : -1;
+      const group = groupOf(itemByKey.get(key));
+      const groups = featuredKeys.map((k) => groupOf(itemByKey.get(k)));
+      let at = group ? groups.lastIndexOf(group) : -1;
+      if (at < 0 && city) at = cities.lastIndexOf(city);
       if (at < 0 && state) {
         for (let j = cities.length - 1; j >= 0; j--) {
           if (cities[j]?.split(", ").pop() === state) {
@@ -146,30 +162,21 @@ export default function MomentsAdminPage() {
           }
         }
       }
-      const keys = [...featuredKeys];
-      keys.splice(at >= 0 ? at + 1 : keys.length, 0, key);
-      const r = await fetch("/api/admin/moments/feature", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keys }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error || "Failed");
-      }
-      setFeaturedKeys(keys);
-      return;
+      if (at >= 0) after = featuredKeys[at];
     }
     const r = await fetch("/api/admin/moments/feature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, featured: false }),
+      body: JSON.stringify({ key, featured: next, after }),
     });
+    const d = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      throw new Error(d.error || "Failed");
+      throw new Error(
+        d.error || (next ? "Could not add to slideshow." : "Could not remove from slideshow."),
+      );
     }
-    setFeaturedKeys((prev) => prev.filter((k) => k !== key));
+    setFeaturedKeys(d.keys);
+    if (d.thumb) updateItem(key, { thumb: d.thumb });
   }
 
   async function persistOrder(nextKeys: string[]) {
@@ -181,10 +188,11 @@ export default function MomentsAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keys: nextKeys }),
       });
-      if (!r.ok) throw new Error();
-    } catch {
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "Could not save the new order.");
+    } catch (e) {
       setFeaturedKeys(prevKeys);
-      window.alert("Could not save the new order.");
+      window.alert(e instanceof Error ? e.message : "Could not save the new order.");
     }
   }
 
@@ -209,7 +217,7 @@ export default function MomentsAdminPage() {
   const videos = items.filter((it) => VIDEO_EXT.test(it.key));
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {state.kind === "loading" && (
         <div className="flex flex-col lg:flex-row gap-6">
           {[0, 1].map((i) => (
@@ -379,6 +387,7 @@ function ReviewCard({
   const [duration, setDuration] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
+  const [broken, setBroken] = useState(false);
 
   const quality = isVideo && dims ? videoQuality(dims.w, dims.h) : null;
   const taken = takenAt(item.key);
@@ -393,6 +402,7 @@ function ReviewCard({
   }
 
   async function remove() {
+    if (!window.confirm("Delete this file forever?")) return;
     setBusy(true);
     try {
       const r = await fetch("/api/admin/moments", {
@@ -481,15 +491,20 @@ function ReviewCard({
         >
           <ChevronLeftIcon />
         </button>
-        <button
-          type="button"
-          onClick={remove}
-          disabled={busy}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border-2 border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all active:scale-95 disabled:opacity-50"
-        >
-          <TrashIcon />
-          Delete forever
-        </button>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
+            {filename(item.key)}
+          </p>
+          <p className="truncate text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">
+            {[
+              taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : "",
+              `Uploaded ${formatDate(item.lastModified)}`,
+              ...meta,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
         <button
           type="button"
           onClick={onNext}
@@ -551,23 +566,17 @@ function ReviewCard({
           <IconButton onClick={rename} disabled={busy} label="Rename">
             <PencilIcon />
           </IconButton>
+          <IconButton
+            onClick={remove}
+            disabled={busy}
+            label="Delete forever"
+            className="text-red-600 dark:text-red-400 hover:text-red-700"
+          >
+            <TrashIcon />
+          </IconButton>
         </div>
       </div>
 
-      <div className="space-y-0.5">
-        <p className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
-          {filename(item.key)}
-        </p>
-        <p className="text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">
-          {[
-            taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : "",
-            `Uploaded ${formatDate(item.lastModified)}`,
-            ...meta,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-      </div>
 
       <div className="relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
         <div className="aspect-square flex items-center justify-center">
@@ -587,10 +596,14 @@ function ReviewCard({
               }}
               className="max-h-full max-w-full"
             />
+          ) : broken ? (
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">
+              Preview unavailable for this file.
+            </p>
           ) : (
             <img
               key={item.key}
-              src={fallbackSrc ?? item.url}
+              src={fallbackSrc ?? (/\.hei[cf]$/i.test(item.key) && item.thumb ? item.thumb : item.url)}
               alt={bareName(item.key)}
               decoding="async"
               onLoad={(e) =>
@@ -601,6 +614,7 @@ function ReviewCard({
               }
               onError={() => {
                 if (item.thumb && !fallbackSrc) setFallbackSrc(item.thumb);
+                else setBroken(true);
               }}
               className="max-h-full max-w-full object-contain"
             />
@@ -640,7 +654,7 @@ function PendingStrip({
     <section className="space-y-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Previews awaiting full quality
+          Waiting on full-size files
         </h2>
         <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
           {items.length}
@@ -671,8 +685,8 @@ function PendingStrip({
         ))}
       </div>
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        The full-quality file is still uploading or never finished. Previews stand in until it
-        lands.
+        The phone sent a preview but the full-size file never arrived. Previews stand in on
+        /moments until it lands.
       </p>
     </section>
   );
@@ -694,9 +708,9 @@ function SlideshowReorder({
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
   );
-  const cityOf = (k: string) => byKey.get(k)?.city;
+  const groupKeyOf = (k: string) => groupOf(byKey.get(k));
   const legSet = useMemo(() => new Set(legCities), [legCities]);
-  type DragStart = { kind: "tile"; key: string } | { kind: "city"; city: string };
+  type DragStart = { kind: "tile"; key: string } | { kind: "group"; group: string };
   const [drag, setDrag] = useState<(DragStart & { order: string[] }) | null>(null);
   const order = drag ? drag.order : keys;
 
@@ -815,19 +829,19 @@ function SlideshowReorder({
       if (next.join("|") !== drag.order.join("|")) setDrag({ ...drag, order: next });
       return;
     }
-    const overCity = under?.closest<HTMLElement>("[data-city]")?.dataset.city;
-    if (overCity === undefined || overCity === drag.city) return;
-    const groups: { city: string; keys: string[] }[] = [];
+    const overGroup = under?.closest<HTMLElement>("[data-group]")?.dataset.group;
+    if (overGroup === undefined || overGroup === drag.group) return;
+    const groups: { group: string; keys: string[] }[] = [];
     for (const k of drag.order) {
-      const c = byKey.get(k)?.city ?? "";
+      const g = groupKeyOf(k);
       const last = groups[groups.length - 1];
-      if (last && last.city === c) last.keys.push(k);
-      else groups.push({ city: c, keys: [k] });
+      if (last && last.group === g) last.keys.push(k);
+      else groups.push({ group: g, keys: [k] });
     }
-    const from = groups.findIndex((g) => g.city === drag.city);
+    const from = groups.findIndex((g) => g.group === drag.group);
     if (from < 0) return;
     const [grp] = groups.splice(from, 1);
-    const to = groups.findIndex((g) => g.city === overCity);
+    const to = groups.findIndex((g) => g.group === overGroup);
     if (to < 0) return;
     groups.splice(to, 0, grp);
     const next = groups.flatMap((g) => g.keys);
@@ -907,18 +921,18 @@ function SlideshowReorder({
           const item = byKey.get(key);
           if (!item) return null;
           const city = item.city;
-          const cityKey = city ?? "";
-          const cityDragging = drag?.kind === "city" && drag.city === cityKey;
-          const dragging = cityDragging || (drag?.kind === "tile" && drag.key === key);
-          const groupStart = i === 0 || cityOf(order[i - 1]) !== city;
+          const group = groupKeyOf(key);
+          const groupDragging = drag?.kind === "group" && drag.group === group;
+          const dragging = groupDragging || (drag?.kind === "tile" && drag.key === key);
+          const groupStart = i === 0 || groupKeyOf(order[i - 1]) !== group;
           const isLeg = !!city && legSet.has(city);
           return (
             <div key={key} className="flex shrink-0 gap-3">
               {groupStart && (
                 <div
-                  data-city={cityKey}
-                  onPointerDown={(e) => startDrag(e, { kind: "city", city: cityKey })}
-                  className={`flex items-center px-1 ${cityDragging ? "cursor-grabbing" : "cursor-grab"}`}
+                  data-group={group}
+                  onPointerDown={(e) => startDrag(e, { kind: "group", group })}
+                  className={`flex items-center px-1 ${groupDragging ? "cursor-grabbing" : "cursor-grab"}`}
                 >
                   <span
                     style={{ writingMode: "vertical-rl" }}
@@ -931,12 +945,20 @@ function SlideshowReorder({
                     }`}
                   >
                     {city || "No city"}
+                    {item.visit && (
+                      <>
+                        {" "}
+                        <span className="font-normal normal-case tracking-normal opacity-70">
+                          {formatVisit(item.visit)}
+                        </span>
+                      </>
+                    )}
                   </span>
                 </div>
               )}
             <div
               data-key={key}
-              data-city={cityKey}
+              data-group={group}
               onPointerDown={(e) => startDrag(e, { kind: "tile", key })}
               className={`relative shrink-0 w-28 cursor-grab select-none overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 transition-shadow ${
                 dragging ? "cursor-grabbing opacity-60 shadow-lg ring-2 ring-[#d4a553]" : ""
@@ -984,9 +1006,9 @@ function SlideshowReorder({
         })}
       </div>
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        Drag tiles or city labels to reorder, hold first on mobile, nudge with the arrows, or type
-        a new number on the badge. ✕ removes it. This order is what /moments shows; gold marks the
-        active fund leg&apos;s cities, which lead only on the fund page.
+        Drag tiles or city labels to reorder (press and hold on mobile), nudge with the arrows, or
+        type a position on the badge. This order is what /moments shows. Gold city labels belong to
+        the active fund leg and lead only on its fund page.
       </p>
     </section>
   );
@@ -1066,16 +1088,19 @@ function IconButton({
   onClick,
   disabled,
   label,
+  className,
   children,
 }: {
   href?: string;
   onClick?: () => void;
   disabled?: boolean;
   label: string;
+  className?: string;
   children: React.ReactNode;
 }) {
-  const cls =
-    "inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition-all active:scale-90 disabled:opacity-40 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-white/10 dark:hover:text-white";
+  const cls = `inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition-all active:scale-90 disabled:opacity-40 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-white/10 dark:hover:text-white${
+    className ? ` ${className}` : ""
+  }`;
   if (href) {
     return (
       <a href={href} aria-label={label} title={label} className={cls}>

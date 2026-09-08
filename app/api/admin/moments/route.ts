@@ -20,6 +20,7 @@ import {
   deleteMomentArtifacts,
   renameMomentArtifacts,
   resolveCities,
+  resolveVisits,
   legCityOrder,
 } from "../../shared/moments";
 
@@ -80,6 +81,7 @@ export async function GET(request: Request) {
   );
   const previewByBase = new Map(previewObjects.map((o) => [baseOf(o.Key!), o.Key!]));
   const cities = await resolveCities(objects.map((o) => o.Key!));
+  const visits = await resolveVisits(objects.map((o) => o.Key!), cities);
 
   const items = await Promise.all(
     objects.map(async (o) => {
@@ -95,6 +97,7 @@ export async function GET(request: Request) {
         downloadUrl: await signDownload(o.Key!),
         featured: featured.has(o.Key!),
         city: cities[o.Key!],
+        visit: visits[o.Key!],
       };
     }),
   );
