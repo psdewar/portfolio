@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
+import { CameraIcon } from "@phosphor-icons/react";
 import posthog from "posthog-js";
 import type { GalleryItem } from "../api/shared/moments";
+import { formatShortDate } from "../lib/dates";
+import { useSunLights } from "../hooks/useSunLights";
 
 // Full-res URLs are signed on demand and remembered for the session; the
 // featured payload itself stays stable so it can cache until an admin change.
@@ -23,6 +26,7 @@ const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const SCROLL_SPEED = 0.06; // px per ms (~1px per frame at 60fps)
 const RESUME_DELAY_MS = 5000;
 const START_PAUSE_MS = 1000;
+const CAR_W = 46;
 
 function wrap(x: number, half: number) {
   if (half <= 0) return x;
@@ -36,6 +40,12 @@ function tileSizes(item: { w?: number; h?: number }): string {
   return item.w && item.h ? `${Math.round((item.w / item.h) * 40)}svh` : "40svh";
 }
 
+function tileCenter(el: HTMLDivElement, copy: number, index: number): number {
+  const tile = el.querySelector<HTMLElement>(`[data-copy="${copy}"] [data-tile="${index}"]`);
+  if (!tile) return 0;
+  return tile.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft + tile.offsetWidth / 2;
+}
+
 function MomentsGallery({
   items,
   og = false,
@@ -43,35 +53,46 @@ function MomentsGallery({
   items: GalleryItem[];
   og?: boolean;
 }) {
-  const [open, setOpen] = useState<GalleryItem | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  const lights = useSunLights() ?? "off";
+  const [motion, setMotion] = useState<"forward" | "stopped" | "reverse">("forward");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
   const setWidth = useRef(0);
   const offset = useRef(0);
-  const lastScroll = useRef(0);
   const paused = useRef(false);
+  const treadRef = useRef<SVGPatternElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const prevOffset = useRef(0);
+  const traveled = useRef(0);
+  const viewCenter = useRef(0);
+  const groupLefts = useRef<number[]>([]);
+  const stopIndexRef = useRef(0);
+  const [stopIndex, setStopIndex] = useState(0);
   const rafId = useRef<number | null>(null);
   const lastTs = useRef(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const motionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialized = useRef(false);
-  const dir = useRef(1);
-  const barRef = useRef<HTMLDivElement>(null);
-  const cycleStart = useRef(0);
   const firstReady = useRef(false);
   const lightboxOpen = useRef(false);
-  const entries: Array<
-    { slate: string; index: number } | { item: GalleryItem; index: number }
-  > = [];
+  const inView = useRef(true);
+  const openedAt = useRef<number | null>(null);
+  const groups: Array<{
+    stop?: { city: string; visit?: string };
+    tiles: Array<{ item: GalleryItem; index: number }>;
+  }> = [];
   {
-    let lastCity = "";
+    let lastBoundary = "";
     items.forEach((it, i) => {
-      if (it.city && it.city !== lastCity) {
-        entries.push({ slate: it.city, index: i });
-        lastCity = it.city;
+      const boundary = it.city ? `${it.city}|${it.visit ?? ""}` : "";
+      if (groups.length === 0 || (boundary && boundary !== lastBoundary)) {
+        groups.push({ stop: it.city ? { city: it.city, visit: it.visit } : undefined, tiles: [] });
+        lastBoundary = boundary;
       }
-      entries.push({ item: it, index: i });
+      groups[groups.length - 1].tiles.push({ item: it, index: i });
     });
   }
 
@@ -80,23 +101,39 @@ function MomentsGallery({
   }, [open]);
 
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView.current = entry.isIntersecting;
+        if (entry.isIntersecting) lastTs.current = 0;
+      },
+      { threshold: 0.15 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
     const el = setRef.current;
     if (!el) return;
     const measure = () => {
       setWidth.current = el.offsetWidth;
-      const firstWidth = (el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0;
-      if (!initialized.current && setWidth.current > 0 && firstWidth > 0 && scrollRef.current) {
-        const start = setWidth.current - (scrollRef.current.clientWidth - firstWidth) / 2;
+      groupLefts.current = Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-group]"), (g) => g.offsetLeft);
+      const strip = scrollRef.current;
+      if (strip) viewCenter.current = strip.clientWidth / 2;
+      if (!initialized.current && setWidth.current > 0 && strip) {
+        const start = setWidth.current - (viewCenter.current - CAR_W / 2);
         scrollRef.current.scrollLeft = start;
         offset.current = start;
-        lastScroll.current = start;
-        cycleStart.current = start;
+        prevOffset.current = start;
         initialized.current = true;
       }
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (scrollRef.current) ro.observe(scrollRef.current);
     return () => ro.disconnect();
   }, [items]);
 
@@ -117,14 +154,10 @@ function MomentsGallery({
 
       const el = scrollRef.current;
       const w = setWidth.current;
-      if (el && w > 0 && initialized.current && firstReady.current && !lightboxOpen.current && !paused.current) {
-        offset.current = wrap(offset.current + dir.current * delta * SCROLL_SPEED, w);
+      if (el && w > 0 && initialized.current && firstReady.current && inView.current && !lightboxOpen.current && !paused.current) {
+        offset.current = wrap(offset.current + delta * SCROLL_SPEED, w);
         el.scrollLeft = offset.current;
-        lastScroll.current = el.scrollLeft;
-        if (barRef.current) {
-          const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
-          barRef.current.style.width = `${frac * 100}%`;
-        }
+        paintCar();
       }
       rafId.current = requestAnimationFrame(step);
     };
@@ -141,13 +174,17 @@ function MomentsGallery({
     return () => {
       if (resumeTimer.current) clearTimeout(resumeTimer.current);
       if (settleTimer.current) clearTimeout(settleTimer.current);
+      if (motionTimer.current) clearTimeout(motionTimer.current);
     };
   }, []);
 
   const pause = () => {
+    if (!paused.current) {
+      setMotion("stopped");
+      if (motionTimer.current) clearTimeout(motionTimer.current);
+    }
     paused.current = true;
     if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    if (scrollRef.current) lastScroll.current = scrollRef.current.scrollLeft;
   };
 
   const scheduleResume = () => {
@@ -156,7 +193,29 @@ function MomentsGallery({
       if (scrollRef.current) offset.current = scrollRef.current.scrollLeft;
       lastTs.current = 0;
       paused.current = false;
+      setMotion("forward");
     }, RESUME_DELAY_MS);
+  };
+
+  const paintCar = () => {
+    treadRef.current?.setAttribute("patternTransform", `translate(${((offset.current / 2) % 4).toFixed(2)} 0)`);
+    const w = setWidth.current;
+    if (!barRef.current || w <= 0) return;
+    let delta = offset.current - prevOffset.current;
+    if (delta > w / 2) delta -= w;
+    else if (delta < -w / 2) delta += w;
+    prevOffset.current = offset.current;
+    if (traveled.current < w) {
+      traveled.current = Math.min(w, Math.max(0, traveled.current + delta));
+      barRef.current.style.width = `${((traveled.current / w) * 100).toFixed(2)}%`;
+    }
+    const x = (offset.current + viewCenter.current) % w;
+    let idx = 0;
+    for (let i = 0; i < groupLefts.current.length; i++) if (groupLefts.current[i] <= x) idx = i;
+    if (idx !== stopIndexRef.current) {
+      stopIndexRef.current = idx;
+      setStopIndex(idx);
+    }
   };
 
   const applyWrap = () => {
@@ -165,8 +224,8 @@ function MomentsGallery({
     if (!el || w <= 0) return;
     const wrapped = wrap(el.scrollLeft, w);
     if (wrapped !== el.scrollLeft) el.scrollLeft = wrapped;
-    lastScroll.current = el.scrollLeft;
     offset.current = el.scrollLeft;
+    paintCar();
   };
 
   const onScroll = () => {
@@ -174,10 +233,7 @@ function MomentsGallery({
     const el = scrollRef.current;
     const w = setWidth.current;
     if (!el || w <= 0) return;
-    const moved = el.scrollLeft - lastScroll.current;
-    if (Math.abs(moved) > 0.3 && Math.abs(moved) < w) {
-      dir.current = moved > 0 ? 1 : -1;
-    }
+    const delta = el.scrollLeft - offset.current;
     const nearEdge =
       el.scrollLeft < w * 0.2 || el.scrollLeft > w * 3 - el.clientWidth - w * 0.2;
     if (nearEdge) {
@@ -186,14 +242,85 @@ function MomentsGallery({
       if (settleTimer.current) clearTimeout(settleTimer.current);
       settleTimer.current = setTimeout(applyWrap, 150);
     }
-    lastScroll.current = el.scrollLeft;
     offset.current = el.scrollLeft;
-    if (barRef.current) {
-      const frac = ((((offset.current - cycleStart.current) % w) + w) % w) / w;
-      barRef.current.style.width = `${frac * 100}%`;
+    if (delta !== 0 && Math.abs(delta) < w / 2) {
+      setMotion(delta > 0 ? "forward" : "reverse");
+      if (motionTimer.current) clearTimeout(motionTimer.current);
+      motionTimer.current = setTimeout(() => setMotion("stopped"), 160);
     }
+    paintCar();
     scheduleResume();
   };
+
+  const stepStrip = (dir: 1 | -1) => {
+    const el = scrollRef.current;
+    const w = setWidth.current;
+    if (!el || w <= 0) return;
+    const x = wrap(el.scrollLeft + viewCenter.current, w);
+    let cur = 0;
+    for (let i = 0; i < items.length; i++) {
+      const tile = el.querySelector<HTMLElement>(`[data-copy="1"] [data-tile="${i}"]`);
+      if (!tile) continue;
+      const left = tile.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+      const right = left + tile.offsetWidth;
+      if (x >= left && x < right) {
+        cur = i;
+        break;
+      }
+    }
+    const next = (cur + dir + items.length) % items.length;
+    const nextCopy = dir === 1 && next < cur ? 2 : dir === -1 && next > cur ? 0 : 1;
+    const center = tileCenter(el, nextCopy, next);
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    pause();
+    el.scrollTo({ left: center - viewCenter.current, behavior: reducedMotion ? "auto" : "smooth" });
+    scheduleResume();
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (lightboxOpen.current || !inView.current) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        stepStrip(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        stepStrip(-1);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [items]);
+
+  const handleOpen = (index: number) => {
+    openedAt.current = index;
+    setOpen(index);
+  };
+
+  const closeLightbox = () => {
+    const el = scrollRef.current;
+    if (el && open !== null && open !== openedAt.current) {
+      pause();
+      el.scrollLeft = tileCenter(el, 1, open) - viewCenter.current;
+      applyWrap();
+      scheduleResume();
+    }
+    setOpen(null);
+  };
+
+  const stepLightbox = (dir: 1 | -1) => {
+    setOpen((i) => (i === null ? i : (i + dir + items.length) % items.length));
+  };
+
+  const roadFill = "#3a3d45";
+  const lampFill = lights === "off" ? "#a9adb5" : "#ffffff";
+  const braking = open !== null || motion === "stopped";
+  const reversing = open === null && motion === "reverse";
+  const tailFill = braking ? "#ffd6d6" : reversing ? "#ffffff" : lights === "off" ? "#7d2222" : "#ff5a5a";
 
   if (og) {
     return (
@@ -207,6 +334,8 @@ function MomentsGallery({
   if (items.length === 0) return null;
 
   const mediaOrigin = items[0].src ? new URL(items[0].src).origin : null;
+  const currentStop = groups[stopIndex]?.stop;
+  const currentCount = groups[stopIndex]?.tiles.length ?? 0;
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
@@ -215,7 +344,7 @@ function MomentsGallery({
 
       <div
         ref={scrollRef}
-        className="moments-strip flex h-[40svh] overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        className="moments-strip flex h-[calc(40svh+56px)] overflow-x-auto overflow-y-hidden overscroll-x-contain"
         style={{ scrollbarWidth: "none" }}
         onPointerDown={pause}
         onPointerUp={scheduleResume}
@@ -227,83 +356,151 @@ function MomentsGallery({
         onScroll={onScroll}
       >
         {[0, 1, 2].map((copy) => (
-          <div key={copy} ref={copy === 0 ? setRef : undefined} className="flex h-full flex-none">
-            {entries.map((e, j) =>
-              "slate" in e ? (
-                <Slate key={`${copy}-slate-${j}`} city={e.slate} decorative={copy !== 0} />
-              ) : (
-                <Tile
-                  key={`${copy}-${e.item.key}`}
-                  item={e.item}
-                  decorative={copy !== 0}
-                  priority={copy === 0 && e.index === 0}
-                  onOpen={setOpen}
-                />
-              ),
-            )}
+          <div key={copy} ref={copy === 0 ? setRef : undefined} data-copy={copy} className="relative flex h-full flex-none">
+            {groups.map((g, gi) => (
+              <div key={`${copy}-${gi}`} data-group className="flex h-full flex-none">
+                {g.tiles.map((e) => (
+                  <div key={`${copy}-${e.item.key}`} data-tile={e.index} className="relative flex flex-none flex-col">
+                    <Tile
+                      item={e.item}
+                      decorative={copy !== 0}
+                      priority={copy === 0 && e.index === 0}
+                      index={e.index}
+                      onOpen={handleOpen}
+                    />
+                    <div className="h-14" style={{ background: roadFill }} />
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-[2px] bg-white/60" />
           </div>
         ))}
       </div>
-      <div ref={barRef} className="h-[3px] bg-[#d4a553]" style={{ width: "0%" }} />
+      <div className="pointer-events-none absolute inset-x-0 top-[40svh] z-[3] h-[3px]">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-white/60" />
+        <div className="absolute inset-x-0 top-0 flex h-[27px] items-center justify-center pt-[2px]">
+          {currentStop && (
+            <Stop key={stopIndex} city={currentStop.city} visit={currentStop.visit} count={currentCount} />
+          )}
+        </div>
+        <div
+          ref={barRef}
+          aria-hidden
+          className="absolute left-0 top-[25px] h-[6px] w-0"
+          style={{ background: "linear-gradient(180deg, #e0b53c 0 2px, transparent 2px 4px, #e0b53c 4px 6px)" }}
+        />
+        <svg
+          viewBox="0 0 46 18"
+          width="46"
+          height="18"
+          aria-hidden="true"
+          className="absolute left-1/2 top-[33.5px] -translate-x-1/2 overflow-visible"
+        >
+          <defs>
+            <pattern ref={treadRef} id="tread" patternUnits="userSpaceOnUse" width="4" height="4">
+              <rect width="4" height="4" fill="#141416" />
+              <rect x="1.2" width="1.6" height="4" fill="#6b6e75" />
+            </pattern>
+            <linearGradient id="beam-low" x1="0" x2="1">
+              <stop offset="0" stopColor="#fff1b8" stopOpacity=".55" />
+              <stop offset=".7" stopColor="#fff1b8" stopOpacity=".3" />
+              <stop offset="1" stopColor="#fff1b8" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="beam-high" x1="0" x2="1">
+              <stop offset="0" stopColor="#f2f7ff" stopOpacity=".7" />
+              <stop offset=".35" stopColor="#f2f7ff" stopOpacity=".3" />
+              <stop offset="1" stopColor="#f2f7ff" stopOpacity="0" />
+            </linearGradient>
+            <radialGradient id="lamp-glow">
+              <stop offset="0" stopColor="#fff" stopOpacity=".9" />
+              <stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="brake-glow">
+              <stop offset="0" stopColor="#ff3b3b" stopOpacity=".85" />
+              <stop offset="1" stopColor="#ff3b3b" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          {lights === "low" ? (
+            <>
+              <path d="M44.6 3.9L78 -3V11.5L44.6 5.7Z" fill="url(#beam-low)" />
+              <path d="M44.6 10.3L78 4.5V19L44.6 12.1Z" fill="url(#beam-low)" />
+            </>
+          ) : null}
+          {lights === "high" ? (
+            <>
+              <path d="M44.6 3.9L124 -4V11.5L44.6 5.7Z" fill="url(#beam-high)" />
+              <path d="M44.6 10.3L124 4.5V20L44.6 12.1Z" fill="url(#beam-high)" />
+            </>
+          ) : null}
+          <rect x="2" y="3.5" width="44" height="13.5" rx="3.5" fill="rgba(0,0,0,.35)" />
+          <g fill="url(#tread)">
+            <rect x="4.5" y="0" width="8" height="3.6" rx="0.9" />
+            <rect x="4.5" y="12.4" width="8" height="3.6" rx="0.9" />
+            <rect x="34.5" y="0" width="8" height="3.6" rx="0.9" />
+            <rect x="34.5" y="12.4" width="8" height="3.6" rx="0.9" />
+          </g>
+          <rect x="29.8" y="0.9" width="2.4" height="1.6" rx="0.5" fill="#1c1c1e" />
+          <rect x="29.8" y="13.5" width="2.4" height="1.6" rx="0.5" fill="#1c1c1e" />
+          <path
+            d="M3.5 2H41.5Q45 2 45 5.5V10.5Q45 14 41.5 14H3.5Q1 14 1 11.5V4.5Q1 2 3.5 2Z"
+            fill="#c8202b"
+            stroke="#7a0f18"
+            strokeWidth="0.6"
+          />
+          <path d="M4 2.8H41Q43.6 2.8 44.2 5" fill="none" stroke="#ef5560" strokeWidth="0.7" strokeLinecap="round" />
+          <path d="M4 13.2H41Q43.6 13.2 44.2 11" fill="none" stroke="#8c121c" strokeWidth="0.7" strokeLinecap="round" />
+          <path d="M39 2.7V13.3M6.5 2.7V13.3" stroke="#8c121c" strokeWidth="0.5" />
+          <rect x="11" y="3.4" width="20" height="9.2" rx="1" fill="#17181b" />
+          <path d="M31.5 3.6H33.5Q36.4 4.6 37 8Q36.4 11.4 33.5 12.4H31.5Z" fill="#17181b" />
+          <path d="M10.5 3.6V12.4H8.8Q7.9 8 8.8 3.6Z" fill="#17181b" />
+          <path d="M32.6 4.6L35.2 5.6M32.8 11.4L35.4 10.4" stroke="rgba(255,255,255,.35)" strokeWidth="0.6" strokeLinecap="round" />
+          {lights !== "off" ? (
+            <>
+              <circle cx="44" cy="4.8" r="2.6" fill="url(#lamp-glow)" />
+              <circle cx="44" cy="11.2" r="2.6" fill="url(#lamp-glow)" />
+            </>
+          ) : null}
+          <rect x="43.2" y="3.6" width="1.4" height="2.4" rx="0.5" fill={lampFill} />
+          <rect x="43.2" y="10" width="1.4" height="2.4" rx="0.5" fill={lampFill} />
+          {braking ? (
+            <>
+              <ellipse cx="0" cy="8" rx="9" ry="7" fill="url(#brake-glow)" opacity=".45" />
+              <circle cx="2" cy="4.8" r="3.2" fill="url(#brake-glow)" />
+              <circle cx="2" cy="11.2" r="3.2" fill="url(#brake-glow)" />
+            </>
+          ) : null}
+          {reversing ? (
+            <>
+              <circle cx="2" cy="4.8" r="2.6" fill="url(#lamp-glow)" />
+              <circle cx="2" cy="11.2" r="2.6" fill="url(#lamp-glow)" />
+            </>
+          ) : null}
+          <rect x="1.4" y="3.6" width="1.2" height="2.4" rx="0.5" style={{ fill: tailFill, transition: "fill .3s" }} />
+          <rect x="1.4" y="10" width="1.2" height="2.4" rx="0.5" style={{ fill: tailFill, transition: "fill .3s" }} />
+        </svg>
+      </div>
 
-      {open && <Lightbox item={open} onClose={() => setOpen(null)} />}
+      {open !== null && <Lightbox items={items} index={open} onClose={closeLightbox} onStep={stepLightbox} />}
     </section>
   );
 }
 
 export default MomentsGallery;
 
-function Slate({ city, decorative }: { city: string; decorative?: boolean }) {
-  const comma = city.lastIndexOf(", ");
-  const name = comma > 0 ? city.slice(0, comma) : city;
-  const region = comma > 0 ? city.slice(comma + 2) : "";
+function Stop({ city, visit, count }: { city: string; visit?: string; count: number }) {
   return (
     <div
-      aria-hidden={decorative || undefined}
-      className="relative flex h-full w-24 flex-none flex-col items-center justify-center overflow-hidden bg-[#262b3f] text-center sm:w-28"
+      aria-hidden
+      className="flex items-center gap-2 whitespace-nowrap font-bold uppercase tracking-wide"
+      style={{ fontFamily: "var(--font-parkinsans), sans-serif", animation: "momentFade .3s ease-out" }}
     >
-      <div
-        aria-hidden="true"
-        className="absolute bottom-0 left-1/2 top-16 border-l-2 border-dashed border-white/70"
-      />
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 56 40"
-        className="absolute left-1/2 top-6 h-10 w-14"
-        fill="none"
-        stroke="rgba(255,255,255,0.7)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="4 7"
-      >
-        <path d="M1 40 Q1 2 30 2 H55" />
-      </svg>
-      <div className="relative flex max-w-full flex-col items-center gap-2.5 bg-[#262b3f] px-2 py-3">
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-[#d4a553]"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
-        <span className="max-w-full font-bebas text-lg leading-[0.95] text-white sm:text-2xl">
-          {name}
-        </span>
-        {region && (
-          <span
-            className="text-xs uppercase tracking-[0.25em] text-[#d4a553]"
-            style={{ fontFamily: '"Space Mono", monospace' }}
-          >
-            {region}
-          </span>
-        )}
-      </div>
+      <span className="text-base leading-none text-white">{city}</span>
+      {visit && <span className="text-base leading-none text-[#b8bec8]">{formatShortDate(visit)}</span>}
+      <span className="flex items-center gap-1 text-base leading-none text-white">
+        <CameraIcon weight="fill" size={16} className="-translate-y-[0.6px]" />
+        {count}
+      </span>
     </div>
   );
 }
@@ -312,12 +509,14 @@ function Tile({
   item,
   decorative,
   priority,
+  index,
   onOpen,
 }: {
   item: GalleryItem;
   decorative?: boolean;
   priority?: boolean;
-  onOpen: (item: GalleryItem) => void;
+  index: number;
+  onOpen: (index: number) => void;
 }) {
   const isVideo = VIDEO_EXT.test(item.key);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -358,13 +557,13 @@ function Tile({
   return (
     <button
       type="button"
-      onClick={() => onOpen(item)}
+      onClick={() => onOpen(index)}
       onMouseEnter={playHover}
       onMouseLeave={pauseHover}
       aria-label={isVideo ? "Play moment" : "View moment"}
       aria-hidden={decorative || undefined}
       tabIndex={decorative ? -1 : undefined}
-      className="group relative h-full flex-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d4a553]"
+      className="group relative h-[40svh] flex-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#d4a553]"
       style={{ aspectRatio: hasDims ? `${item.w} / ${item.h}` : undefined }}
     >
       {isVideo ? (
@@ -405,16 +604,29 @@ function Tile({
   );
 }
 
-function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void }) {
+function Lightbox({
+  items,
+  index,
+  onClose,
+  onStep,
+}: {
+  items: GalleryItem[];
+  index: number;
+  onClose: () => void;
+  onStep: (dir: 1 | -1) => void;
+}) {
+  const item = items[index];
   const isVideo = VIDEO_EXT.test(item.key);
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const startT = useRef(0);
   const [full, setFull] = useState<string | null>(null);
 
   useEffect(() => {
     let on = true;
+    setFull(null);
     fetchView(item.key).then((u) => {
       if (on && u) setFull(u);
     });
@@ -426,6 +638,8 @@ function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") onStep(1);
+      else if (e.key === "ArrowLeft") onStep(-1);
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -434,25 +648,36 @@ function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void })
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [onClose, onStep]);
 
   const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     startT.current = Date.now();
     setDragging(true);
   };
   const onTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
-    if (startY.current === null) return;
-    setDragY(e.touches[0].clientY - startY.current);
+    if (startX.current === null || startY.current === null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+    setDragY(Math.abs(dy) >= Math.abs(dx) ? dy : 0);
   };
-  const onTouchEnd = () => {
-    if (startY.current === null) return;
+  const onTouchEnd = (e: ReactTouchEvent<HTMLDivElement>) => {
+    if (startX.current === null || startY.current === null) return;
+    const dx = e.changedTouches[0].clientX - startX.current;
     const dy = dragY;
     const velocity = Math.abs(dy) / Math.max(Date.now() - startT.current, 1);
+    startX.current = null;
     startY.current = null;
     setDragging(false);
-    if (Math.abs(dy) > 110 || velocity > 0.6) onClose();
-    else setDragY(0);
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      setDragY(0);
+      onStep(dx < 0 ? 1 : -1);
+    } else if (Math.abs(dy) > 110 || velocity > 0.6) {
+      onClose();
+    } else {
+      setDragY(0);
+    }
   };
 
   const fade = Math.min(Math.abs(dragY) / 600, 0.9);
@@ -480,6 +705,7 @@ function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void })
       >
         {isVideo && full ? (
           <video
+            key={item.key}
             src={full}
             controls
             autoPlay
@@ -490,6 +716,7 @@ function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void })
           />
         ) : (
           <img
+            key={item.key}
             src={(isVideo ? item.src : full ?? item.src) ?? undefined}
             alt=""
             onClick={(e) => e.stopPropagation()}
@@ -508,6 +735,36 @@ function Lightbox({ item, onClose }: { item: GalleryItem; onClose: () => void })
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
+      {items.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStep(-1);
+            }}
+            aria-label="Previous moment"
+            className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStep(1);
+            }}
+            aria-label="Next moment"
+            className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </>
+      )}
     </div>
   );
 }

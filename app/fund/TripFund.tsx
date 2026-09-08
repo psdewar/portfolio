@@ -1,7 +1,14 @@
 "use client";
 
 import { Social } from "../components/Social";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import posthog from "posthog-js";
 import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
@@ -11,8 +18,18 @@ import MomentsGallery from "../moments/MomentsGallery";
 import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
-import { formatEventDateShort } from "../lib/dates";
-import { type FundLeg, type FundLine, type FundBooked } from "./legs";
+import {
+  formatEventDateShort,
+  formatShortMonthDay,
+  seasonLabel,
+} from "../lib/dates";
+import {
+  type FundLeg,
+  type FundLine,
+  type FundBooked,
+  type FundRegion,
+  type FundNote,
+} from "./legs";
 import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
@@ -26,23 +43,6 @@ function isShowPast(dateStr: string): boolean {
 
 function money(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 13l4 4L19 7" />
-    </svg>
-  );
 }
 
 function ChevronIcon() {
@@ -62,38 +62,36 @@ function ChevronIcon() {
   );
 }
 
-function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
-  const linkable = !done && Boolean(booking.slug) && !booking.private;
+function BookedRow({ booking }: { booking: FundBooked }) {
+  const linkable = Boolean(booking.slug) && !booking.private;
   const timeAndDate = booking.date
     ? `${booking.doorTime ? `${booking.doorTime.toLowerCase()} ` : ""}${formatEventDateShort(booking.date)}`
     : "";
-  const meta = [booking.eventName || booking.place, timeAndDate].filter(Boolean).join(" · ");
-  const content = (
-    <>
-      {done && (
-        <span className="loc-check is-done" role="img" aria-label="Completed">
-          <CheckIcon />
+  const meta = [booking.eventName || booking.place, timeAndDate]
+    .filter(Boolean)
+    .join(" · ");
+  const name = (
+    <span className="loc-venue">
+      {booking.venue}
+      {linkable && (
+        <span className="rsvp-chip">
+          RSVP
+          <ArrowRightIcon size={13} weight="bold" />
         </span>
       )}
-      <div className="loc-info">
-        <span className="loc-venue">
-          {booking.venue}
-          {linkable && (
-            <span className="rsvp-chip">
-              RSVP
-              <ArrowRightIcon size={13} weight="bold" />
-            </span>
-          )}
-          {booking.hostHref && (
-            <span className="rsvp-chip">
-              Become concert host
-              <ArrowRightIcon size={13} weight="bold" />
-            </span>
-          )}
+      {booking.hostHref && (
+        <span className="rsvp-chip">
+          Become concert host
+          <ArrowRightIcon size={13} weight="bold" />
         </span>
-        {meta && <span className="loc-when">{meta}</span>}
-      </div>
-    </>
+      )}
+    </span>
+  );
+  const content = (
+    <div className="loc-info">
+      {name}
+      {meta && <span className="loc-when">{meta}</span>}
+    </div>
   );
   if (booking.hostHref) {
     return (
@@ -109,6 +107,57 @@ function BookedRow({ booking, done }: { booking: FundBooked; done: boolean }) {
   ) : (
     <div className="loc">{content}</div>
   );
+}
+
+type RouteStop = {
+  key: string;
+  place: string;
+  time: string;
+  detail?: string;
+  guest?: boolean;
+  next?: boolean;
+};
+
+function RouteOl({ stops }: { stops: RouteStop[] }) {
+  return (
+    <ol className="route">
+      {stops.map((s) => (
+        <li
+          key={s.key}
+          className={s.next ? "route-stop route-stop--next" : "route-stop"}
+        >
+          <div className="route-head">
+            <span className="route-place">{s.place}</span>
+            <span className="route-time">{s.time}</span>
+          </div>
+          {(s.detail || s.guest) &&
+            (s.guest ? (
+              <div className="route-detail route-detail--pill">
+                {s.detail && (
+                  <span className="route-detail-text">{s.detail}</span>
+                )}
+                <span className="route-pill">Guest appearance</span>
+              </div>
+            ) : (
+              <div className="route-detail">{s.detail}</div>
+            ))}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function RouteList({ stops, cols }: { stops: RouteStop[]; cols?: 1 | 2 }) {
+  if (cols === 2) {
+    const mid = Math.ceil(stops.length / 2);
+    return (
+      <div className="route-cols">
+        <RouteOl stops={stops.slice(0, mid)} />
+        <RouteOl stops={stops.slice(mid)} />
+      </div>
+    );
+  }
+  return <RouteOl stops={stops} />;
 }
 
 function LinePrice({ amount, gifted }: { amount: number; gifted: boolean }) {
@@ -232,13 +281,19 @@ function ContributeOverlay({
                 : `Send ${money(amountCents / 100)} with`}
             </span>
           )}
-          <button className="contribute-close" onClick={onClose} aria-label="Close">
+          <button
+            className="contribute-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
             &#x2715;
           </button>
         </div>
         {complete ? (
           <div className="contribute-thanks">
-            <div className="contribute-thanks-title">Thank you, find me on socials</div>
+            <div className="contribute-thanks-title">
+              Thank you, find me on socials
+            </div>
             <div className="contribute-thanks-spinner" aria-label="Loading" />
           </div>
         ) : method === "card" ? (
@@ -259,7 +314,11 @@ function ContributeOverlay({
               venmoUrl={venmoUrl}
               onCard={() => setMethod("card")}
               onSelect={(method) =>
-                posthog.capture("fund_payment_method", { trip, method, amount_cents: amountCents })
+                posthog.capture("fund_payment_method", {
+                  trip,
+                  method,
+                  amount_cents: amountCents,
+                })
               }
             />
           </div>
@@ -281,7 +340,11 @@ function LegIntroVideo({ videoId }: { videoId: string }) {
       onClick={() => openVideo(videoId, meta.src)}
       aria-label={label ? `Play ${label}` : "Play the intro video"}
     >
-      <img src={meta.thumbnail} alt={meta.title ?? "Intro video"} className="camp-intro-poster" />
+      <img
+        src={meta.thumbnail}
+        alt={meta.title ?? "Intro video"}
+        className="camp-intro-poster"
+      />
       <span className="camp-intro-scrim" />
       <span className="camp-intro-play">
         <PlayIcon size={28} weight="fill" />
@@ -301,15 +364,27 @@ export function TripFund({
   og = false,
   nextTrip,
   prevTrip,
-  concertsSoFar = 0,
+  pastNotes,
+  soFar,
   galleryItems,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
   og?: boolean;
-  nextTrip?: { slug: string; destination: string; label: "Up next" | "After this" | "Before this" };
-  prevTrip?: { slug: string; destination: string; stops: FundBooked[] };
-  concertsSoFar?: number;
+  nextTrip?: {
+    slug: string;
+    destination: string;
+    label: "Up next" | "After this" | "Before this";
+  };
+  prevTrip?: {
+    slug: string;
+    destination: string;
+    shortName: string;
+    stops: FundBooked[];
+    notes?: FundNote[];
+  };
+  pastNotes?: FundNote[];
+  soFar?: { count: number; regions: FundRegion[]; next?: FundRegion; since?: string };
   galleryItems: GalleryItem[];
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
@@ -322,19 +397,78 @@ export function TripFund({
   const hasBooked = allBooked.length > 0;
   const displayPast = past.length > 0 ? past : (prevTrip?.stops ?? []);
   const showsVisible = upcoming.length > 0 || displayPast.length > 0;
-  const lastPastDate = displayPast.filter((b) => b.date).map((b) => b.date!).sort().pop();
-  const pastMonth = lastPastDate
-    ? new Date(`${lastPastDate}T00:00:00`).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
-    : "";
-  const completedText = past.length > 0 ? `I brought my tour here in ${pastMonth}` : "";
-  const hasPreviousTrips = (leg.previousTrips ?? []).length > 0;
-  const showPrevTrip = !hasPreviousTrips && past.length === 0 ? prevTrip : undefined;
-  const completedHint = showPrevTrip
-    ? "Expand for locations and dates"
-    : "Expand for past locations and dates";
+  const pastDestination =
+    past.length > 0 ? leg.shortName : prevTrip?.shortName;
+  const pastSeason = seasonLabel(
+    displayPast.flatMap((b) => (b.date ? [b.date] : [])),
+  );
+  const displayNotes = (past.length > 0 ? pastNotes : prevTrip?.notes) ?? [];
+  const stats: {
+    n: number;
+    label: string;
+    pop?: ReactNode;
+  }[] = [
+    ...(displayPast.length > 0 && pastDestination
+      ? [
+          {
+            n: displayPast.filter((b) => !b.guestSet).length,
+            label: `concerts in ${pastDestination} ${pastSeason}`.trim(),
+            pop: (
+              <>
+                {displayNotes.map((t) => (
+                  <p key={t.label} className="stat-note">
+                    <span className="stat-note-label">{t.label}</span>
+                    {t.note}
+                  </p>
+                ))}
+                <RouteList
+                  cols={2}
+                  stops={displayPast.map((b, i) => ({
+                    key: `${b.slug ?? b.venue}-${i}`,
+                    place: b.city || b.venue,
+                    time: b.date ? formatShortMonthDay(b.date) : "",
+                    detail: b.venue !== b.city ? b.venue : undefined,
+                    guest: b.guestSet,
+                  }))}
+                />
+              </>
+            ),
+          },
+        ]
+      : []),
+    ...(soFar && soFar.count > 0
+      ? [
+          {
+            n: soFar.count,
+            label: `${displayPast.length > 0 ? "" : "concerts "}across North America since ${soFar.since}`,
+            pop:
+              soFar.regions.length > 0 ? (
+                <RouteList
+                  stops={[
+                    ...soFar.regions.map((r) => ({
+                      key: r.name,
+                      place: r.name,
+                      time: r.months,
+                      detail: r.cities.join(", "),
+                    })),
+                    ...(soFar.next
+                      ? [
+                          {
+                            key: soFar.next.name,
+                            place: soFar.next.name,
+                            time: soFar.next.months,
+                            detail: soFar.next.cities.join(", "),
+                            next: true,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              ) : undefined,
+          },
+        ]
+      : []),
+  ];
 
   const flightBy = leg.flightBy
     ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
@@ -343,7 +477,6 @@ export function TripFund({
       })
     : "";
   const tripTotal = LINES.reduce((sum, line) => sum + line.amount, 0);
-
 
   const navItems = [
     ...(showsVisible ? [{ id: "schedule", label: "Schedule" }] : []),
@@ -355,7 +488,9 @@ export function TripFund({
   const otherWays = [
     {
       key: "host",
-      label: hasBooked ? "Host another concert" : "Host a concert in your living room",
+      label: hasBooked
+        ? "Host another concert"
+        : "Host a concert in your living room",
       note: hasBooked ? "in your living room or local venue" : "or local venue",
     },
   ];
@@ -398,36 +533,77 @@ export function TripFund({
     }
   }
   if (honorariumAmt > 0) {
-    items.push({ key: "honorarium", amountCents: Math.round(honorariumAmt * 100) });
+    items.push({
+      key: "honorarium",
+      amountCents: Math.round(honorariumAmt * 100),
+    });
     venmoParts.push(`Honorarium $${honorariumAmt}`);
   }
   const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
   const venmoUrl = venmoPayUrl(total, venmoNote);
   const amountCents = items.reduce((sum, it) => sum + it.amountCents, 0);
 
-  const slugged = upcoming.filter(
-    (b): b is FundBooked & { slug: string } => Boolean(b.slug),
+  const slugged = upcoming.filter((b): b is FundBooked & { slug: string } =>
+    Boolean(b.slug),
   );
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
   const shareable = slugged.filter((b) => !b.private);
   const [shareHint, setShareHint] = useState("");
+  const [openStat, setOpenStat] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (openStat === null) return;
+    const stat = document.querySelector(".stat--open")!;
+    const pop = stat.querySelector<HTMLElement>(".stat-pop")!;
+    const range = document.createRange();
+    range.selectNodeContents(stat.querySelector("strong")!);
+    const digits = range.getBoundingClientRect();
+    const x = digits.left + digits.width / 2 - pop.getBoundingClientRect().left;
+    pop.style.setProperty("--arrow-x", `${x}px`);
+  }, [openStat]);
+  useEffect(() => {
+    if (openStat === null) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpenStat(null);
+    const onPointer = (e: PointerEvent) =>
+      !(e.target as Element).closest(".stat--open") && setOpenStat(null);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [openStat]);
 
   const inviteFor = (b: FundBooked) => {
     const city = (b.place ?? "").split(", ")[0];
-    const inCity = city && !b.venue.toLowerCase().includes(city.toLowerCase()) ? ` in ${city}` : "";
-    const where = b.eventName ? `the ${b.eventName} at ${b.venue}${inCity}` : `at ${b.venue}${inCity}`;
+    const inCity =
+      city && !b.venue.toLowerCase().includes(city.toLowerCase())
+        ? ` in ${city}`
+        : "";
+    const where = b.eventName
+      ? `the ${b.eventName} at ${b.venue}${inCity}`
+      : `at ${b.venue}${inCity}`;
     const d = b.date ? new Date(`${b.date}T00:00:00`) : null;
     const n = d?.getDate() ?? 0;
-    const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
-    const day = d ? ` this ${d.toLocaleDateString("en-US", { weekday: "long" })} the ${n}${suffix}` : "";
-    const time = b.doorTime ? `, ${b.doorTime.toLowerCase().replace(":00", "")}` : "";
+    const suffix =
+      n % 100 >= 11 && n % 100 <= 13
+        ? "th"
+        : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+    const day = d
+      ? ` this ${d.toLocaleDateString("en-US", { weekday: "long" })} the ${n}${suffix}`
+      : "";
+    const time = b.doorTime
+      ? `, ${b.doorTime.toLowerCase().replace(":00", "")}`
+      : "";
     return {
       text: `Come to Peyt's rap concert with me${day}! It's ${where}${time}.`,
       url: `${window.location.origin}/rsvp/${b.slug}`,
     };
   };
 
-  const shareInvite = (e: React.MouseEvent<HTMLAnchorElement>, b: FundBooked) => {
+  const shareInvite = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    b: FundBooked,
+  ) => {
     const invite = inviteFor(b);
     if (typeof navigator.share === "function") {
       e.preventDefault();
@@ -442,6 +618,15 @@ export function TripFund({
     );
     window.setTimeout(() => setShareHint(""), 5000);
   };
+
+  const gallery = (
+    <div
+      className="gallery-slot"
+      style={{ marginTop: stats.length > 0 ? 0 : 48 }}
+    >
+      <MomentsGallery items={galleryItems} og={og} />
+    </div>
+  );
 
   return (
     <>
@@ -474,6 +659,7 @@ export function TripFund({
   --teal: #4fb3a4;
   --gold: #d4a553;
   --gold-text: #d4a553;
+  --stat-num: var(--gold);
   --green: #4ade80;
   --grain-blend: overlay;
   --grain-opacity: 0.035;
@@ -497,6 +683,7 @@ export function TripFund({
     --teal: #2f8073;
     --gold: #d4a553;
     --gold-text: #a8842f;
+    --stat-num: var(--navy);
     --green: #16a34a;
     --grain-blend: multiply;
     --grain-opacity: 0.025;
@@ -542,10 +729,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 @media (min-width: 640px) { .bf-brand { font-size: 30px; } }
 .tail { display: flex; flex-direction: column; min-height: calc(100vh - 18px); }
 .bf-root > .wrap { padding-bottom: 0; }
-.bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail, .bf-root--og .done-toggle-row { display: none; }
-.bf-root--og .done--band summary { padding: 24px 16px; }
+.bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail { display: none; }
 .bf-root--og .masthead { margin-top: 12px; }
-.bf-root--og .prev-band { margin-top: 20px; }
 .bf-root--og > .wrap { height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column; }
 .bf-root--og .gallery-slot { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .bf-root--og .gallery-slot section { flex: 1; display: flex; min-height: 0; }
@@ -571,11 +756,6 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 
 .dateline { margin-top: 8px; display: flex; flex-direction: column; gap: 14px; }
 .loc { display: flex; align-items: center; gap: 10px; }
-.loc-check {
-  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center; color: #fff;
-}
-.loc-check.is-done { background: #16a34a; }
 .loc-info { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .loc-venue { color: var(--paper); font-weight: 700; font-size: clamp(20px, 4.6vw, 24px); line-height: 1.1; display: flex; align-items: center; gap: 10px; }
 .loc-venue em { font-style: italic; font-weight: 400; opacity: 0.75; font-size: 0.66em; }
@@ -610,9 +790,57 @@ html { scroll-behavior: smooth; }
 details[open] .expander { transform: rotate(180deg); }
 .row-hint-open, details[open] .row-hint-closed { display: none; }
 details[open] .row-hint-open { display: block; }
-.done-dateline { margin-top: 0; padding: 14px 18px 18px; border-top: 1px solid var(--rule); }
-.done-count { color: var(--ink-dim); font-size: var(--fs-sm); display: flex; align-items: baseline; gap: 8px; }
-.done-count strong { color: var(--gold); font-size: var(--fs-xl); font-weight: 700; line-height: 1; }
+.stats { display: flex; flex-direction: column; gap: 22px; padding: 30px 0 26px; color: var(--ink-dim); font-size: var(--fs-base); }
+.stat { position: relative; flex: 1 1 0; min-width: 0; }
+.stat--open { z-index: 8; }
+.stat-body { position: relative; z-index: 7; display: flex; align-items: center; gap: 16px; width: 100%; }
+button.stat-body { appearance: none; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
+button.stat-body span { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; text-decoration-color: rgba(212, 165, 83, 0.6); transition: text-decoration-color 0.15s; }
+button.stat-body span::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 0.55em; border-right: 2px solid var(--gold); border-bottom: 2px solid var(--gold); transform: translateY(-3px) rotate(45deg); transition: transform 0.2s; }
+button.stat-body:hover span, button.stat-body:focus-visible span, .stat--open .stat-body span { text-decoration-color: var(--gold); }
+.stat--open .stat-body span::after { transform: translateY(1px) rotate(-135deg); }
+button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset: 8px; }
+.stat-body strong { flex: 0 0 auto; color: var(--stat-num); font-size: clamp(60px, 15vw, 88px); font-weight: 700; line-height: 0.85; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.stat-body span { flex: 1 1 auto; max-width: 15em; line-height: 1.3; text-wrap: balance; }
+.stats .stat-pop { position: absolute; z-index: 6; top: calc(100% + 14px); left: 0; right: 0; margin: 0; padding: 18px; background: var(--navy); border-radius: 12px; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s ease, visibility 0s linear 0.2s; }
+.stat--open .stat-pop { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.2s ease; }
+.stat-pop::before { content: ""; position: absolute; top: -6px; left: calc(var(--arrow-x) - 6px); width: 12px; height: 12px; background: var(--navy); transform: rotate(45deg); }
+.stat-note { margin: 0 0 4px; font-family: var(--font-fraunces), Georgia, serif; font-size: var(--fs-md); line-height: 1.5; color: #ece9e0; }
+.stat-note-label { display: block; margin-bottom: 4px; font-family: inherit; font-style: italic; color: var(--gold); }
+.route { list-style: none; margin: 0; padding: 0; min-width: 0; }
+.route-stop { position: relative; margin: 0; padding: 0 0 14px 20px; }
+.route-stop:last-child { padding-bottom: 0; }
+.route-stop::before { content: ""; position: absolute; left: 3.5px; top: 16px; bottom: -8px; width: 1px; background: rgba(236, 233, 224, 0.22); }
+.route-stop:last-child::before { display: none; }
+.route-stop::after { content: ""; position: absolute; left: 0; top: 8px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: var(--gold); }
+.route-stop--next::after { background: var(--navy); border: 2px solid var(--gold); }
+.route-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
+.route-place { flex: 1 1 auto; min-width: 0; color: #ece9e0; font-size: 18px; font-weight: 700; line-height: 1.3; }
+.route-time { flex: 0 0 auto; color: rgba(236, 233, 224, 0.6); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.route-stop--next .route-time { color: var(--gold); }
+.route-detail { margin-top: 2px; color: rgba(236, 233, 224, 0.72); }
+.route-detail--pill { display: flex; align-items: flex-start; gap: 8px; justify-content: flex-end; }
+.route-detail-text { flex: 1 1 auto; min-width: 0; }
+.route-detail--pill .route-pill { margin-top: 2px; }
+.route-pill { flex: 0 0 auto; color: var(--gold); font-weight: 500; font-size: 12px; line-height: 1; letter-spacing: 0.01em; padding: 3px 8px; border: 1px solid rgba(212, 165, 83, 0.55); border-radius: 999px; background: transparent; }
+@media (min-width: 768px) {
+  .stats { flex-direction: row; gap: 32px; }
+  .stats .stat-pop { right: auto; width: max-content; max-width: calc(200% + 32px); }
+  .stats .stat--right .stat-pop { left: auto; right: 0; }
+}
+@media (max-width: 767px) {
+  .stat-body strong { min-width: calc(2ch - 0.08em); margin-left: -0.18em; text-align: right; }
+  .stat-body span { max-width: none; }
+}
+@media (min-width: 640px) {
+  .stat-note { max-width: 56ch; }
+  .route-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; align-items: start; }
+  .route-cols .route { min-width: 0; }
+}
+@media (max-width: 639px) {
+  .route-cols .route:not(:last-child) .route-stop:last-child::before { display: block; }
+  .route-cols .route:not(:last-child) .route-stop:last-child { padding-bottom: 14px; }
+}
 
 
 .pieces { list-style: none; margin: 0; padding: 0; }
@@ -637,24 +865,6 @@ details[open] .row-hint-open { display: block; }
 .total-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
 .total-amount { color: var(--paper); font-weight: 700; font-size: var(--fs-xl); line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 
-.prev-band { margin: 28px calc(50% - 50vw) 0; width: 100vw; background: var(--navy); }
-.done--band { margin-top: 0; border-radius: 0; background: transparent; overflow: visible; }
-.done--band summary { display: block; padding: 30px 16px 30px; }
-@media (min-width: 640px) { .done--band summary { padding: 36px 40px 36px; } }
-.done--band[open] summary { padding-bottom: 14px; }
-.done--band .prev-trip, .done--band .prev-label, .done--band .prev-note { display: block; }
-.done-toggle-row { display: flex; align-items: center; margin-top: 18px; }
-.done--band .row-hint { color: rgba(236, 233, 224, 0.72); margin-top: 0; }
-@media (hover: hover) { .done--band summary:hover .row-hint { color: #fff; } }
-.done--band .expander { color: var(--gold); }
-.done--band .done-dateline { margin: 0; padding: 16px 16px 30px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
-@media (min-width: 640px) { .done--band .done-dateline { margin: 0 40px; padding: 16px 0 36px; } }
-.done--band .loc-venue { color: #ece9e0; }
-.done--band .loc-when, .done--band .done-count { color: rgba(236, 233, 224, 0.72); }
-.prev-band-inner { max-width: 780px; margin: 0 auto; }
-.prev-trip + .prev-trip { margin-top: 26px; }
-.prev-label { color: var(--gold); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.prev-note { margin-top: 10px; font-family: var(--font-fraunces), Georgia, serif; font-size: var(--fs-lg); line-height: 1.5; color: #ece9e0; }
 
 .match-ctrl { flex: 0 0 auto; }
 .match-input-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -908,61 +1118,67 @@ details[open] .row-hint-open { display: block; }
           </div>
 
           {showsVisible && (
-            <section id="schedule" className="bf-section" style={{ marginTop: 16 }}>
+            <section
+              id="schedule"
+              className="bf-section"
+              style={{ marginTop: 16 }}
+            >
               {upcoming.length > 0 && (
                 <div className="dateline">
                   {upcoming.map((b, i) => (
-                    <BookedRow key={i} booking={b} done={false} />
+                    <BookedRow key={i} booking={b} />
                   ))}
                 </div>
               )}
-              {displayPast.length > 0 && (
-                <div className="prev-band">
-                  <div className="prev-band-inner">
-                    <details className="done done--band">
-                      <summary>
-                        {hasPreviousTrips ? (
-                          (leg.previousTrips ?? []).map((trip) => (
-                            <span key={trip.label} className="prev-trip">
-                              <span className="prev-label">{trip.label}</span>
-                              <span className="prev-note">{trip.note}</span>
-                            </span>
-                          ))
-                        ) : past.length > 0 ? (
-                          <span className="prev-note">{completedText}.</span>
-                        ) : showPrevTrip ? (
-                          <span className="prev-note">
-                            I went to {showPrevTrip.destination.replace(/^the /, "")}.
-                          </span>
-                        ) : null}
-                        <span className="done-toggle-row">
-                          <span className="row-hint row-hint-closed">{completedHint}</span>
-                          <span className="row-hint row-hint-open">See less</span>
-                          <span className="expander" aria-hidden="true">
-                            <ChevronIcon />
-                          </span>
-                        </span>
-                      </summary>
-                      <div className="dateline done-dateline">
-                        {displayPast.map((b, i) => (
-                          <BookedRow key={i} booking={b} done={isPastStop(b)} />
-                        ))}
-                        {concertsSoFar > 0 && (
-                          <span className="done-count">
-                            <strong>{concertsSoFar}</strong> concerts across North America so far
-                          </span>
-                        )}
+              {stats.length > 0 && (
+                <div className="stats">
+                  {stats.map((s, i) =>
+                    s.pop ? (
+                      <div
+                        key={s.label}
+                        className={[
+                          "stat",
+                          i > 0 ? "stat--right" : "",
+                          openStat === i ? "stat--open" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <button
+                          type="button"
+                          className="stat-body"
+                          aria-expanded={openStat === i}
+                          aria-controls={`stat-pop-${i}`}
+                          onClick={() =>
+                            setOpenStat((o) => (o === i ? null : i))
+                          }
+                        >
+                          <strong>{s.n}</strong>
+                          <span>{s.label}</span>
+                        </button>
+                        <div
+                          id={`stat-pop-${i}`}
+                          className="stat-pop dateline"
+                          aria-hidden={openStat !== i}
+                        >
+                          {s.pop}
+                        </div>
                       </div>
-                    </details>
-                  </div>
+                    ) : (
+                      <div key={s.label} className="stat">
+                        <div className="stat-body">
+                          <strong>{s.n}</strong>
+                          <span>{s.label}</span>
+                        </div>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </section>
           )}
 
-          <div className="gallery-slot" style={{ marginTop: displayPast.length > 0 ? 0 : 48 }}>
-            <MomentsGallery items={galleryItems} og={og} />
-          </div>
+          {gallery}
 
           <section id="cover" className="bf-section">
             <div className="section-head">Cover my trip</div>
@@ -972,7 +1188,9 @@ details[open] .row-hint-open { display: block; }
             <ul className="pieces">
               {LINES.map((line) => {
                 const note =
-                  line.key === "flight" && flightBy ? `${line.note} · booked by ${flightBy}` : line.note;
+                  line.key === "flight" && flightBy
+                    ? `${line.note} · booked by ${flightBy}`
+                    : line.note;
                 return (
                   <li key={line.key} className="piece">
                     <div className="piece-row">
@@ -981,12 +1199,17 @@ details[open] .row-hint-open { display: block; }
                           <span className="p-label">{line.label}</span>{" "}
                           {note ? <span className="p-note">{note}</span> : null}
                         </div>
-                        <LinePrice amount={line.amount} gifted={coveredKeys.has(line.key)} />
+                        <LinePrice
+                          amount={line.amount}
+                          gifted={coveredKeys.has(line.key)}
+                        />
                       </div>
                       {!coveredKeys.has(line.key) && (
                         <LineMatchControl
                           value={lineVals[line.key]}
-                          onChange={(v) => setLineVals((prev) => ({ ...prev, [line.key]: v }))}
+                          onChange={(v) =>
+                            setLineVals((prev) => ({ ...prev, [line.key]: v }))
+                          }
                           full={line.amount}
                           presets={QUICK_PICKS.filter((p) => p < line.amount)}
                         />
@@ -999,7 +1222,10 @@ details[open] .row-hint-open { display: block; }
                           `Hi Peyt, I've got a place you could stay for your trip!`,
                         )}`}
                       >
-                        or <span className="inkind-cta">offer your home or Center to stay</span>
+                        or{" "}
+                        <span className="inkind-cta">
+                          offer your home or Center to stay
+                        </span>
                       </a>
                     )}
                   </li>
@@ -1010,7 +1236,9 @@ details[open] .row-hint-open { display: block; }
                   <div className="p-head">
                     <div className="p-text">
                       <span className="p-label">Honorarium</span>{" "}
-                      <span className="p-note">gift for performance, separate from tour expenses</span>
+                      <span className="p-note">
+                        gift for performance, separate from tour expenses
+                      </span>
                     </div>
                   </div>
                   <LineMatchControl
@@ -1026,10 +1254,9 @@ details[open] .row-hint-open { display: block; }
               <div className="total-amount">~{money(tripTotal)}</div>
             </div>
             <p className="bf-footer" style={{ marginTop: 8 }}>
-              Estimates from my previous tour stops, subject to change. I also bring merch and a
-              donation box to every concert.
+              Estimates from my previous tour stops, subject to change. I also
+              bring merch and a donation box to every concert.
             </p>
-
           </section>
 
           {intro && (
@@ -1041,136 +1268,163 @@ details[open] .row-hint-open { display: block; }
                 onClick={() => (introOpen ? setIntroOpen(false) : openIntro())}
                 aria-expanded={introOpen}
               >
-                <img src="/images/home/bio.jpeg" alt="" className="intro-face" />
+                <img
+                  src="/images/home/bio.jpeg"
+                  alt=""
+                  className="intro-face"
+                />
                 <span className="intro-row-text">
                   Rapper and software engineer from Bellevue, Washington
-                  <span className="row-hint">{introOpen ? "See less" : "Expand for more info"}</span>
+                  <span className="row-hint">
+                    {introOpen ? "See less" : "Expand for more info"}
+                  </span>
                 </span>
-                <span className={introOpen ? "expander is-open" : "expander"} aria-hidden="true">
+                <span
+                  className={introOpen ? "expander is-open" : "expander"}
+                  aria-hidden="true"
+                >
                   <ChevronIcon />
                 </span>
               </button>
-              {introOpen && <div className="intro-reveal space-y-8">{intro}</div>}
+              {introOpen && (
+                <div className="intro-reveal space-y-8">{intro}</div>
+              )}
             </section>
           )}
         </div>
 
         <div className="tail">
           <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
-          <section id="help" className="bf-section">
-            <div className="section-head">You can also</div>
-            {posterSlugs.length > 0 && (
+            <section id="help" className="bf-section">
+              <div className="section-head">You can also</div>
+              {posterSlugs.length > 0 && (
+                <ul className="other-ways">
+                  <li className="other-item">
+                    <div className="other-body">
+                      <div className="other-label">Spread the word</div>
+                      <div className="other-note">
+                        personal texts work best, group chats help too
+                        {slugged.length === 1 && (
+                          <>
+                            {" · "}
+                            <a
+                              href={`/api/poster/${posterSlugs[0]}?format=print`}
+                              className="inkind-cta"
+                            >
+                              print version
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {shareable.length === 1 ? (
+                      <a
+                        className="other-action"
+                        href={`/rsvp/${shareable[0].slug}`}
+                        onClick={(e) => shareInvite(e, shareable[0])}
+                      >
+                        Invite a friend
+                      </a>
+                    ) : (
+                      <details className="poster-menu">
+                        <summary className="other-action">
+                          Invite a friend
+                          <span
+                            className="poster-menu-caret"
+                            aria-hidden="true"
+                          >
+                            <ChevronIcon />
+                          </span>
+                        </summary>
+                        <div className="poster-menu-list">
+                          {shareable.map((b) => (
+                            <a
+                              key={b.slug}
+                              href={`/rsvp/${b.slug}`}
+                              onClick={(e) => shareInvite(e, b)}
+                            >
+                              {b.eventName || b.venue}
+                            </a>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                    {shareHint && <p className="poster-hint">{shareHint}</p>}
+                  </li>
+                </ul>
+              )}
               <ul className="other-ways">
                 <li className="other-item">
                   <div className="other-body">
-                    <div className="other-label">Spread the word</div>
+                    <div className="other-label">Donate in person</div>
                     <div className="other-note">
-                      personal texts work best, group chats help too
-                      {slugged.length === 1 && (
-                        <>
-                          {" · "}
-                          <a href={`/api/poster/${posterSlugs[0]}?format=print`} className="inkind-cta">
-                            print version
-                          </a>
-                        </>
-                      )}
+                      find me at one of my concerts
                     </div>
                   </div>
-                  {shareable.length === 1 ? (
-                    <a
-                      className="other-action"
-                      href={`/rsvp/${shareable[0].slug}`}
-                      onClick={(e) => shareInvite(e, shareable[0])}
-                    >
-                      Invite a friend
-                    </a>
-                  ) : (
-                    <details className="poster-menu">
-                      <summary className="other-action">
-                        Invite a friend
-                        <span className="poster-menu-caret" aria-hidden="true">
-                          <ChevronIcon />
-                        </span>
-                      </summary>
-                      <div className="poster-menu-list">
-                        {shareable.map((b) => (
-                          <a key={b.slug} href={`/rsvp/${b.slug}`} onClick={(e) => shareInvite(e, b)}>
-                            {b.eventName || b.venue}
-                          </a>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                  {shareHint && <p className="poster-hint">{shareHint}</p>}
+                  <a
+                    className="other-action"
+                    href="/shop"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setModal("shop");
+                    }}
+                  >
+                    Or buy merch
+                  </a>
                 </li>
               </ul>
+
+              <ul className="other-ways">
+                {otherWays.map((item) => (
+                  <li key={item.key} className="other-item">
+                    <div className="other-body">
+                      <div className="other-label">{item.label}</div>
+                      {item.note ? (
+                        <div className="other-note">{item.note}</div>
+                      ) : null}
+                    </div>
+                    {item.key === "host" && (
+                      <a
+                        className="other-action"
+                        href="/sponsor/host"
+                        onMouseEnter={preloadGoogleMaps}
+                        onFocus={preloadGoogleMaps}
+                        onTouchStart={preloadGoogleMaps}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setModal("host");
+                        }}
+                      >
+                        Become concert host
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {nextTrip && (
+              <a className="next-trip" href={`/fund/${nextTrip.slug}`}>
+                <span className="next-trip-title">
+                  {nextTrip.label}: {nextTrip.destination.replace(/^the /, "")}
+                </span>
+                <span className="next-trip-arrow" aria-hidden="true">
+                  <ArrowRightIcon size={34} weight="bold" />
+                </span>
+              </a>
             )}
-            <ul className="other-ways">
-              <li className="other-item">
-                <div className="other-body">
-                  <div className="other-label">Donate in person</div>
-                  <div className="other-note">find me at one of my concerts</div>
-                </div>
-                <a
-                  className="other-action"
-                  href="/shop"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setModal("shop");
-                  }}
-                >
-                  Or buy merch
-                </a>
-              </li>
-            </ul>
-
-            <ul className="other-ways">
-              {otherWays.map((item) => (
-                <li key={item.key} className="other-item">
-                  <div className="other-body">
-                    <div className="other-label">{item.label}</div>
-                    {item.note ? <div className="other-note">{item.note}</div> : null}
-                  </div>
-                  {item.key === "host" && (
-                    <a
-                      className="other-action"
-                      href="/sponsor/host"
-                      onMouseEnter={preloadGoogleMaps}
-                      onFocus={preloadGoogleMaps}
-                      onTouchStart={preloadGoogleMaps}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setModal("host");
-                      }}
-                    >
-                      Become concert host
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {nextTrip && (
-            <a className="next-trip" href={`/fund/${nextTrip.slug}`}>
-              <span className="next-trip-title">
-                {nextTrip.label}: {nextTrip.destination.replace(/^the /, "")}
-              </span>
-              <span className="next-trip-arrow" aria-hidden="true">
-                <ArrowRightIcon size={34} weight="bold" />
-              </span>
-            </a>
-          )}
           </div>
           <footer className="site-foot">
-          <div className="site-foot-inner">
-            <div className="site-foot-row">
-              <a href="/" className="bf-brand">Peyt Spencer</a>
-              <div className="site-foot-social">
-                <Social isHorizontal />
+            <div className="site-foot-inner">
+              <div className="site-foot-row">
+                <a href="/" className="bf-brand">
+                  Peyt Spencer
+                </a>
+                <div className="site-foot-social">
+                  <Social isHorizontal />
+                </div>
               </div>
             </div>
-          </div>
           </footer>
         </div>
       </div>

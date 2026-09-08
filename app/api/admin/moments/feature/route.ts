@@ -8,6 +8,8 @@ import {
   ensureProcessed,
   getThumbs,
   signView,
+  resolveCities,
+  resolveStops,
 } from "../../../shared/moments";
 
 export async function POST(request: Request) {
@@ -18,10 +20,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const { key, featured, after } = (await request.json().catch(() => ({}))) as {
+  const { key, featured } = (await request.json().catch(() => ({}))) as {
     key?: string;
     featured?: boolean;
-    after?: string;
   };
   if (!key || !key.startsWith("drops/")) {
     return NextResponse.json({ error: "Invalid key." }, { status: 400 });
@@ -43,7 +44,16 @@ export async function POST(request: Request) {
     if (current.includes(key)) {
       next = current;
     } else {
-      const at = after ? current.indexOf(after) : -1;
+      const all = [...current, key];
+      const cities = await resolveCities(all);
+      const stops = await resolveStops(all, cities);
+      const group = (k: string) => (cities[k] ? `${cities[k]}|${stops[k]?.visit ?? ""}` : "");
+      const newGroup = group(key);
+      const newLeg = stops[key]?.leg;
+      let at = newGroup ? current.map(group).lastIndexOf(newGroup) : -1;
+      if (at < 0 && newLeg) {
+        at = current.map((k) => stops[k]?.leg).lastIndexOf(newLeg);
+      }
       next = [...current];
       next.splice(at >= 0 ? at + 1 : next.length, 0, key);
     }

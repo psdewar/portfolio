@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import MomentsGallery from "../MomentsGallery";
+import SunScheme from "../../components/SunScheme";
 import { getFeaturedGalleryItems } from "../../api/shared/moments";
 
 const title = "Moments from the road";
@@ -32,6 +33,7 @@ export default async function GalleryPage() {
   const items = await getFeaturedGalleryItems();
   return (
     <div className="mx-auto w-full max-w-5xl px-4">
+      <SunScheme />
       <MomentsGallery items={items} />
     </div>
   );

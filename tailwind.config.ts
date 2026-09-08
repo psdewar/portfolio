@@ -8,6 +8,13 @@ export default {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: [
+    "variant",
+    [
+      '@media (prefers-color-scheme: dark) { &:not(:where([data-scheme="light"], [data-scheme="light"] *)) }',
+      '&:where([data-scheme="dark"], [data-scheme="dark"] *)',
+    ],
+  ],
   theme: {
     extend: {
       screens: {

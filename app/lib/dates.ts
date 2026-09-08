@@ -59,6 +59,35 @@ export function formatLongDate(iso: string): string {
   });
 }
 
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "June",
+  "July",
+  "Aug",
+  "Sept",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+export function shortMonth(iso: string): string {
+  return SHORT_MONTHS[parseLocalDate(iso).getMonth()];
+}
+
+export function formatShortMonthDay(iso: string): string {
+  const d = parseLocalDate(iso);
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+export function formatShortDate(iso: string): string {
+  const d = parseLocalDate(iso);
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 export function isDatePast(iso: string): boolean {
   return new Date(iso + "T23:59:59") <= new Date();
 }
@@ -72,16 +101,22 @@ export function formatCombinedDates(dates: string[]): string {
   const month = (d: Date) => d.toLocaleString("en-US", { month: "long" });
   const long = (d: Date) => d.toLocaleString("en-US", { weekday: "long" });
   const sameMonth = parsed.every(
-    (d) => d.getMonth() === parsed[0].getMonth() && d.getFullYear() === parsed[0].getFullYear(),
+    (d) =>
+      d.getMonth() === parsed[0].getMonth() &&
+      d.getFullYear() === parsed[0].getFullYear(),
   );
-  const sameYear = parsed.every((d) => d.getFullYear() === parsed[0].getFullYear());
+  const sameYear = parsed.every(
+    (d) => d.getFullYear() === parsed[0].getFullYear(),
+  );
   const includeWeekdays = parsed.length <= 3;
 
   if (parsed.length === 1) {
     return `${long(parsed[0])}, ${month(parsed[0])} ${parsed[0].getDate()}, ${parsed[0].getFullYear()}`;
   }
   if (sameMonth && includeWeekdays) {
-    const dayPairs = parsed.map((d) => `${short(d)} ${d.getDate()}`).join(" · ");
+    const dayPairs = parsed
+      .map((d) => `${short(d)} ${d.getDate()}`)
+      .join(" · ");
     return `${dayPairs} · ${month(parsed[0])} ${parsed[0].getFullYear()}`;
   }
   if (sameMonth) {
@@ -104,15 +139,58 @@ export function formatCombinedDates(dates: string[]): string {
 
 export function formatNextStream(iso: string): string {
   const date = new Date(iso);
-  const options: Intl.DateTimeFormatOptions = { timeZone: "America/Los_Angeles" };
-  const day = date.toLocaleDateString("en-US", { ...options, weekday: "short" }).toUpperCase();
-  const month = date.toLocaleDateString("en-US", { ...options, month: "short" }).toUpperCase();
-  const dayNum = parseInt(date.toLocaleDateString("en-US", { ...options, day: "numeric" }), 10);
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: "America/Los_Angeles",
+  };
+  const day = date
+    .toLocaleDateString("en-US", { ...options, weekday: "short" })
+    .toUpperCase();
+  const month = date
+    .toLocaleDateString("en-US", { ...options, month: "short" })
+    .toUpperCase();
+  const dayNum = parseInt(
+    date.toLocaleDateString("en-US", { ...options, day: "numeric" }),
+    10,
+  );
   const hour = parseInt(
-    date.toLocaleString("en-US", { ...options, hour: "numeric", hour12: false }),
+    date.toLocaleString("en-US", {
+      ...options,
+      hour: "numeric",
+      hour12: false,
+    }),
     10,
   );
   const ampm = hour >= 12 ? "PM" : "AM";
   const hour12 = hour % 12 || 12;
   return `${day} ${month} ${dayNum} · ${hour12}${ampm} PT`;
+}
+
+function seasonOf(d: Date): { name: string; year: number } {
+  const m = d.getMonth();
+  const day = d.getDate();
+  const y = d.getFullYear();
+  if (m < 2 || (m === 2 && day < 20)) return { name: "winter", year: y };
+  if (m < 5 || (m === 5 && day < 21)) return { name: "spring", year: y };
+  if (m < 8 || (m === 8 && day < 22)) return { name: "summer", year: y };
+  if (m < 11 || (m === 11 && day < 21)) return { name: "fall", year: y };
+  return { name: "winter", year: y + 1 };
+}
+
+export function seasonLabel(dates: string[], today = new Date()): string {
+  const sorted = [...dates].sort();
+  if (sorted.length === 0) return "";
+  const first = seasonOf(parseLocalDate(sorted[0]));
+  const last = seasonOf(parseLocalDate(sorted[sorted.length - 1]));
+  const now = seasonOf(today);
+  if (first.name !== last.name || first.year !== last.year) {
+    const [a, b] = [sorted[0], sorted[sorted.length - 1]].map((iso) =>
+      parseLocalDate(iso).toLocaleDateString("en-US", { month: "long" }),
+    );
+    return last.year === now.year
+      ? `from ${a} to ${b}`
+      : `from ${a} to ${b} ${last.year}`;
+  }
+  if (first.year === now.year) return `this ${first.name}`;
+  if (first.year === now.year - 1) return `last ${first.name}`;
+  return `in ${first.name} ${first.year}`;
 }

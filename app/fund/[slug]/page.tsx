@@ -5,11 +5,17 @@ import { TripFund } from "../TripFund";
 import PrivateNudgeToast from "../PrivateNudgeToast";
 import HashScroll from "../HashScroll";
 import ArtistIntro from "../../components/ArtistIntro";
-import { getLeg, getLegs, toFundView, FUND_LEGS, type FundBooked } from "../legs";
+import {
+  getLeg,
+  getLegs,
+  toFundView,
+  FUND_LEGS,
+  type FundBooked,
+  type FundRegion,
+} from "../legs";
 import {
   getShows,
   isShowOnTrip,
-  isShowListable,
   isShowDraft,
   needsHostLocation,
   getVenueLabel,
@@ -17,7 +23,13 @@ import {
 } from "../../lib/shows";
 import { confirmPath } from "../../lib/confirm";
 import { getFundingStats } from "../../lib/funding";
-import { doorTimeMinutes, isDatePast, parseLocalDate } from "../../lib/dates";
+import {
+  doorTimeMinutes,
+  isDatePast,
+  parseLocalDate,
+  shortMonth,
+} from "../../lib/dates";
+import { regionColloquial, regionName } from "../../lib/region-colloquial";
 import { getFeaturedGalleryItems } from "../../api/shared/moments";
 import type { Metadata, Viewport } from "next";
 
@@ -76,7 +88,8 @@ export async function generateMetadata({
 
   const title = project.title;
   const description =
-    project.tagline || `Support ${project.title} - an independent project by Peyt Spencer`;
+    project.tagline ||
+    `Support ${project.title} - an independent project by Peyt Spencer`;
   const ogImage = `https://peytspencer.com/api/og/fund/${slug}`;
 
   return {
@@ -96,12 +109,31 @@ export async function generateMetadata({
   };
 }
 
+function displayVenue(label: string, city: string, region: string): string {
+  const trimmed = label
+    .replace(new RegExp(`,\\s*${city}(,\\s*${region})?$`, "i"), "")
+    .trim();
+  const shouting =
+    trimmed === trimmed.toUpperCase() && /[A-Z]{3,}/.test(trimmed);
+  return shouting
+    ? trimmed.toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase())
+    : trimmed;
+}
+
+function joinAnd(items: string[]): string {
+  return items.length > 1
+    ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`
+    : items[0];
+}
+
 function lastCluster(dates: string[]): string[] {
   if (dates.length === 0) return [];
   const cluster = [dates[dates.length - 1]];
   for (let i = dates.length - 2; i >= 0; i--) {
     const gapDays =
-      (parseLocalDate(cluster[0]).getTime() - parseLocalDate(dates[i]).getTime()) / 86400000;
+      (parseLocalDate(cluster[0]).getTime() -
+        parseLocalDate(dates[i]).getTime()) /
+      86400000;
     if (gapDays > 14) break;
     cluster.unshift(dates[i]);
   }
@@ -140,7 +172,9 @@ export default async function Page({
         : (getVenueLabel(s) ?? s.venue ?? s.city);
       return {
         slug: s.slug,
-        venue,
+        venue: displayVenue(venue, s.city, s.region),
+        city: s.city,
+        guestSet: !!s.guestSet,
         eventName: s.eventName ?? null,
         place: [s.city, s.region].filter(Boolean).join(", "),
         date: s.date,
@@ -159,8 +193,15 @@ export default async function Page({
           s.date >= today &&
           !legShowDates.has(s.date),
       )
-      .map((s) => ({ venue: "Open", date: s.date, hostHref: confirmPath(s.slug) }));
-    const derived: FundBooked[] = [...legShows.map(toBooked), ...openInvites].sort(
+      .map((s) => ({
+        venue: "Open",
+        date: s.date,
+        hostHref: confirmPath(s.slug),
+      }));
+    const derived: FundBooked[] = [
+      ...legShows.map(toBooked),
+      ...openInvites,
+    ].sort(
       (a, b) =>
         (a.date ?? "").localeCompare(b.date ?? "") ||
         doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
@@ -168,7 +209,14 @@ export default async function Page({
     const booked = derived.length ? derived : fund.booked;
 
     const legs = await getLegs();
-    const legRanges = new Map<string, { start: string; end: string; destination: string }>();
+    const legNotes = (legSlug: string) =>
+      (legs.find((l) => l.slug === legSlug)?.fund?.previousTrips ?? []).flatMap(
+        (t) => (t.note ? [{ label: t.label, note: t.note }] : []),
+      );
+    const legRanges = new Map<
+      string,
+      { start: string; end: string; destination: string; shortName: string }
+    >();
     for (const l of legs) {
       if (!l.fund) continue;
       const dates = shows
@@ -181,20 +229,25 @@ export default async function Page({
           start: cluster[0],
           end: cluster[cluster.length - 1],
           destination: l.fund.destination,
+          shortName: l.fund.shortName,
         });
       }
     }
     const page = legRanges.get(slug);
     const pageDone = Boolean(page && page.end < today);
     const otherRanges = [...legRanges.entries()].filter(([s]) => s !== slug);
-    const byStart = (a: (typeof otherRanges)[number], b: (typeof otherRanges)[number]) =>
-      a[1].start.localeCompare(b[1].start);
+    const byStart = (
+      a: (typeof otherRanges)[number],
+      b: (typeof otherRanges)[number],
+    ) => a[1].start.localeCompare(b[1].start);
     const nextCandidate = pageDone
       ? otherRanges.filter(([, r]) => r.end >= today).sort(byStart)[0]
       : page
         ? otherRanges.filter(([, r]) => r.start > page.end).sort(byStart)[0]
         : undefined;
-    const nextLabel: "Up next" | "After this" = pageDone ? "Up next" : "After this";
+    const nextLabel: "Up next" | "After this" = pageDone
+      ? "Up next"
+      : "After this";
     const pageStart = page?.start ?? "9999-12-31";
     const prevCandidate = otherRanges
       .filter(([, r]) => r.start < pageStart)
@@ -202,21 +255,98 @@ export default async function Page({
     const prevStops = prevCandidate
       ? shows
           .filter((s) => s.leg === prevCandidate[0] && isShowOnTrip(s))
-          .sort((a, b) => (a.date < b.date ? -1 : 1))
+          .sort(
+            (a, b) =>
+              a.date.localeCompare(b.date) ||
+              doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
+          )
           .map(toBooked)
       : [];
     const prevTrip =
       prevCandidate && prevStops.some((b) => b.date && isDatePast(b.date))
-        ? { slug: prevCandidate[0], destination: prevCandidate[1].destination, stops: prevStops }
+        ? {
+            slug: prevCandidate[0],
+            destination: prevCandidate[1].destination,
+            shortName: prevCandidate[1].shortName,
+            stops: prevStops,
+            notes: legNotes(prevCandidate[0]),
+          }
         : undefined;
+    const pastShows = shows
+      .filter((s) => isShowOnTrip(s) && !s.guestSet && isDatePast(s.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const toRegion = (name: string, list: typeof pastShows): FundRegion => {
+      const cities = new Map<string, number>();
+      const months: string[] = [];
+      for (const s of list) {
+        cities.set(s.city, (cities.get(s.city) ?? 0) + 1);
+        const month = shortMonth(s.date);
+        if (!months.includes(month)) months.push(month);
+      }
+      return {
+        name,
+        cities: [...cities].map(([city, n]) => (n > 1 ? `${city} x${n}` : city)),
+        months: joinAnd(months),
+      };
+    };
+    const nameByKey = new Map<string, string>();
+    const regions = new Map<
+      string,
+      { name: string; shows: typeof pastShows; codes: string[] }
+    >();
+    for (const s of pastShows) {
+      const key = s.leg ?? regionColloquial(s.city, s.region);
+      const name =
+        nameByKey.get(key) ??
+        legs.find((l) => l.slug === s.leg)?.fund?.destination ??
+        regionColloquial(s.city, s.region);
+      nameByKey.set(key, name);
+      const r = regions.get(name) ?? { name, shows: [], codes: [] };
+      r.shows.push(s);
+      if (!r.codes.includes(s.region)) r.codes.push(s.region);
+      regions.set(name, r);
+    }
+    const upcomingShows = legShows.filter(
+      (s) => !s.guestSet && !isDatePast(s.date),
+    );
+    const soFar = {
+      count: pastShows.length,
+      regions: [...regions.values()].map((r): FundRegion => {
+        const plain = r.codes.map(regionName);
+        const name = plain.some((n) => r.name.includes(n))
+          ? r.name.replace(/^the /, "")
+          : joinAnd(plain);
+        return toRegion(name, r.shows);
+      }),
+      next:
+        upcomingShows.length > 0
+          ? toRegion(fund.destination, upcomingShows)
+          : undefined,
+      since: pastShows[0]?.date
+        ? new Date(`${pastShows[0].date}T00:00:00`).toLocaleDateString(
+            "en-US",
+            { month: "long", year: "numeric" },
+          )
+        : undefined,
+    };
     const tripCard = nextCandidate
-      ? { slug: nextCandidate[0], destination: nextCandidate[1].destination, label: nextLabel }
+      ? {
+          slug: nextCandidate[0],
+          destination: nextCandidate[1].destination,
+          label: nextLabel,
+        }
       : prevTrip
-        ? { slug: prevTrip.slug, destination: prevTrip.destination, label: "Before this" as const }
+        ? {
+            slug: prevTrip.slug,
+            destination: prevTrip.destination,
+            label: "Before this" as const,
+          }
         : undefined;
     return (
       <>
-        {sp?.nudge === "private" && <PrivateNudgeToast destination={fund.destination} />}
+        {sp?.nudge === "private" && (
+          <PrivateNudgeToast destination={fund.destination} />
+        )}
         <HashScroll />
         <TripFund
           leg={{ ...fund, booked }}
@@ -224,7 +354,8 @@ export default async function Page({
           og={sp?.og === "true"}
           nextTrip={tripCard}
           prevTrip={prevTrip}
-          concertsSoFar={shows.filter((s) => isShowListable(s) && isDatePast(s.date)).length}
+          pastNotes={pageDone ? legNotes(slug) : undefined}
+          soFar={soFar}
           galleryItems={galleryItems}
         />
       </>
@@ -246,6 +377,8 @@ export default async function Page({
 // on demand via dynamicParams (Next default).
 export function generateStaticParams() {
   const legParams = Object.keys(FUND_LEGS).map((slug) => ({ slug }));
-  const projectParams = Object.values(projectsData).map((p: any) => ({ slug: p.slug }));
+  const projectParams = Object.values(projectsData).map((p: any) => ({
+    slug: p.slug,
+  }));
   return [...legParams, ...projectParams];
 }

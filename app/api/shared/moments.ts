@@ -11,7 +11,6 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
 import { getShows, isShowOnTrip } from "../../lib/shows";
-import { getFundingLegSlug } from "../../fund/legs";
 
 const FEATURED_KEY = "featured.json";
 
@@ -223,36 +222,41 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
   return out;
 }
 
-// A visit is the run of shows a moment belongs to: shows in its city are
+// A stop is the run of shows a moment belongs to: shows in its city are
 // clustered when fewer than 8 days apart, and the moment joins the cluster
-// whose date span it falls within, padded by 14 days on each side. The value
-// is the cluster's first show date (YYYY-MM-DD). A key with no capture time
-// joins its city's only cluster. Same city, different trip, different visit.
-export async function resolveVisits(
+// whose date span it falls within, padded by 14 days on each side. `visit` is
+// the cluster's first show date (YYYY-MM-DD); `leg` is the leg of the
+// earliest show in the cluster that has one. A key with no capture time joins
+// its city's only cluster. Same city, different trip, different stop.
+export async function resolveStops(
   keys: string[],
   cities: Record<string, string>,
-): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
+): Promise<Record<string, { visit: string; leg?: string }>> {
+  const out: Record<string, { visit: string; leg?: string }> = {};
   try {
     const shows = await getShows();
-    const byLabel = new Map<string, number[]>();
+    const byLabel = new Map<string, Array<{ t: number; leg?: string | null }>>();
     for (const s of shows) {
       if (!s.city || !isShowOnTrip(s)) continue;
       const t = new Date(s.date).getTime();
       if (!Number.isFinite(t)) continue;
       const label = showLabel(s);
       const list = byLabel.get(label) ?? [];
-      list.push(t);
+      list.push({ t, leg: s.leg });
       byLabel.set(label, list);
     }
-    const clusters = new Map<string, Array<{ start: number; end: number }>>();
-    for (const [label, times] of byLabel) {
-      times.sort((a, b) => a - b);
-      const list: Array<{ start: number; end: number }> = [];
-      for (const t of times) {
+    const clusters = new Map<string, Array<{ start: number; end: number; leg?: string }>>();
+    for (const [label, entries] of byLabel) {
+      entries.sort((a, b) => a.t - b.t);
+      const list: Array<{ start: number; end: number; leg?: string }> = [];
+      for (const e of entries) {
         const last = list[list.length - 1];
-        if (last && t - last.end <= 7 * 86400000) last.end = t;
-        else list.push({ start: t, end: t });
+        if (last && e.t - last.end <= 7 * 86400000) {
+          last.end = e.t;
+          if (!last.leg && e.leg) last.leg = e.leg;
+        } else {
+          list.push({ start: e.t, end: e.t, leg: e.leg ?? undefined });
+        }
       }
       clusters.set(label, list);
     }
@@ -263,10 +267,13 @@ export async function resolveVisits(
       const list = clusters.get(city);
       if (!list || list.length === 0) continue;
       if (t == null) {
-        if (list.length === 1) out[key] = new Date(list[0].start).toISOString().slice(0, 10);
+        if (list.length === 1) {
+          const c = list[0];
+          out[key] = { visit: new Date(c.start).toISOString().slice(0, 10), ...(c.leg ? { leg: c.leg } : {}) };
+        }
         continue;
       }
-      let best: { start: number; end: number } | null = null;
+      let best: { start: number; end: number; leg?: string } | null = null;
       let bestD = Infinity;
       for (const c of list) {
         const d =
@@ -279,63 +286,39 @@ export async function resolveVisits(
         }
       }
       if (best && bestD <= 14 * 86400000) {
-        out[key] = new Date(best.start).toISOString().slice(0, 10);
+        out[key] = {
+          visit: new Date(best.start).toISOString().slice(0, 10),
+          ...(best.leg ? { leg: best.leg } : {}),
+        };
       }
     }
   } catch {}
   return out;
 }
 
-// Leg ordering applies only when a gallery asks for a leg (the /fund pages);
-// /moments shows the stored featured order as-is. The leg's stops lead in
-// show-date order; cities in the leg's region follow, then every other city
-// groups its moments where it first appears; cityless moments keep featured
-// order at the end.
-// The funding leg's city labels in show-date order.
-export async function legCityOrder(legSlug?: string): Promise<string[]> {
-  try {
-    const slug = legSlug || (await getFundingLegSlug());
-    if (!slug) return [];
-    const shows = await getShows();
-    const out: string[] = [];
-    for (const s of shows
-      .filter((s) => s.leg === slug && s.city && isShowOnTrip(s))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
-      const label = showLabel(s);
-      if (!out.includes(label)) out.push(label);
-    }
-    return out;
-  } catch {
-    return [];
-  }
-}
-
-export async function orderByFundingLeg(
+// Rotates the admin order so the loop starts at the given leg's first stop.
+// Falls back to the newest stop when the leg has no moments yet.
+export function rotateToLeg(
   keys: string[],
+  stops: Record<string, { visit: string; leg?: string }>,
   cities: Record<string, string>,
-  legSlug?: string,
-): Promise<string[]> {
-  try {
-    const rank = new Map<string, number>();
-    const legLabels = await legCityOrder(legSlug);
-    for (const label of legLabels) rank.set(label, rank.size);
-    const regions = new Set(legLabels.map((l) => l.slice(l.lastIndexOf(", ") + 2)));
-    const seed = (match: (city: string) => boolean) => {
-      for (const k of keys) {
-        const city = cities[k];
-        if (city && !rank.has(city) && match(city)) rank.set(city, rank.size);
+  leg: string,
+): string[] {
+  let i = keys.findIndex((k) => stops[k]?.leg === leg);
+  if (i < 0) {
+    let bestVisit = "";
+    for (let j = 0; j < keys.length; j++) {
+      const visit = stops[keys[j]]?.visit;
+      if (visit && visit > bestVisit) {
+        bestVisit = visit;
+        i = j;
       }
-    };
-    seed((city) => regions.has(city.slice(city.lastIndexOf(", ") + 2)));
-    seed(() => true);
-    if (rank.size === 0) return keys;
-    return keys
-      .map((k, i) => ({ k, i, r: cities[k] ? rank.get(cities[k])! : Infinity }))
-      .sort((a, b) => a.r - b.r || a.i - b.i)
-      .map((e) => e.k);
-  } catch {
-    return keys;
+    }
+    if (i < 0) return keys;
   }
+  const groupOf = (k: string) => `${cities[k] ?? ""}|${stops[k]?.visit ?? ""}`;
+  while (i > 0 && groupOf(keys[i - 1]) === groupOf(keys[i])) i--;
+  return [...keys.slice(i), ...keys.slice(0, i)];
 }
 
 export async function objectExists(key: string): Promise<boolean> {
@@ -723,6 +706,8 @@ type CoreItem = {
   thumbSizes?: ThumbSize[];
   previewKey?: string;
   city?: string;
+  visit?: string;
+  leg?: string;
   w?: number;
   h?: number;
 };
@@ -738,7 +723,8 @@ const getCore = unstable_cache(
       ),
       resolveCities(featured),
     ]);
-    const keys = leg ? await orderByFundingLeg(featured, cities, leg) : featured;
+    const stops = await resolveStops(featured, cities);
+    const keys = leg ? rotateToLeg(featured, stops, cities, leg) : featured;
     const previewKeys = new Set(
       (previewList.Contents || [])
         .map((o) => o.Key || "")
@@ -755,6 +741,8 @@ const getCore = unstable_cache(
         ...(t ? { thumbKey: t.key, thumbSizes: t.sizes } : {}),
         ...(preview ? { previewKey: preview } : {}),
         ...(cities[key] ? { city: cities[key] } : {}),
+        ...(stops[key]?.visit ? { visit: stops[key].visit } : {}),
+        ...(stops[key]?.leg ? { leg: stops[key].leg } : {}),
         ...wh,
       };
     });
@@ -768,6 +756,8 @@ export type GalleryItem = {
   src?: string;
   srcSet?: string;
   city?: string;
+  visit?: string;
+  leg?: string;
   w?: number;
   h?: number;
 };
@@ -801,6 +791,8 @@ export async function getFeaturedGalleryItems(leg?: string): Promise<GalleryItem
         ...(thumb ? { src: thumb } : {}),
         ...(srcSet ? { srcSet } : {}),
         ...(c.city ? { city: c.city } : {}),
+        ...(c.visit ? { visit: c.visit } : {}),
+        ...(c.leg ? { leg: c.leg } : {}),
         ...(c.w && c.h ? { w: c.w, h: c.h } : {}),
       };
     }),

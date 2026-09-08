@@ -1,10 +1,17 @@
 import { getUpcomingShows } from "../lib/shows";
 
-export type FundLine = { key: string; label: string; note: string; amount: number };
+export type FundLine = {
+  key: string;
+  label: string;
+  note: string;
+  amount: number;
+};
 
 export type FundBooked = {
   slug?: string;
   venue: string;
+  city?: string;
+  guestSet?: boolean;
   eventName?: string | null;
   place?: string;
   date?: string;
@@ -12,6 +19,10 @@ export type FundBooked = {
   private?: boolean;
   hostHref?: string;
 };
+
+export type FundRegion = { name: string; cities: string[]; months: string };
+
+export type FundNote = { label: string; note: string };
 
 // A completed earlier trip on the same fund page: shown as a settled budget
 // below the current ask, not as a second ask.
@@ -50,7 +61,10 @@ export type PamphletFacet = {
   taglineAlign?: string;
   doorsOpen?: string;
   scale?: number;
-  shows?: Record<string, { venueLabel?: string; dateLabel?: string; doorsOpen?: string }>;
+  shows?: Record<
+    string,
+    { venueLabel?: string; dateLabel?: string; doorsOpen?: string }
+  >;
 };
 
 // A leg is a trip grouping. Funding and the poster are facets; the ledger
@@ -64,17 +78,38 @@ export type Leg = {
 // Flat view consumed by TripFund: the fund facet plus the leg slug.
 export type FundLeg = FundFacet & { slug: string };
 
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+const SHOWS_API =
+  process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 // The five prime budget lines a new fund leg starts from. norcal is the
 // canonical template; the artist edits these per trip and can drop any a trip
 // does not need. Remove a line, or zero it, and it stays gone.
 export const PRIME_LINES: readonly FundLine[] = [
-  { key: "flight", label: "Flight", note: "round-trip, includes checked bags for my equipment", amount: 450 },
-  { key: "car", label: "Rental car", note: "includes gas, tolls, and parking", amount: 550 },
+  {
+    key: "flight",
+    label: "Flight",
+    note: "round-trip, includes checked bags for my equipment",
+    amount: 450,
+  },
+  {
+    key: "car",
+    label: "Rental car",
+    note: "includes gas, tolls, and parking",
+    amount: 550,
+  },
   { key: "lodging", label: "Lodging", note: "hotel or Airbnb", amount: 900 },
-  { key: "food", label: "Food", note: "breakfast, lunch, and dinner on the road", amount: 350 },
-  { key: "buffer", label: "Just in case", note: "life happens, like cancellations out of my control", amount: 250 },
+  {
+    key: "food",
+    label: "Food",
+    note: "breakfast, lunch, and dinner on the road",
+    amount: 350,
+  },
+  {
+    key: "buffer",
+    label: "Just in case",
+    note: "life happens, like cancellations out of my control",
+    amount: 250,
+  },
 ];
 
 // Fresh copies of the template lines, for seeding a new fund leg.
@@ -88,8 +123,8 @@ const SEED_LEGS: Record<string, Leg> = {
   norcal: {
     slug: "norcal",
     fund: {
-      destination: "the Bay & Sactown",
-      shortName: "Bay and Sactown",
+      destination: "Northern California",
+      shortName: "NorCal",
       nights: 6,
       lines: primeLines(),
     },
@@ -100,18 +135,30 @@ export function toFundView(leg: Leg | undefined): FundLeg | undefined {
   return leg?.fund ? { ...leg.fund, slug: leg.slug } : undefined;
 }
 
-type PosterLineShow = { slug: string; leg?: string | null; posterLine?: string | null };
+type PosterLineShow = {
+  slug: string;
+  leg?: string | null;
+  posterLine?: string | null;
+};
 
-export function posterLineFor(legs: Leg[], show: PosterLineShow): string | null {
+export function posterLineFor(
+  legs: Leg[],
+  show: PosterLineShow,
+): string | null {
   return (
-    legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]?.venueLabel ??
+    legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]
+      ?.venueLabel ??
     show.posterLine ??
     null
   );
 }
 
-export async function posterLineForShow(show: PosterLineShow): Promise<string | null> {
-  return show.leg ? posterLineFor(await getLegs(), show) : (show.posterLine ?? null);
+export async function posterLineForShow(
+  show: PosterLineShow,
+): Promise<string | null> {
+  return show.leg
+    ? posterLineFor(await getLegs(), show)
+    : (show.posterLine ?? null);
 }
 
 export async function withPosterLines<T extends PosterLineShow>(
@@ -127,7 +174,8 @@ export async function getLegs(): Promise<Leg[]> {
     if (!res.ok) return Object.values(SEED_LEGS);
     const data = (await res.json()) as Leg[];
     const bySlug = new Map<string, Leg>(Object.entries(SEED_LEGS));
-    for (const leg of Array.isArray(data) ? data : []) bySlug.set(leg.slug, leg);
+    for (const leg of Array.isArray(data) ? data : [])
+      bySlug.set(leg.slug, leg);
     return [...bySlug.values()];
   } catch {
     return Object.values(SEED_LEGS);
@@ -148,7 +196,8 @@ export async function getFundingLegSlug(): Promise<string | undefined> {
   const next = shows.find((s) => s.leg && fundable.has(s.leg));
   return (
     next?.leg ??
-    [...legs].reverse().find((l) => l.fund && !l.fund.previousTrips?.length)?.slug ??
+    [...legs].reverse().find((l) => l.fund && !l.fund.previousTrips?.length)
+      ?.slug ??
     legs.find((l) => l.fund)?.slug
   );
 }

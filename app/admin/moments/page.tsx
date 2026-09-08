@@ -12,6 +12,7 @@ interface MomentItem {
   featured: boolean;
   city?: string;
   visit?: string;
+  leg?: string;
 }
 
 interface PendingItem {
@@ -90,7 +91,6 @@ export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
-  const [legCities, setLegCities] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -104,7 +104,6 @@ export default function MomentsAdminPage() {
       setItems(Array.isArray(data.items) ? data.items : []);
       setPending(Array.isArray(data.pending) ? data.pending : []);
       setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
-      setLegCities(Array.isArray(data.legCities) ? data.legCities : []);
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
     } catch (err) {
@@ -144,30 +143,11 @@ export default function MomentsAdminPage() {
     .filter((it): it is MomentItem => Boolean(it));
 
   async function toggleFeatured(key: string, next: boolean) {
-    let after: string | undefined;
-    if (next) {
-      if (featuredKeys.includes(key)) return;
-      const city = itemByKey.get(key)?.city;
-      const state = city?.split(", ").pop();
-      const cities = featuredKeys.map((k) => itemByKey.get(k)?.city);
-      const group = groupOf(itemByKey.get(key));
-      const groups = featuredKeys.map((k) => groupOf(itemByKey.get(k)));
-      let at = group ? groups.lastIndexOf(group) : -1;
-      if (at < 0 && city) at = cities.lastIndexOf(city);
-      if (at < 0 && state) {
-        for (let j = cities.length - 1; j >= 0; j--) {
-          if (cities[j]?.split(", ").pop() === state) {
-            at = j;
-            break;
-          }
-        }
-      }
-      if (at >= 0) after = featuredKeys[at];
-    }
+    if (next && featuredKeys.includes(key)) return;
     const r = await fetch("/api/admin/moments/feature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, featured: next, after }),
+      body: JSON.stringify({ key, featured: next }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -256,7 +236,6 @@ export default function MomentsAdminPage() {
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
-              legCities={legCities}
               onReorder={persistOrder}
               onRemove={(key) =>
                 toggleFeatured(key, false).catch(() =>
@@ -694,12 +673,10 @@ function PendingStrip({
 
 function SlideshowReorder({
   items,
-  legCities,
   onReorder,
   onRemove,
 }: {
   items: MomentItem[];
-  legCities: string[];
   onReorder: (keys: string[]) => void;
   onRemove: (key: string) => void;
 }) {
@@ -709,7 +686,6 @@ function SlideshowReorder({
     [items],
   );
   const groupKeyOf = (k: string) => groupOf(byKey.get(k));
-  const legSet = useMemo(() => new Set(legCities), [legCities]);
   type DragStart = { kind: "tile"; key: string } | { kind: "group"; group: string };
   const [drag, setDrag] = useState<(DragStart & { order: string[] }) | null>(null);
   const order = drag ? drag.order : keys;
@@ -925,7 +901,6 @@ function SlideshowReorder({
           const groupDragging = drag?.kind === "group" && drag.group === group;
           const dragging = groupDragging || (drag?.kind === "tile" && drag.key === key);
           const groupStart = i === 0 || groupKeyOf(order[i - 1]) !== group;
-          const isLeg = !!city && legSet.has(city);
           return (
             <div key={key} className="flex shrink-0 gap-3">
               {groupStart && (
@@ -937,11 +912,7 @@ function SlideshowReorder({
                   <span
                     style={{ writingMode: "vertical-rl" }}
                     className={`rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-                      isLeg
-                        ? "text-[#d4a553]"
-                        : city
-                          ? "text-neutral-400 dark:text-neutral-500"
-                          : "text-amber-500"
+                      city ? "text-neutral-400 dark:text-neutral-500" : "text-amber-500"
                     }`}
                   >
                     {city || "No city"}
@@ -950,6 +921,14 @@ function SlideshowReorder({
                         {" "}
                         <span className="font-normal normal-case tracking-normal opacity-70">
                           {formatVisit(item.visit)}
+                        </span>
+                      </>
+                    )}
+                    {item.leg && (
+                      <>
+                        {" "}
+                        <span className="font-normal normal-case tracking-normal opacity-70">
+                          {item.leg}
                         </span>
                       </>
                     )}
@@ -1007,8 +986,8 @@ function SlideshowReorder({
       </div>
       <p className="text-xs text-neutral-400 dark:text-neutral-500">
         Drag tiles or city labels to reorder (press and hold on mobile), nudge with the arrows, or
-        type a position on the badge. This order is what /moments shows. Gold city labels belong to
-        the active fund leg and lead only on its fund page.
+        type a position on the badge. This order is what /moments shows. A fund page starts the same
+        order at its own leg's first stop.
       </p>
     </section>
   );

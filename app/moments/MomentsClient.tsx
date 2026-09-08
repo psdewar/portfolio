@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Images, CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
+import SunScheme from "../components/SunScheme";
 import { uploadFile, makePreview, type PreviewResult, type UploadMeta } from "./upload";
 import type { GalleryItem } from "../api/shared/moments";
 
@@ -355,6 +356,7 @@ export default function MomentsClient({
 
   return (
     <main className="flex h-full flex-col overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-white">
+      <SunScheme />
       <MomentsGallery items={items} />
 
       <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">

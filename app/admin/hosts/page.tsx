@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   CircleNotchIcon,
@@ -12,7 +19,13 @@ import {
 } from "@phosphor-icons/react";
 import SponsorForm from "../../components/SponsorForm";
 import Poster, { type PamphletShowItem } from "../../components/Poster";
-import { type Show, isShowDraft, isShowListed, isShowOnTrip, getPosterLocationText } from "../../lib/shows";
+import {
+  type Show,
+  isShowDraft,
+  isShowListed,
+  isShowOnTrip,
+  getPosterLocationText,
+} from "../../lib/shows";
 import { PAYMENT_MODEL } from "../../lib/flights";
 import { orderItems } from "../../lib/sponsor";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
@@ -30,7 +43,10 @@ import {
 } from "../../lib/dates";
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
-import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../lib/poster-defaults";
+import {
+  PAY_WHAT_YOU_WANT_TAG,
+  DEFAULT_TAGLINE,
+} from "../../lib/poster-defaults";
 import {
   type PosterFormat,
   JPG_FORMATS,
@@ -40,10 +56,22 @@ import {
 
 const WEEKDAY_PREFIXES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const MONTH_PREFIXES = [
-  "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
 ];
 const WEEKDAY_RE = /\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/i;
-const MONTH_DAY_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(\s+)(\d{1,2})\b/i;
+const MONTH_DAY_RE =
+  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(\s+)(\d{1,2})\b/i;
 const MONTH_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i;
 
 function dateMisaligned(input: string, iso: string): boolean {
@@ -52,14 +80,16 @@ function dateMisaligned(input: string, iso: string): boolean {
   const d = new Date(`${iso}T00:00:00`);
   if (isNaN(d.getTime())) return false;
   const wd = text.match(WEEKDAY_RE);
-  if (wd && WEEKDAY_PREFIXES.indexOf(wd[1].slice(0, 3)) !== d.getDay()) return true;
+  if (wd && WEEKDAY_PREFIXES.indexOf(wd[1].slice(0, 3)) !== d.getDay())
+    return true;
   const md = text.match(MONTH_DAY_RE);
   if (md) {
     if (MONTH_PREFIXES.indexOf(md[1].slice(0, 3)) !== d.getMonth()) return true;
     if (parseInt(md[3], 10) !== d.getDate()) return true;
   } else {
     const mo = text.match(MONTH_RE);
-    if (mo && MONTH_PREFIXES.indexOf(mo[1].slice(0, 3)) !== d.getMonth()) return true;
+    if (mo && MONTH_PREFIXES.indexOf(mo[1].slice(0, 3)) !== d.getMonth())
+      return true;
   }
   return false;
 }
@@ -157,7 +187,10 @@ function ToggleRow({
 // Read by the manage modal's pulse and the card badge so they never disagree.
 type StatusTone = "neutral" | "amber" | "sky" | "green";
 
-const STATUS_TONE: Record<StatusTone, { dot: string; text: string; pill: string }> = {
+const STATUS_TONE: Record<
+  StatusTone,
+  { dot: string; text: string; pill: string }
+> = {
   neutral: {
     dot: "bg-neutral-400",
     text: "text-neutral-400",
@@ -180,7 +213,10 @@ const STATUS_TONE: Record<StatusTone, { dot: string; text: string; pill: string 
   },
 };
 
-function getShowStatus(show?: Show | null): { label: string; tone: StatusTone } {
+function getShowStatus(show?: Show | null): {
+  label: string;
+  tone: StatusTone;
+} {
   if (!show?.slug) return { label: "No show", tone: "neutral" };
   if (isShowDraft(show)) return { label: "Draft", tone: "sky" };
   if (show.visibility === "private") return { label: "Private", tone: "amber" };
@@ -217,7 +253,11 @@ function NotifyRsvps({
     });
     const data = await res.json().catch(() => ({}));
     setSending(false);
-    setResult(res.ok ? `Sent to ${data.sent ?? 0} of ${data.total ?? count}` : data.error || "Failed to send");
+    setResult(
+      res.ok
+        ? `Sent to ${data.sent ?? 0} of ${data.total ?? count}`
+        : data.error || "Failed to send",
+    );
     if (res.ok) onSent?.();
   };
 
@@ -245,7 +285,9 @@ function NotifyRsvps({
           disabled={sending || !subject.trim() || !body.trim()}
           className="text-sm font-medium text-neutral-900 dark:text-white disabled:opacity-40"
         >
-          {sending ? "Sending…" : `Email ${count} RSVP${count === 1 ? "" : "s"}`}
+          {sending
+            ? "Sending…"
+            : `Email ${count} RSVP${count === 1 ? "" : "s"}`}
         </button>
         {result && <span className="text-xs text-neutral-500">{result}</span>}
       </div>
@@ -278,7 +320,8 @@ function TagsField({
     onChange([...list, t].join(", "));
     setInput("");
   };
-  const remove = (idx: number) => onChange(list.filter((_, i) => i !== idx).join(", "));
+  const remove = (idx: number) =>
+    onChange(list.filter((_, i) => i !== idx).join(", "));
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "," || e.key === "Enter") {
       e.preventDefault();
@@ -352,34 +395,29 @@ interface ShowGroup {
 
 // unlisted also forces private, so confirmation skips the Eventbrite publish.
 const SHOW_TYPES: { value: string; label: string; fields: Partial<Show> }[] = [
-  { value: "mine", label: "My concert", fields: { guestSet: false, unlisted: false } },
+  { value: "listed", label: "Listed", fields: { unlisted: false } },
   {
     value: "unlisted",
-    label: "Mine, fund page only",
-    fields: { guestSet: false, unlisted: true, visibility: "private" },
-  },
-  {
-    value: "guest-booking",
-    label: "Guest booking, fund page only",
-    fields: { guestSet: true, unlisted: true, visibility: "private" },
+    label: "Fund page only",
+    fields: { unlisted: true, visibility: "private" },
   },
 ];
 
-function showTypeOf(show: Pick<Show, "guestSet" | "unlisted">): string {
-  if (!show.unlisted) return "mine";
-  return show.guestSet ? "guest-booking" : "unlisted";
+function showTypeOf(show: Pick<Show, "unlisted">): string {
+  return show.unlisted ? "unlisted" : "listed";
 }
 
-const ADMIN_NAV = [
-  { href: "/admin/catalog", label: "Catalog" },
-];
+const ADMIN_NAV = [{ href: "/admin/catalog", label: "Catalog" }];
 
 export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [legs, setLegs] = useState<Leg[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   // Hosts deep links: ?amend=<slug> opens the amend form; ?new=<slug> highlights a fresh invite (?copied=1 = confirm link already copied).
   const [amendSlug, setAmendSlug] = useState<string | null>(null);
   const [newSlug, setNewSlug] = useState<string | null>(null);
@@ -393,7 +431,8 @@ export default function HostsAdminPage() {
       setNewSlug(created);
       setNewCopied(params.get("copied") === "1");
     }
-    if (amend || created) window.history.replaceState(null, "", window.location.pathname);
+    if (amend || created)
+      window.history.replaceState(null, "", window.location.pathname);
   }, []);
   const load = useCallback((withSpinner: boolean) => {
     Promise.all([
@@ -438,8 +477,15 @@ export default function HostsAdminPage() {
   for (const sp of sponsors) {
     const key = sp.showSlug ?? sp.submittedAt;
     if (!seen.has(key)) {
-      const show = sp.showSlug ? (shows.find((s) => s.slug === sp.showSlug) ?? null) : null;
-      const group: ShowGroup = { showSlug: sp.showSlug ?? "", show, host: sp, supporters: [] };
+      const show = sp.showSlug
+        ? (shows.find((s) => s.slug === sp.showSlug) ?? null)
+        : null;
+      const group: ShowGroup = {
+        showSlug: sp.showSlug ?? "",
+        show,
+        host: sp,
+        supporters: [],
+      };
       seen.set(key, group);
       groups.push(group);
     } else {
@@ -460,7 +506,10 @@ export default function HostsAdminPage() {
   // counts them on the leg; only cancelled bookings drop out.
   const representedSlugs = new Set(groups.map((g) => g.showSlug));
   for (const show of shows) {
-    if (!representedSlugs.has(show.slug) && (isShowDraft(show) || isShowOnTrip(show))) {
+    if (
+      !representedSlugs.has(show.slug) &&
+      (isShowDraft(show) || isShowOnTrip(show))
+    ) {
       groups.push({
         showSlug: show.slug,
         show,
@@ -494,10 +543,15 @@ export default function HostsAdminPage() {
       byLeg.get(leg)!.push(g);
     }
     const legs: ShowGroup[][] = [...byLeg.values()].map((leg) =>
-      leg.sort((a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime()),
+      leg.sort(
+        (a, b) =>
+          new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime(),
+      ),
     );
     legs.sort(
-      (a, b) => new Date(a[0].show!.date).getTime() - new Date(b[0].show!.date).getTime(),
+      (a, b) =>
+        new Date(a[0].show!.date).getTime() -
+        new Date(b[0].show!.date).getTime(),
     );
     return legs;
   };
@@ -505,7 +559,9 @@ export default function HostsAdminPage() {
   // Adjacency + date heuristic, kept only as a *suggestion* for ungrouped shows.
   // Standalone shows opt out. Returns clusters of 2+ worth proposing as a leg.
   const suggestLegs = (items: ShowGroup[]): ShowGroup[][] => {
-    const chainable = items.filter((g) => g.show?.slug && g.show?.date && !g.show!.standalone);
+    const chainable = items.filter(
+      (g) => g.show?.slug && g.show?.date && !g.show!.standalone,
+    );
     const n = chainable.length;
     const parent = Array.from({ length: n }, (_, i) => i);
     const find = (x: number): number => {
@@ -517,7 +573,8 @@ export default function HostsAdminPage() {
         const a = chainable[i].show!;
         const b = chainable[j].show!;
         const diffDays =
-          Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000;
+          Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) /
+          86400000;
         const sameRegion = a.region === b.region;
         if (
           (sameRegion || areRegionsAdjacent(a.region, b.region)) &&
@@ -536,7 +593,10 @@ export default function HostsAdminPage() {
     return [...buckets.values()]
       .filter((c) => c.length >= 2)
       .map((c) =>
-        c.sort((a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime()),
+        c.sort(
+          (a, b) =>
+            new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime(),
+        ),
       );
   };
 
@@ -544,26 +604,38 @@ export default function HostsAdminPage() {
   // live schedule and out of Completed, so their poster survives for reuse.
   const upcoming = groups
     .filter((g) => g.host.date && !isDatePast(g.host.date))
-    .sort((a, b) => new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.host.date!).getTime() - new Date(b.host.date!).getTime(),
+    );
 
   const pamphletGroups = groupIntoLegs(upcoming);
 
   // Drafts never belong in Completed — they never happened.
   const past = groups
     .filter(
-      (g) => !(g.show && isShowDraft(g.show)) && (!g.host.date || isDatePast(g.host.date)),
+      (g) =>
+        !(g.show && isShowDraft(g.show)) &&
+        (!g.host.date || isDatePast(g.host.date)),
     )
     .sort(
-      (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
+      (a, b) =>
+        new Date(b.host.date ?? "0").getTime() -
+        new Date(a.host.date ?? "0").getTime(),
     );
 
   // Drafts whose proposed date already passed, including shows reverted to draft
   // for rescheduling. Kept (never auto-deleted) so the poster survives for reuse,
   // and surfaced under Unscheduled so they stay reachable to re-date or delete.
   const staleDrafts = groups
-    .filter((g) => g.show && isShowDraft(g.show) && g.host.date && isDatePast(g.host.date))
+    .filter(
+      (g) =>
+        g.show && isShowDraft(g.show) && g.host.date && isDatePast(g.host.date),
+    )
     .sort(
-      (a, b) => new Date(b.host.date ?? "0").getTime() - new Date(a.host.date ?? "0").getTime(),
+      (a, b) =>
+        new Date(b.host.date ?? "0").getTime() -
+        new Date(a.host.date ?? "0").getTime(),
     );
 
   const pastLegs = groupIntoLegs(past);
@@ -580,7 +652,9 @@ export default function HostsAdminPage() {
   };
 
   const createLeg = async (slug: string) => {
-    setLegs((prev) => (prev.some((l) => l.slug === slug) ? prev : [...prev, { slug }]));
+    setLegs((prev) =>
+      prev.some((l) => l.slug === slug) ? prev : [...prev, { slug }],
+    );
     await fetch("/api/legs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -589,8 +663,12 @@ export default function HostsAdminPage() {
   };
 
   const acceptSuggestion = async (cluster: ShowGroup[]) => {
-    const raw = window.prompt("New leg slug for these shows (e.g. socal)") ?? "";
-    const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const raw =
+      window.prompt("New leg slug for these shows (e.g. socal)") ?? "";
+    const slug = raw
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
     if (!slug) return;
     if (!legs.some((l) => l.slug === slug)) await createLeg(slug);
     cluster.forEach((g) => g.show?.slug && assignShow(g.show.slug, slug));
@@ -606,7 +684,10 @@ export default function HostsAdminPage() {
     onUpdateSponsor: (updated: Sponsor) =>
       setSponsors((prev) =>
         prev.map((s) =>
-          s.submittedAt === updated.submittedAt && s.showSlug === updated.showSlug ? updated : s,
+          s.submittedAt === updated.submittedAt &&
+          s.showSlug === updated.showSlug
+            ? updated
+            : s,
         ),
       ),
     onRemoveSponsor: (submittedAt: string, showSlug?: string | null) =>
@@ -618,8 +699,11 @@ export default function HostsAdminPage() {
         ),
       ),
     onShowUpdate: (slug: string, fields: Partial<Show>) =>
-      setShows((prev) => prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s))),
-    onShowRemove: (slug: string) => setShows((prev) => prev.filter((s) => s.slug !== slug)),
+      setShows((prev) =>
+        prev.map((s) => (s.slug === slug ? { ...s, ...fields } : s)),
+      ),
+    onShowRemove: (slug: string) =>
+      setShows((prev) => prev.filter((s) => s.slug !== slug)),
     onRefresh: () => load(false),
   };
 
@@ -666,7 +750,10 @@ export default function HostsAdminPage() {
       taglineAlign: pf.taglineAlign,
       doorsOpen: pf.doorsOpen,
       scale: pf.scale,
-      shows: Object.entries(pf.shows ?? {}).map(([s, o]) => ({ slug: s, ...o })),
+      shows: Object.entries(pf.shows ?? {}).map(([s, o]) => ({
+        slug: s,
+        ...o,
+      })),
     };
   };
 
@@ -733,7 +820,9 @@ export default function HostsAdminPage() {
                     >
                       Invite host
                     </Link>
-                    <PressKitInviteButton onMessage={(type, text) => setMessage({ type, text })} />
+                    <PressKitInviteButton
+                      onMessage={(type, text) => setMessage({ type, text })}
+                    />
                     <CustomPosterButton />
                     <BlankPamphletButton />
                   </div>
@@ -754,7 +843,11 @@ export default function HostsAdminPage() {
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                           {cluster.map((g) => (
-                            <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                            <ShowGroupCard
+                              key={g.showSlug}
+                              group={g}
+                              {...cardProps}
+                            />
                           ))}
                         </div>
                       </div>
@@ -774,10 +867,16 @@ export default function HostsAdminPage() {
                             Suggested legs
                           </div>
                           {suggested.map((cluster, i) => (
-                            <div key={i} className="flex items-center justify-between gap-3">
+                            <div
+                              key={i}
+                              className="flex items-center justify-between gap-3"
+                            >
                               <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-300">
                                 {cluster
-                                  .map((g) => `${formatMonthDay(g.show!.date)} ${g.show!.city}`)
+                                  .map(
+                                    (g) =>
+                                      `${formatMonthDay(g.show!.date)} ${g.show!.city}`,
+                                  )
                                   .join(" · ")}
                               </span>
                               <button
@@ -792,7 +891,11 @@ export default function HostsAdminPage() {
                       )}
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                         {solo.map((g) => (
-                          <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                          <ShowGroupCard
+                            key={g.showSlug}
+                            group={g}
+                            {...cardProps}
+                          />
                         ))}
                       </div>
                     </div>
@@ -807,7 +910,11 @@ export default function HostsAdminPage() {
                       </div>
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                         {unscheduled.map((g) => (
-                          <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                          <ShowGroupCard
+                            key={g.showSlug}
+                            group={g}
+                            {...cardProps}
+                          />
                         ))}
                       </div>
                     </div>
@@ -828,7 +935,9 @@ export default function HostsAdminPage() {
 
             {groups.length === 0 && (
               <div className="text-center py-24">
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">No shows yet.</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  No shows yet.
+                </p>
                 <p className="text-xs text-neutral-600 mt-2">
                   Share the sponsor form to book a date.
                 </p>
@@ -889,10 +998,16 @@ function CompletedSection({
                     className="text-sm text-neutral-700 dark:text-neutral-300"
                   >
                     <span className="font-medium">{s.name || s.email}</span>
-                    {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
-                    {s.phone && <span className="text-neutral-500 ml-2">{s.phone}</span>}
+                    {s.name && s.email && (
+                      <span className="text-neutral-500 ml-2">{s.email}</span>
+                    )}
+                    {s.phone && (
+                      <span className="text-neutral-500 ml-2">{s.phone}</span>
+                    )}
                     {s.items.length > 0 && (
-                      <div className="text-xs text-neutral-500 mt-0.5">{orderItems(s.items).join(" · ")}</div>
+                      <div className="text-xs text-neutral-500 mt-0.5">
+                        {orderItems(s.items).join(" · ")}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -914,13 +1029,17 @@ function CompletedSection({
         </Modal>
       )}
       <div className="flex items-center gap-4 mb-8">
-        <h2 className="text-xs tracking-[0.2em] text-neutral-600 uppercase shrink-0">Completed</h2>
+        <h2 className="text-xs tracking-[0.2em] text-neutral-600 uppercase shrink-0">
+          Completed
+        </h2>
         <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
       </div>
       <div className="space-y-6">
         {legs.map((leg, i) => {
           const sorted = [...leg].sort(
-            (a, b) => new Date(a.show!.date).getTime() - new Date(b.show!.date).getTime(),
+            (a, b) =>
+              new Date(a.show!.date).getTime() -
+              new Date(b.show!.date).getTime(),
           );
           const legName = sorted[0].show!.leg?.replace(/-/g, " ");
 
@@ -955,7 +1074,9 @@ function CompletedSection({
                     style={{ fontFamily: '"Space Mono", monospace' }}
                   >
                     {formatDayMonthDay(g.show!.date)}
-                    <span className="text-neutral-600 ml-1.5">{g.show!.city}</span>
+                    <span className="text-neutral-600 ml-1.5">
+                      {g.show!.city}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -972,7 +1093,9 @@ function CompletedSection({
                 style={{ fontFamily: '"Space Mono", monospace' }}
               >
                 {g.host.date ? formatDayMonthDay(g.host.date) : "No date"}
-                <span className="text-neutral-600 ml-1.5">{g.host.city || g.host.email}</span>
+                <span className="text-neutral-600 ml-1.5">
+                  {g.host.city || g.host.email}
+                </span>
               </button>
             ))}
           </div>
@@ -985,7 +1108,11 @@ function CompletedSection({
 // Create a location-less draft (press-kit invite): the host fills in where and
 // when at confirmation. Copies the confirm link within the click gesture, then
 // lands in the hosts menu highlighting the new draft so its art can be set.
-function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: string) => void }) {
+function PressKitInviteButton({
+  onMessage,
+}: {
+  onMessage: (type: "error", text: string) => void;
+}) {
   const [creating, setCreating] = useState(false);
 
   const handleClick = async () => {
@@ -1000,7 +1127,9 @@ function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: 
     let copyDone: Promise<boolean> | null = null;
     if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
       const item = new ClipboardItem({
-        "text/plain": linkText.then((t) => new Blob([t], { type: "text/plain" })),
+        "text/plain": linkText.then(
+          (t) => new Blob([t], { type: "text/plain" }),
+        ),
       });
       copyDone = navigator.clipboard.write([item]).then(
         () => true,
@@ -1008,7 +1137,11 @@ function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: 
       );
     } else if (navigator.clipboard?.writeText) {
       copyDone = linkText.then(
-        (t) => navigator.clipboard.writeText(t).then(() => true, () => false),
+        (t) =>
+          navigator.clipboard.writeText(t).then(
+            () => true,
+            () => false,
+          ),
         () => false,
       );
     }
@@ -1025,7 +1158,9 @@ function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: 
       let copied = false;
       if (copyDone) {
         try {
-          const r = await fetch(`/api/confirm-link?slug=${encodeURIComponent(slug)}`);
+          const r = await fetch(
+            `/api/confirm-link?slug=${encodeURIComponent(slug)}`,
+          );
           if (!r.ok) throw new Error();
           resolveLink(`${window.location.origin}${(await r.json()).url}`);
         } catch {
@@ -1037,7 +1172,12 @@ function PressKitInviteButton({ onMessage }: { onMessage: (type: "error", text: 
       window.location.href = `/admin/hosts?new=${encodeURIComponent(slug)}${copied ? "&copied=1" : ""}`;
     } catch (e) {
       rejectLink();
-      onMessage("error", e instanceof Error && e.message ? e.message : "Couldn't create the invite.");
+      onMessage(
+        "error",
+        e instanceof Error && e.message
+          ? e.message
+          : "Couldn't create the invite.",
+      );
       setCreating(false);
     }
   };
@@ -1242,7 +1382,10 @@ function BlankPamphletButton() {
         fetch("/api/pamphlet?blank=true&format=ig&pdf=true"),
         fetch("/api/pamphlet?blank=true&format=yt&pdf=true"),
       ]);
-      const [igBuf, ytBuf] = await Promise.all([igRes.arrayBuffer(), ytRes.arrayBuffer()]);
+      const [igBuf, ytBuf] = await Promise.all([
+        igRes.arrayBuffer(),
+        ytRes.arrayBuffer(),
+      ]);
       const zip = buildZip([
         { name: "pamphlet-blank-ig.pdf", data: new Uint8Array(igBuf) },
         { name: "pamphlet-blank-yt.pdf", data: new Uint8Array(ytBuf) },
@@ -1336,13 +1479,21 @@ function PosterEditor({
   };
 
   const [open, setOpen] = useState(false);
-  const [legId, setLegId] = useState(matchedPamphlet?.id ?? group[0]?.show?.leg ?? "");
-  const [tagline, setTagline] = useState(
-    isSingle ? (soloShow?.taglineSuffix ?? DEFAULT_TAGLINE) : (matchedPamphlet?.label ?? DEFAULT_TAGLINE),
+  const [legId, setLegId] = useState(
+    matchedPamphlet?.id ?? group[0]?.show?.leg ?? "",
   );
-  const [showDoors, setShowDoors] = useState(matchedPamphlet?.showDoors ?? false);
+  const [tagline, setTagline] = useState(
+    isSingle
+      ? (soloShow?.taglineSuffix ?? DEFAULT_TAGLINE)
+      : (matchedPamphlet?.label ?? DEFAULT_TAGLINE),
+  );
+  const [showDoors, setShowDoors] = useState(
+    matchedPamphlet?.showDoors ?? false,
+  );
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
-  const [pinTopRsvp, setPinTopRsvp] = useState(matchedPamphlet?.pinTopRsvp ?? true);
+  const [pinTopRsvp, setPinTopRsvp] = useState(
+    matchedPamphlet?.pinTopRsvp ?? true,
+  );
   const [tags, setTags] = useState(
     isSingle
       ? (soloShow?.tags ?? PAY_WHAT_YOU_WANT_TAG)
@@ -1352,16 +1503,26 @@ function PosterEditor({
     isSingle ? (soloShow?.venueImg ?? "") : (matchedPamphlet?.venueImg ?? ""),
   );
   const [venueImgWidth, setVenueImgWidth] = useState(() => {
-    const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
+    const w = isSingle
+      ? soloShow?.venueImgWidth
+      : matchedPamphlet?.venueImgWidth;
     return w ? String(w) : "";
   });
   const [committedImgWidth, setCommittedImgWidth] = useState(() => {
-    const w = isSingle ? soloShow?.venueImgWidth : matchedPamphlet?.venueImgWidth;
+    const w = isSingle
+      ? soloShow?.venueImgWidth
+      : matchedPamphlet?.venueImgWidth;
     return w ? String(w) : "";
   });
-  const initOffsetY = isSingle ? soloShow?.venueImgOffsetY : matchedPamphlet?.venueImgOffsetY;
-  const [venueImgOffsetY, setVenueImgOffsetY] = useState(initOffsetY ? String(initOffsetY) : "");
-  const [committedOffsetY, setCommittedOffsetY] = useState(initOffsetY ? String(initOffsetY) : "");
+  const initOffsetY = isSingle
+    ? soloShow?.venueImgOffsetY
+    : matchedPamphlet?.venueImgOffsetY;
+  const [venueImgOffsetY, setVenueImgOffsetY] = useState(
+    initOffsetY ? String(initOffsetY) : "",
+  );
+  const [committedOffsetY, setCommittedOffsetY] = useState(
+    initOffsetY ? String(initOffsetY) : "",
+  );
   const [taglineAlign, setTaglineAlign] = useState<"justify" | "left">(() => {
     const a = isSingle ? soloShow?.taglineAlign : matchedPamphlet?.taglineAlign;
     return a === "justify" ? "justify" : "left";
@@ -1388,36 +1549,56 @@ function PosterEditor({
     perShow((ps, s) => ps?.doorsOpen ?? (isSingle ? "" : defaultDoorsText(s))),
   );
   const [venueLabels, setVenueLabels] = useState<Record<string, string>>(() =>
-    perShow((ps, s) => (isSingle ? (s.venueLabel ?? "") : (ps?.venueLabel ?? defaultLoc(s)))),
+    perShow((ps, s) =>
+      isSingle ? (s.venueLabel ?? "") : (ps?.venueLabel ?? defaultLoc(s)),
+    ),
   );
   const [eventNames, setEventNames] = useState<Record<string, string>>(() =>
-    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.eventName ?? ""])),
+    Object.fromEntries(
+      group.map((g) => [g.show!.slug, g.show!.eventName ?? ""]),
+    ),
   );
   const [posterLines, setPosterLines] = useState<Record<string, string>>(() =>
     perShow((ps, show) => ps?.venueLabel ?? show.posterLine ?? ""),
   );
   const [doorLabels, setDoorLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""])),
+    Object.fromEntries(
+      group.map((g) => [g.show!.slug, g.show!.doorLabel ?? ""]),
+    ),
   );
   const [included, setIncluded] = useState<Record<string, boolean>>(() => {
     if (matchedPamphlet) {
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
-      return Object.fromEntries(group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]));
+      return Object.fromEntries(
+        group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]),
+      );
     }
-    return Object.fromEntries(group.map((g) => [g.show!.slug, isShowListed(g.show!)]));
+    return Object.fromEntries(
+      group.map((g) => [g.show!.slug, isShowListed(g.show!)]),
+    );
   });
-  const [placeholders, setPlaceholders] = useState<{ date: string; label: string }[]>([]);
+  const [placeholders, setPlaceholders] = useState<
+    { date: string; label: string }[]
+  >([]);
   const [downloading, setDownloading] = useState(false);
   const [dateFocus, setDateFocus] = useState<string | null>(null);
-  const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">("idle");
+  const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
   const [saveError, setSaveError] = useState("");
   const [centerLogo, setCenterLogo] = useState(
-    isSingle ? (soloShow?.centerLogo ?? false) : (matchedPamphlet?.centerLogo ?? false),
+    isSingle
+      ? (soloShow?.centerLogo ?? false)
+      : (matchedPamphlet?.centerLogo ?? false),
   );
   const [privateNote, setPrivateNote] = useState(soloShow?.privateNote ?? "");
-  const [posterImg, setPosterImg] = useState(isSingle ? (soloShow?.posterImg ?? "") : "");
+  const [posterImg, setPosterImg] = useState(
+    isSingle ? (soloShow?.posterImg ?? "") : "",
+  );
   const [bgImg, setBgImg] = useState(isSingle ? (soloShow?.bgImg ?? "") : "");
-  const [previewFormat, setPreviewFormat] = useState<PosterFormat>(isSingle ? "standard" : "print");
+  const [previewFormat, setPreviewFormat] = useState<PosterFormat>(
+    isSingle ? "standard" : "print",
+  );
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Live logo nudge — write width/offset straight to the logo node so a drag
@@ -1425,12 +1606,15 @@ function PosterEditor({
   const liveLogo = (widthStr: string, offsetStr: string) => {
     const w = Number(widthStr);
     const o = Number(offsetStr);
-    previewRef.current?.querySelectorAll<HTMLElement>("[data-logo]").forEach((el) => {
-      el.style.width = widthStr.trim() && w ? `${(w * 100) / 480}cqw` : "";
-      el.style.height = widthStr.trim() && w ? "auto" : "";
-      el.style.maxWidth = widthStr.trim() && w ? "none" : "";
-      el.style.transform = offsetStr.trim() && o ? `translateY(${(o * 100) / 480}cqw)` : "";
-    });
+    previewRef.current
+      ?.querySelectorAll<HTMLElement>("[data-logo]")
+      .forEach((el) => {
+        el.style.width = widthStr.trim() && w ? `${(w * 100) / 480}cqw` : "";
+        el.style.height = widthStr.trim() && w ? "auto" : "";
+        el.style.maxWidth = widthStr.trim() && w ? "none" : "";
+        el.style.transform =
+          offsetStr.trim() && o ? `translateY(${(o * 100) / 480}cqw)` : "";
+      });
   };
 
   const first = group[0].show!;
@@ -1445,19 +1629,17 @@ function PosterEditor({
   );
   const previewShows = useMemo(
     () =>
-      activeGroup.map(
-        (g): PamphletShowItem => ({
-          date: g.show!.date,
-          city: g.show!.city,
-          region: g.show!.region,
-          venue: g.show!.venue,
-          venueLabel: venueLabels[g.show!.slug] || undefined,
-          dateLabel: dateLabels[g.show!.slug] || undefined,
-          doorsOpen: doorsByShow[g.show!.slug] || undefined,
-          doorTime: g.show!.doorTime,
-          doorLabel: g.show!.doorLabel,
-        }),
-      ),
+      activeGroup.map((g): PamphletShowItem => ({
+        date: g.show!.date,
+        city: g.show!.city,
+        region: g.show!.region,
+        venue: g.show!.venue,
+        venueLabel: venueLabels[g.show!.slug] || undefined,
+        dateLabel: dateLabels[g.show!.slug] || undefined,
+        doorsOpen: doorsByShow[g.show!.slug] || undefined,
+        doorTime: g.show!.doorTime,
+        doorLabel: g.show!.doorLabel,
+      })),
     [activeGroup, venueLabels, dateLabels, doorsByShow],
   );
 
@@ -1499,7 +1681,8 @@ function PosterEditor({
       if (tagline.trim()) params.set("label", tagline.trim());
       if (venueImg.trim()) params.set("venueImg", venueImg.trim());
       if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
-      if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
+      if (venueImgOffsetY.trim())
+        params.set("venueImgOffsetY", venueImgOffsetY.trim());
       params.set("align", taglineAlign);
       if (scale !== 1) params.set("scale", String(scale));
       if (asPdf) params.set("pdf", "true");
@@ -1543,7 +1726,9 @@ function PosterEditor({
       centerLogo,
       taglineAlign,
       scale: scale !== 1 ? scale : undefined,
-      shows: Object.fromEntries(buildPamphletShows().map(({ slug, ...rest }) => [slug, rest])),
+      shows: Object.fromEntries(
+        buildPamphletShows().map(({ slug, ...rest }) => [slug, rest]),
+      ),
     };
     let res = await fetch("/api/legs", {
       method: "PATCH",
@@ -1570,7 +1755,9 @@ function PosterEditor({
     zipName: string,
   ) => {
     const zip = buildZip(entries);
-    const url = URL.createObjectURL(new Blob([Uint8Array.from(zip)], { type: "application/zip" }));
+    const url = URL.createObjectURL(
+      new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
+    );
     const link = document.createElement("a");
     link.href = url;
     link.download = zipName;
@@ -1599,7 +1786,8 @@ function PosterEditor({
     params.set("bgImg", bgImg.trim());
     if (venueImg.trim()) params.set("venueImg", venueImg.trim());
     if (venueImgWidth.trim()) params.set("venueImgW", venueImgWidth.trim());
-    if (venueImgOffsetY.trim()) params.set("venueImgOffsetY", venueImgOffsetY.trim());
+    if (venueImgOffsetY.trim())
+      params.set("venueImgOffsetY", venueImgOffsetY.trim());
     params.set("centerLogo", centerLogo ? "1" : "0");
     params.set("align", taglineAlign);
     params.set("scale", String(scale));
@@ -1651,8 +1839,12 @@ function PosterEditor({
       if (res.ok) onShowUpdate(slug, { posterLine: val || null });
       return res.ok;
     }
-    const shows: Record<string, { venueLabel?: string; dateLabel?: string; doorsOpen?: string }> =
-      Object.fromEntries((matchedPamphlet?.shows ?? []).map(({ slug: s, ...rest }) => [s, rest]));
+    const shows: Record<
+      string,
+      { venueLabel?: string; dateLabel?: string; doorsOpen?: string }
+    > = Object.fromEntries(
+      (matchedPamphlet?.shows ?? []).map(({ slug: s, ...rest }) => [s, rest]),
+    );
     if (val) {
       shows[slug] = { ...shows[slug], venueLabel: val };
     } else if (shows[slug]) {
@@ -1710,13 +1902,17 @@ function PosterEditor({
   // forceSlugs so the download reflects current edits without a save.
   const fetchFormat = (fmt: PosterFormat) => {
     const jpg = JPG_FORMATS.has(fmt);
-    return fetch(isSingle ? buildPosterHref(fmt, jpg) : buildPamphletHref(fmt, !jpg, true));
+    return fetch(
+      isSingle ? buildPosterHref(fmt, jpg) : buildPamphletHref(fmt, !jpg, true),
+    );
   };
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const formats = isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS;
+      const formats = isSingle
+        ? POSTER_PREVIEW_FORMATS
+        : PAMPHLET_PREVIEW_FORMATS;
       const entries = await Promise.all(
         formats.map(async (fmt) => ({
           name: downloadName(fmt),
@@ -1725,7 +1921,9 @@ function PosterEditor({
       );
       zipAndDownload(
         entries,
-        isSingle ? `poster-${soloShow!.slug}.zip` : `pamphlet-${legId.trim() || first.date}.zip`,
+        isSingle
+          ? `poster-${soloShow!.slug}.zip`
+          : `pamphlet-${legId.trim() || first.date}.zip`,
       );
     } finally {
       setDownloading(false);
@@ -1761,10 +1959,20 @@ function PosterEditor({
       setEventNames(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
       setPosterLines(Object.fromEntries(group.map((g) => [g.show!.slug, ""])));
     } else {
-      setVenueLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultLoc(g.show!)])));
-      setDateLabels(Object.fromEntries(group.map((g) => [g.show!.slug, defaultDateText(g.show!)])));
+      setVenueLabels(
+        Object.fromEntries(
+          group.map((g) => [g.show!.slug, defaultLoc(g.show!)]),
+        ),
+      );
+      setDateLabels(
+        Object.fromEntries(
+          group.map((g) => [g.show!.slug, defaultDateText(g.show!)]),
+        ),
+      );
       setDoorsByShow(
-        Object.fromEntries(group.map((g) => [g.show!.slug, defaultDoorsText(g.show!)])),
+        Object.fromEntries(
+          group.map((g) => [g.show!.slug, defaultDoorsText(g.show!)]),
+        ),
       );
       setShowDoors(false);
       setShowQr(false);
@@ -1855,7 +2063,6 @@ function PosterEditor({
     JSON.stringify(placeholders),
   ]);
 
-
   const total = activeGroup.length + placeholders.filter((p) => p.date).length;
   const inputCls =
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
@@ -1871,375 +2078,448 @@ function PosterEditor({
         <div className="fixed inset-0 z-50 flex bg-white dark:bg-neutral-800">
           {/* Inputs */}
           {!readOnly && (
-          <div className="w-[460px] shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-700">
-            <div className="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                  {isSingle ? "POSTER" : "PAMPHLET"} &middot; {label}
-                </h4>
-                {autoState === "saving" && (
-                  <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
-                )}
-                {autoState === "saved" && (
-                  <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
-                )}
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
-              {!isSingle && (
-                <input
-                  type="text"
-                  value={legId}
-                  onChange={(e) => setLegId(e.target.value)}
-                  placeholder="ID (e.g. british-columbia)"
-                  className={`${inputCls} mb-2`}
-                />
-              )}
-              {isSingle && (
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    value={posterImg}
-                    onChange={(e) => setPosterImg(e.target.value)}
-                    placeholder="Custom poster: /public file (posters/woodinville.jpg) or image URL"
-                    className={inputCls}
-                  />
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {posterImg.trim()
-                      ? "Custom art replaces everything below — no generated text, date, or QR."
-                      : "Upload art to public/posters, then name it here to replace the generated poster."}
-                  </p>
+            <div className="w-[460px] shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
+                    {isSingle ? "POSTER" : "PAMPHLET"} &middot; {label}
+                  </h4>
+                  {autoState === "saving" && (
+                    <CircleNotchIcon
+                      size={14}
+                      className="text-neutral-500 animate-spin"
+                    />
+                  )}
+                  {autoState === "saved" && (
+                    <CheckCircleIcon
+                      size={14}
+                      weight="fill"
+                      className="text-green-500"
+                    />
+                  )}
                 </div>
-              )}
-              <div className={posterImg.trim() ? "opacity-40" : undefined}>
-              {isSingle && (
-                <input
-                  type="text"
-                  value={bgImg}
-                  onChange={(e) => setBgImg(e.target.value)}
-                  placeholder="Background photo: /public file (posters/dawnbreakers-open-mic.webp) or image URL"
-                  className={`${inputCls} mb-2`}
-                />
-              )}
-              <textarea
-                value={tagline}
-                onChange={(e) => setTagline(e.target.value)}
-                placeholder="Tagline"
-                rows={3}
-                className={`${inputCls} mb-2 resize-y`}
-              />
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="text-xs text-neutral-500 mr-1">Tagline</span>
-                {(
-                  [
-                    ["justify", TextAlignJustifyIcon, "Justify"],
-                    ["left", TextAlignLeftIcon, "Left align"],
-                  ] as const
-                ).map(([val, Icon, title]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    title={title}
-                    aria-label={title}
-                    aria-pressed={taglineAlign === val}
-                    onClick={() => setTaglineAlign(val)}
-                    className={`flex items-center justify-center w-9 h-9 rounded border transition-colors ${
-                      taglineAlign === val
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300"
-                        : "border-neutral-300 dark:border-neutral-600 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
-                    }`}
-                  >
-                    <Icon size={18} />
-                  </button>
-                ))}
+                <button
+                  onClick={() => setOpen(false)}
+                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+                >
+                  ✕
+                </button>
               </div>
-              <TagsField value={tags} onChange={setTags} className={`${tagsCls} mb-3`} />
-              <input
-                type="text"
-                value={venueImg}
-                onChange={(e) => setVenueImg(e.target.value)}
-                placeholder="Logo: /public file (tcc.webp) or image URL"
-                className={`${inputCls} mb-2`}
-              />
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="number"
-                  value={venueImgWidth}
-                  onChange={(e) => {
-                    setVenueImgWidth(e.target.value);
-                    liveLogo(e.target.value, venueImgOffsetY);
-                  }}
-                  onBlur={() => setCommittedImgWidth(venueImgWidth)}
-                  min={0}
-                  step={1}
-                  placeholder="Logo width px"
-                  className={`${inputCls} min-w-0`}
-                />
-                <input
-                  type="number"
-                  value={venueImgOffsetY}
-                  onChange={(e) => {
-                    setVenueImgOffsetY(e.target.value);
-                    liveLogo(venueImgWidth, e.target.value);
-                  }}
-                  onBlur={() => setCommittedOffsetY(venueImgOffsetY)}
-                  step={1}
-                  placeholder="Y offset px"
-                  title="Logo vertical offset — negative moves up, positive down"
-                  className={`${inputCls} min-w-0`}
-                />
-                <label className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={centerLogo}
-                    onChange={(e) => setCenterLogo(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-xs">Center</span>
-                </label>
-              </div>
-              {isSingle ? (
-                <>
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
+                {!isSingle && (
                   <input
                     type="text"
-                    value={venueLabels[soloSlug] ?? ""}
-                    onChange={(e) =>
-                      setVenueLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
-                    }
-                    placeholder={`Venue name (e.g. ${soloShow?.venue || "the venue"})`}
+                    value={legId}
+                    onChange={(e) => setLegId(e.target.value)}
+                    placeholder="ID (e.g. british-columbia)"
                     className={`${inputCls} mb-2`}
                   />
-                  <input
-                    type="text"
-                    value={eventNames[soloSlug] ?? ""}
-                    onChange={(e) =>
-                      setEventNames((prev) => ({ ...prev, [soloSlug]: e.target.value }))
-                    }
-                    placeholder="Event name (optional)"
-                    className={`${inputCls} mb-2`}
-                  />
-                  <input
-                    type="text"
-                    value={posterLines[soloSlug] ?? ""}
-                    onChange={(e) =>
-                      setPosterLines((prev) => ({ ...prev, [soloSlug]: e.target.value }))
-                    }
-                    placeholder="Poster line (optional, print only)"
-                    className={`${inputCls} mb-2`}
-                  />
-                  <input
-                    type="text"
-                    value={doorLabels[soloSlug] ?? ""}
-                    onChange={(e) =>
-                      setDoorLabels((prev) => ({ ...prev, [soloSlug]: e.target.value }))
-                    }
-                    placeholder={`Doors open at ${soloShow?.doorTime || "7PM"}`}
-                    className={`${inputCls} mb-2`}
-                  />
-                  <ScaleSlider label="Location size" value={scale} onChange={setScale} />
-                </>
-              ) : (
-                <>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                )}
+                {isSingle && (
+                  <div className="mb-3">
                     <input
-                      type="checkbox"
-                      checked={showDoors}
-                      onChange={(e) => setShowDoors(e.target.checked)}
-                      className="rounded"
+                      type="text"
+                      value={posterImg}
+                      onChange={(e) => setPosterImg(e.target.value)}
+                      placeholder="Custom poster: /public file (posters/woodinville.jpg) or image URL"
+                      className={inputCls}
                     />
-                    <span>Show door times on pamphlet</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
-                    <input
-                      type="checkbox"
-                      checked={showQr}
-                      onChange={(e) => setShowQr(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>Show QR code on pamphlet</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
-                    <input
-                      type="checkbox"
-                      checked={pinTopRsvp}
-                      onChange={(e) => setPinTopRsvp(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span>Pin RSVP link to top</span>
-                  </label>
-                  <ScaleSlider label="Schedule size" value={scale} onChange={setScale} />
-                  <div className="space-y-3 mb-4">
-                    {group.map((g) => {
-                      const slug = g.show!.slug;
-                      const isIncluded = included[slug];
-                      const dateBad =
-                        isIncluded &&
-                        dateFocus !== slug &&
-                        dateMisaligned(dateLabels[slug] ?? "", g.show!.date);
-                      return (
-                        <div
-                          key={slug}
-                          className={`rounded-md border border-neutral-200 dark:border-neutral-700 p-2.5 space-y-1.5 ${
-                            isIncluded ? "" : "opacity-40"
-                          }`}
-                        >
-                          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isIncluded}
-                              onChange={(e) =>
-                                setIncluded((prev) => ({ ...prev, [slug]: e.target.checked }))
-                              }
-                              className="rounded"
-                            />
-                            <span>
-                              {formatMonthDay(g.show!.date)} &middot; {g.show!.city},{" "}
-                              {g.show!.region}
-                            </span>
-                          </label>
-                          <input
-                            type="text"
-                            value={dateLabels[slug] ?? ""}
-                            onChange={(e) =>
-                              setDateLabels((prev) => ({ ...prev, [slug]: e.target.value }))
-                            }
-                            onFocus={() => setDateFocus(slug)}
-                            onBlur={() => setDateFocus(null)}
-                            disabled={!isIncluded}
-                            placeholder={formatEventDateShort(g.show!.date)}
-                            className={`${subInputCls} ${dateBad ? "ring-1 ring-amber-500 border-amber-500" : ""}`}
-                          />
-                          {dateBad && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDateLabels((prev) => ({
-                                  ...prev,
-                                  [slug]: realignDate(prev[slug] ?? "", g.show!.date),
-                                }))
-                              }
-                              title="Fix to match the real date"
-                              className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-500 hover:underline"
-                            >
-                              <WarningIcon size={12} weight="fill" />
-                              Should be {formatEventDateShort(g.show!.date)}. Fix
-                            </button>
-                          )}
-                          <input
-                            type="text"
-                            value={venueLabels[slug] ?? ""}
-                            onChange={(e) =>
-                              setVenueLabels((prev) => ({ ...prev, [slug]: e.target.value }))
-                            }
-                            disabled={!isIncluded}
-                            placeholder={`Poster line (e.g. ${g.show!.venue || "the venue"}, ${g.show!.city}, ${g.show!.region})`}
-                            className={subInputCls}
-                          />
-                          <input
-                            type="text"
-                            value={doorsByShow[slug] ?? ""}
-                            onChange={(e) =>
-                              setDoorsByShow((prev) => ({ ...prev, [slug]: e.target.value }))
-                            }
-                            disabled={!isIncluded}
-                            placeholder={g.show!.doorLabel || `Doors open at ${g.show!.doorTime || "7PM"}`}
-                            className={subInputCls}
-                          />
-                        </div>
-                      );
-                    })}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {posterImg.trim()
+                        ? "Custom art replaces everything below — no generated text, date, or QR."
+                        : "Upload art to public/posters, then name it here to replace the generated poster."}
+                    </p>
                   </div>
-                  <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
-                        Placeholder dates
-                      </span>
+                )}
+                <div className={posterImg.trim() ? "opacity-40" : undefined}>
+                  {isSingle && (
+                    <input
+                      type="text"
+                      value={bgImg}
+                      onChange={(e) => setBgImg(e.target.value)}
+                      placeholder="Background photo: /public file (posters/dawnbreakers-open-mic.webp) or image URL"
+                      className={`${inputCls} mb-2`}
+                    />
+                  )}
+                  <textarea
+                    value={tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    placeholder="Tagline"
+                    rows={3}
+                    className={`${inputCls} mb-2 resize-y`}
+                  />
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className="text-xs text-neutral-500 mr-1">
+                      Tagline
+                    </span>
+                    {(
+                      [
+                        ["justify", TextAlignJustifyIcon, "Justify"],
+                        ["left", TextAlignLeftIcon, "Left align"],
+                      ] as const
+                    ).map(([val, Icon, title]) => (
                       <button
-                        onClick={() =>
-                          setPlaceholders((prev) => [...prev, { date: "", label: "" }])
-                        }
-                        className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+                        key={val}
+                        type="button"
+                        title={title}
+                        aria-label={title}
+                        aria-pressed={taglineAlign === val}
+                        onClick={() => setTaglineAlign(val)}
+                        className={`flex items-center justify-center w-9 h-9 rounded border transition-colors ${
+                          taglineAlign === val
+                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300"
+                            : "border-neutral-300 dark:border-neutral-600 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
+                        }`}
                       >
-                        + Add slot
+                        <Icon size={18} />
                       </button>
-                    </div>
-                    {placeholders.map((ph, i) => (
-                      <div key={i} className="flex gap-2 mb-2">
-                        <input
-                          type="date"
-                          value={ph.date}
-                          onChange={(e) =>
-                            setPlaceholders((prev) =>
-                              prev.map((p, j) => (j === i ? { ...p, date: e.target.value } : p)),
-                            )
-                          }
-                          className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                        />
-                        <input
-                          type="text"
-                          value={ph.label}
-                          onChange={(e) =>
-                            setPlaceholders((prev) =>
-                              prev.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)),
-                            )
-                          }
-                          placeholder="TBA"
-                          className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
-                        />
-                        <button
-                          onClick={() =>
-                            setPlaceholders((prev) => prev.filter((_, j) => j !== i))
-                          }
-                          className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
-                        >
-                          ✕
-                        </button>
-                      </div>
                     ))}
                   </div>
-                </>
-              )}
+                  <TagsField
+                    value={tags}
+                    onChange={setTags}
+                    className={`${tagsCls} mb-3`}
+                  />
+                  <input
+                    type="text"
+                    value={venueImg}
+                    onChange={(e) => setVenueImg(e.target.value)}
+                    placeholder="Logo: /public file (tcc.webp) or image URL"
+                    className={`${inputCls} mb-2`}
+                  />
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="number"
+                      value={venueImgWidth}
+                      onChange={(e) => {
+                        setVenueImgWidth(e.target.value);
+                        liveLogo(e.target.value, venueImgOffsetY);
+                      }}
+                      onBlur={() => setCommittedImgWidth(venueImgWidth)}
+                      min={0}
+                      step={1}
+                      placeholder="Logo width px"
+                      className={`${inputCls} min-w-0`}
+                    />
+                    <input
+                      type="number"
+                      value={venueImgOffsetY}
+                      onChange={(e) => {
+                        setVenueImgOffsetY(e.target.value);
+                        liveLogo(venueImgWidth, e.target.value);
+                      }}
+                      onBlur={() => setCommittedOffsetY(venueImgOffsetY)}
+                      step={1}
+                      placeholder="Y offset px"
+                      title="Logo vertical offset — negative moves up, positive down"
+                      className={`${inputCls} min-w-0`}
+                    />
+                    <label className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={centerLogo}
+                        onChange={(e) => setCenterLogo(e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="text-xs">Center</span>
+                    </label>
+                  </div>
+                  {isSingle ? (
+                    <>
+                      <input
+                        type="text"
+                        value={venueLabels[soloSlug] ?? ""}
+                        onChange={(e) =>
+                          setVenueLabels((prev) => ({
+                            ...prev,
+                            [soloSlug]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Venue name (e.g. ${soloShow?.venue || "the venue"})`}
+                        className={`${inputCls} mb-2`}
+                      />
+                      <input
+                        type="text"
+                        value={eventNames[soloSlug] ?? ""}
+                        onChange={(e) =>
+                          setEventNames((prev) => ({
+                            ...prev,
+                            [soloSlug]: e.target.value,
+                          }))
+                        }
+                        placeholder="Event name (optional)"
+                        className={`${inputCls} mb-2`}
+                      />
+                      <input
+                        type="text"
+                        value={posterLines[soloSlug] ?? ""}
+                        onChange={(e) =>
+                          setPosterLines((prev) => ({
+                            ...prev,
+                            [soloSlug]: e.target.value,
+                          }))
+                        }
+                        placeholder="Poster line (optional, print only)"
+                        className={`${inputCls} mb-2`}
+                      />
+                      <input
+                        type="text"
+                        value={doorLabels[soloSlug] ?? ""}
+                        onChange={(e) =>
+                          setDoorLabels((prev) => ({
+                            ...prev,
+                            [soloSlug]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Doors open at ${soloShow?.doorTime || "7PM"}`}
+                        className={`${inputCls} mb-2`}
+                      />
+                      <ScaleSlider
+                        label="Location size"
+                        value={scale}
+                        onChange={setScale}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                        <input
+                          type="checkbox"
+                          checked={showDoors}
+                          onChange={(e) => setShowDoors(e.target.checked)}
+                          className="rounded"
+                        />
+                        <span>Show door times on pamphlet</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                        <input
+                          type="checkbox"
+                          checked={showQr}
+                          onChange={(e) => setShowQr(e.target.checked)}
+                          className="rounded"
+                        />
+                        <span>Show QR code on pamphlet</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-4">
+                        <input
+                          type="checkbox"
+                          checked={pinTopRsvp}
+                          onChange={(e) => setPinTopRsvp(e.target.checked)}
+                          className="rounded"
+                        />
+                        <span>Pin RSVP link to top</span>
+                      </label>
+                      <ScaleSlider
+                        label="Schedule size"
+                        value={scale}
+                        onChange={setScale}
+                      />
+                      <div className="space-y-3 mb-4">
+                        {group.map((g) => {
+                          const slug = g.show!.slug;
+                          const isIncluded = included[slug];
+                          const dateBad =
+                            isIncluded &&
+                            dateFocus !== slug &&
+                            dateMisaligned(
+                              dateLabels[slug] ?? "",
+                              g.show!.date,
+                            );
+                          return (
+                            <div
+                              key={slug}
+                              className={`rounded-md border border-neutral-200 dark:border-neutral-700 p-2.5 space-y-1.5 ${
+                                isIncluded ? "" : "opacity-40"
+                              }`}
+                            >
+                              <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isIncluded}
+                                  onChange={(e) =>
+                                    setIncluded((prev) => ({
+                                      ...prev,
+                                      [slug]: e.target.checked,
+                                    }))
+                                  }
+                                  className="rounded"
+                                />
+                                <span>
+                                  {formatMonthDay(g.show!.date)} &middot;{" "}
+                                  {g.show!.city}, {g.show!.region}
+                                </span>
+                              </label>
+                              <input
+                                type="text"
+                                value={dateLabels[slug] ?? ""}
+                                onChange={(e) =>
+                                  setDateLabels((prev) => ({
+                                    ...prev,
+                                    [slug]: e.target.value,
+                                  }))
+                                }
+                                onFocus={() => setDateFocus(slug)}
+                                onBlur={() => setDateFocus(null)}
+                                disabled={!isIncluded}
+                                placeholder={formatEventDateShort(g.show!.date)}
+                                className={`${subInputCls} ${dateBad ? "ring-1 ring-amber-500 border-amber-500" : ""}`}
+                              />
+                              {dateBad && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDateLabels((prev) => ({
+                                      ...prev,
+                                      [slug]: realignDate(
+                                        prev[slug] ?? "",
+                                        g.show!.date,
+                                      ),
+                                    }))
+                                  }
+                                  title="Fix to match the real date"
+                                  className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-500 hover:underline"
+                                >
+                                  <WarningIcon size={12} weight="fill" />
+                                  Should be {formatEventDateShort(g.show!.date)}
+                                  . Fix
+                                </button>
+                              )}
+                              <input
+                                type="text"
+                                value={venueLabels[slug] ?? ""}
+                                onChange={(e) =>
+                                  setVenueLabels((prev) => ({
+                                    ...prev,
+                                    [slug]: e.target.value,
+                                  }))
+                                }
+                                disabled={!isIncluded}
+                                placeholder={`Poster line (e.g. ${g.show!.venue || "the venue"}, ${g.show!.city}, ${g.show!.region})`}
+                                className={subInputCls}
+                              />
+                              <input
+                                type="text"
+                                value={doorsByShow[slug] ?? ""}
+                                onChange={(e) =>
+                                  setDoorsByShow((prev) => ({
+                                    ...prev,
+                                    [slug]: e.target.value,
+                                  }))
+                                }
+                                disabled={!isIncluded}
+                                placeholder={
+                                  g.show!.doorLabel ||
+                                  `Doors open at ${g.show!.doorTime || "7PM"}`
+                                }
+                                className={subInputCls}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="border-t border-neutral-300 dark:border-neutral-600 pt-3 mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs tracking-widest text-neutral-600 dark:text-neutral-400 uppercase">
+                            Placeholder dates
+                          </span>
+                          <button
+                            onClick={() =>
+                              setPlaceholders((prev) => [
+                                ...prev,
+                                { date: "", label: "" },
+                              ])
+                            }
+                            className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+                          >
+                            + Add slot
+                          </button>
+                        </div>
+                        {placeholders.map((ph, i) => (
+                          <div key={i} className="flex gap-2 mb-2">
+                            <input
+                              type="date"
+                              value={ph.date}
+                              onChange={(e) =>
+                                setPlaceholders((prev) =>
+                                  prev.map((p, j) =>
+                                    j === i
+                                      ? { ...p, date: e.target.value }
+                                      : p,
+                                  ),
+                                )
+                              }
+                              className="flex-[3] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                            />
+                            <input
+                              type="text"
+                              value={ph.label}
+                              onChange={(e) =>
+                                setPlaceholders((prev) =>
+                                  prev.map((p, j) =>
+                                    j === i
+                                      ? { ...p, label: e.target.value }
+                                      : p,
+                                  ),
+                                )
+                              }
+                              placeholder="TBA"
+                              className="flex-[4] px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600"
+                            />
+                            <button
+                              onClick={() =>
+                                setPlaceholders((prev) =>
+                                  prev.filter((_, j) => j !== i),
+                                )
+                              }
+                              className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-500 transition-colors px-1"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-6 pt-4">
+                {saveError && (
+                  <div className="text-sm text-red-500 mb-2">{saveError}</div>
+                )}
+                {!isSingle && total === 0 ? (
+                  <div className="text-center text-sm px-3 py-3 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
+                    Select at least one show
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleReset}
+                      disabled={downloading}
+                      className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
+                    >
+                      {downloading ? "Downloading…" : "Download"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 p-6 pt-4">
-              {saveError && <div className="text-sm text-red-500 mb-2">{saveError}</div>}
-              {!isSingle && total === 0 ? (
-                <div className="text-center text-sm px-3 py-3 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
-                  Select at least one show
-                </div>
-              ) : (
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleReset}
-                    disabled={downloading}
-                    className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
-                  >
-                    {downloading ? "Downloading…" : "Download"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
           )}
 
           {/* Preview — flush, full viewport height */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
             <div className="flex items-center gap-3 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
               <div className="inline-flex rounded-lg bg-neutral-800/60 p-0.5">
-                {(isSingle ? POSTER_PREVIEW_FORMATS : PAMPHLET_PREVIEW_FORMATS).map((f) => (
+                {(isSingle
+                  ? POSTER_PREVIEW_FORMATS
+                  : PAMPHLET_PREVIEW_FORMATS
+                ).map((f) => (
                   <button
                     key={f}
                     onClick={() => setPreviewFormat(f)}
@@ -2274,7 +2554,10 @@ function PosterEditor({
                 )}
               </div>
             </div>
-            <div ref={previewRef} className={`flex-1 flex overflow-hidden ${readOnly ? "justify-center" : "justify-end"}`}>
+            <div
+              ref={previewRef}
+              className={`flex-1 flex overflow-hidden ${readOnly ? "justify-center" : "justify-end"}`}
+            >
               {isSingle && soloShow ? (
                 <Poster
                   slug={soloSlug}
@@ -2445,13 +2728,20 @@ function ManageModal({
     await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: show.slug, stage: "intent", leg: null, cancelEventbrite: cancelEb }),
+      body: JSON.stringify({
+        slug: show.slug,
+        stage: "intent",
+        leg: null,
+        cancelEventbrite: cancelEb,
+      }),
     });
   };
 
   const copyConfirmLink = async () => {
     if (!show?.slug) return;
-    const res = await fetch(`/api/confirm-link?slug=${encodeURIComponent(show.slug)}`);
+    const res = await fetch(
+      `/api/confirm-link?slug=${encodeURIComponent(show.slug)}`,
+    );
     if (!res.ok) {
       setConfirmError("Couldn't get the confirmation link.");
       return;
@@ -2507,9 +2797,11 @@ function ManageModal({
       opts.push({ value, label: `Fund · ${name}` });
     };
     legs.forEach((l) => l.fund && addFund(l.slug, l.fund.destination));
-    Object.entries(FUND_LEGS).forEach(([slug, f]) => addFund(slug, f.destination));
-    (Object.values(projectsData) as { slug: string; title: string }[]).forEach((p) =>
-      addFund(p.slug, p.title),
+    Object.entries(FUND_LEGS).forEach(([slug, f]) =>
+      addFund(slug, f.destination),
+    );
+    (Object.values(projectsData) as { slug: string; title: string }[]).forEach(
+      (p) => addFund(p.slug, p.title),
     );
     opts.push(
       { value: "/support", label: "Support" },
@@ -2520,7 +2812,9 @@ function ManageModal({
     return opts;
   }, [legs]);
 
-  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+  const location = [host.venue || host.address, host.city, host.region]
+    .filter(Boolean)
+    .join(", ");
 
   const handleDeleteShow = async () => {
     setDeleting(true);
@@ -2544,7 +2838,10 @@ function ManageModal({
         await fetch("/api/shows", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: group.showSlug, cancelEventbrite: cancelEb }),
+          body: JSON.stringify({
+            slug: group.showSlug,
+            cancelEventbrite: cancelEb,
+          }),
         });
       }
       onRemoveSponsor(host.submittedAt, host.showSlug);
@@ -2566,7 +2863,9 @@ function ManageModal({
               MANAGE
             </h4>
             {show?.slug && (
-              <span className="text-sm text-neutral-400 truncate">· {show.slug}</span>
+              <span className="text-sm text-neutral-400 truncate">
+                · {show.slug}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -2594,7 +2893,10 @@ function ManageModal({
                         Make private
                       </span>
                       <button
-                        onClick={() => { setAskingPrivate(false); setPrivateDraft(""); }}
+                        onClick={() => {
+                          setAskingPrivate(false);
+                          setPrivateDraft("");
+                        }}
                         className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
                       >
                         Cancel
@@ -2610,7 +2912,10 @@ function ManageModal({
                     />
                     <button
                       onClick={() => {
-                        patchShow({ visibility: "private", privateNote: privateDraft.trim() || null });
+                        patchShow({
+                          visibility: "private",
+                          privateNote: privateDraft.trim() || null,
+                        });
                         setAskingPrivate(false);
                         setPrivateDraft("");
                       }}
@@ -2621,13 +2926,22 @@ function ManageModal({
                   </div>
                 ) : (
                   <button
-                    onClick={() => { setAskingPrivate(true); setPrivateDraft(""); }}
+                    onClick={() => {
+                      setAskingPrivate(true);
+                      setPrivateDraft("");
+                    }}
                     className={drawerRow}
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-neutral-800 dark:text-neutral-200">Visibility</span>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`} />
+                      <span className="text-neutral-800 dark:text-neutral-200">
+                        Visibility
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`}
+                        />
                         {status.label}
                       </span>
                     </span>
@@ -2640,9 +2954,15 @@ function ManageModal({
                 <div className="px-6 py-3 space-y-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-sm text-neutral-800 dark:text-neutral-200">Visibility</span>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`} />
+                      <span className="text-sm text-neutral-800 dark:text-neutral-200">
+                        Visibility
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium ${tone.text}`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${tone.dot} animate-pulse`}
+                        />
                         {status.label}
                       </span>
                     </span>
@@ -2656,7 +2976,9 @@ function ManageModal({
                   <input
                     type="text"
                     defaultValue={show.privateNote ?? ""}
-                    onBlur={(e) => patchShow({ privateNote: e.target.value.trim() || null })}
+                    onBlur={(e) =>
+                      patchShow({ privateNote: e.target.value.trim() || null })
+                    }
                     placeholder="Private reason (e.g. Youth camp, private house concert)"
                     className={inputCls}
                   />
@@ -2670,7 +2992,9 @@ function ManageModal({
                     <span className="shrink-0">Direct link goes to</span>
                     <select
                       value={show.privateRedirect ?? ""}
-                      onChange={(e) => patchShow({ privateRedirect: e.target.value || null })}
+                      onChange={(e) =>
+                        patchShow({ privateRedirect: e.target.value || null })
+                      }
                       className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 min-w-0"
                     >
                       {redirectOptions.map((o) => (
@@ -2688,12 +3012,22 @@ function ManageModal({
                 onChange={(v) => patchShow({ standalone: v })}
                 className={drawerRow}
               />
+              <ToggleRow
+                label="Guest set at the host's own gathering"
+                checked={!!show.guestSet}
+                onChange={(v) => patchShow({ guestSet: v })}
+                className={drawerRow}
+              />
               <label className={`${drawerRow} cursor-pointer`}>
-                <span className="text-neutral-800 dark:text-neutral-200">Type</span>
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  Type
+                </span>
                 <select
                   value={showTypeOf(show)}
                   onChange={(e) => {
-                    const next = SHOW_TYPES.find((t) => t.value === e.target.value);
+                    const next = SHOW_TYPES.find(
+                      (t) => t.value === e.target.value,
+                    );
                     if (next) patchShow(next.fields);
                   }}
                   className="text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 shrink-0"
@@ -2712,16 +3046,23 @@ function ManageModal({
                 className={drawerRow}
               />
               <label className={`${drawerRow} cursor-pointer`}>
-                <span className="text-neutral-800 dark:text-neutral-200">Leg</span>
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  Leg
+                </span>
                 <select
                   value={show.leg ?? ""}
                   onChange={async (e) => {
                     const v = e.target.value;
                     if (v === "__new__") {
-                      const raw = window.prompt("New leg slug (e.g. socal)") ?? "";
-                      const slug = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                      const raw =
+                        window.prompt("New leg slug (e.g. socal)") ?? "";
+                      const slug = raw
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-");
                       if (!slug) return;
-                      if (!legs.some((l) => l.slug === slug)) await onCreateLeg(slug);
+                      if (!legs.some((l) => l.slug === slug))
+                        await onCreateLeg(slug);
                       patchShow({ leg: slug });
                     } else {
                       patchShow({ leg: v || null });
@@ -2748,16 +3089,26 @@ function ManageModal({
             <div className={groupList}>
               {isShowDraft(show) && (
                 <button className={drawerRow} onClick={onEditHost}>
-                  <span className="text-neutral-800 dark:text-neutral-200">Amend booking</span>
-                  <span className="text-neutral-400 truncate ml-3">date, venue, host</span>
+                  <span className="text-neutral-800 dark:text-neutral-200">
+                    Amend booking
+                  </span>
+                  <span className="text-neutral-400 truncate ml-3">
+                    date, venue, host
+                  </span>
                 </button>
               )}
               <button className={drawerRow} onClick={copyConfirmLink}>
-                <span className="text-neutral-800 dark:text-neutral-200">Copy confirm link</span>
-                <span className="text-neutral-400">{copiedLink ? "Copied" : "for the host"}</span>
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  Copy confirm link
+                </span>
+                <span className="text-neutral-400">
+                  {copiedLink ? "Copied" : "for the host"}
+                </span>
               </button>
               {confirmError && (
-                <p className="px-6 py-2 text-xs text-red-600 dark:text-red-400">{confirmError}</p>
+                <p className="px-6 py-2 text-xs text-red-600 dark:text-red-400">
+                  {confirmError}
+                </p>
               )}
             </div>
           </section>
@@ -2784,7 +3135,11 @@ function ManageModal({
                     </label>
                   )}
                   {cancelEb && (rsvpCounts?.responses ?? 0) > 0 && (
-                    <NotifyRsvps slug={group.showSlug} count={rsvpCounts!.responses} onSent={onEmailSent} />
+                    <NotifyRsvps
+                      slug={group.showSlug}
+                      count={rsvpCounts!.responses}
+                      onSent={onEmailSent}
+                    />
                   )}
                   <div className="flex items-center gap-4">
                     <button
@@ -2803,7 +3158,10 @@ function ManageModal({
                 </div>
               ) : (
                 <button
-                  onClick={() => { setCancelEb(false); setAskingReschedule(true); }}
+                  onClick={() => {
+                    setCancelEb(false);
+                    setAskingReschedule(true);
+                  }}
                   className={`${drawerRow} text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20`}
                 >
                   <span>Needs rescheduling</span>
@@ -2817,12 +3175,18 @@ function ManageModal({
           <h5 className={sectionLabel}>People</h5>
           <div className={groupList}>
             <button className={drawerRow} onClick={onEditHost}>
-              <span className="text-neutral-800 dark:text-neutral-200">Edit host</span>
-              <span className="text-neutral-400 truncate ml-3">{host.name || host.email}</span>
+              <span className="text-neutral-800 dark:text-neutral-200">
+                Edit host
+              </span>
+              <span className="text-neutral-400 truncate ml-3">
+                {host.name || host.email}
+              </span>
             </button>
             {supporters.length > 0 && (
               <button className={drawerRow} onClick={onViewSupporters}>
-                <span className="text-neutral-800 dark:text-neutral-200">Supporters</span>
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  Supporters
+                </span>
                 <span className="text-neutral-400">+{supporters.length}</span>
               </button>
             )}
@@ -2833,12 +3197,20 @@ function ManageModal({
           <h5 className={sectionLabel}>Promote</h5>
           <div className={groupList}>
             <button className={drawerRow} onClick={onOpenEmail}>
-              <span className="text-neutral-800 dark:text-neutral-200">Email RSVPs</span>
-              {rsvpCounts && <span className="text-neutral-400">{rsvpCounts.responses}</span>}
+              <span className="text-neutral-800 dark:text-neutral-200">
+                Email RSVPs
+              </span>
+              {rsvpCounts && (
+                <span className="text-neutral-400">{rsvpCounts.responses}</span>
+              )}
             </button>
             {hasEb && (
-              <div className={`${drawerRow} hover:bg-transparent dark:hover:bg-transparent`}>
-                <span className="text-neutral-800 dark:text-neutral-200">Eventbrite RSVPs</span>
+              <div
+                className={`${drawerRow} hover:bg-transparent dark:hover:bg-transparent`}
+              >
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  Eventbrite RSVPs
+                </span>
                 <span
                   className={
                     ebSyncFailed
@@ -2874,7 +3246,9 @@ function ManageModal({
               title="PDF renovating"
               className={`${drawerRow} opacity-40 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent`}
             >
-              <span className="text-neutral-800 dark:text-neutral-200">PDF</span>
+              <span className="text-neutral-800 dark:text-neutral-200">
+                PDF
+              </span>
               <span className="text-neutral-400">soon</span>
             </button>
           </div>
@@ -2900,8 +3274,9 @@ function ManageModal({
                   rsvpCounts.responses > 0 &&
                   !emailSentSlugs.has(group.showSlug) && (
                     <p className="text-xs text-amber-600 dark:text-amber-500">
-                      {rsvpCounts.responses} RSVP{rsvpCounts.responses === 1 ? "" : "s"} not yet
-                      notified. Send a cancel email first.
+                      {rsvpCounts.responses} RSVP
+                      {rsvpCounts.responses === 1 ? "" : "s"} not yet notified.
+                      Send a cancel email first.
                     </p>
                   )}
                 {hasEb && (
@@ -2916,7 +3291,11 @@ function ManageModal({
                   </label>
                 )}
                 {cancelEb && (rsvpCounts?.responses ?? 0) > 0 && (
-                  <NotifyRsvps slug={group.showSlug} count={rsvpCounts!.responses} onSent={onEmailSent} />
+                  <NotifyRsvps
+                    slug={group.showSlug}
+                    count={rsvpCounts!.responses}
+                    onSent={onEmailSent}
+                  />
                 )}
                 <div className="flex gap-2 items-center">
                   <input
@@ -2983,17 +3362,22 @@ function ShowGroupCard({
   const { show, host, supporters } = group;
   const [editingHost, setEditingHost] = useState(false);
   const [viewingSupporters, setViewingSupporters] = useState(false);
-  const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(null);
+  const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(
+    null,
+  );
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailSchedule, setEmailSchedule] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<string | null>(null);
-  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(null);
-  const [rsvpCounts, setRsvpCounts] = useState<{ responses: number; attending: number } | null>(
+  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(
     null,
   );
+  const [rsvpCounts, setRsvpCounts] = useState<{
+    responses: number;
+    attending: number;
+  } | null>(null);
   const [emailConfirming, setEmailConfirming] = useState(false);
   const [emailSentSlugs, setEmailSentSlugs] = useState<Set<string>>(new Set());
   const [dateValue, setDateValue] = useState(show?.date ?? host.date ?? "");
@@ -3009,7 +3393,8 @@ function ShowGroupCard({
   const isNew = !!newSlug && newSlug === group.showSlug;
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (isNew) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (isNew)
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [isNew]);
 
   const openEmail = () => {
@@ -3045,7 +3430,9 @@ function ShowGroupCard({
     dateSave.save({ date: newDate });
   };
 
-  const location = [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+  const location = [host.venue || host.address, host.city, host.region]
+    .filter(Boolean)
+    .join(", ");
   const status = getShowStatus(show);
   const statusTone = STATUS_TONE[status.tone];
 
@@ -3054,7 +3441,9 @@ function ShowGroupCard({
       {editingHost && (
         <Modal
           onClose={() => setEditingHost(false)}
-          title={host.showSlug ? `AMEND SPONSOR · ${host.showSlug}` : "AMEND SPONSOR"}
+          title={
+            host.showSlug ? `AMEND SPONSOR · ${host.showSlug}` : "AMEND SPONSOR"
+          }
         >
           <SponsorForm
             showSlug={host.showSlug ?? undefined}
@@ -3107,7 +3496,9 @@ function ShowGroupCard({
           header={
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                {editingSupporter ? "AMEND SUPPORTER" : `SUPPORTERS (${supporters.length})`}
+                {editingSupporter
+                  ? "AMEND SUPPORTER"
+                  : `SUPPORTERS (${supporters.length})`}
               </h4>
               <button
                 onClick={() => {
@@ -3153,10 +3544,14 @@ function ShowGroupCard({
                 >
                   <div className="text-neutral-700 dark:text-neutral-300">
                     <span className="font-medium">{s.name || s.email}</span>
-                    {s.name && s.email && <span className="text-neutral-500 ml-2">{s.email}</span>}
+                    {s.name && s.email && (
+                      <span className="text-neutral-500 ml-2">{s.email}</span>
+                    )}
                   </div>
                   {s.items.length > 0 && (
-                    <div className="text-xs text-neutral-500 mt-0.5">{orderItems(s.items).join(" · ")}</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {orderItems(s.items).join(" · ")}
+                    </div>
                   )}
                 </button>
               ))}
@@ -3174,7 +3569,9 @@ function ShowGroupCard({
             <>
               EMAIL RSVPS
               {emailRecipientCount !== null && (
-                <span className="ml-2 text-neutral-500">({emailRecipientCount} recipients)</span>
+                <span className="ml-2 text-neutral-500">
+                  ({emailRecipientCount} recipients)
+                </span>
               )}
             </>
           }
@@ -3216,7 +3613,9 @@ function ShowGroupCard({
             </span>
             <div className="flex items-center gap-2">
               <button
-                disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                disabled={
+                  emailSending || !emailSubject.trim() || !emailBody.trim()
+                }
                 onClick={async () => {
                   setEmailSending(true);
                   setEmailResult(null);
@@ -3232,7 +3631,9 @@ function ShowGroupCard({
                   });
                   const data = await res.json();
                   setEmailSending(false);
-                  setEmailResult(res.ok ? "Test sent to you" : data.error || "Failed");
+                  setEmailResult(
+                    res.ok ? "Test sent to you" : data.error || "Failed",
+                  );
                 }}
                 className="px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 transition-colors"
               >
@@ -3262,18 +3663,24 @@ function ShowGroupCard({
                     setEmailConfirming(false);
                     if (res.ok) {
                       setEmailResult(`Sent to ${data.sent} of ${data.total}`);
-                      setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug));
+                      setEmailSentSlugs((prev) =>
+                        new Set(prev).add(group.showSlug),
+                      );
                     } else {
                       setEmailResult(data.error || "Failed");
                     }
                   }}
                   className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
                 >
-                  {emailSending ? "Sending..." : `Confirm ${emailSchedule ? "Schedule" : "Send"}`}
+                  {emailSending
+                    ? "Sending..."
+                    : `Confirm ${emailSchedule ? "Schedule" : "Send"}`}
                 </button>
               ) : (
                 <button
-                  disabled={emailSending || !emailSubject.trim() || !emailBody.trim()}
+                  disabled={
+                    emailSending || !emailSubject.trim() || !emailBody.trim()
+                  }
                   onClick={() => setEmailConfirming(true)}
                   className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-40 transition-colors"
                 >
@@ -3287,7 +3694,9 @@ function ShowGroupCard({
               You already sent an email for this show in this session
             </div>
           )}
-          {emailResult && <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>}
+          {emailResult && (
+            <div className="mt-3 text-xs text-neutral-500">{emailResult}</div>
+          )}
         </Modal>
       )}
       {managing && (
@@ -3308,10 +3717,21 @@ function ShowGroupCard({
             if (group.showSlug) onShowRemove(group.showSlug);
           }}
           onClose={() => setManaging(false)}
-          onEditHost={() => { setManaging(false); setEditingHost(true); }}
-          onViewSupporters={() => { setManaging(false); setViewingSupporters(true); }}
-          onOpenEmail={() => { setManaging(false); openEmail(); }}
-          onEmailSent={() => setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug))}
+          onEditHost={() => {
+            setManaging(false);
+            setEditingHost(true);
+          }}
+          onViewSupporters={() => {
+            setManaging(false);
+            setViewingSupporters(true);
+          }}
+          onOpenEmail={() => {
+            setManaging(false);
+            openEmail();
+          }}
+          onEmailSent={() =>
+            setEmailSentSlugs((prev) => new Set(prev).add(group.showSlug))
+          }
         />
       )}
       <div
@@ -3358,10 +3778,17 @@ function ShowGroupCard({
                     tabIndex={-1}
                   />
                   {dateSave.state === "saving" && (
-                    <CircleNotchIcon size={14} className="text-neutral-500 animate-spin" />
+                    <CircleNotchIcon
+                      size={14}
+                      className="text-neutral-500 animate-spin"
+                    />
                   )}
                   {dateSave.state === "saved" && (
-                    <CheckCircleIcon size={14} weight="fill" className="text-green-500" />
+                    <CheckCircleIcon
+                      size={14}
+                      weight="fill"
+                      className="text-green-500"
+                    />
                   )}
                 </div>
               ) : (
@@ -3370,15 +3797,17 @@ function ShowGroupCard({
                 </p>
               )}
               {location && (
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{location}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                  {location}
+                </p>
               )}
               {rsvpCounts && (
                 <p className="text-xs text-neutral-500 mt-1">
-                  {rsvpCounts.responses} responses &middot; {rsvpCounts.attending} attending
+                  {rsvpCounts.responses} responses &middot;{" "}
+                  {rsvpCounts.attending} attending
                 </p>
               )}
             </div>
-
           </div>
 
           <div className="mt-auto flex items-center justify-between gap-2 pt-2">
@@ -3396,7 +3825,9 @@ function ShowGroupCard({
               <span
                 className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${statusTone.pill}`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${statusTone.dot}`} />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${statusTone.dot}`}
+                />
                 {status.label}
               </span>
             )}

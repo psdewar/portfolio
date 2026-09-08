@@ -20,8 +20,7 @@ import {
   deleteMomentArtifacts,
   renameMomentArtifacts,
   resolveCities,
-  resolveVisits,
-  legCityOrder,
+  resolveStops,
 } from "../../shared/moments";
 
 const URL_TTL = 3600;
@@ -58,13 +57,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [list, previewList, featuredKeys, thumbs, ogKey, legCities] = await Promise.all([
+  const [list, previewList, featuredKeys, thumbs, ogKey] = await Promise.all([
     s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 })),
     s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "previews/", MaxKeys: 1000 })),
     getFeatured(),
     getThumbs(),
     getOgKey(),
-    legCityOrder(),
   ]);
   const featured = new Set(featuredKeys);
 
@@ -81,7 +79,7 @@ export async function GET(request: Request) {
   );
   const previewByBase = new Map(previewObjects.map((o) => [baseOf(o.Key!), o.Key!]));
   const cities = await resolveCities(objects.map((o) => o.Key!));
-  const visits = await resolveVisits(objects.map((o) => o.Key!), cities);
+  const stops = await resolveStops(objects.map((o) => o.Key!), cities);
 
   const items = await Promise.all(
     objects.map(async (o) => {
@@ -97,7 +95,8 @@ export async function GET(request: Request) {
         downloadUrl: await signDownload(o.Key!),
         featured: featured.has(o.Key!),
         city: cities[o.Key!],
-        visit: visits[o.Key!],
+        visit: stops[o.Key!]?.visit,
+        leg: stops[o.Key!]?.leg,
       };
     }),
   );
@@ -118,7 +117,6 @@ export async function GET(request: Request) {
     pending,
     featuredKeys,
     ogKey,
-    legCities,
     truncated: list.IsTruncated || false,
   });
 }
