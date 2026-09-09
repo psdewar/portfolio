@@ -5,6 +5,7 @@ import { getDoorLabel, getPosterLocation } from "../../lib/shows";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../../lib/poster-defaults";
 import { normalizeVenueImg, allowedVenueImgUrl } from "../../lib/venue-img";
 import { qrDataUrl } from "../../lib/qr";
+import { LOCKUP_CSS, lockupHtml } from "../../lib/lockup";
 
 const MAX_VENUE_IMG_BYTES = 5 * 1024 * 1024;
 
@@ -80,7 +81,7 @@ import { POSTER_DIMS, type PosterFormat } from "../../lib/poster-formats";
 export { POSTER_DIMS, type PosterFormat };
 
 export function wideBannerCss(): string {
-  return `.poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
+  return `.poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
 }
 
 export type PosterOptions = {
@@ -217,14 +218,13 @@ export function posterHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 0; }
-    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
+    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; --font-fira-sans: "Fira Sans"; }
     .poster-bg { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .photo-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to right, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 15%, rgba(10,10,10,0.22) 45%, transparent 70%); z-index: 3; }
     .bottom-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 40%; background: linear-gradient(to top, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0.75) 25%, rgba(10,10,10,0.4) 55%, transparent 100%); z-index: 4; }
     .content { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; padding: 24px 28px; }
-    .lockup { display: flex; align-items: center; gap: 3px; margin-bottom: 4px; }
-    .lockup-img { height: 22px; width: auto; }
-    .lockup-records { font-family: "Fira Sans", sans-serif; font-size: 16px; font-weight: 500; color: #ffffff; transform: translateY(-1.5px); will-change: transform; }
+    ${LOCKUP_CSS}
+    .lockup { --lockup-h: 22px; margin-bottom: 4px; }
     .presents { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; margin-bottom: 8px; margin-top: 8px; }
     .title-block { margin-bottom: auto; }
     .title-from { font-size: 26px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #d4a553; line-height: 0.9; }
@@ -249,7 +249,7 @@ export function posterHtml(
     .qr-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; text-align: center; line-height: 1; }
     ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
     ${format === "yt" ? `.title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; } .bottom-left.three-line .detail-value { font-size: 14px; } .bottom-left .detail-value.location { font-size: ${12 * scale}px; } .bottom-left.three-line .detail-value.location { font-size: ${14 * scale}px; }` : ""}
-    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
+    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
@@ -266,10 +266,7 @@ export function posterHtml(
         <div>by software engineer</div>
         <div>peyt spencer</div>
       </div>
-      <div class="lockup">
-        <img src="${lockupSrc}" alt="Lyrist" class="lockup-img" />
-        <span class="lockup-records">Records</span>
-      </div>
+      ${lockupHtml(lockupSrc)}
       <div class="presents">presents</div>
       <div class="title-block">
         <div class="title-from">From The</div>

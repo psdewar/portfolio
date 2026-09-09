@@ -6,6 +6,7 @@ import { takePdf, takeScreenshot } from "../../lib/screenshot";
 import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import { qrDataUrl } from "../../lib/qr";
+import { LOCKUP_CSS, lockupHtml } from "../../lib/lockup";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 
@@ -114,14 +115,13 @@ function pamphletHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 0; }
-    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; }
+    .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; font-family: "Parkinsans", sans-serif; background: #0a0a0a; --font-fira-sans: "Fira Sans"; }
     .poster-bg { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: 1; }
     .photo-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to right, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 15%, rgba(10,10,10,0.22) 45%, transparent 70%); z-index: 3; }
     .bottom-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 40%; background: linear-gradient(to top, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0.75) 25%, rgba(10,10,10,0.4) 55%, transparent 100%); z-index: 4; }
     .content { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; padding: ${pct(5)}px ${pct(5.833)}px; }
-    .lockup { display: flex; align-items: center; gap: ${pct(0.625)}px; margin-bottom: ${pct(0.833)}px; }
-    .lockup-img { height: ${pct(4.583)}px; width: auto; }
-    .lockup-records { font-family: "Fira Sans", sans-serif; font-size: ${pct(3.333)}px; font-weight: 500; color: #ffffff; transform: translateY(${-pct(0.104)}px); will-change: transform; }
+    ${LOCKUP_CSS}
+    .lockup { --lockup-h: ${pct(4.583)}px; margin-bottom: ${pct(0.833)}px; }
     .presents { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #e0b860; margin-bottom: ${pct(1.667)}px; margin-top: ${pct(1.667)}px; }
     .title-block { margin-bottom: auto; }
     .title-from { font-size: ${pct(5.417)}px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #d4a553; line-height: 0.9; }
@@ -146,7 +146,7 @@ function pamphletHtml(
     .qr-label { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1; white-space: nowrap; text-decoration: none; text-align: center; }
     ${format === "ig" ? `.title-from { font-size: ${pct(4.444)}px; } .title-big { font-size: ${pct(12.222)}px; }` : ""}
     ${format === "yt" ? `.title-from { font-size: ${pct(3.611)}px; } .title-big { font-size: ${pct(10)}px; } .venue-img { height: ${pct(16)}px; max-width: ${pct(32)}px; margin: ${pct(2)}px 0 ${pct(1.5)}px; } .pamphlet-date { font-size: ${pct(3.2 * scale)}px; } .pamphlet-detail { font-size: ${pct(2.2 * scale)}px; } .qr-label { font-size: ${pct(1.8)}px; }` : ""}
-    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup-img { height: 33px; } .lockup-records { font-size: 24px; transform: translateY(-1.875px); } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
+    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() + " .venue-img { display: none; }" : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
@@ -163,10 +163,7 @@ function pamphletHtml(
         <div>by software engineer</div>
         <div>peyt spencer</div>
       </div>
-      <div class="lockup">
-        <img src="${BASE_URL}/lyrist-trademark-white.png" alt="Lyrist" class="lockup-img" />
-        <span class="lockup-records">Records</span>
-      </div>
+      ${lockupHtml(`${BASE_URL}/lyrist-trademark-white.png`)}
       <div class="presents">presents</div>
       <div class="title-block">
         <div class="title-from">From The</div>

@@ -7,6 +7,7 @@ import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/s
 import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
 import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
+import Lockup from "./Lockup";
 
 export interface PamphletShowItem {
   date: string;
@@ -225,23 +226,9 @@ function Poster({
           flex-direction: column;
           padding: 5cqw 5.833cqw;
         }
-        .lockup {
-          display: flex;
-          align-items: center;
-          gap: 0.625cqw;
+        .lockup-wrap {
+          --lockup-h: 4.583cqw;
           margin-bottom: 0.833cqw;
-        }
-        .lockup-img {
-          height: 4.583cqw;
-          width: auto;
-        }
-        .lockup-records {
-          font-family: var(--font-fira-sans), sans-serif;
-          font-size: 3.333cqw;
-          font-weight: 500;
-          color: #ffffff;
-          transform: translateY(-0.104cqw);
-          will-change: transform;
         }
         .presents {
           font-family: var(--font-space-mono), monospace;
@@ -525,8 +512,7 @@ function Poster({
         .poster[data-format="fb"] .venue-img,
         .poster[data-format="fbe"] .venue-img { display: none; }
         .poster[data-format="eb"] .poster-content { padding: 3.333cqw 3.889cqw; }
-        .poster[data-format="eb"] .lockup-img { height: 3.056cqw; }
-        .poster[data-format="eb"] .lockup-records { font-size: 2.222cqw; transform: translateY(-0.174cqw); }
+        .poster[data-format="eb"] .lockup-wrap { --lockup-h: 3.056cqw; }
         .poster[data-format="eb"] .presents { font-size: 1.389cqw; margin: 1.111cqw 0; }
         .poster[data-format="eb"] .title-from { font-size: 3.611cqw; }
         .poster[data-format="eb"] .title-big { font-size: 10cqw; }
@@ -540,7 +526,7 @@ function Poster({
         .poster[data-format="fb"] .the-concert { font-size: 1.22cqw; }
         .poster[data-format="fb"] .presents { font-size: 1.22cqw; margin: 0.732cqw 0; }
         .poster[data-format="fb"] .theme-topright { font-size: 1.22cqw; }
-        .poster[data-format="fb"] .lockup { margin-top: auto; }
+        .poster[data-format="fb"] .lockup-wrap { margin-top: auto; }
         .poster[data-format="fb"] .title-block { margin-bottom: 0; }
       `}</style>
       <div
@@ -584,10 +570,7 @@ function Poster({
             <div>by software engineer</div>
             <div>peyt spencer</div>
           </div>
-          <div className="lockup">
-            <img src="/lyrist-trademark-white.png" alt="Lyrist" className="lockup-img" />
-            <span className="lockup-records">Records</span>
-          </div>
+          <div className="lockup-wrap"><Lockup /></div>
           <div className="presents">presents</div>
           <div className="title-block">
             <div className="title-from">From The</div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { parseLocalDate } from "../lib/dates";
 import { getDoorLabel, getUpcomingShows, isResidence, type Show } from "../lib/shows";
 import { DEFAULT_TAGLINE } from "../lib/poster-defaults";
+import Lockup from "../components/Lockup";
 
 export const dynamic = "force-dynamic";
 
@@ -72,21 +73,16 @@ const CSS = `
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
 }
 .ftgu-credits {
+  position: absolute;
+  top: calc(5 * var(--s));
+  right: calc(5 * var(--s));
+  text-align: right;
+}
+.ftgu-tagline {
   margin-top: auto;
 }
-.ftgu-lockup {
-  display: flex;
-  align-items: center;
-  gap: calc(0.7 * var(--s));
-}
-.ftgu-lockup-img {
-  height: calc(5.6 * var(--s));
-  width: auto;
-}
-.ftgu-lockup-records {
-  font-family: var(--font-fira-sans), sans-serif;
-  font-size: calc(4 * var(--s));
-  font-weight: 500;
+.ftgu .lockup {
+  --lockup-h: calc(5.6 * var(--s));
 }
 .ftgu-presents {
   font-family: var(--font-space-mono), monospace;
@@ -111,27 +107,18 @@ const CSS = `
   letter-spacing: -0.01em;
   text-transform: uppercase;
   margin-left: calc(-0.6 * var(--s));
+  margin-top: calc(0.7 * var(--s));
 }
-.ftgu-rule {
-  width: calc(14 * var(--s));
-  height: calc(0.9 * var(--s));
-  background: linear-gradient(to right, var(--gold), var(--gold-lt));
-  margin: calc(2 * var(--s)) 0 calc(2.2 * var(--s));
-}
-.ftgu-tagline div {
-  font-family: var(--font-space-mono), monospace;
-  font-size: calc(2.8 * var(--s));
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--gold-lt);
-  line-height: 1.55;
-}
+.ftgu-tagline div,
 .ftgu-credits div {
   font-family: var(--font-space-mono), monospace;
   font-size: calc(2.8 * var(--s));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1.55;
+}
+.ftgu-tagline div {
+  color: var(--gold-lt);
 }
 
 .ftgu-dates {
@@ -157,9 +144,9 @@ const CSS = `
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: calc(5 * var(--rs) * var(--s));
-  padding: calc(2 * var(--s)) 0 calc(3 * var(--s));
+  padding: 0 0 calc(3 * var(--s));
 }
 .ftgu-row {
   display: flex;
@@ -168,7 +155,7 @@ const CSS = `
 }
 .ftgu-date {
   font-size: calc(5.2 * var(--rs) * var(--s));
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.08;
 }
 .ftgu-place {
@@ -209,7 +196,7 @@ const CSS = `
 }
 .ftgu-qr-cta {
   font-size: calc(3.6 * var(--s));
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.1;
 }
 .ftgu-qr-url {
@@ -275,11 +262,14 @@ export default async function FtguPage({
             <img src="/Jan23OpenMicNight-08_Original.jpg" alt="" />
           </div>
 
-          <div>
-            <div className="ftgu-lockup ftgu-hero-text">
-              <img src="/lyrist-trademark-white.png" alt="Lyrist" className="ftgu-lockup-img" />
-              <span className="ftgu-lockup-records">Records</span>
-            </div>
+          <div className="ftgu-credits ftgu-hero-text">
+            <div>rap concert for all ages</div>
+            <div>by software engineer</div>
+            <div>peyt spencer</div>
+          </div>
+
+          <div className="ftgu-hero-text">
+            <Lockup />
           </div>
 
           <div className="ftgu-hero-text">
@@ -287,18 +277,12 @@ export default async function FtguPage({
             <div className="ftgu-from">From The</div>
             <div className="ftgu-big">Ground</div>
             <div className="ftgu-big">Up</div>
-            <div className="ftgu-rule" />
-            <div className="ftgu-tagline">
-              {DEFAULT_TAGLINE.split("\n").map((line) => (
-                <div key={line}>{line}</div>
-              ))}
-            </div>
           </div>
 
-          <div className="ftgu-credits ftgu-hero-text">
-            <div>rap concert for all ages</div>
-            <div>by software engineer</div>
-            <div>peyt spencer</div>
+          <div className="ftgu-tagline ftgu-hero-text">
+            {DEFAULT_TAGLINE.split("\n").map((line) => (
+              <div key={line}>{line}</div>
+            ))}
           </div>
         </section>
 
