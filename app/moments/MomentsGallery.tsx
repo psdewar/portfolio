@@ -26,6 +26,7 @@ const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const SCROLL_SPEED = 0.15;
 const RESUME_DELAY_MS = 5000;
 const START_PAUSE_MS = 1000;
+const roadFill = "#3a3d45";
 
 function wrap(x: number, half: number, base = half) {
   if (half <= 0) return x;
@@ -62,14 +63,11 @@ function MomentsGallery({
   const offset = useRef(0);
   const paused = useRef(false);
   const treadRef = useRef<SVGPatternElement>(null);
-  const barRef = useRef<HTMLDivElement>(null);
-  const prevOffset = useRef(0);
-  const traveled = useRef(0);
+  const roadRef = useRef<HTMLDivElement>(null);
+  const yellowRef = useRef<HTMLDivElement>(null);
+  const laps = useRef(0);
   const viewCenter = useRef(0);
   const lead = useRef(0);
-  const groupLefts = useRef<number[]>([]);
-  const stopIndexRef = useRef(0);
-  const [stopIndex, setStopIndex] = useState(0);
   const rafId = useRef<number | null>(null);
   const lastTs = useRef(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,7 +117,6 @@ function MomentsGallery({
     if (!el) return;
     const measure = () => {
       setWidth.current = el.offsetWidth;
-      groupLefts.current = Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-group]"), (g) => g.offsetLeft);
       const strip = scrollRef.current;
       if (strip) viewCenter.current = strip.clientWidth / 2;
       if (!initialized.current && setWidth.current > 0 && strip) {
@@ -128,13 +125,23 @@ function MomentsGallery({
         const start = setWidth.current - lead.current;
         scrollRef.current.scrollLeft = start;
         offset.current = start;
-        prevOffset.current = start;
         initialized.current = true;
       }
+      for (const sign of strip?.querySelectorAll<HTMLElement>("[data-sign]") ?? []) sign.style.setProperty("--lw", `${sign.offsetWidth}px`);
+      const w = setWidth.current;
+      if (roadRef.current && w > 0) {
+        const d = w / Math.round(w / 120);
+        const on = (d / 4).toFixed(2);
+        roadRef.current.style.backgroundImage = `repeating-linear-gradient(90deg, #8f939a 0 ${on}px, transparent ${on}px ${d.toFixed(2)}px)`;
+        roadRef.current.style.backgroundSize = `${w}px 2px`;
+        roadRef.current.style.backgroundPositionY = "2px";
+      }
+      if (yellowRef.current && w > 0) yellowRef.current.style.width = `${w}px`;
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    for (const sign of el.querySelectorAll<HTMLElement>("[data-sign]")) ro.observe(sign);
     if (scrollRef.current) ro.observe(scrollRef.current);
     return () => ro.disconnect();
   }, [items]);
@@ -157,7 +164,9 @@ function MomentsGallery({
       const el = scrollRef.current;
       const w = setWidth.current;
       if (el && w > 0 && initialized.current && firstReady.current && inView.current && !lightboxOpen.current && !paused.current) {
-        offset.current = wrap(offset.current + delta * SCROLL_SPEED, w, w - lead.current);
+        const raw = offset.current + delta * SCROLL_SPEED;
+        offset.current = wrap(raw, w, w - lead.current);
+        laps.current += Math.round((raw - offset.current) / w);
         el.scrollLeft = offset.current;
         paintCar();
       }
@@ -202,22 +211,9 @@ function MomentsGallery({
   const paintCar = () => {
     treadRef.current?.setAttribute("patternTransform", `translate(${((offset.current / 2) % 4).toFixed(2)} 0)`);
     const w = setWidth.current;
-    if (!barRef.current || w <= 0) return;
-    let delta = offset.current - prevOffset.current;
-    if (delta > w / 2) delta -= w;
-    else if (delta < -w / 2) delta += w;
-    prevOffset.current = offset.current;
-    if (traveled.current < w) {
-      traveled.current = Math.min(w, Math.max(0, traveled.current + delta));
-      barRef.current.style.width = `${((traveled.current / w) * 100).toFixed(2)}%`;
-    }
-    const x = (offset.current + viewCenter.current) % w;
-    let idx = 0;
-    for (let i = 0; i < groupLefts.current.length; i++) if (groupLefts.current[i] <= x) idx = i;
-    if (idx !== stopIndexRef.current) {
-      stopIndexRef.current = idx;
-      setStopIndex(idx);
-    }
+    if (w <= 0) return;
+    if (roadRef.current) roadRef.current.style.backgroundPositionX = `${(-offset.current).toFixed(2)}px`;
+    if (yellowRef.current) yellowRef.current.style.transform = `translateX(${((1 - laps.current) * w - offset.current).toFixed(2)}px)`;
   };
 
   const applyWrap = () => {
@@ -225,6 +221,7 @@ function MomentsGallery({
     const w = setWidth.current;
     if (!el || w <= 0) return;
     const wrapped = wrap(el.scrollLeft, w, w - lead.current);
+    laps.current += Math.round((el.scrollLeft - wrapped) / w);
     if (wrapped !== el.scrollLeft) el.scrollLeft = wrapped;
     offset.current = el.scrollLeft;
     paintCar();
@@ -318,7 +315,6 @@ function MomentsGallery({
     setOpen((i) => (i === null ? i : (i + dir + items.length) % items.length));
   };
 
-  const roadFill = "#3a3d45";
   const lampFill = lights === "off" ? "#a9adb5" : "#ffffff";
   const braking = open !== null || motion === "stopped";
   const reversing = open === null && motion === "reverse";
@@ -336,8 +332,6 @@ function MomentsGallery({
   if (items.length === 0) return null;
 
   const mediaOrigin = items[0].src ? new URL(items[0].src).origin : null;
-  const currentStop = groups[stopIndex]?.stop;
-  const currentCount = groups[stopIndex]?.tiles.length ?? 0;
 
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
@@ -360,7 +354,7 @@ function MomentsGallery({
         {[0, 1, 2].map((copy) => (
           <div key={copy} ref={copy === 0 ? setRef : undefined} data-copy={copy} className="relative flex h-full flex-none">
             {groups.map((g, gi) => (
-              <div key={`${copy}-${gi}`} data-group className="flex h-full flex-none">
+              <div key={`${copy}-${gi}`} data-group className="relative flex h-full flex-none">
                 {g.tiles.map((e) => (
                   <div key={`${copy}-${e.item.key}`} data-tile={e.index} className="relative flex flex-none flex-col">
                     <Tile
@@ -373,6 +367,17 @@ function MomentsGallery({
                     <div className="h-14" style={{ background: roadFill }} />
                   </div>
                 ))}
+                {g.stop && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14">
+                    <div
+                      data-sign
+                      className="sticky flex h-[27px] w-fit items-center px-3 pt-[2px]"
+                      style={{ left: "calc(50vw - var(--lw, 0px) / 2)" }}
+                    >
+                      <Stop city={g.stop.city} visit={g.stop.visit} count={g.tiles.length} />
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-[2px] bg-white/60" />
@@ -381,16 +386,17 @@ function MomentsGallery({
       </div>
       <div className="pointer-events-none absolute inset-x-0 top-[40svh] z-[3] h-[3px]">
         <div className="absolute inset-x-0 top-0 h-[2px] bg-white/60" />
-        <div className="absolute inset-x-0 top-0 flex h-[27px] items-center justify-center pt-[2px]">
-          {currentStop && (
-            <Stop key={stopIndex} city={currentStop.city} visit={currentStop.visit} count={currentCount} />
-          )}
-        </div>
         <div
-          ref={barRef}
+          ref={roadRef}
           aria-hidden
-          className="absolute left-0 top-[25px] h-[6px] w-0"
-          style={{ background: "linear-gradient(180deg, #e0b53c 0 2px, transparent 2px 4px, #e0b53c 4px 6px)" }}
+          className="absolute inset-x-0 top-[25px] h-[6px]"
+          style={{ backgroundRepeat: "repeat-x" }}
+        />
+        <div
+          ref={yellowRef}
+          aria-hidden
+          className="absolute left-0 top-[25px] h-[6px]"
+          style={{ background: `linear-gradient(180deg, #e0b53c 0 2px, ${roadFill} 2px 4px, #e0b53c 4px 6px)` }}
         />
         <svg
           viewBox="0 0 46 18"
