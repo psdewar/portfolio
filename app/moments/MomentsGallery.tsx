@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
-import { CameraIcon } from "@phosphor-icons/react";
+import { CameraIcon, MusicNoteIcon } from "@phosphor-icons/react";
 import posthog from "posthog-js";
 import type { GalleryItem } from "../api/shared/moments";
 import { formatShortDate } from "../lib/dates";
@@ -49,9 +49,15 @@ function tileCenter(el: HTMLDivElement, copy: number, index: number): number {
 function MomentsGallery({
   items,
   og = false,
+  onCarClick,
+  playerOpen = false,
+  playing = false,
 }: {
   items: GalleryItem[];
   og?: boolean;
+  onCarClick?: () => void;
+  playerOpen?: boolean;
+  playing?: boolean;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const lights = useSunLights() ?? "off";
@@ -336,7 +342,7 @@ function MomentsGallery({
   return (
     <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
       {mediaOrigin && <link rel="preconnect" href={mediaOrigin} crossOrigin="" />}
-      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}.moments-strip::-webkit-scrollbar{display:none}`}</style>
+      <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentNote{0%{opacity:0;transform:translateY(4px) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-14px) scale(1.05)}}.moments-strip::-webkit-scrollbar{display:none}@media (prefers-reduced-motion: reduce){.moments-note{animation:none!important;opacity:1}}`}</style>
 
       <div
         ref={scrollRef}
@@ -398,12 +404,35 @@ function MomentsGallery({
           className="absolute left-0 top-[25px] h-[6px]"
           style={{ background: `linear-gradient(180deg, #e0b53c 0 2px, ${roadFill} 2px 4px, #e0b53c 4px 6px)` }}
         />
+        <button
+          type="button"
+          onClick={onCarClick}
+          disabled={!onCarClick}
+          aria-label={playing ? "Music playing" : playerOpen ? "Music player open" : "Play my music"}
+          className="pointer-events-auto absolute left-1/2 top-[19.5px] flex h-8 w-16 -translate-x-1/2 items-end justify-center overflow-visible disabled:pointer-events-none"
+        >
+        {onCarClick && (!playerOpen || playing) && (
+          <>
+            <MusicNoteIcon
+              weight="fill"
+              size={12}
+              className="moments-note pointer-events-none absolute left-[38px] top-[20px] text-white"
+              style={{ animation: "momentNote 2.2s ease-out infinite" }}
+            />
+            <MusicNoteIcon
+              weight="fill"
+              size={12}
+              className="moments-note pointer-events-none absolute left-[44px] top-[23px] text-white"
+              style={{ animation: "momentNote 2.2s ease-out 1.1s infinite" }}
+            />
+          </>
+        )}
         <svg
           viewBox="0 0 46 18"
           width="46"
           height="18"
           aria-hidden="true"
-          className="absolute left-1/2 top-[33.5px] -translate-x-1/2 overflow-visible"
+          className="overflow-visible"
         >
           <defs>
             <pattern ref={treadRef} id="tread" patternUnits="userSpaceOnUse" width="4" height="4">
@@ -487,6 +516,7 @@ function MomentsGallery({
           <rect x="1.4" y="3.6" width="1.2" height="2.4" rx="0.5" style={{ fill: tailFill, transition: "fill .3s" }} />
           <rect x="1.4" y="10" width="1.2" height="2.4" rx="0.5" style={{ fill: tailFill, transition: "fill .3s" }} />
         </svg>
+        </button>
       </div>
 
       {open !== null && (

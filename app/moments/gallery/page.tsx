@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import MomentsGallery from "../MomentsGallery";
+import GalleryPlayer from "./GalleryPlayer";
 import SunScheme from "../../components/SunScheme";
 import { getFeaturedGalleryItems } from "../../api/shared/moments";
 
@@ -34,7 +34,7 @@ export default async function GalleryPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4">
       <SunScheme />
-      <MomentsGallery items={items} />
+      <GalleryPlayer items={items} />
     </div>
   );
 }
