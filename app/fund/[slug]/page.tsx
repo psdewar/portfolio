@@ -368,9 +368,19 @@ export default async function Page({
     notFound();
   }
   // Use cached stats with 60s TTL for better performance
-  const stats = await getFundingStats(project.slug);
+  const [stats, galleryItems] = await Promise.all([
+    getFundingStats(project.slug),
+    getFeaturedGalleryItems(),
+  ]);
   const success = sp?.success === "1" || sp?.success === "true";
-  return <ProjectView project={project} stats={stats} success={success} />;
+  return (
+    <ProjectView
+      project={project}
+      stats={stats}
+      success={success}
+      galleryItems={galleryItems}
+    />
+  );
 }
 
 // Pre-generate seed leg and project slugs (SSG); chorus-created legs render

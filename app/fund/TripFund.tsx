@@ -14,7 +14,7 @@ import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
 import CheckoutEmbed from "../components/CheckoutEmbed";
 import { venmoPayUrl } from "../components/PaymentModal";
-import MomentsGallery from "../moments/MomentsGallery";
+import GalleryPlayer from "../moments/GalleryPlayer";
 import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
@@ -624,7 +624,7 @@ export function TripFund({
       className="gallery-slot"
       style={{ marginTop: stats.length > 0 ? 0 : 48 }}
     >
-      <MomentsGallery items={galleryItems} og={og} />
+      <GalleryPlayer items={galleryItems} og={og} />
     </div>
   );
 

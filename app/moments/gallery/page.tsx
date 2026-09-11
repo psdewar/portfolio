@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import GalleryPlayer from "./GalleryPlayer";
+import GalleryPlayer from "../GalleryPlayer";
 import SunScheme from "../../components/SunScheme";
 import { getFeaturedGalleryItems } from "../../api/shared/moments";
 

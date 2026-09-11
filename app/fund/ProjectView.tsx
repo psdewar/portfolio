@@ -6,6 +6,8 @@ import { FundingCard } from "app/components/projects/FundingCard";
 import Link from "next/link";
 import { ArrowIcon } from "app/ArrowIcon";
 import { useHydrated } from "app/hooks/useHydrated";
+import GalleryPlayer from "app/moments/GalleryPlayer";
+import type { GalleryItem } from "app/api/shared/moments";
 
 export interface ProjectData {
   slug: string;
@@ -27,10 +29,12 @@ export function ProjectView({
   project,
   stats,
   success,
+  galleryItems,
 }: {
   project: ProjectData;
   stats: FundingStats;
   success?: boolean;
+  galleryItems: GalleryItem[];
 }) {
   const router = useRouter();
   const isHydrated = useHydrated();
@@ -41,11 +45,19 @@ export function ProjectView({
     }
   }, [success, router]);
 
+  const gallery =
+    galleryItems.length > 0 ? (
+      <div className="mb-12">
+        <GalleryPlayer items={galleryItems} />
+      </div>
+    ) : null;
+
   // Show skeleton during hydration to prevent blank flash
   if (!isHydrated) {
     return (
       <div className="lg:flex lg:justify-center mb-32 pt-8">
-        <div className="max-w-2xl px-4 w-full">
+        <div className="mx-auto max-w-2xl px-4 w-full">
+          {gallery}
           {/* Skeleton for FundingCard - matches actual card structure */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 min-h-[600px] animate-pulse">
             {/* Progress bar skeleton */}
@@ -89,7 +101,8 @@ export function ProjectView({
 
   return (
     <div className="lg:flex lg:justify-center mb-32 pt-8">
-      <div className="max-w-2xl px-4 w-full">
+      <div className="mx-auto max-w-2xl px-4 w-full">
+        {gallery}
         <div className="lg:flex lg:justify-center">
           <div className="lg:sticky lg:top-6">
             <FundingCard

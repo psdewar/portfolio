@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import MomentsGallery from "../MomentsGallery";
-import MomentsPlayer from "../MomentsPlayer";
-import type { GalleryItem } from "../../api/shared/moments";
+import MomentsGallery from "./MomentsGallery";
+import MomentsPlayer from "./MomentsPlayer";
+import type { GalleryItem } from "../api/shared/moments";
 
-export default function GalleryPlayer({ items }: { items: GalleryItem[] }) {
+export default function GalleryPlayer({
+  items,
+  og = false,
+}: {
+  items: GalleryItem[];
+  og?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
+
+  if (og) return <MomentsGallery items={items} og />;
 
   const openPlayer = () => setOpen(true);
 
