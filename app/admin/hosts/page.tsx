@@ -674,12 +674,21 @@ export default function HostsAdminPage() {
     cluster.forEach((g) => g.show?.slug && assignShow(g.show.slug, slug));
   };
 
+  const handlePamphletSaved = (slug: string, pamphlet: PamphletFacet) => {
+    setLegs((prev) =>
+      prev.some((l) => l.slug === slug)
+        ? prev.map((l) => (l.slug === slug ? { ...l, pamphlet } : l))
+        : [...prev, { slug, pamphlet }],
+    );
+  };
+
   const cardProps = {
     legs,
     amendSlug,
     newSlug,
     newCopied,
     onCreateLeg: createLeg,
+    onPamphletSaved: handlePamphletSaved,
     onMessage: (text: string) => setMessage({ type: "success", text }),
     onUpdateSponsor: (updated: Sponsor) =>
       setSponsors((prev) =>
@@ -724,38 +733,7 @@ export default function HostsAdminPage() {
   ];
   const suggested = suggestLegs(solo);
 
-  const handlePamphletSaved = (slug: string, pamphlet: PamphletFacet) => {
-    setLegs((prev) =>
-      prev.some((l) => l.slug === slug)
-        ? prev.map((l) => (l.slug === slug ? { ...l, pamphlet } : l))
-        : [...prev, { slug, pamphlet }],
-    );
-  };
-
-  // Adapt a leg's pamphlet facet to the Pamphlet shape the editor reads.
-  const legPamphlet = (slug: string): Pamphlet | null => {
-    const pf = legs.find((l) => l.slug === slug)?.pamphlet;
-    if (!pf) return null;
-    return {
-      id: slug,
-      label: pf.label,
-      showDoors: pf.showDoors,
-      showQr: pf.showQr,
-      pinTopRsvp: pf.pinTopRsvp,
-      tags: pf.tags,
-      venueImg: pf.venueImg,
-      venueImgWidth: pf.venueImgWidth,
-      venueImgOffsetY: pf.venueImgOffsetY,
-      centerLogo: pf.centerLogo,
-      taglineAlign: pf.taglineAlign,
-      doorsOpen: pf.doorsOpen,
-      scale: pf.scale,
-      shows: Object.entries(pf.shows ?? {}).map(([s, o]) => ({
-        slug: s,
-        ...o,
-      })),
-    };
-  };
+  const legPamphlet = (slug: string) => pamphletForLeg(legs, slug);
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
@@ -950,6 +928,32 @@ export default function HostsAdminPage() {
   );
 }
 
+// Adapt a leg's pamphlet facet to the Pamphlet shape the editor reads.
+function pamphletForLeg(legs: Leg[], slug: string): Pamphlet | null {
+  const pf = legs.find((l) => l.slug === slug)?.pamphlet;
+  if (!pf) return null;
+  return {
+    id: slug,
+    label: pf.label,
+    showDoors: pf.showDoors,
+    showQr: pf.showQr,
+    pinTopRsvp: pf.pinTopRsvp,
+    tags: pf.tags,
+    venueImg: pf.venueImg,
+    venueImgWidth: pf.venueImgWidth,
+    venueImgOffsetY: pf.venueImgOffsetY,
+    centerLogo: pf.centerLogo,
+    taglineAlign: pf.taglineAlign,
+    doorsOpen: pf.doorsOpen,
+    scale: pf.scale,
+    placeholders: pf.placeholders,
+    shows: Object.entries(pf.shows ?? {}).map(([s, o]) => ({
+      slug: s,
+      ...o,
+    })),
+  };
+}
+
 function CompletedSection({
   legs,
   ungrouped,
@@ -1018,8 +1022,10 @@ function CompletedSection({
             <div className="mt-4 pt-4 border-t border-neutral-300 dark:border-neutral-700">
               <PosterEditor
                 group={[viewing]}
-                matchedPamphlet={null}
-                onPamphletSaved={() => {}}
+                matchedPamphlet={
+                  viewing.show.leg ? legPamphlet(viewing.show.leg) : null
+                }
+                onPamphletSaved={onPamphletSaved}
                 onShowUpdate={onShowUpdate}
                 variant="drawer"
                 readOnly
@@ -1579,7 +1585,12 @@ function PosterEditor({
   });
   const [placeholders, setPlaceholders] = useState<
     { date: string; label: string }[]
-  >([]);
+  >(() =>
+    (matchedPamphlet?.placeholders ?? []).map((p) => ({
+      date: p.date,
+      label: p.label ?? "",
+    })),
+  );
   const [downloading, setDownloading] = useState(false);
   const [dateFocus, setDateFocus] = useState<string | null>(null);
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">(
@@ -1591,7 +1602,6 @@ function PosterEditor({
       ? (soloShow?.centerLogo ?? false)
       : (matchedPamphlet?.centerLogo ?? false),
   );
-  const [privateNote, setPrivateNote] = useState(soloShow?.privateNote ?? "");
   const [posterImg, setPosterImg] = useState(
     isSingle ? (soloShow?.posterImg ?? "") : "",
   );
@@ -1654,6 +1664,16 @@ function PosterEditor({
       if (dr !== undefined) entry.doorsOpen = dr;
       return entry;
     });
+
+  const savedPlaceholders = () => {
+    const list = placeholders
+      .filter((ph) => ph.date)
+      .map((ph) => ({
+        date: ph.date,
+        ...(ph.label.trim() ? { label: ph.label.trim() } : {}),
+      }));
+    return list.length ? list : undefined;
+  };
 
   const appendPlaceholders = (params: URLSearchParams) => {
     placeholders.forEach((ph, i) => {
@@ -1719,6 +1739,7 @@ function PosterEditor({
       centerLogo,
       taglineAlign,
       scale: scale !== 1 ? scale : undefined,
+      placeholders: savedPlaceholders(),
       shows: Object.fromEntries(
         buildPamphletShows().map(({ slug, ...rest }) => [slug, rest]),
       ),
@@ -1801,7 +1822,6 @@ function PosterEditor({
       venueImgWidth: Number(venueImgWidth) || null,
       venueImgOffsetY: Number(venueImgOffsetY) || null,
       centerLogo,
-      privateNote: privateNote.trim() || null,
       taglineAlign,
       locationScale: scale !== 1 ? scale : null,
       posterImg: posterImg.trim() || null,
@@ -1854,6 +1874,7 @@ function PosterEditor({
       taglineAlign: matchedPamphlet?.taglineAlign,
       doorsOpen: matchedPamphlet?.doorsOpen,
       scale: matchedPamphlet?.scale,
+      placeholders: matchedPamphlet?.placeholders,
       shows,
     };
     let res = await fetch("/api/legs", {
@@ -1992,33 +2013,10 @@ function PosterEditor({
     }
   }, [venueImg]);
 
-  // Debounced auto-save — single edits persist to the show, multi to the
-  // pamphlet record (when it has an ID). Mirrors the old inline Poster Labels.
-  // No `open` gate: editor fields can only change while the modal is open, and
-  // the gate would otherwise consume the initial-skip on the first real edit.
-  const autoSaveInit = useRef(true);
-  useEffect(() => {
-    if (readOnly) return;
-    if (autoSaveInit.current) {
-      autoSaveInit.current = false;
-      return;
-    }
-    const t = setTimeout(async () => {
-      setAutoState("saving");
-      try {
-        if (isSingle) {
-          await persistShow();
-          await savePosterLine();
-        } else if (legId.trim()) await savePamphlet();
-        setAutoState("saved");
-        setTimeout(() => setAutoState("idle"), 1800);
-      } catch {
-        setAutoState("idle");
-      }
-    }, 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  // Debounced auto-save: single edits persist to the show, multi to the
+  // pamphlet record (when it has an ID). Saves only when the editor state
+  // differs from the last saved snapshot, so mounting never writes.
+  const autoSnapshot = JSON.stringify([
     tags,
     tagline,
     taglineAlign,
@@ -2026,7 +2024,6 @@ function PosterEditor({
     venueImgWidth,
     venueImgOffsetY,
     centerLogo,
-    privateNote,
     posterImg,
     bgImg,
     scale,
@@ -2034,15 +2031,36 @@ function PosterEditor({
     showQr,
     pinTopRsvp,
     legId,
-    JSON.stringify(venueLabels),
-    JSON.stringify(eventNames),
-    JSON.stringify(posterLines),
-    JSON.stringify(dateLabels),
-    JSON.stringify(doorsByShow),
-    JSON.stringify(doorLabels),
-    JSON.stringify(included),
-    JSON.stringify(placeholders),
+    venueLabels,
+    eventNames,
+    posterLines,
+    dateLabels,
+    doorsByShow,
+    doorLabels,
+    included,
+    placeholders,
   ]);
+  const lastSaved = useRef(autoSnapshot);
+  useEffect(() => {
+    if (readOnly || autoSnapshot === lastSaved.current) return;
+    const t = setTimeout(async () => {
+      lastSaved.current = autoSnapshot;
+      setAutoState("saving");
+      try {
+        let saved = false;
+        if (isSingle) {
+          await persistShow();
+          saved = await savePosterLine();
+        } else if (legId.trim()) saved = await savePamphlet();
+        setAutoState(saved ? "saved" : "idle");
+        if (saved) setTimeout(() => setAutoState("idle"), 1800);
+      } catch {
+        setAutoState("idle");
+      }
+    }, 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSnapshot]);
 
   const total = activeGroup.length + placeholders.filter((p) => p.date).length;
   const inputCls =
@@ -2629,6 +2647,7 @@ function ManageModal({
   rsvpCounts,
   emailSentSlugs,
   onCreateLeg,
+  onPamphletSaved,
   onShowUpdate,
   onMessage,
   onRemoveSponsor,
@@ -2647,6 +2666,7 @@ function ManageModal({
   rsvpCounts: { responses: number; attending: number } | null;
   emailSentSlugs: Set<string>;
   onCreateLeg: (slug: string) => Promise<void>;
+  onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
   onMessage: (text: string) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
@@ -3216,8 +3236,8 @@ function ManageModal({
             {show?.slug && (
               <PosterEditor
                 group={[group]}
-                matchedPamphlet={null}
-                onPamphletSaved={() => {}}
+                matchedPamphlet={show.leg ? pamphletForLeg(legs, show.leg) : null}
+                onPamphletSaved={onPamphletSaved}
                 onShowUpdate={onShowUpdate}
                 variant="drawer"
               />
@@ -3320,6 +3340,7 @@ function ShowGroupCard({
   newSlug,
   newCopied,
   onCreateLeg,
+  onPamphletSaved,
   onMessage,
   onUpdateSponsor,
   onRemoveSponsor,
@@ -3333,6 +3354,7 @@ function ShowGroupCard({
   newSlug: string | null;
   newCopied: boolean;
   onCreateLeg: (slug: string) => Promise<void>;
+  onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
   onMessage: (text: string) => void;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRemoveSponsor: (submittedAt: string, showSlug?: string | null) => void;
@@ -3690,6 +3712,7 @@ function ShowGroupCard({
           rsvpCounts={rsvpCounts}
           emailSentSlugs={emailSentSlugs}
           onCreateLeg={onCreateLeg}
+          onPamphletSaved={onPamphletSaved}
           onShowUpdate={onShowUpdate}
           onMessage={onMessage}
           onRemoveSponsor={onRemoveSponsor}

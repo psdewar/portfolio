@@ -501,7 +501,6 @@ function Poster({
           line-height: 1.3;
         }
         /* Format-specific tweaks — keep in sync with pamphlet/route.ts */
-        .poster[data-format="ig"] .title-from { font-size: 4.444cqw; }
         .poster[data-format="ig"] .title-big { font-size: 12.222cqw; }
         .poster[data-format="yt"] .title-from { font-size: 3.611cqw; }
         .poster[data-format="yt"] .title-big { font-size: 10cqw; }

@@ -61,6 +61,7 @@ export type PamphletFacet = {
   taglineAlign?: string;
   doorsOpen?: string;
   scale?: number;
+  placeholders?: { date: string; label?: string }[];
   shows?: Record<
     string,
     { venueLabel?: string; dateLabel?: string; doorsOpen?: string }

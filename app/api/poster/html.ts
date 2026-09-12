@@ -137,6 +137,10 @@ export function posterHtml(
     posterLine,
   } = opts;
   const { W, H } = POSTER_DIMS[format];
+  const detailCss = (k: number) => {
+    const px = (n: number) => `${Math.round(n * k * 4) / 4}px`;
+    return `.content { padding: ${px(24)} ${px(28)}; } .lockup { --lockup-h: ${px(22)}; margin-bottom: ${px(4)}; } .presents { font-size: ${px(10)}; margin-bottom: ${px(8)}; margin-top: ${px(8)}; } .title-from { font-size: ${px(26)}; } .title-accent { width: ${px(64)}; height: ${px(3)}; margin: ${px(6)} 0 ${px(7)}; } .the-concert { font-size: ${px(10)}; } .venue-img { height: ${px(110)}; max-width: ${px(220)}; margin: ${px(14)} 0 ${px(10)}; } .theme-topright { top: ${px(24)}; right: ${px(28)}; font-size: ${px(10)}; transform: translateY(${px(-2.5)}); } .bottom-left { gap: ${px(10)}; } .tags { font-size: ${px(10)}; } .detail-value { font-size: ${px(14)}; } .detail-value.date { font-size: ${px(20)}; white-space: nowrap; } .detail-value.date.long { font-size: ${px(17)}; } .detail-value.date.invite { font-size: ${px(26)}; } .bottom-left.three-line .detail-value { font-size: ${px(14)}; } .bottom-left.three-line .detail-value.date { font-size: ${px(22)}; } .bottom-left.three-line .detail-value.date.long { font-size: ${px(17)}; } .bottom-left .detail-value.location { font-size: ${px(14 * scale)}; } .qr-section { gap: ${px(8)}; flex-shrink: 0; } .qr-code { width: ${px(92)}; height: ${px(92)}; } .qr-label { font-size: ${px(10)}; }`;
+  };
 
   // Custom artwork stands in for the whole poster, letterboxed on the poster
   // background so art drawn at another aspect ratio is never cropped.
@@ -196,7 +200,7 @@ export function posterHtml(
         <div class="bottom-row">
           <div class="bottom-left${tagsList.length ? "" : " three-line"}">
             ${tagsList.length ? `<div class="tags">${tagsList.join(" · ")}</div>` : ""}
-            <div class="detail-value date">${formatEventDate(show.date)}</div>
+            <div class="detail-value date${formatEventDate(show.date).length >= 25 ? " long" : ""}">${formatEventDate(show.date)}</div>
             ${hasLocation ? `<div class="detail-value location">${location}</div>` : ""}
             <div class="detail-value">${doorsOpenOverride || getDoorLabel(show)}</div>
           </div>
@@ -249,8 +253,9 @@ export function posterHtml(
     .qr-section { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
     .qr-code { width: 92px; height: 92px; }
     .qr-label { font-family: "Space Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; text-align: center; line-height: 1; }
-    ${format === "ig" ? ".title-from { font-size: 24px; } .title-big { font-size: 66px; } .bottom-left.three-line .detail-value.date { font-size: 20px; }" : ""}
-    ${format === "yt" ? `.title-from { font-size: 19.5px; } .title-big { font-size: 54px; } .detail-value.date { font-size: 16px; } .detail-value { font-size: 12px; } .qr-code { width: 72px; height: 72px; } .bottom-left.three-line .detail-value.date { font-size: 17px; } .bottom-left.three-line .detail-value { font-size: 14px; } .bottom-left .detail-value.location { font-size: ${12 * scale}px; } .bottom-left.three-line .detail-value.location { font-size: ${14 * scale}px; }` : ""}
+    ${format === "pdf" || format === "ig" || format === "yt" ? detailCss(W / 480) : ""}
+    ${format === "ig" ? ".title-big { font-size: 66px; }" : ""}
+    ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; }" : ""}
     ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}

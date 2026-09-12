@@ -21,4 +21,5 @@ export interface Pamphlet {
   address?: string;
   doorsOpen?: string;
   scale?: number;
+  placeholders?: { date: string; label?: string }[];
 }

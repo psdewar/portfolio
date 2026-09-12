@@ -256,22 +256,22 @@ export async function GET(request: NextRequest) {
   }
 
   // Placeholder slots: ph_0=2026-05-15, ph_1=2026-06-20&phl_1=Portland, OR
+  const placeholderShow = (date: string, label?: string | null): PamphletShow => ({
+    date,
+    city: "",
+    region: "",
+    venue: null,
+    venueLabel: label?.trim() || "TBA",
+    doorTime: "",
+    doorLabel: null,
+    address: null,
+  });
   const placeholders: PamphletShow[] = [];
   for (const [key, val] of searchParams.entries()) {
     const m = key.match(/^ph_(\d+)$/);
     if (m && val) {
       const idx = parseInt(m[1]);
-      const locationLabel = searchParams.get(`phl_${idx}`)?.trim() || "TBA";
-      placeholders.push({
-        date: val,
-        city: "",
-        region: "",
-        venue: null,
-        venueLabel: locationLabel,
-        doorTime: "",
-        doorLabel: null,
-        address: null,
-      });
+      placeholders.push(placeholderShow(val, searchParams.get(`phl_${idx}`)));
     }
   }
 
@@ -311,6 +311,11 @@ export async function GET(request: NextRequest) {
       pamphletTaglineAlign = pf.taglineAlign ?? "";
       pamphletDoorsOpen = pf.doorsOpen ?? "";
       pamphletScale = pf.scale ?? 1;
+      if (!placeholders.length) {
+        for (const ph of pf.placeholders ?? []) {
+          placeholders.push(placeholderShow(ph.date, ph.label));
+        }
+      }
       const overlay = pf.shows ?? {};
       const legSlugs = allShows.filter((s) => s.leg === pamphletId).map((s) => s.slug);
       const included = Object.keys(overlay).filter((s) => legSlugs.includes(s));
