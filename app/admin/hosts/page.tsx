@@ -49,9 +49,9 @@ import {
 } from "../../lib/poster-defaults";
 import {
   type PosterFormat,
-  JPG_FORMATS,
-  PAMPHLET_PREVIEW_FORMATS,
-  POSTER_PREVIEW_FORMATS,
+  POSTER_FORMATS,
+  posterFileName,
+  posterSizeLabel,
 } from "../../lib/poster-formats";
 
 const WEEKDAY_PREFIXES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -1596,9 +1596,7 @@ function PosterEditor({
     isSingle ? (soloShow?.posterImg ?? "") : "",
   );
   const [bgImg, setBgImg] = useState(isSingle ? (soloShow?.bgImg ?? "") : "");
-  const [previewFormat, setPreviewFormat] = useState<PosterFormat>(
-    isSingle ? "standard" : "print",
-  );
+  const [previewFormat, setPreviewFormat] = useState<PosterFormat>("pdf");
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Live logo nudge — write width/offset straight to the logo node so a drag
@@ -1667,11 +1665,7 @@ function PosterEditor({
   };
 
   // ── multi-date: pamphlet ──────────────────────────────────────────────────
-  const buildPamphletHref = (
-    format: "ig" | "yt" | "print" | "standard" | "eb" | "fb" | "fbe",
-    asPdf = false,
-    forceSlugs = false,
-  ) => {
+  const buildPamphletHref = (format: PosterFormat, forceSlugs = false) => {
     const applyExtras = (params: URLSearchParams) => {
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
@@ -1685,7 +1679,6 @@ function PosterEditor({
         params.set("venueImgOffsetY", venueImgOffsetY.trim());
       params.set("align", taglineAlign);
       if (scale !== 1) params.set("scale", String(scale));
-      if (asPdf) params.set("pdf", "true");
     };
     if (legId.trim() && !forceSlugs) {
       const params = new URLSearchParams({ id: legId.trim(), format });
@@ -1775,10 +1768,7 @@ function PosterEditor({
   };
 
   // ── single-date: poster ───────────────────────────────────────────────────
-  const buildPosterHref = (
-    format: "ig" | "yt" | "print" | "standard" | "eb" | "fb" | "fbe",
-    asJpg = false,
-  ) => {
+  const buildPosterHref = (format: PosterFormat) => {
     const params = new URLSearchParams({ format });
     if (tags.trim()) params.set("tags", tags.trim());
     if (tagline.trim()) params.set("label", tagline.trim());
@@ -1796,7 +1786,6 @@ function PosterEditor({
     const posterLine = posterLines[soloShow!.slug]?.trim();
     if (posterLine) params.set("venueLabel", posterLine);
     params.set("doorLabel", doorLabels[soloShow!.slug] ?? "");
-    if (asJpg) params.set("jpg", "true");
     return `/api/poster/${soloShow!.slug}?${params.toString()}`;
   };
 
@@ -1892,29 +1881,21 @@ function PosterEditor({
     return true;
   };
 
-  const downloadName = (fmt: PosterFormat) => {
-    const ext = JPG_FORMATS.has(fmt) ? "jpg" : "pdf";
-    return isSingle
-      ? `poster-${soloShow!.slug}${fmt === "standard" ? "" : `-${fmt}`}.${ext}`
-      : `pamphlet-${legId.trim() || first.date}-${fmt}.${ext}`;
-  };
+  const downloadName = (fmt: PosterFormat) =>
+    posterFileName(
+      isSingle ? `poster-${soloShow!.slug}` : `pamphlet-${legId.trim() || first.date}`,
+      fmt,
+    );
 
   // forceSlugs so the download reflects current edits without a save.
-  const fetchFormat = (fmt: PosterFormat) => {
-    const jpg = JPG_FORMATS.has(fmt);
-    return fetch(
-      isSingle ? buildPosterHref(fmt, jpg) : buildPamphletHref(fmt, !jpg, true),
-    );
-  };
+  const fetchFormat = (fmt: PosterFormat) =>
+    fetch(isSingle ? buildPosterHref(fmt) : buildPamphletHref(fmt, true));
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const formats = isSingle
-        ? POSTER_PREVIEW_FORMATS
-        : PAMPHLET_PREVIEW_FORMATS;
       const entries = await Promise.all(
-        formats.map(async (fmt) => ({
+        POSTER_FORMATS.map(async (fmt) => ({
           name: downloadName(fmt),
           data: new Uint8Array(await (await fetchFormat(fmt)).arrayBuffer()),
         })),
@@ -2515,25 +2496,25 @@ function PosterEditor({
           {/* Preview — flush, full viewport height */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
             <div className="flex items-center gap-3 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
-              <div className="inline-flex rounded-lg bg-neutral-800/60 p-0.5">
-                {(isSingle
-                  ? POSTER_PREVIEW_FORMATS
-                  : PAMPHLET_PREVIEW_FORMATS
-                ).map((f) => (
+              <div className="flex min-w-0 overflow-x-auto rounded-lg bg-neutral-800/60 p-0.5">
+                {POSTER_FORMATS.map((f) => (
                   <button
                     key={f}
                     onClick={() => setPreviewFormat(f)}
-                    className={`px-3 py-1 text-xs uppercase tracking-wider rounded-md transition-colors ${
+                    className={`shrink-0 whitespace-nowrap px-3 py-1 text-xs uppercase tracking-wider rounded-md transition-colors ${
                       previewFormat === f
                         ? "bg-[#d4a553] text-black font-medium"
                         : "text-neutral-400 hover:text-white hover:bg-white/5"
                     }`}
                   >
                     {f}
+                    <span className="ml-1.5 normal-case tracking-normal opacity-60">
+                      {posterSizeLabel(f)}
+                    </span>
                   </button>
                 ))}
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <button
                   onClick={() => downloadOne(previewFormat)}
                   disabled={downloading}

@@ -122,7 +122,7 @@ export function posterHtml(
 ): string {
   const {
     label,
-    format = "standard",
+    format = "pdf",
     tags = "",
     doorsOpenOverride = "",
     venueImgSrc = "",
@@ -149,11 +149,13 @@ export function posterHtml(
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #111; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
     .poster { width: ${W}px; height: ${H}px; position: relative; overflow: hidden; background: #0a0a0a; }
-    .poster-custom { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .poster-fill, .poster-custom { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .poster-fill { object-fit: cover; filter: blur(40px) brightness(0.6); transform: scale(1.2); }
+    .poster-custom { object-fit: contain; }
   </style>
 </head>
 <body>
-  <div class="poster"><img src="${posterImgSrc}" alt="" class="poster-custom" /></div>
+  <div class="poster"><img src="${posterImgSrc}" alt="" class="poster-fill" /><img src="${posterImgSrc}" alt="" class="poster-custom" /></div>
 </body>
 </html>`;
   }

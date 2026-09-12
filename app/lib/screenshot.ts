@@ -13,6 +13,7 @@ interface ScreenshotOptions {
   waitForTimeout?: number;
   htmlContent?: string;
   type?: "jpeg" | "png";
+  quality?: number;
 }
 
 const BLOCKED =
@@ -102,6 +103,7 @@ export async function takeScreenshot({
   waitForTimeout,
   htmlContent,
   type = "jpeg",
+  quality = 100,
 }: ScreenshotOptions) {
   const browser = await launchBrowser();
 
@@ -149,7 +151,7 @@ export async function takeScreenshot({
     const buffer =
       type === "png"
         ? await target.screenshot({ type: "png" })
-        : await target.screenshot({ type: "jpeg", quality: 100 });
+        : await target.screenshot({ type: "jpeg", quality });
     const ab = new ArrayBuffer(buffer.length);
     new Uint8Array(ab).set(buffer);
     return ab;

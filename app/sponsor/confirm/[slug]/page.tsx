@@ -13,6 +13,7 @@ import ArtistIntro from "../../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
 import PosterScrollOverlay from "./PosterScrollOverlay";
 import SponsorAvatar from "../../SponsorAvatar";
+import { posterAspect } from "../../../lib/poster-formats";
 
 export async function generateMetadata({
   params,
@@ -35,7 +36,7 @@ export async function generateMetadata({
     title,
     description,
     robots,
-    openGraph: { title, description, images: [{ url: image, width: 960, height: 1440 }] },
+    openGraph: { title, description, images: [{ url: image, width: 1920, height: 1004 }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
@@ -138,7 +139,7 @@ export default async function ConfirmPage({
         <div className="lg:w-1/2 lg:shrink-0 space-y-6">
           <div
             className="relative -mx-5 w-[calc(100%+2.5rem)] max-w-none sm:mx-auto sm:w-full sm:max-w-[320px] lg:mx-0 lg:max-w-none"
-            style={{ aspectRatio: "480 / 720" }}
+            style={{ aspectRatio: posterAspect() }}
           >
             {posterEl}
             {show.visibility === "private" && !show.posterImg && (

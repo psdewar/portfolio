@@ -12,6 +12,7 @@ import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
 import { PAYMENT_MODEL, flightProp } from "../../lib/flights";
+import { posterAspect } from "../../lib/poster-formats";
 
 interface RSVPFormProps {
   eventId: string;
@@ -518,7 +519,7 @@ export default function RSVPForm({
 
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
-        <div className="h-full flex-shrink-0 aspect-[480/720]">{poster}</div>
+        <div className="h-full flex-shrink-0" style={{ aspectRatio: posterAspect() }}>{poster}</div>
         <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto @container">
           {backButton}
 

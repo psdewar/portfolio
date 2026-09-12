@@ -4,6 +4,7 @@ import { getLegs, type PamphletFacet } from "../../fund/legs";
 import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
 import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
+import { posterFileName, POSTER_SCALE } from "../../lib/poster-formats";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import { qrDataUrl } from "../../lib/qr";
 import { LOCKUP_CSS, lockupHtml } from "../../lib/lockup";
@@ -25,7 +26,7 @@ function pamphletHtml(
     doorLabel?: string | null;
     address?: string | null;
   }>,
-  format: PamphletFormat = "standard",
+  format: PamphletFormat = "pdf",
   label?: string,
   showDoors = false,
   showQr = false,
@@ -46,7 +47,7 @@ function pamphletHtml(
   // Chromium's print pipeline snaps each edge of a painted rect to whole CSS pixels,
   // so a fractional divider height renders 1px or 2px depending on where the divider
   // lands. Only a whole-pixel height prints uniformly; 1px is nearest the 0.208% design.
-  const dividerH = format === "print" ? 1 : pct(0.208);
+  const dividerH = format === "pdf" ? 1 : pct(0.208);
   const venueImgRules = [
     venueImgWidth ? `width:${venueImgWidth}px;height:auto;max-width:none` : "",
     venueImgOffsetY ? `transform:translateY(${venueImgOffsetY}px)` : "",
@@ -341,8 +342,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const rawFormat = searchParams.get("format") ?? "standard";
-  const format: PamphletFormat = rawFormat in POSTER_DIMS ? (rawFormat as PamphletFormat) : "standard";
+  const rawFormat = searchParams.get("format") ?? "pdf";
+  const format: PamphletFormat = rawFormat in POSTER_DIMS ? (rawFormat as PamphletFormat) : "pdf";
   const { W, H } = POSTER_DIMS[format];
   const flag = (key: string, fallback: boolean) => {
     const v = searchParams.get(key);
@@ -380,23 +381,22 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const isPdf = searchParams.get("pdf") === "true";
-  const suffix = format !== "standard" ? `-${format}` : "";
-  const baseName = blank
-    ? `pamphlet-blank${suffix}`
-    : `pamphlet-${pamphletId || selected[0].date}${suffix}`;
+  const fileName = posterFileName(
+    blank ? "pamphlet-blank" : `pamphlet-${pamphletId || selected[0].date}`,
+    format,
+  );
 
   try {
-    if (isPdf) {
+    if (format === "pdf") {
       const pdf = await takePdf({
         htmlContent: html,
         viewport: { width: W, height: H },
-        pageFormat: format === "print" ? "Letter" : "match",
+        pageFormat: "Letter",
       });
       return new Response(pdf, {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${baseName}.pdf"`,
+          "Content-Disposition": `attachment; filename="${fileName}"`,
           "Cache-Control": "no-store",
         },
       });
@@ -406,7 +406,7 @@ export async function GET(request: NextRequest) {
       path: "about:blank",
       selector: ".poster",
       viewport: { width: W, height: H },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: POSTER_SCALE,
       waitForTimeout: 1500,
       htmlContent: html,
     });
@@ -414,7 +414,7 @@ export async function GET(request: NextRequest) {
     return new Response(screenshot, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Content-Disposition": `attachment; filename="${baseName}.jpg"`,
+        "Content-Disposition": `attachment; filename="${fileName}"`,
         "Cache-Control": "no-store",
       },
     });

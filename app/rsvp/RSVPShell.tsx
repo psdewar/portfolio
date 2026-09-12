@@ -6,6 +6,7 @@ import Poster from "../components/Poster";
 import ShowList from "../components/ShowList";
 import RSVPForm from "./[slug]/RSVPForm";
 import SubmittedToast from "./SubmittedToast";
+import { posterAspect } from "../lib/poster-formats";
 
 export default function RSVPShell({
   shows,
@@ -125,7 +126,7 @@ export default function RSVPShell({
       </div>
 
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
-        <div className="h-full flex-shrink-0 aspect-[480/720]">
+        <div className="h-full flex-shrink-0" style={{ aspectRatio: posterAspect() }}>
           <Poster />
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center py-6">{list}</div>

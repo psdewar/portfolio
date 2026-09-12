@@ -1308,7 +1308,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                           <>
                             {" · "}
                             <a
-                              href={`/api/poster/${posterSlugs[0]}?format=print`}
+                              href={`/api/poster/${posterSlugs[0]}?format=pdf`}
                               className="inkind-cta"
                             >
                               print version

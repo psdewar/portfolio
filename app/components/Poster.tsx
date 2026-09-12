@@ -6,7 +6,7 @@ import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../l
 import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/shows";
 import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
-import { POSTER_DIMS, type PosterFormat } from "../lib/poster-formats";
+import { posterAspect, type PosterFormat } from "../lib/poster-formats";
 import Lockup from "./Lockup";
 
 export interface PamphletShowItem {
@@ -88,13 +88,12 @@ function Poster({
   pinTopRsvp = true,
   hideDetails = false,
   invite = false,
-  format = "standard",
+  format = "pdf",
   scale = 1,
   shows,
   slug,
 }: PosterProps) {
-  const dims = POSTER_DIMS[format];
-  const aspectRatio = `${dims.W} / ${dims.H}`;
+  const aspectRatio = posterAspect(format);
   const venueImgSrc = resolveImgSrc(venueImg);
   const customSrc = resolveImgSrc(posterImg);
   const bgSrc = resolveImgSrc(bgImg);
@@ -180,13 +179,21 @@ function Poster({
             border-radius: 0;
           }
         }
+        .poster-fill,
         .poster-custom {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
-          object-fit: contain;
           z-index: 2;
+        }
+        .poster-fill {
+          object-fit: cover;
+          filter: blur(40px) brightness(0.6);
+          transform: scale(1.2);
+        }
+        .poster-custom {
+          object-fit: contain;
         }
         .photo-overlay {
           position: absolute;
@@ -535,7 +542,10 @@ function Poster({
         style={{ aspectRatio, "--detail-scale": scale } as CSSProperties}
       >
         {customSrc ? (
-          <img src={customSrc} alt="" className="poster-custom" />
+          <>
+            <img src={customSrc} alt="" className="poster-fill" />
+            <img src={customSrc} alt="" className="poster-custom" />
+          </>
         ) : (
           <>
         {bgSrc ? (

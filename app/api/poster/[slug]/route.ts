@@ -3,6 +3,7 @@ import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
 import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
+import { posterFileName, POSTER_SCALE } from "../../../lib/poster-formats";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +19,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const sp = request.nextUrl.searchParams;
-    const square = sp.has("square");
-    const rawFormat = square ? "yt" : (sp.get("format") ?? "standard");
-    const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "standard";
+    const rawFormat = sp.get("format") ?? "pdf";
+    const format: PosterFormat = rawFormat in POSTER_DIMS ? (rawFormat as PosterFormat) : "pdf";
     const { W, H } = POSTER_DIMS[format];
     // venueLabel/doorLabel params let a download reflect unsaved editor state.
     const venueLabelParam = sp.get("venueLabel");
@@ -47,22 +47,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       scale: Math.min(2, Math.max(0.5, Number(sp.get("scale")) || show.locationScale || 1)),
       invite: needsHostLocation(show),
     });
-    const asJpg = square || request.nextUrl.searchParams.get("jpg") === "true";
-    const suffix = format !== "standard" ? `-${format}` : "";
+    const fileName = posterFileName(`poster-${slug}`, format);
 
-    if (asJpg) {
+    if (format !== "pdf") {
       const screenshot = await takeScreenshot({
         path: "about:blank",
         selector: ".poster",
         viewport: { width: W, height: H },
-        deviceScaleFactor: 2,
+        deviceScaleFactor: POSTER_SCALE,
         waitForTimeout: 1500,
         htmlContent: html,
       });
       return new Response(screenshot, {
         headers: {
           "Content-Type": "image/jpeg",
-          "Content-Disposition": `inline; filename="poster-${slug}${suffix}.jpg"`,
+          "Content-Disposition": `inline; filename="${fileName}"`,
           "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
         },
       });
@@ -71,12 +70,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const pdf = await takePdf({
       htmlContent: html,
       viewport: { width: W, height: H },
-      pageFormat: format === "print" ? "Letter" : "match",
+      pageFormat: "Letter",
     });
     return new Response(pdf, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="poster-${slug}${suffix}.pdf"`,
+        "Content-Disposition": `attachment; filename="${fileName}"`,
         "Cache-Control": "no-store",
       },
     });

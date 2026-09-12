@@ -106,7 +106,7 @@ export interface Pamphlet {
 
 ```ts
 export interface PamphletLayout {
-  format: "standard" | "ig" | "yt";
+  format: "pdf" | "ig" | "yt";
   elements: Array<{
     id: string;                     // stable id, e.g. "title-from", "qr"
     type: "text" | "image" | "rect" | "line" | "group";

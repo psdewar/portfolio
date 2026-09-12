@@ -1,6 +1,7 @@
 import { needsHostLocation, type Show } from "../../../lib/shows";
 import { takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS } from "../../poster/html";
+import { POSTER_SCALE } from "../../../lib/poster-formats";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
 import { posterLineForShow } from "../../../fund/legs";
 
@@ -11,13 +12,14 @@ export function fallbackResponse(): Response {
 }
 
 export async function screenshotPoster(show: Show): Promise<Response> {
-  const { W, H } = POSTER_DIMS.standard;
+  const { W, H } = POSTER_DIMS.fbe;
 
   try {
     // Inlining is inside the try: a custom poster naming a file that isn't
     // deployed yet throws, and a link preview must degrade to the fallback
     // image rather than 500.
     const html = posterHtml(show, {
+      format: "fbe",
       posterLine: await posterLineForShow(show),
       tags: show.tags ?? PAY_WHAT_YOU_WANT_TAG,
       posterImgSrc: await inlineVenueImg(show.posterImg ?? ""),
@@ -29,7 +31,8 @@ export async function screenshotPoster(show: Show): Promise<Response> {
       path: "about:blank",
       selector: ".poster",
       viewport: { width: W, height: H },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: POSTER_SCALE,
+      quality: 85,
       waitForTimeout: 1500,
       htmlContent: html,
     });
