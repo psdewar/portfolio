@@ -40,12 +40,7 @@ function IntroVideoModal({ onClose }: { onClose: () => void }) {
     return () => {
       document.removeEventListener("visibilitychange", handleHidden);
       window.removeEventListener("pagehide", handlePageHide);
-      if (video) {
-        video.pause();
-        video.currentTime = 0;
-        video.removeAttribute("src");
-        video.load();
-      }
+      stopPlayback();
     };
   }, []);
 

@@ -7,7 +7,7 @@ import { isEmailValid } from "../../lib/email";
 import { formatEventDateShort, formatLongDate } from "../../lib/dates";
 import { DOOR_TIMES } from "../../lib/door-times";
 import { useGoogleMaps, createAutocomplete } from "../../lib/maps";
-import { SUPPORT_MENU, SPECIAL_ITEMS, DRAFT_DEFAULT_ITEMS } from "../../lib/sponsor";
+import { SUPPORT_ITEMS, SPECIAL_ITEMS, DRAFT_DEFAULT_ITEMS } from "../../lib/sponsor";
 import ContributionChecklist from "../../components/ContributionChecklist";
 
 // "Cafe Zoe, Menlo Park, CA" → parts, when the host typed a location but never
@@ -49,10 +49,9 @@ export default function ConfirmForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const menuItems = new Set(SUPPORT_MENU.flatMap((group) => group.items));
-  const initialItems = host.items.filter((item) => menuItems.has(item));
+  const initialItems = host.items.filter((item) => SUPPORT_ITEMS.includes(item));
   const [checked, setChecked] = useState<Set<string>>(
-    new Set(initialItems.length > 0 ? initialItems : DRAFT_DEFAULT_ITEMS),
+    new Set(host.items.length > 0 ? initialItems : DRAFT_DEFAULT_ITEMS),
   );
   const locked = host.items.filter((item) => SPECIAL_ITEMS.includes(item));
 
@@ -80,17 +79,23 @@ export default function ConfirmForm({
     if (!needsLocation || !mapsReady || !locRef.current) return;
     const cls =
       "w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white pb-1.5 text-base";
-    createAutocomplete(
+    const input = createAutocomplete(
       locRef.current,
       (r) => {
-        setVenue(r.venue === r.city ? "" : r.venue);
+        const venueName = r.venue === r.city ? "" : r.venue;
+        setVenue(venueName);
         setAddress(r.address);
         setCity(r.city);
         setRegion(r.region);
         setCountry(r.country);
+        input.value = [venueName, r.city, r.region].filter(Boolean).join(", ");
       },
       cls,
     );
+    input.addEventListener("input", () => {
+      setCity("");
+      setRegion("");
+    });
   }, [needsLocation, mapsReady]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -164,13 +169,7 @@ export default function ConfirmForm({
 
   return (
     <div>
-      <div className="mb-6">
-        <h3 className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-          Your contributions
-        </h3>
-        <ContributionChecklist checked={checked} onToggle={toggleItem} locked={locked} />
-      </div>
-      <div className="space-y-4 mb-5">
+      <div className="space-y-4 mb-8">
         {needsLocation && (
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
@@ -271,6 +270,12 @@ export default function ConfirmForm({
           />
         </div>
         </div>
+        <div>
+          <h3 className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+            Your contributions
+          </h3>
+          <ContributionChecklist checked={checked} onToggle={toggleItem} locked={locked} />
+        </div>
       </div>
       <button
         onClick={handleConfirm}
@@ -283,7 +288,7 @@ export default function ConfirmForm({
             : "Publishing…"
           : isPrivate
             ? `Confirm ${date ? formatEventDateShort(date) : "the date"}`
-            : "Confirm and publish to /rsvp"}
+            : "Confirm and publish"}
       </button>
       {error && <p className="text-sm text-red-500 dark:text-red-400 mt-2">{error}</p>}
     </div>

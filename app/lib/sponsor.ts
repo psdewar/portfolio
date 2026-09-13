@@ -1,28 +1,28 @@
 export const HONORARIUM_ITEM = "Artist honorarium";
 export const HONORARIUM_DEFINITION =
-  "Monetary gift that recognizes the performance itself. Any amount goes a long way.";
+  "Monetary gift that recognizes my concert. Any amount goes a long way.";
 
 export const SPECIAL_ITEMS = ["Sandwich board outside your venue", "50/50 donation split"];
 
+export const CORE_ITEMS = [
+  "Spread the word via concert poster",
+  "Arrange the venue space",
+  "Table for merch and donations",
+  HONORARIUM_ITEM,
+];
+
+export const COVER_ITEMS = ["Cover lodging", "Cover car rental", "Cover round-trip flight"];
+
 export const SUPPORT_MENU: { category: string; items: string[] }[] = [
-  {
-    category: "General",
-    items: [
-      "Spread the word via concert poster",
-      "Arrange the venue space",
-      "Table for merch and donations",
-      "Airport pickup and drop-off",
-      "Stay with a local host",
-    ],
-  },
-  {
-    category: "Financial",
-    items: ["Round-trip airfare", HONORARIUM_ITEM],
-  },
+  { category: "", items: CORE_ITEMS },
+  { category: "You can also", items: COVER_ITEMS },
 ];
 
 // What every draft starts with checked until the host or admin edits the list.
-export const DRAFT_DEFAULT_ITEMS = SUPPORT_MENU[0].items.slice(0, 3);
+export const DRAFT_DEFAULT_ITEMS = CORE_ITEMS.slice(0, 3);
+
+// Every menu item, flattened, in display order (no category grouping).
+export const SUPPORT_ITEMS = SUPPORT_MENU.flatMap((s) => s.items);
 
 // Every item in menu order, the sequence a host reads them in on the form.
 const ITEM_ORDER: readonly string[] = [

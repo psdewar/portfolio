@@ -125,13 +125,13 @@ export default async function ConfirmPage({
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
               {needsLocation
                 ? "Tell me where and when, pick what you can contribute, and drop your contact below. Scroll down for clips of me live, a single from my set, and my story."
-                : "Pick what you can contribute and submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story."}
+                : "Pick what you can contribute, add your contact, and confirm the date below. Scroll down for clips of me live, a single from my set, and my story."}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 lg:items-start">
+      <div data-balance-columns className="flex flex-col lg:flex-row gap-8 lg:items-start">
         <div className="lg:w-1/2 lg:shrink-0 space-y-6">
           <div
             className="relative -mx-5 w-[calc(100%+2.5rem)] max-w-none sm:mx-auto sm:w-full sm:max-w-[320px] lg:mx-0 lg:max-w-none"
@@ -146,16 +146,10 @@ export default async function ConfirmPage({
             )}
           </div>
 
-          {(showsPublishNote || hasSplit) && (
-            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">
-              {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
-                (showsPublishNote
-                  ? "Confirming lists the concert publicly on my /rsvp page and creates its Eventbrite event. Until then, it stays hidden."
-                  : "")}
-            </div>
-          )}
-
-          <div id="confirm-form" className="scroll-mt-6">
+          <div
+            id="confirm-form"
+            className="scroll-mt-6 rounded-lg bg-neutral-100 p-5 sm:p-6 dark:bg-neutral-900"
+          >
             <ConfirmForm
               slug={slug}
               sig={sig!}
@@ -165,6 +159,14 @@ export default async function ConfirmPage({
               date={show.date}
               doorTime={show.doorTime}
             />
+            {(showsPublishNote || hasSplit) && (
+              <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+                {(hasSplit ? "I'll split all donations received after the show 50/50. " : "") +
+                  (showsPublishNote
+                    ? "Confirming publishes the concert on my RSVP page and Eventbrite. Until then, it stays hidden."
+                    : "")}
+              </p>
+            )}
           </div>
         </div>
 

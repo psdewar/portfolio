@@ -3,22 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CheckSquareIcon,
-  SquareIcon,
   CheckCircleIcon,
   WarningCircleIcon,
   LockSimpleIcon,
   XIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import {
-  SUPPORT_MENU,
-  SPECIAL_ITEMS,
-  DRAFT_DEFAULT_ITEMS,
-  HONORARIUM_ITEM,
-  HONORARIUM_DEFINITION,
-  orderItems,
-} from "../lib/sponsor";
+import { DRAFT_DEFAULT_ITEMS } from "../lib/sponsor";
+import ContributionChecklist from "./ContributionChecklist";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 import { formatLongDate } from "../lib/dates";
 import { DOOR_TIMES } from "../lib/door-times";
@@ -451,7 +443,6 @@ export default function SponsorForm({
   };
 
   const fieldClass = `w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white ${compact ? "pb-1 text-sm" : "pb-1.5 lg:pb-2 text-base sm:text-lg"}`;
-  const iconSize = compact ? 16 : 20;
   const cityDisplay = eventCity && eventRegion ? `${eventCity}, ${eventRegion}` : eventCity;
   const resolvedVenue = eventVenue || venue;
   const locationDisplay = resolvedVenue
@@ -459,87 +450,76 @@ export default function SponsorForm({
     : cityDisplay || city;
 
   const headingClass = `font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"}`;
-  const desktopCols: number[][] = [[0], [1]];
 
-  const contactFields = (
-    <div className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}>
-      <div>
-        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-          Name
-        </label>
-        <input
-          type="text"
-          value={sponsorName}
-          onChange={(e) => setSponsorName(e.target.value)}
-          placeholder="Your name or organization"
-          disabled={readOnly}
-          className={fieldClass}
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-          Phone
-        </label>
-        <input
-          type="text"
-          value={sponsorPhone}
-          onChange={(e) => setSponsorPhone(e.target.value)}
-          placeholder="(206) 555-0100"
-          disabled={readOnly}
-          className={fieldClass}
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-          Email
-        </label>
-        <input
-          type="email"
-          value={sponsorEmail}
-          onChange={(e) => setSponsorEmail(e.target.value)}
-          placeholder="abc@email.com"
-          disabled={readOnly}
-          className={fieldClass}
-        />
-      </div>
+  const nameField = (
+    <div>
+      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+        Name
+      </label>
+      <input
+        type="text"
+        value={sponsorName}
+        onChange={(e) => setSponsorName(e.target.value)}
+        placeholder="Your name or organization"
+        disabled={readOnly}
+        className={fieldClass}
+      />
     </div>
   );
 
-  const renderCheckItem = (item: string, size: number) => {
-    const isChecked = checked.has(item);
-    const Icon = isChecked ? CheckSquareIcon : SquareIcon;
-    return (
-      <button
-        key={item}
-        onClick={() => toggleItem(item)}
+  const phoneField = (
+    <div>
+      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+        Phone
+      </label>
+      <input
+        type="text"
+        value={sponsorPhone}
+        onChange={(e) => setSponsorPhone(e.target.value)}
+        placeholder="(206) 555-0100"
         disabled={readOnly}
-        className={`flex items-start gap-2 w-full text-left group ${readOnly ? "opacity-75 cursor-default" : ""}`}
-      >
-        <Icon
-          size={size}
-          weight={isChecked ? "fill" : "regular"}
-          className={`mt-0.5 flex-shrink-0 ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors"}`}
-        />
-        <span
-          className={`leading-snug ${compact ? "text-sm" : "text-base sm:text-lg"} ${isChecked ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
-        >
-          {item}
-          {item === HONORARIUM_ITEM && (
-            <span
-              className={`block text-neutral-400 dark:text-neutral-500 ${compact ? "text-xs" : "text-xs sm:text-sm"}`}
-            >
-              {HONORARIUM_DEFINITION}
-            </span>
-          )}
-        </span>
-      </button>
-    );
-  };
+        className={fieldClass}
+      />
+    </div>
+  );
 
-  const checkedItems = orderItems([...checked]);
-  const uncheckedSections = [...SUPPORT_MENU, { category: "Private deal", items: SPECIAL_ITEMS }]
-    .map((section) => ({ ...section, items: section.items.filter((item) => !checked.has(item)) }))
-    .filter((section) => section.items.length > 0);
+  const emailField = (
+    <div>
+      <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+        Email
+      </label>
+      <input
+        type="email"
+        value={sponsorEmail}
+        onChange={(e) => setSponsorEmail(e.target.value)}
+        placeholder="abc@email.com"
+        disabled={readOnly}
+        className={fieldClass}
+      />
+    </div>
+  );
+
+  const contactFields = (
+    <div className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}>
+      {nameField}
+      {phoneField}
+      {emailField}
+    </div>
+  );
+
+  const phoneEmailFields = (
+    <div className={`grid gap-3 ${compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 sm:gap-4"}`}>
+      {phoneField}
+      {emailField}
+    </div>
+  );
+
+  const pendingChecklist = (
+    <div>
+      <h2 className={headingClass}>Potential contributions</h2>
+      <ContributionChecklist checked={checked} onToggle={toggleItem} special readOnly={readOnly} compact={compact} />
+    </div>
+  );
 
   return (
     <div>
@@ -746,96 +726,24 @@ export default function SponsorForm({
           )}
         </div>
 
-        {contactFields}
+        {pending ? (
+          <>
+            {nameField}
+            {phoneEmailFields}
+            {pendingChecklist}
+          </>
+        ) : (
+          contactFields
+        )}
       </div>
 
-      {/* Host: checkboxes */}
-      <section>
-        <h2 className={headingClass}>{pending ? "Potential contributions" : "Ways to contribute"}</h2>
-
-        {pending && (
-          <>
-            <div className={compact ? "space-y-1" : "space-y-4"}>
-              {checkedItems.map((item) => renderCheckItem(item, iconSize))}
-            </div>
-            <details className="mt-3 group">
-              <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
-                <span className="group-open:hidden">More options</span>
-                <span className="hidden group-open:inline">Fewer options</span>
-              </summary>
-              <div className={compact ? "mt-2 flex flex-wrap gap-x-6 gap-y-3" : "mt-3 sm:columns-2 gap-6"}>
-                {uncheckedSections.map((section) => (
-                  <div key={section.category} className={compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4"}>
-                    <p className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "mb-1.5"}`}>
-                      {section.category}
-                    </p>
-                    <div className={compact ? "space-y-1" : "space-y-4"}>
-                      {section.items.map((item) => renderCheckItem(item, iconSize))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </>
-        )}
-
-        {!pending && (
-          <>
-            {/* Mobile / tablet: CSS columns */}
-            <div
-              className={
-                compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
-              }
-            >
-              {SUPPORT_MENU.map((section, idx) => (
-                <div
-                  key={idx}
-                  className={
-                    compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"
-                  }
-                >
-                  {section.category && (
-                    <p
-                      className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "sm:text-[13px] mb-1.5 sm:mb-2"}`}
-                    >
-                      {section.category}
-                    </p>
-                  )}
-                  <div className={compact ? "space-y-1" : "space-y-4"}>
-                    {section.items.map((item) => renderCheckItem(item, iconSize))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop: explicit 2-column grid */}
-            {!compact && (
-              <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
-                {desktopCols.map((indices, col) => (
-                  <div key={col} className="space-y-5">
-                    {indices.map((i) => {
-                      const section = SUPPORT_MENU[i];
-                      if (!section) return null;
-                      return (
-                        <div key={i}>
-                          {section.category && (
-                            <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-                              {section.category}
-                            </p>
-                          )}
-                          <div className="space-y-4">
-                            {section.items.map((item) => renderCheckItem(item, 20))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </section>
+      {/* Host: full menu, only when not a pending draft (checklist already sits in the box above) */}
+      {!pending && (
+        <section>
+          <h2 className={headingClass}>Ways to contribute</h2>
+          <ContributionChecklist checked={checked} onToggle={toggleItem} special readOnly={readOnly} compact={compact} />
+        </section>
+      )}
 
       {!readOnly && (
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>

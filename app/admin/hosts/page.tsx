@@ -2646,6 +2646,7 @@ function ManageModal({
   onEmailSent,
   onUpdateSponsor,
   onRefresh,
+  onDateSync,
 }: {
   group: ShowGroup;
   show: Show | null;
@@ -2667,6 +2668,7 @@ function ManageModal({
   onEmailSent: () => void;
   onUpdateSponsor: (updated: Sponsor) => void;
   onRefresh: () => void;
+  onDateSync: (date: string) => void;
 }) {
   const [askingReschedule, setAskingReschedule] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -2953,6 +2955,7 @@ function ManageModal({
                       venue: data.venue || null,
                       address: data.address || null,
                     });
+                    onDateSync(data.date);
                   }
                 }}
               />
@@ -3681,6 +3684,7 @@ function ShowGroupCard({
           }
           onUpdateSponsor={onUpdateSponsor}
           onRefresh={onRefresh}
+          onDateSync={setDateValue}
         />
       )}
       <div
