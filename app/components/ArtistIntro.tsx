@@ -1,4 +1,4 @@
-import SingleCard from "../sponsor/confirm/[slug]/SingleCard";
+import SingleCard from "../host/[slug]/SingleCard";
 import StoryReadMore from "./StoryReadMore";
 import TourStops from "./TourStops";
 import { getShows, isShowListable } from "../lib/shows";

@@ -17,5 +17,5 @@ export function verifySlug(slug: string, sig: string | undefined): boolean {
 }
 
 export function confirmPath(slug: string): string {
-  return `/sponsor/confirm/${slug}?sig=${signSlug(slug)}`;
+  return `/host/${slug}?sig=${signSlug(slug)}`;
 }

@@ -11,7 +11,6 @@ import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
 import { formatEventDateShort } from "../../lib/dates";
 import { calculateStripeFee } from "../../api/shared/products";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
-import { PAYMENT_MODEL, flightProp } from "../../lib/flights";
 import { posterAspect } from "../../lib/poster-formats";
 
 interface RSVPFormProps {
@@ -29,7 +28,6 @@ interface RSVPFormProps {
   posterLine?: string | null;
   posterImg?: string | null;
   bgImg?: string | null;
-  flights?: string[] | null;
   onBack?: () => void;
 }
 
@@ -58,7 +56,6 @@ export default function RSVPForm({
   posterLine,
   posterImg,
   bgImg,
-  flights,
   onBack,
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
@@ -74,9 +71,7 @@ export default function RSVPForm({
   const [submitted, setSubmitted] = useState(
     searchParams.get("test") === "success" || !!searchParams.get("session_id"),
   );
-  const optIn = !!flights?.includes(PAYMENT_MODEL);
-  const flightLabel = optIn ? "opt-in" : "opt-out";
-  const [supportCents, setSupportCents] = useState(optIn ? 0 : 2000);
+  const [supportCents, setSupportCents] = useState(0);
   const [showPay, setShowPay] = useState(false);
   const [payError, setPayError] = useState("");
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
@@ -104,11 +99,10 @@ export default function RSVPForm({
     const t = setTimeout(() => {
       posthog.capture("rsvp_viewed", {
         event_id: eventId,
-        [flightProp(PAYMENT_MODEL)]: flightLabel,
       });
     }, 0);
     return () => clearTimeout(t);
-  }, [eventId, flightLabel]);
+  }, [eventId]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -157,7 +151,6 @@ export default function RSVPForm({
         guests: formData.guests,
         paid: supportCents > 0,
         amount_cents: supportCents,
-        [flightProp(PAYMENT_MODEL)]: flightLabel,
       });
 
       setSubmitted(true);
@@ -187,7 +180,6 @@ export default function RSVPForm({
           metadata: {
             eventId,
             name: formData.name,
-            flightPaymentModel: flightLabel,
             phDistinctId: posthog.get_distinct_id?.() ?? "",
           },
         }),

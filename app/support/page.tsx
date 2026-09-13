@@ -39,7 +39,7 @@ export default async function SupportPage({
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const upcomingShows = liveShows.filter(isShowUpcoming);
   const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
-  const sponsorHref = draft ? confirmPath(draft.slug) : "/sponsor";
+  const sponsorHref = draft ? confirmPath(draft.slug) : undefined;
   const todayShow = liveShows.find((s) => {
     if (s.country !== "CA") return false;
     if (params.now) return params.now === s.date;

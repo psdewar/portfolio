@@ -85,7 +85,7 @@ function IntroVideoModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function SponsorAvatar() {
+export default function HostAvatar() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

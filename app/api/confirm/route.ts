@@ -19,6 +19,7 @@ interface Sponsor {
   email?: string;
   phone?: string;
   role?: string;
+  items?: string[];
 }
 
 // Write the sponsor's contact onto the show's host record: PATCH the existing
@@ -27,6 +28,7 @@ async function upsertHost(
   slug: string,
   contact: { name: string; email: string; phone: string },
   show: { city: string; region: string; country?: string | null; date: string; doorTime: string },
+  items: string[] | undefined,
 ) {
   let host: Sponsor | undefined;
   try {
@@ -39,6 +41,8 @@ async function upsertHost(
     // fall through to POST
   }
 
+  const nextItems = items ?? host?.items ?? [];
+
   if (host?.submittedAt) {
     await fetch(`${SHOWS_API}/chorus/sponsors`, {
       method: "PATCH",
@@ -49,6 +53,7 @@ async function upsertHost(
         ...contact,
         date: show.date,
         doorTime: show.doorTime,
+        items: nextItems,
       }),
     });
     return;
@@ -66,7 +71,7 @@ async function upsertHost(
       country: show.country || "US",
       date: show.date,
       doorTime: show.doorTime,
-      items: [],
+      items: nextItems,
     }),
   });
 }
@@ -75,8 +80,11 @@ export async function POST(request: NextRequest) {
   if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
-    const { slug, sig, name, email, phone, date, doorTime, venue, address, city, region, country } =
+    const { slug, sig, name, email, phone, date, doorTime, venue, address, city, region, country, items } =
       await request.json();
+    const nextItems = Array.isArray(items)
+      ? Array.from(new Set(items.filter((item): item is string => typeof item === "string")))
+      : undefined;
     // The host confirms via a signed link; the artist can confirm their own drafts
     // straight from the admin (cookie auth), so no signature roundtrip is needed there.
     const authorized = slug && ((await isAdminAuthorized(request)) || verifySlug(slug, sig));
@@ -140,7 +148,7 @@ export async function POST(request: NextRequest) {
       const newSlug = ((await created.json()) as { slug: string }).slug;
 
       const bookedShow: Show = { ...spawned, slug: newSlug };
-      await upsertHost(newSlug, contact, bookedShow);
+      await upsertHost(newSlug, contact, bookedShow, nextItems);
 
       const eventbrite =
         !isShowListed(spawned) || spawned.visibility === "private"
@@ -152,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     const booked = { ...show, date: nextDate, doorTime: nextDoorTime };
 
-    await upsertHost(slug, contact, booked);
+    await upsertHost(slug, contact, booked, nextItems);
 
     // Publish: advance the lifecycle to booked. Keep access (private stays private);
     // a legacy "draft" visibility becomes public.

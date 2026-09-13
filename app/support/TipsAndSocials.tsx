@@ -12,7 +12,7 @@ import ContributeCardModal from "./ContributeCardModal";
 function TipsSection({
   interacFirst = false,
   isOg = false,
-  sponsorHref = "/sponsor",
+  sponsorHref,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
@@ -38,7 +38,7 @@ function TipsSection({
           interacFirst={interacFirst}
         />
       )}
-      {!isOg && (
+      {!isOg && sponsorHref && (
         <div className="text-center mt-2">
           <a
             href={sponsorHref}

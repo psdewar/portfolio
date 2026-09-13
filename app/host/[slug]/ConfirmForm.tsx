@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { isEmailValid } from "../../../lib/email";
-import { formatEventDateShort, formatLongDate } from "../../../lib/dates";
-import { DOOR_TIMES } from "../../../lib/door-times";
-import { useGoogleMaps, createAutocomplete } from "../../../lib/maps";
+import { isEmailValid } from "../../lib/email";
+import { formatEventDateShort, formatLongDate } from "../../lib/dates";
+import { DOOR_TIMES } from "../../lib/door-times";
+import { useGoogleMaps, createAutocomplete } from "../../lib/maps";
+import { SUPPORT_MENU, SPECIAL_ITEMS, DRAFT_DEFAULT_ITEMS } from "../../lib/sponsor";
+import ContributionChecklist from "../../components/ContributionChecklist";
 
 // "Cafe Zoe, Menlo Park, CA" → parts, when the host typed a location but never
 // picked a suggestion. Two- or three-part comma form only.
@@ -32,7 +34,7 @@ export default function ConfirmForm({
 }: {
   slug: string;
   sig: string;
-  host: { name: string; email: string; phone: string };
+  host: { name: string; email: string; phone: string; items: string[] };
   isPrivate?: boolean;
   needsLocation?: boolean;
   date: string;
@@ -46,6 +48,22 @@ export default function ConfirmForm({
   const [doorTime, setDoorTime] = useState(initialDoorTime);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const menuItems = new Set(SUPPORT_MENU.flatMap((group) => group.items));
+  const initialItems = host.items.filter((item) => menuItems.has(item));
+  const [checked, setChecked] = useState<Set<string>>(
+    new Set(initialItems.length > 0 ? initialItems : DRAFT_DEFAULT_ITEMS),
+  );
+  const locked = host.items.filter((item) => SPECIAL_ITEMS.includes(item));
+
+  const toggleItem = (item: string) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  };
   // Re-entry lock: disabled={loading} misses a same-frame double-tap, which would
   // promote the draft twice (two shows, two Eventbrite events). Set synchronously.
   const submitting = useRef(false);
@@ -89,6 +107,10 @@ export default function ConfirmForm({
       setError("Pick a date and door time.");
       return;
     }
+    if (checked.size === 0) {
+      setError("Pick at least one way you can contribute.");
+      return;
+    }
     // Location fields only when the draft was created without one. The host may
     // have typed an address without picking a suggestion — parse that as a fallback.
     let loc = { venue, address, city, region, country };
@@ -116,6 +138,7 @@ export default function ConfirmForm({
           phone,
           date,
           doorTime,
+          items: [...checked, ...locked],
           ...(needsLocation ? loc : {}),
         }),
       });
@@ -141,6 +164,12 @@ export default function ConfirmForm({
 
   return (
     <div>
+      <div className="mb-6">
+        <h3 className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+          Your contributions
+        </h3>
+        <ContributionChecklist checked={checked} onToggle={toggleItem} locked={locked} />
+      </div>
       <div className="space-y-4 mb-5">
         {needsLocation && (
           <div>

@@ -77,6 +77,7 @@ const nextConfig = {
       { source: "/events", destination: "/live", permanent: true },
       { source: "/concert", destination: "/live", permanent: true },
       { source: "/concerts", destination: "/live", permanent: true },
+      { source: "/sponsor/confirm/:slug", destination: "/host/:slug", permanent: true },
       {
         source: "/2025/singles-and-16s",
         destination: "/api/download/pack?file=singles-16s-2025",

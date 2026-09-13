@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { CheckIcon } from "@phosphor-icons/react/dist/ssr";
-import Poster from "../../../components/Poster";
-import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../../lib/shows";
-import { getHostForShow } from "../../../lib/sponsors";
-import { posterLineForShow } from "../../../fund/legs";
-import { verifySlug } from "../../../lib/confirm";
-import { PAY_WHAT_YOU_WANT_TAG } from "../../../lib/poster-defaults";
-import { HONORARIUM_ITEM, HONORARIUM_DEFINITION, orderItems } from "../../../lib/sponsor";
+import Poster from "../../components/Poster";
+import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../../lib/shows";
+import { getHostForShow } from "../../lib/sponsors";
+import { posterLineForShow } from "../../fund/legs";
+import { verifySlug } from "../../lib/confirm";
+import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
 import ConfirmForm from "./ConfirmForm";
-import ArtistIntro from "../../../components/ArtistIntro";
+import ArtistIntro from "../../components/ArtistIntro";
 import ScrollToConfirm from "./ScrollToConfirm";
 import PosterScrollOverlay from "./PosterScrollOverlay";
-import SponsorAvatar from "../../SponsorAvatar";
-import { posterAspect } from "../../../lib/poster-formats";
+import HostAvatar from "../HostAvatar";
+import { posterAspect } from "../../lib/poster-formats";
 
 export async function generateMetadata({
   params,
@@ -108,15 +106,13 @@ export default async function ConfirmPage({
       : show.venue || `${show.city}, ${show.region}`;
   // The publish note only holds while the show is still a draft.
   const showsPublishNote = isShowDraft(show) && show.visibility !== "private";
-  const splitItem = "50/50 donation split";
-  const contributeItems = orderItems(host.items.filter((i) => i !== splitItem));
-  const hasSplit = host.items.includes(splitItem);
+  const hasSplit = host.items.includes("50/50 donation split");
 
   return (
     <div>
       <div className="mb-6 lg:flex lg:items-center lg:gap-6">
         <div className="hidden lg:block shrink-0">
-          <SponsorAvatar />
+          <HostAvatar />
         </div>
         <div className="min-w-0">
           <h2 className="text-2xl sm:text-3xl font-medium tracking-tight">
@@ -124,12 +120,12 @@ export default async function ConfirmPage({
           </h2>
           <div className="flex items-center gap-4 mt-3 lg:mt-2">
             <div className="lg:hidden shrink-0">
-              <SponsorAvatar />
+              <HostAvatar />
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
               {needsLocation
-                ? "Tell me where and when, and drop your contact below. Scroll down for clips of me live, a single from my set, and my story."
-                : "Submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story."}
+                ? "Tell me where and when, pick what you can contribute, and drop your contact below. Scroll down for clips of me live, a single from my set, and my story."
+                : "Pick what you can contribute and submit your contact info to book the date below. Scroll down for clips of me live, a single from my set, and my story."}
             </p>
           </div>
         </div>
@@ -149,32 +145,6 @@ export default async function ConfirmPage({
               />
             )}
           </div>
-
-          {contributeItems.length > 0 && (
-            <div>
-              <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-                What you contribute
-              </h3>
-              <ul className="space-y-1.5">
-                {contributeItems.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-2 text-neutral-700 dark:text-neutral-300"
-                  >
-                    <CheckIcon size={16} weight="bold" className="mt-0.5 shrink-0 text-neutral-400" />
-                    <span>
-                      {item}
-                      {item === HONORARIUM_ITEM && (
-                        <span className="block text-sm text-neutral-400 dark:text-neutral-500">
-                          {HONORARIUM_DEFINITION}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           {(showsPublishNote || hasSplit) && (
             <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-neutral-600 dark:text-neutral-400">

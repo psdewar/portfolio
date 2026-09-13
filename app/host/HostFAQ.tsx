@@ -1,11 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import HostFAQ from "../components/HostFAQ";
+import HostFAQContent from "../components/HostFAQ";
 
 // The confirmation page is a private, single-purpose view — no host FAQ there.
-export default function SponsorFAQ() {
+export default function HostFAQ() {
   const pathname = usePathname();
-  if (pathname?.startsWith("/sponsor/confirm")) return null;
-  return <HostFAQ />;
+  if (pathname?.startsWith("/host/")) return null;
+  return <HostFAQContent />;
 }

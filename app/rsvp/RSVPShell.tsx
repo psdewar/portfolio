@@ -81,7 +81,6 @@ export default function RSVPShell({
           posterLine={selected.posterLine}
           posterImg={selected.posterImg}
           bgImg={selected.bgImg}
-          flights={selected.flights}
           onBack={handleBack}
         />
       </>

@@ -52,8 +52,6 @@ export interface Show {
   guestSet?: boolean | null;
   // Below private: on no public surface at all, but still counts on its leg's fund page.
   unlisted?: boolean | null;
-  // Active client-side A/B flight keys for this show (e.g. "payment-model").
-  flights?: string[] | null;
   // Eventbrite event id, set when the show is auto-published to Eventbrite.
   eventbriteId?: string | null;
   // The leg (trip grouping) this show belongs to; matches a Leg.slug.

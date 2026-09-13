@@ -1,13 +1,13 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import SponsorAvatar from "./SponsorAvatar";
+import HostAvatar from "./HostAvatar";
 
-export default function SponsorHeader() {
-  if (usePathname()?.startsWith("/sponsor/confirm")) return null;
+export default function HostHeader() {
+  if (usePathname()?.startsWith("/host/")) return null;
   return (
     <div className="flex items-center gap-4 sm:gap-6 mb-5 sm:mb-6 lg:mb-6">
-      <SponsorAvatar />
+      <HostAvatar />
       <div>
         <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
           Become a Concert Host

@@ -19,9 +19,12 @@ export const SUPPORT_MENU: { category: string; items: string[] }[] = [
   },
   {
     category: "Financial",
-    items: ["Round-trip airfare", "Car rental", "Hotel or Airbnb", HONORARIUM_ITEM],
+    items: ["Round-trip airfare", HONORARIUM_ITEM],
   },
 ];
+
+// What every draft starts with checked until the host or admin edits the list.
+export const DRAFT_DEFAULT_ITEMS = SUPPORT_MENU[0].items.slice(0, 3);
 
 // Every item in menu order, the sequence a host reads them in on the form.
 const ITEM_ORDER: readonly string[] = [

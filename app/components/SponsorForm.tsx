@@ -18,8 +18,10 @@ import {
   SUPPORT_MENU,
   SUPPORTER_ITEMS,
   SPECIAL_ITEMS,
+  DRAFT_DEFAULT_ITEMS,
   HONORARIUM_ITEM,
   HONORARIUM_DEFINITION,
+  orderItems,
 } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
 import { type Show, getVenueLabel, getDoorLabel, isShowListed } from "../lib/shows";
@@ -131,11 +133,13 @@ export default function SponsorForm({
   const doorTimeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [doorTimeOpenIndex, setDoorTimeOpenIndex] = useState<number | null>(null);
 
+  const hasInitialItems = !!initialItems?.length;
   const defaultSupporterItems =
-    mode === "supporter" && !editMode && !compact && !initialItems ? [SUPPORTER_ITEMS[0]] : [];
-  const defaultPendingItems = pending && !initialItems ? SPECIAL_ITEMS : [];
+    mode === "supporter" && !editMode && !compact && !hasInitialItems ? [SUPPORTER_ITEMS[0]] : [];
+  const defaultPendingItems =
+    pending && !hasInitialItems ? DRAFT_DEFAULT_ITEMS : [];
   const [checked, setChecked] = useState<Set<string>>(
-    new Set(initialItems || [...defaultSupporterItems, ...defaultPendingItems]),
+    new Set(hasInitialItems ? initialItems : [...defaultSupporterItems, ...defaultPendingItems]),
   );
   const [eventVenue, setEventVenue] = useState(venue || "");
   const [eventAddress, setEventAddress] = useState(address || "");
@@ -646,6 +650,11 @@ export default function SponsorForm({
     );
   };
 
+  const checkedItems = orderItems([...checked]);
+  const uncheckedSections = [...SUPPORT_MENU, { category: "Private deal", items: SPECIAL_ITEMS }]
+    .map((section) => ({ ...section, items: section.items.filter((item) => !checked.has(item)) }))
+    .filter((section) => section.items.length > 0);
+
   // ── Wizard step 1 (supporter): show picker ─────────────────────────────────
   if (isWizard && wizardStep === 1 && wizardMode === "supporter") {
     return (
@@ -1006,66 +1015,87 @@ export default function SponsorForm({
           <section>
             <h2 className={headingClass}>{pending ? "Potential contributions" : "Ways to contribute"}</h2>
 
-            {/* Mobile / tablet: CSS columns */}
-            <div
-              className={
-                compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
-              }
-            >
-              {SUPPORT_MENU.map((section, idx) => (
-                <div
-                  key={idx}
-                  className={compact ? "min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"}
-                >
-                  {section.category && (
-                    <p
-                      className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "sm:text-[13px] mb-1.5 sm:mb-2"}`}
-                    >
-                      {section.category}
-                    </p>
-                  )}
-                  <div className={compact ? "space-y-1" : "space-y-4"}>
-                    {section.items.map((item) => renderCheckItem(item, iconSize))}
-                  </div>
+            {pending && (
+              <>
+                <div className={compact ? "space-y-1" : "space-y-4"}>
+                  {checkedItems.map((item) => renderCheckItem(item, iconSize))}
                 </div>
-              ))}
-            </div>
-
-            {/* Desktop: explicit 2-column grid */}
-            {!compact && (
-              <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
-                {desktopCols.map((indices, col) => (
-                  <div key={col} className="space-y-5">
-                    {indices.map((i) => {
-                      const section = SUPPORT_MENU[i];
-                      if (!section) return null;
-                      return (
-                        <div key={i}>
-                          {section.category && (
-                            <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-                              {section.category}
-                            </p>
-                          )}
-                          <div className="space-y-4">
-                            {section.items.map((item) => renderCheckItem(item, 20))}
-                          </div>
+                <details className="mt-3 group">
+                  <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+                    <span className="group-open:hidden">More options</span>
+                    <span className="hidden group-open:inline">Fewer options</span>
+                  </summary>
+                  <div className={compact ? "mt-2 flex flex-wrap gap-x-6 gap-y-3" : "mt-3 sm:columns-2 gap-6"}>
+                    {uncheckedSections.map((section) => (
+                      <div key={section.category} className={compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4"}>
+                        <p className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "mb-1.5"}`}>
+                          {section.category}
+                        </p>
+                        <div className={compact ? "space-y-1" : "space-y-4"}>
+                          {section.items.map((item) => renderCheckItem(item, iconSize))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </details>
+              </>
             )}
 
-            {pending && (
-              <div className="mt-5 pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3">
-                  Private deal
-                </p>
-                <div className="space-y-4">
-                  {SPECIAL_ITEMS.map((item) => renderCheckItem(item, iconSize))}
+            {!pending && (
+              <>
+                {/* Mobile / tablet: CSS columns */}
+                <div
+                  className={
+                    compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
+                  }
+                >
+                  {SUPPORT_MENU.map((section, idx) => (
+                    <div
+                      key={idx}
+                      className={
+                        compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"
+                      }
+                    >
+                      {section.category && (
+                        <p
+                          className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "sm:text-[13px] mb-1.5 sm:mb-2"}`}
+                        >
+                          {section.category}
+                        </p>
+                      )}
+                      <div className={compact ? "space-y-1" : "space-y-4"}>
+                        {section.items.map((item) => renderCheckItem(item, iconSize))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+
+                {/* Desktop: explicit 2-column grid */}
+                {!compact && (
+                  <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
+                    {desktopCols.map((indices, col) => (
+                      <div key={col} className="space-y-5">
+                        {indices.map((i) => {
+                          const section = SUPPORT_MENU[i];
+                          if (!section) return null;
+                          return (
+                            <div key={i}>
+                              {section.category && (
+                                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
+                                  {section.category}
+                                </p>
+                              )}
+                              <div className="space-y-4">
+                                {section.items.map((item) => renderCheckItem(item, 20))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </section>
         </>

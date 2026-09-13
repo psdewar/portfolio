@@ -215,7 +215,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (pathname?.startsWith("/sponsor/confirm")) {
+  if (pathname?.startsWith("/host/")) {
     return (
       <>
         <main
