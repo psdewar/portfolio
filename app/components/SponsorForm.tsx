@@ -8,15 +8,11 @@ import {
   CheckCircleIcon,
   WarningCircleIcon,
   LockSimpleIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
   XIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import Link from "next/link";
 import {
   SUPPORT_MENU,
-  SUPPORTER_ITEMS,
   SPECIAL_ITEMS,
   DRAFT_DEFAULT_ITEMS,
   HONORARIUM_ITEM,
@@ -24,8 +20,7 @@ import {
   orderItems,
 } from "../lib/sponsor";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
-import { type Show, getVenueLabel, getDoorLabel, isShowListed } from "../lib/shows";
-import { formatMonthDay, formatLongDate, isDatePast } from "../lib/dates";
+import { formatLongDate } from "../lib/dates";
 import { DOOR_TIMES } from "../lib/door-times";
 
 function parseDoorTimeMinutes(t: string): number | null {
@@ -85,15 +80,10 @@ interface SponsorFormProps {
   date?: string;
   doorTime?: string;
   compact?: boolean;
-  isPdfMode?: boolean;
   editMode?: boolean;
   readOnly?: boolean;
   pending?: boolean;
-  mode?: "host" | "supporter";
-  hideBack?: boolean;
   initialItems?: string[];
-  initialDates?: string[];
-  initialDoorTimes?: string[];
   initialName?: string;
   initialPhone?: string;
   initialEmail?: string;
@@ -111,15 +101,10 @@ export default function SponsorForm({
   date,
   doorTime,
   compact,
-  isPdfMode,
   editMode,
   readOnly,
   pending,
-  mode,
-  hideBack,
   initialItems,
-  initialDates,
-  initialDoorTimes,
   initialName,
   initialPhone,
   initialEmail,
@@ -134,91 +119,29 @@ export default function SponsorForm({
   const [doorTimeOpenIndex, setDoorTimeOpenIndex] = useState<number | null>(null);
 
   const hasInitialItems = !!initialItems?.length;
-  const defaultSupporterItems =
-    mode === "supporter" && !editMode && !compact && !hasInitialItems ? [SUPPORTER_ITEMS[0]] : [];
   const defaultPendingItems =
     pending && !hasInitialItems ? DRAFT_DEFAULT_ITEMS : [];
   const [checked, setChecked] = useState<Set<string>>(
-    new Set(hasInitialItems ? initialItems : [...defaultSupporterItems, ...defaultPendingItems]),
+    new Set(hasInitialItems ? initialItems : defaultPendingItems),
   );
   const [eventVenue, setEventVenue] = useState(venue || "");
   const [eventAddress, setEventAddress] = useState(address || "");
   const [eventCity, setEventCity] = useState(city || "");
   const [eventRegion, setEventRegion] = useState(region || "");
   const [eventCountry, setEventCountry] = useState(country || "");
-  const [eventDates, setEventDates] = useState<string[]>(
-    initialDates && initialDates.length > 0 ? initialDates : date ? [date] : [""],
-  );
-  const [eventDoorTimes, setEventDoorTimes] = useState<string[]>(() => {
-    const len = initialDates && initialDates.length > 0 ? initialDates.length : 1;
-    return Array.from({ length: len }, (_, i) => initialDoorTimes?.[i] ?? doorTime ?? "");
-  });
+  const [eventDates, setEventDates] = useState<string[]>(date ? [date] : [""]);
+  const [eventDoorTimes, setEventDoorTimes] = useState<string[]>([doorTime || ""]);
   const [sponsorName, setSponsorName] = useState(initialName || "");
   const [sponsorPhone, setSponsorPhone] = useState(initialPhone || "");
   const [sponsorEmail, setSponsorEmail] = useState(initialEmail || "");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Wizard state — only active for the public form (not editMode/compact/isPdfMode)
-  const isWizard = !editMode && !compact && !isPdfMode;
-  const [wizardMode, setWizardMode] = useState<"host" | "supporter" | null>(mode || null);
-  const [wizardStep, setWizardStep] = useState<0 | 1 | 2>(
-    !isWizard ? 2 : mode === "host" ? 2 : mode === "supporter" ? (showSlug ? 2 : 1) : 0,
-  );
-  const [pickerShows, setPickerShows] = useState<Show[]>([]);
-  const [pickerLoading, setPickerLoading] = useState(false);
-  const hasFetchedShows = useRef(false);
-  const [selectedShowSlug, setSelectedShowSlug] = useState<string | null>(showSlug || null);
-  const [hostNames, setHostNames] = useState<Record<string, string>>({});
-
   // Draft amend (admin editing a pending booking): everything stays editable.
   const draftAmend = !!(editMode && pending);
-  const cityReadOnly = isPdfMode || (compact && !!city && !draftAmend);
-  const dateReadOnly = isPdfMode || (compact && !!date && !draftAmend);
+  const cityReadOnly = compact && !!city && !draftAmend;
+  const dateReadOnly = compact && !!date && !draftAmend;
   const hasLocation = !!(eventCity && eventRegion);
-
-  // Fetch shows + sponsors once when entering supporter mode
-  useEffect(() => {
-    if (wizardMode !== "supporter" || hasFetchedShows.current) return;
-    hasFetchedShows.current = true;
-    setPickerLoading(true);
-    Promise.all([
-      fetch("/api/shows")
-        .then((r) => r.json())
-        .catch(() => []),
-      fetch("/api/sponsors")
-        .then((r) => r.json())
-        .catch(() => []),
-    ])
-      .then(
-        ([showsData, sponsorsData]: [
-          Show[],
-          { showSlug?: string; name?: string; role?: string }[],
-        ]) => {
-          setPickerShows(
-            Array.isArray(showsData)
-              ? showsData
-                  .filter((s) => s.status !== "cancelled" && !isDatePast(s.date) && isShowListed(s))
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              : [],
-          );
-          const names: Record<string, string> = {};
-          if (Array.isArray(sponsorsData)) {
-            for (const sp of sponsorsData) {
-              if (!sp.showSlug || !sp.name) continue;
-              if (sp.role === "host") {
-                names[sp.showSlug] = sp.name;
-              } else if (!names[sp.showSlug]) {
-                names[sp.showSlug] = sp.name;
-              }
-            }
-          }
-          setHostNames(names);
-        },
-      )
-      .catch(() => setPickerShows([]))
-      .finally(() => setPickerLoading(false));
-  }, [wizardMode]);
 
   const initAutocomplete = useCallback(() => {
     if (!mapsReady || cityReadOnly || !cityContainerRef.current) return;
@@ -271,8 +194,6 @@ export default function SponsorForm({
       return;
     }
 
-    const isSupporter = wizardMode === "supporter";
-
     // Captured here so the rest of submit uses the recovered values even
     // before setState has flushed.
     let resolvedVenue = eventVenue;
@@ -282,102 +203,93 @@ export default function SponsorForm({
 
     // Pending invites may skip location and dates (press-kit style): the host
     // supplies the where and when at confirmation.
-    if (!isSupporter) {
-      if (!resolvedCity || !resolvedRegion) {
-        const typedInput = cityContainerRef.current?.querySelector("input");
-        const typed = typedInput?.value?.trim() || "";
-        const parsed = typed ? parseTypedLocation(typed) : null;
-        if (parsed) {
-          resolvedVenue = resolvedVenue || parsed.venue;
-          resolvedCity = parsed.city;
-          resolvedRegion = parsed.region;
-          resolvedCountry = resolvedCountry || "US";
-          setEventVenue(resolvedVenue);
-          setEventCity(resolvedCity);
-          setEventRegion(resolvedRegion);
-          setEventCountry(resolvedCountry);
-        } else if (!pending || typed) {
-          setSubmitResult({
-            ok: false,
-            msg: typed
-              ? "Add city and state, like 'Bwe Kafe, West Palm Beach, FL'."
-              : "Add a venue or address.",
-          });
-          return;
-        }
-      }
-
-      const multi = eventDates.length > 1;
-      const seenByDate = new Map<string, number[]>();
-      for (let i = 0; i < eventDates.length; i++) {
-        const d = eventDates[i].trim();
-        if (!d) {
-          if (pending) continue;
-          setSubmitResult({
-            ok: false,
-            msg: multi ? `Pick a date for row ${i + 1} or remove it.` : "Pick a date.",
-          });
-          return;
-        }
-        const t = eventDoorTimes[i]?.trim();
-        if (!t) {
-          setSubmitResult({
-            ok: false,
-            msg: multi ? `Pick a door time for ${formatLongDate(d)}.` : "Pick a door time.",
-          });
-          return;
-        }
-        const minutes = parseDoorTimeMinutes(t);
-        if (minutes === null) continue;
-        const prior = seenByDate.get(d) || [];
-        for (const pm of prior) {
-          if (Math.abs(pm - minutes) < 120) {
-            setSubmitResult({
-              ok: false,
-              msg:
-                pm === minutes
-                  ? `${formatLongDate(d)} at ${t} is listed twice. Change the door time or remove the duplicate.`
-                  : `Two shows on ${formatLongDate(d)} need at least 2 hours between door times.`,
-            });
-            return;
-          }
-        }
-        seenByDate.set(d, [...prior, minutes]);
+    if (!resolvedCity || !resolvedRegion) {
+      const typedInput = cityContainerRef.current?.querySelector("input");
+      const typed = typedInput?.value?.trim() || "";
+      const parsed = typed ? parseTypedLocation(typed) : null;
+      if (parsed) {
+        resolvedVenue = resolvedVenue || parsed.venue;
+        resolvedCity = parsed.city;
+        resolvedRegion = parsed.region;
+        resolvedCountry = resolvedCountry || "US";
+        setEventVenue(resolvedVenue);
+        setEventCity(resolvedCity);
+        setEventRegion(resolvedRegion);
+        setEventCountry(resolvedCountry);
+      } else if (!pending || typed) {
+        setSubmitResult({
+          ok: false,
+          msg: typed
+            ? "Add city and state, like 'Bwe Kafe, West Palm Beach, FL'."
+            : "Add a venue or address.",
+        });
+        return;
       }
     }
 
-    if (isSupporter && !selectedShowSlug) {
-      setSubmitResult({ ok: false, msg: "Please select a show to support." });
-      return;
+    const multi = eventDates.length > 1;
+    const seenByDate = new Map<string, number[]>();
+    for (let i = 0; i < eventDates.length; i++) {
+      const d = eventDates[i].trim();
+      if (!d) {
+        if (pending) continue;
+        setSubmitResult({
+          ok: false,
+          msg: multi ? `Pick a date for row ${i + 1} or remove it.` : "Pick a date.",
+        });
+        return;
+      }
+      const t = eventDoorTimes[i]?.trim();
+      if (!t) {
+        setSubmitResult({
+          ok: false,
+          msg: multi ? `Pick a door time for ${formatLongDate(d)}.` : "Pick a door time.",
+        });
+        return;
+      }
+      const minutes = parseDoorTimeMinutes(t);
+      if (minutes === null) continue;
+      const prior = seenByDate.get(d) || [];
+      for (const pm of prior) {
+        if (Math.abs(pm - minutes) < 120) {
+          setSubmitResult({
+            ok: false,
+            msg:
+              pm === minutes
+                ? `${formatLongDate(d)} at ${t} is listed twice. Change the door time or remove the duplicate.`
+                : `Two shows on ${formatLongDate(d)} need at least 2 hours between door times.`,
+          });
+          return;
+        }
+      }
+      seenByDate.set(d, [...prior, minutes]);
     }
 
     setSubmitting(true);
     setSubmitResult(null);
 
-    const slotsToSubmit = isSupporter
-      ? []
-      : eventDates
-          .map((d, i) => ({
-            date: d.trim(),
-            doorTime: eventDoorTimes[i].trim(),
-          }))
-          .filter((s) => s.date);
-    if (!isSupporter && slotsToSubmit.length === 0) slotsToSubmit.push({ date: "", doorTime: "" });
+    const slotsToSubmit = eventDates
+      .map((d, i) => ({
+        date: d.trim(),
+        doorTime: eventDoorTimes[i].trim(),
+      }))
+      .filter((s) => s.date);
+    if (slotsToSubmit.length === 0) slotsToSubmit.push({ date: "", doorTime: "" });
     const primarySlot = slotsToSubmit[0] || { date: "", doorTime: "" };
 
     const fields: SponsorFields = {
       name: sponsorName.trim(),
       email,
       phone: sponsorPhone.trim(),
-      city: isSupporter ? "" : resolvedCity,
-      region: isSupporter ? "" : resolvedRegion,
-      country: isSupporter ? "" : resolvedCountry,
-      venue: isSupporter ? "" : resolvedVenue || "",
-      address: isSupporter ? "" : eventAddress || "",
-      date: isSupporter ? "" : primarySlot.date,
-      doorTime: isSupporter ? "" : primarySlot.doorTime,
+      city: resolvedCity,
+      region: resolvedRegion,
+      country: resolvedCountry,
+      venue: resolvedVenue || "",
+      address: eventAddress || "",
+      date: primarySlot.date,
+      doorTime: primarySlot.doorTime,
       items: Array.from(checked),
-      role: isSupporter ? "supporter" : "host",
+      role: "host",
     };
 
     const buildSponsorBody = (slug: string, slot: { date: string; doorTime: string }) => ({
@@ -389,7 +301,7 @@ export default function SponsorForm({
     });
 
     try {
-      const isHostNewSubmission = !editMode && !isSupporter && !showSlug;
+      const isHostNewSubmission = !editMode && !showSlug;
 
       if (isHostNewSubmission) {
         // Pre-copy the host confirm link within this submit gesture (invites only) so it's on the clipboard when we land.
@@ -479,7 +391,7 @@ export default function SponsorForm({
         return;
       }
 
-      const finalShowSlug = isSupporter ? selectedShowSlug : showSlug;
+      const finalShowSlug = showSlug;
       // Amending a press-kit draft that has no host record yet creates one.
       const res = await fetch("/api/sponsors", {
         method: editMode && submittedAt ? "PATCH" : "POST",
@@ -498,7 +410,7 @@ export default function SponsorForm({
       if (editMode) {
         // Draft amend also updates the show record: it feeds the confirm link,
         // poster, and RSVP page, so the sponsor record alone isn't enough.
-        if (draftAmend && !isSupporter && finalShowSlug) {
+        if (draftAmend && finalShowSlug) {
           const showRes = await fetch("/api/shows", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -546,76 +458,50 @@ export default function SponsorForm({
     ? `${resolvedVenue}, ${cityDisplay || city}`
     : cityDisplay || city;
 
-  const selectedShow =
-    wizardMode === "supporter" && selectedShowSlug
-      ? (pickerShows.find((s) => s.slug === selectedShowSlug) ?? null)
-      : null;
-  const supporterLocked = !!(wizardMode === "supporter" && selectedShowSlug);
-  const isSupporter = mode === "supporter" || (isWizard && wizardMode === "supporter");
-  const headingClass = `font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"} ${isPdfMode ? "mt-4" : ""}`;
+  const headingClass = `font-medium mb-1 ${compact ? "text-lg" : "text-xl lg:text-2xl sm:mb-2 lg:mb-3"}`;
   const desktopCols: number[][] = [[0], [1]];
 
-  const showLocationDisplay = (show: Show) =>
-    show.venueLabel ||
-    (show.venue ? `${show.venue}, ${show.city}, ${show.region}` : `${show.city}, ${show.region}`);
-
-  const contactFields = (!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
-    <div
-      className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}
-      style={
-        isPdfMode
-          ? {
-              gridTemplateColumns: `repeat(${[sponsorName, sponsorPhone, sponsorEmail].filter(Boolean).length}, 1fr)`,
-            }
-          : undefined
-      }
-    >
-      {(!isPdfMode || sponsorName) && (
-        <div>
-          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-            Name
-          </label>
-          <input
-            type="text"
-            value={sponsorName}
-            onChange={(e) => setSponsorName(e.target.value)}
-            placeholder="Your name or organization"
-            required={isWizard && wizardMode === "supporter"}
-            disabled={readOnly}
-            className={fieldClass}
-          />
-        </div>
-      )}
-      {(!isPdfMode || sponsorPhone) && (
-        <div>
-          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-            Phone
-          </label>
-          <input
-            type="text"
-            value={sponsorPhone}
-            onChange={(e) => setSponsorPhone(e.target.value)}
-            placeholder="(206) 555-0100"
-            disabled={readOnly}
-            className={fieldClass}
-          />
-        </div>
-      )}
-      {(!isPdfMode || sponsorEmail) && (
-        <div>
-          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-            Email
-          </label>
-          <input
-            type="email"
-            value={sponsorEmail}
-            onChange={(e) => setSponsorEmail(e.target.value)}
-            placeholder="abc@email.com"
-            disabled={readOnly}
-            className={fieldClass}
-          />
-        </div>
-      )}
+  const contactFields = (
+    <div className={`grid gap-3 ${compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 sm:gap-4"}`}>
+      <div>
+        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+          Name
+        </label>
+        <input
+          type="text"
+          value={sponsorName}
+          onChange={(e) => setSponsorName(e.target.value)}
+          placeholder="Your name or organization"
+          disabled={readOnly}
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+          Phone
+        </label>
+        <input
+          type="text"
+          value={sponsorPhone}
+          onChange={(e) => setSponsorPhone(e.target.value)}
+          placeholder="(206) 555-0100"
+          disabled={readOnly}
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+          Email
+        </label>
+        <input
+          type="email"
+          value={sponsorEmail}
+          onChange={(e) => setSponsorEmail(e.target.value)}
+          placeholder="abc@email.com"
+          disabled={readOnly}
+          className={fieldClass}
+        />
+      </div>
     </div>
   );
 
@@ -655,462 +541,312 @@ export default function SponsorForm({
     .map((section) => ({ ...section, items: section.items.filter((item) => !checked.has(item)) }))
     .filter((section) => section.items.length > 0);
 
-  // ── Wizard step 1 (supporter): show picker ─────────────────────────────────
-  if (isWizard && wizardStep === 1 && wizardMode === "supporter") {
-    return (
-      <div>
-        <Link
-          href="/sponsor"
-          className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-5"
-        >
-          <ArrowLeftIcon size={14} />
-          Back
-        </Link>
-
-        <p className={`font-medium mb-3 ${compact ? "text-base" : "text-lg sm:text-xl"}`}>
-          Choose a show to support
-        </p>
-
-        {pickerLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse h-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : pickerShows.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            No shows are currently open for support.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {pickerShows.map((show) => (
-              <Link
-                key={show.slug}
-                href={`/sponsor/support/${show.slug}`}
-                className="w-full text-left flex items-center justify-between gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 px-4 py-3 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors group"
-              >
-                <div>
-                  <p className="font-medium text-sm">{showLocationDisplay(show)}</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    {formatMonthDay(show.date)}
-                    {show.doorTime && ` · ${getDoorLabel(show)}`}
-                  </p>
-                </div>
-                <ArrowRightIcon
-                  size={16}
-                  className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 shrink-0 transition-transform group-hover:translate-x-0.5"
-                />
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Main form (wizard step 1 host, wizard step 2, or flat/edit/compact/pdf) ─
-  const showBackButton = isWizard && wizardStep > 0 && !hideBack;
-  const backHref =
-    wizardMode === "host"
-      ? "/sponsor"
-      : wizardMode === "supporter" && showSlug
-        ? "/sponsor/support"
-        : wizardMode === "supporter"
-          ? "/sponsor"
-          : null;
-  const backIsLink = !!backHref;
-
   return (
     <div>
-      {showBackButton &&
-        (backIsLink ? (
-          <Link
-            href={backHref!}
-            className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-5"
-          >
-            <ArrowLeftIcon size={14} />
-            Back
-          </Link>
-        ) : (
-          <button
-            onClick={() =>
-              setWizardStep((prev) => {
-                const next = (prev - 1) as 0 | 1 | 2;
-                if (next === 1 && wizardMode === "supporter") setSelectedShowSlug(null);
-                return next;
-              })
-            }
-            className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 mb-5"
-          >
-            <ArrowLeftIcon size={14} />
-            Back
-          </button>
-        ))}
-
-      {isSupporter ? (
-        <>
-          {/* Supporter: show summary */}
-          {!(mode === "supporter" && compact) && (
-            <div className={compact ? "mb-3" : "mb-5 sm:mb-6 lg:mb-5"}>
-              {!compact && !isPdfMode && (
-                <h2 className="font-medium text-xl lg:text-2xl">
-                  {supporterLocked && hostNames[selectedShowSlug!]
-                    ? `Hosted by ${hostNames[selectedShowSlug!]}`
-                    : "Show details"}
-                </h2>
-              )}
-              {selectedShow ? (
-                <div
-                  className={`text-neutral-500 dark:text-neutral-400 ${compact ? "text-sm" : "text-base sm:text-lg"} ${!compact && !isPdfMode ? "mt-2" : ""}`}
-                >
-                  <p>{showLocationDisplay(selectedShow)}</p>
-                  <p>{formatLongDate(selectedShow.date)}</p>
-                  <p>{getDoorLabel(selectedShow)}</p>
-                </div>
-              ) : (
-                <p className={`text-neutral-400 ${compact ? "text-sm" : "text-base sm:text-lg"}`}>
-                  Loading...
-                </p>
-              )}
+      {/* Host: one merged box with show details + contact fields */}
+      <div
+        className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6 sm:space-y-4 lg:space-y-4"}`}
+      >
+        {!compact && (
+          <h2 className="font-medium text-xl lg:text-2xl">Host details</h2>
+        )}
+        <div>
+          <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
+            Venue or address
+          </label>
+          {cityReadOnly ? (
+            <div
+              className={`flex items-center justify-between gap-3 ${compact ? "py-1" : "py-1.5 lg:py-2"}`}
+            >
+              <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
+                {locationDisplay}
+              </span>
+              <LockSimpleIcon
+                size={compact ? 13 : 15}
+                className="flex-shrink-0 text-neutral-300 dark:text-neutral-600"
+              />
             </div>
-          )}
-
-          {/* Supporter: Contact info box */}
-          {!(mode === "supporter" && compact) &&
-            (!isPdfMode || sponsorName || sponsorPhone || sponsorEmail) && (
-              <div
-                className={`rounded-lg border border-neutral-200 dark:border-neutral-800 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6"}`}
-              >
-                {!compact && !isPdfMode && (
-                  <h2 className="font-medium text-xl lg:text-2xl mb-3 sm:mb-4">Support details</h2>
-                )}
-                {contactFields}
-              </div>
-            )}
-
-          {/* Supporter: checkboxes (last, so honorarium is right before submit) */}
-          <section>
-            <h2 className={headingClass}>Ways to support</h2>
-            <div className={compact ? "space-y-1" : "space-y-4"}>
-              {SUPPORTER_ITEMS.map((item) => renderCheckItem(item, iconSize))}
-            </div>
-          </section>
-        </>
-      ) : (
-        <>
-          {/* Host: one merged box with show details + contact fields */}
-          <div
-            className={`rounded-lg border border-neutral-200 dark:border-neutral-800 space-y-3 ${compact ? "mb-3 p-3" : "mb-5 sm:mb-6 lg:mb-5 p-4 sm:p-5 lg:p-6 sm:space-y-4 lg:space-y-4"}`}
-          >
-            {!compact && !isPdfMode && (
-              <h2 className="font-medium text-xl lg:text-2xl">Host details</h2>
-            )}
-            <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-wider mb-1.5">
-                Venue or address
-              </label>
-              {cityReadOnly ? (
-                <div
-                  className={`flex items-center justify-between gap-3 ${compact ? "py-1" : "py-1.5 lg:py-2"}`}
-                >
-                  <span className={compact ? "text-sm" : "text-base sm:text-lg"}>
-                    {locationDisplay}
-                  </span>
-                  <LockSimpleIcon
-                    size={compact ? 13 : 15}
-                    className="flex-shrink-0 text-neutral-300 dark:text-neutral-600"
+          ) : (
+            <>
+              <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined}>
+                {!mapsReady && (
+                  <input
+                    ref={cityInputRef}
+                    type="text"
+                    placeholder="Magdalene Carney Institute, West Palm Beach, FL"
+                    className={fieldClass}
+                    onChange={(e) => {
+                      typedLocationRef.current = e.target.value;
+                      const parsed = parseTypedLocation(e.target.value);
+                      if (parsed) {
+                        setEventVenue(parsed.venue);
+                        setEventCity(parsed.city);
+                        setEventRegion(parsed.region);
+                        if (!eventCountry) setEventCountry("US");
+                      }
+                    }}
                   />
-                </div>
-              ) : (
-                <>
-                  <div ref={cityContainerRef} className={hasLocation ? "hidden" : undefined}>
-                    {!mapsReady && (
-                      <input
-                        ref={cityInputRef}
-                        type="text"
-                        placeholder="Magdalene Carney Institute, West Palm Beach, FL"
-                        className={fieldClass}
-                        onChange={(e) => {
-                          typedLocationRef.current = e.target.value;
-                          const parsed = parseTypedLocation(e.target.value);
-                          if (parsed) {
-                            setEventVenue(parsed.venue);
-                            setEventCity(parsed.city);
-                            setEventRegion(parsed.region);
-                            if (!eventCountry) setEventCountry("US");
-                          }
-                        }}
-                      />
+                )}
+              </div>
+              {hasLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEventVenue("");
+                    setEventAddress("");
+                    setEventCity("");
+                    setEventRegion("");
+                    setEventCountry("");
+                    if (mapsReady) {
+                      initAutocomplete();
+                      (cityContainerRef.current?.firstElementChild as HTMLElement)?.focus();
+                    } else {
+                      cityInputRef.current?.focus();
+                    }
+                  }}
+                  className={`${fieldClass} text-left flex items-center justify-between group`}
+                >
+                  <span>{locationDisplay}</span>
+                  <span className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 text-xs ml-2">
+                    change
+                  </span>
+                </button>
+              )}
+              {!mapsReady && !hasLocation && (
+                <p className="text-xs text-neutral-400 mt-1.5">Loading address search...</p>
+              )}
+            </>
+          )}
+        </div>
+
+        <div>
+          <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"} mb-1.5`}>
+            <label className="block text-xs text-neutral-400 uppercase tracking-wider">
+              {eventDates.length > 1 ? "Dates" : "Date"}
+            </label>
+            <label className="block text-xs text-neutral-400 uppercase tracking-wider">
+              Doors open
+            </label>
+          </div>
+          <div className="space-y-2.5">
+            {eventDates.map((d, i) => (
+              <div key={i} className="relative">
+                <div
+                  className={`grid grid-cols-2 items-start ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}
+                >
+                  <div>
+                    {dateReadOnly ? (
+                      d && <p className={fieldClass}>{formatLongDate(d)}</p>
+                    ) : (
+                      <div className="group relative">
+                        <p
+                          aria-hidden="true"
+                          className={`${fieldClass} group-focus-within:border-neutral-900 dark:group-focus-within:border-white ${d ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
+                        >
+                          {d
+                            ? formatLongDate(d)
+                            : formatLongDate(new Date().toISOString().slice(0, 10))}
+                        </p>
+                        <input
+                          type="date"
+                          value={d}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val < new Date().toISOString().slice(0, 10)) return;
+                            setEventDates((prev) => prev.map((x, j) => (j === i ? val : x)));
+                          }}
+                          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          disabled={readOnly}
+                          aria-label={`Event date${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer focus:outline-none"
+                        />
+                      </div>
                     )}
                   </div>
-                  {hasLocation && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEventVenue("");
-                        setEventAddress("");
-                        setEventCity("");
-                        setEventRegion("");
-                        setEventCountry("");
-                        if (mapsReady) {
-                          initAutocomplete();
-                          (cityContainerRef.current?.firstElementChild as HTMLElement)?.focus();
-                        } else {
-                          cityInputRef.current?.focus();
-                        }
-                      }}
-                      className={`${fieldClass} text-left flex items-center justify-between group`}
-                    >
-                      <span>{locationDisplay}</span>
-                      <span className="text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 text-xs ml-2">
-                        change
-                      </span>
-                    </button>
-                  )}
-                  {!mapsReady && !hasLocation && (
-                    <p className="text-xs text-neutral-400 mt-1.5">Loading address search...</p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <div className={`grid grid-cols-2 ${compact ? "gap-3" : "gap-3 sm:gap-4"} mb-1.5`}>
-                <label className="block text-xs text-neutral-400 uppercase tracking-wider">
-                  {eventDates.length > 1 ? "Dates" : "Date"}
-                </label>
-                <label className="block text-xs text-neutral-400 uppercase tracking-wider">
-                  Doors open
-                </label>
-              </div>
-              <div className="space-y-2.5">
-                {eventDates.map((d, i) => (
-                  <div key={i} className="relative">
+                  <div>
                     <div
-                      className={`grid grid-cols-2 items-start ${compact ? "gap-3" : "gap-3 sm:gap-4"}`}
+                      className="relative"
+                      ref={(el) => {
+                        doorTimeRefs.current[i] = el;
+                      }}
                     >
-                      <div>
-                        {dateReadOnly ? (
-                          d && <p className={fieldClass}>{formatLongDate(d)}</p>
-                        ) : (
-                          <div className="group relative">
-                            <p
-                              aria-hidden="true"
-                              className={`${fieldClass} group-focus-within:border-neutral-900 dark:group-focus-within:border-white ${d ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}
-                            >
-                              {d
-                                ? formatLongDate(d)
-                                : formatLongDate(new Date().toISOString().slice(0, 10))}
-                            </p>
-                            <input
-                              type="date"
-                              value={d}
-                              min={new Date().toISOString().slice(0, 10)}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val < new Date().toISOString().slice(0, 10)) return;
-                                setEventDates((prev) => prev.map((x, j) => (j === i ? val : x)));
-                              }}
-                              onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                              disabled={readOnly}
-                              aria-label={`Event date${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer focus:outline-none"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        {isPdfMode ? (
-                          <p className={fieldClass}>{eventDoorTimes[i]}</p>
-                        ) : (
-                          <div
-                            className="relative"
-                            ref={(el) => {
-                              doorTimeRefs.current[i] = el;
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                !readOnly && setDoorTimeOpenIndex((cur) => (cur === i ? null : i))
-                              }
-                              disabled={readOnly}
-                              aria-label={`Doors open${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
-                              className={`${fieldClass} text-left ${eventDoorTimes[i] ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
-                            >
-                              {eventDoorTimes[i] || "7:00PM"}
-                            </button>
-                            {doorTimeOpenIndex === i && (
-                              <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
-                                {DOOR_TIMES.map((t) => (
-                                  <li key={t}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEventDoorTimes((prev) =>
-                                          prev.map((x, j) => (j === i ? t : x)),
-                                        );
-                                        setDoorTimeOpenIndex(null);
-                                      }}
-                                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTimes[i] ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
-                                    >
-                                      {t}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {i > 0 && !readOnly && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setEventDates((prev) => prev.filter((_, j) => j !== i));
-                          setEventDoorTimes((prev) => prev.filter((_, j) => j !== i));
-                          setDoorTimeOpenIndex((cur) => (cur === i ? null : cur));
-                        }}
-                        aria-label={`Remove ${d ? formatLongDate(d) : "this date"}`}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 inline-flex items-center justify-center h-7 w-7 rounded-full bg-white dark:bg-neutral-950 text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 transition-colors"
+                        onClick={() =>
+                          !readOnly && setDoorTimeOpenIndex((cur) => (cur === i ? null : i))
+                        }
+                        disabled={readOnly}
+                        aria-label={`Doors open${eventDates.length > 1 ? ` ${i + 1}` : ""}`}
+                        className={`${fieldClass} text-left ${eventDoorTimes[i] ? "text-neutral-900 dark:text-white" : "text-neutral-400"} ${readOnly ? "opacity-75" : ""}`}
                       >
-                        <XIcon size={13} weight="bold" aria-hidden="true" />
+                        {eventDoorTimes[i] || "7:00PM"}
                       </button>
-                    )}
+                      {doorTimeOpenIndex === i && (
+                        <ul className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg py-1">
+                          {DOOR_TIMES.map((t) => (
+                            <li key={t}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEventDoorTimes((prev) =>
+                                    prev.map((x, j) => (j === i ? t : x)),
+                                  );
+                                  setDoorTimeOpenIndex(null);
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors ${t === eventDoorTimes[i] ? "text-neutral-900 dark:text-white font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
+                              >
+                                {t}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {i > 0 && !readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEventDates((prev) => prev.filter((_, j) => j !== i));
+                      setEventDoorTimes((prev) => prev.filter((_, j) => j !== i));
+                      setDoorTimeOpenIndex((cur) => (cur === i ? null : cur));
+                    }}
+                    aria-label={`Remove ${d ? formatLongDate(d) : "this date"}`}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-20 inline-flex items-center justify-center h-7 w-7 rounded-full bg-white dark:bg-neutral-950 text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 transition-colors"
+                  >
+                    <XIcon size={13} weight="bold" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {!readOnly && !editMode && eventDates.length < 3 && (
+            <button
+              type="button"
+              disabled={!eventDates[eventDates.length - 1]?.trim()}
+              onClick={() => {
+                setEventDates((prev) => {
+                  const last = prev[prev.length - 1];
+                  if (!last) return prev;
+                  const [y, m, d] = last.split("-").map(Number);
+                  const nextDate = new Date(Date.UTC(y, m - 1, d + 1))
+                    .toISOString()
+                    .slice(0, 10);
+                  return [...prev, nextDate];
+                });
+                setEventDoorTimes((prev) => [...prev, prev[prev.length - 1] || ""]);
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-400 dark:hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 border border-dashed border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-neutral-600 disabled:hover:border-neutral-300 dark:disabled:hover:text-neutral-400 dark:disabled:hover:border-neutral-700"
+            >
+              <PlusIcon size={12} weight="bold" aria-hidden="true" />
+              Add another time
+            </button>
+          )}
+        </div>
+
+        {contactFields}
+      </div>
+
+      {/* Host: checkboxes */}
+      <section>
+        <h2 className={headingClass}>{pending ? "Potential contributions" : "Ways to contribute"}</h2>
+
+        {pending && (
+          <>
+            <div className={compact ? "space-y-1" : "space-y-4"}>
+              {checkedItems.map((item) => renderCheckItem(item, iconSize))}
+            </div>
+            <details className="mt-3 group">
+              <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+                <span className="group-open:hidden">More options</span>
+                <span className="hidden group-open:inline">Fewer options</span>
+              </summary>
+              <div className={compact ? "mt-2 flex flex-wrap gap-x-6 gap-y-3" : "mt-3 sm:columns-2 gap-6"}>
+                {uncheckedSections.map((section) => (
+                  <div key={section.category} className={compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4"}>
+                    <p className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "mb-1.5"}`}>
+                      {section.category}
+                    </p>
+                    <div className={compact ? "space-y-1" : "space-y-4"}>
+                      {section.items.map((item) => renderCheckItem(item, iconSize))}
+                    </div>
                   </div>
                 ))}
               </div>
-              {!readOnly && !editMode && eventDates.length < 3 && (
-                <button
-                  type="button"
-                  disabled={!eventDates[eventDates.length - 1]?.trim()}
-                  onClick={() => {
-                    setEventDates((prev) => {
-                      const last = prev[prev.length - 1];
-                      if (!last) return prev;
-                      const [y, m, d] = last.split("-").map(Number);
-                      const nextDate = new Date(Date.UTC(y, m - 1, d + 1))
-                        .toISOString()
-                        .slice(0, 10);
-                      return [...prev, nextDate];
-                    });
-                    setEventDoorTimes((prev) => [...prev, prev[prev.length - 1] || ""]);
-                  }}
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-400 dark:hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 border border-dashed border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-neutral-600 disabled:hover:border-neutral-300 dark:disabled:hover:text-neutral-400 dark:disabled:hover:border-neutral-700"
-                >
-                  <PlusIcon size={12} weight="bold" aria-hidden="true" />
-                  Add another time
-                </button>
-              )}
-            </div>
+            </details>
+          </>
+        )}
 
-            {contactFields}
-          </div>
-
-          {/* Host: checkboxes */}
-          <section>
-            <h2 className={headingClass}>{pending ? "Potential contributions" : "Ways to contribute"}</h2>
-
-            {pending && (
-              <>
-                <div className={compact ? "space-y-1" : "space-y-4"}>
-                  {checkedItems.map((item) => renderCheckItem(item, iconSize))}
-                </div>
-                <details className="mt-3 group">
-                  <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
-                    <span className="group-open:hidden">More options</span>
-                    <span className="hidden group-open:inline">Fewer options</span>
-                  </summary>
-                  <div className={compact ? "mt-2 flex flex-wrap gap-x-6 gap-y-3" : "mt-3 sm:columns-2 gap-6"}>
-                    {uncheckedSections.map((section) => (
-                      <div key={section.category} className={compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4"}>
-                        <p className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "mb-1.5"}`}>
-                          {section.category}
-                        </p>
-                        <div className={compact ? "space-y-1" : "space-y-4"}>
-                          {section.items.map((item) => renderCheckItem(item, iconSize))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              </>
-            )}
-
-            {!pending && (
-              <>
-                {/* Mobile / tablet: CSS columns */}
+        {!pending && (
+          <>
+            {/* Mobile / tablet: CSS columns */}
+            <div
+              className={
+                compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
+              }
+            >
+              {SUPPORT_MENU.map((section, idx) => (
                 <div
+                  key={idx}
                   className={
-                    compact ? "flex flex-wrap gap-x-6 gap-y-3" : "sm:columns-2 lg:hidden gap-6"
+                    compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"
                   }
                 >
-                  {SUPPORT_MENU.map((section, idx) => (
-                    <div
-                      key={idx}
-                      className={
-                        compact ? "flex-1 min-w-[180px]" : "break-inside-avoid mb-4 sm:mb-5"
-                      }
+                  {section.category && (
+                    <p
+                      className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "sm:text-[13px] mb-1.5 sm:mb-2"}`}
                     >
-                      {section.category && (
-                        <p
-                          className={`text-xs text-neutral-400 uppercase tracking-wider ${compact ? "mb-1" : "sm:text-[13px] mb-1.5 sm:mb-2"}`}
-                        >
-                          {section.category}
-                        </p>
-                      )}
-                      <div className={compact ? "space-y-1" : "space-y-4"}>
-                        {section.items.map((item) => renderCheckItem(item, iconSize))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Desktop: explicit 2-column grid */}
-                {!compact && (
-                  <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
-                    {desktopCols.map((indices, col) => (
-                      <div key={col} className="space-y-5">
-                        {indices.map((i) => {
-                          const section = SUPPORT_MENU[i];
-                          if (!section) return null;
-                          return (
-                            <div key={i}>
-                              {section.category && (
-                                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-                                  {section.category}
-                                </p>
-                              )}
-                              <div className="space-y-4">
-                                {section.items.map((item) => renderCheckItem(item, 20))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+                      {section.category}
+                    </p>
+                  )}
+                  <div className={compact ? "space-y-1" : "space-y-4"}>
+                    {section.items.map((item) => renderCheckItem(item, iconSize))}
                   </div>
-                )}
-              </>
-            )}
-          </section>
-        </>
-      )}
+                </div>
+              ))}
+            </div>
 
-      {!isPdfMode && !readOnly && (
+            {/* Desktop: explicit 2-column grid */}
+            {!compact && (
+              <div className="hidden lg:grid lg:grid-cols-2 lg:gap-12">
+                {desktopCols.map((indices, col) => (
+                  <div key={col} className="space-y-5">
+                    {indices.map((i) => {
+                      const section = SUPPORT_MENU[i];
+                      if (!section) return null;
+                      return (
+                        <div key={i}>
+                          {section.category && (
+                            <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
+                              {section.category}
+                            </p>
+                          )}
+                          <div className="space-y-4">
+                            {section.items.map((item) => renderCheckItem(item, 20))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {!readOnly && (
         <section className={compact ? "mt-3" : "mt-4 sm:mt-5 lg:mt-3"}>
-          {wizardMode !== "supporter" && !hasLocation && !editMode && !compact && (
+          {!hasLocation && !editMode && !compact && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
               {pending
                 ? "Address and date optional: the host fills in where and when at confirmation."
                 : "Pick a suggestion, or type the entire address"}
             </p>
           )}
-          {wizardMode === "host" && hasLocation && (
+          {hasLocation && (
             <p className={`text-xs text-neutral-400 mb-2 ${compact ? "" : "sm:text-sm"}`}>
               {pending
                 ? "Creates a hidden show and a one-click confirmation link to send."
@@ -1119,11 +855,7 @@ export default function SponsorForm({
           )}
           <button
             onClick={handleSubmit}
-            disabled={
-              submitting ||
-              submitResult?.ok === true ||
-              (wizardMode === "supporter" && !sponsorName.trim())
-            }
+            disabled={submitting || submitResult?.ok === true}
             className={`w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity ${compact ? "py-2 text-xs" : "py-3 lg:py-4 text-sm lg:text-base"}`}
           >
             {submitting

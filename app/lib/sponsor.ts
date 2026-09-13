@@ -2,8 +2,6 @@ export const HONORARIUM_ITEM = "Artist honorarium";
 export const HONORARIUM_DEFINITION =
   "Monetary gift that recognizes the performance itself. Any amount goes a long way.";
 
-export const SUPPORTER_ITEMS = ["Spread the word via concert poster", HONORARIUM_ITEM];
-
 export const SPECIAL_ITEMS = ["Sandwich board outside your venue", "50/50 donation split"];
 
 export const SUPPORT_MENU: { category: string; items: string[] }[] = [

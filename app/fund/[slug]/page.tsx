@@ -198,6 +198,15 @@ export default async function Page({
         date: s.date,
         hostHref: confirmPath(s.slug),
       }));
+    const hostDraft = shows.find(
+      (s) =>
+        s.leg === slug &&
+        isShowDraft(s) &&
+        needsHostLocation(s) &&
+        s.status !== "cancelled" &&
+        s.date >= today,
+    );
+    const hostHref = hostDraft ? confirmPath(hostDraft.slug) : undefined;
     const derived: FundBooked[] = [
       ...legShows.map(toBooked),
       ...openInvites,
@@ -357,6 +366,7 @@ export default async function Page({
           pastNotes={pageDone ? legNotes(slug) : undefined}
           soFar={soFar}
           galleryItems={galleryItems}
+          hostHref={hostHref}
         />
       </>
     );

@@ -17,7 +17,7 @@ export default function InviteCreator() {
           contributions, and they set the where and when at confirmation.
         </p>
       </div>
-      <SponsorForm mode="host" pending />
+      <SponsorForm pending />
     </div>
   );
 }

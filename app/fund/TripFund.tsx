@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import posthog from "posthog-js";
-import SponsorForm from "../components/SponsorForm";
 import PaymentOptions from "../components/PaymentOptions";
 import CheckoutEmbed from "../components/CheckoutEmbed";
 import { venmoPayUrl } from "../components/PaymentModal";
@@ -367,6 +366,7 @@ export function TripFund({
   pastNotes,
   soFar,
   galleryItems,
+  hostHref,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
@@ -386,6 +386,7 @@ export function TripFund({
   pastNotes?: FundNote[];
   soFar?: { count: number; regions: FundRegion[]; next?: FundRegion; since?: string };
   galleryItems: GalleryItem[];
+  hostHref?: string;
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
@@ -505,7 +506,7 @@ export function TripFund({
     if (!introOpen) posthog.capture("fund_intro_opened", { trip: leg.slug });
     setIntroOpen(true);
   };
-  const [modal, setModal] = useState<"host" | "shop" | null>(null);
+  const [modal, setModal] = useState<"shop" | null>(null);
 
   useEffect(() => {
     if (!modal) return;
@@ -1374,33 +1375,31 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                 </li>
               </ul>
 
-              <ul className="other-ways">
-                {otherWays.map((item) => (
-                  <li key={item.key} className="other-item">
-                    <div className="other-body">
-                      <div className="other-label">{item.label}</div>
-                      {item.note ? (
-                        <div className="other-note">{item.note}</div>
-                      ) : null}
-                    </div>
-                    {item.key === "host" && (
-                      <a
-                        className="other-action"
-                        href="/sponsor/host"
-                        onMouseEnter={preloadGoogleMaps}
-                        onFocus={preloadGoogleMaps}
-                        onTouchStart={preloadGoogleMaps}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModal("host");
-                        }}
-                      >
-                        Become concert host
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              {hostHref && (
+                <ul className="other-ways">
+                  {otherWays.map((item) => (
+                    <li key={item.key} className="other-item">
+                      <div className="other-body">
+                        <div className="other-label">{item.label}</div>
+                        {item.note ? (
+                          <div className="other-note">{item.note}</div>
+                        ) : null}
+                      </div>
+                      {item.key === "host" && (
+                        <a
+                          className="other-action"
+                          href={hostHref}
+                          onMouseEnter={preloadGoogleMaps}
+                          onFocus={preloadGoogleMaps}
+                          onTouchStart={preloadGoogleMaps}
+                        >
+                          Become concert host
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {nextTrip && (
@@ -1463,27 +1462,21 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
         />
       )}
 
-      {modal && (
+      {modal === "shop" && (
         <div
-          className={`fixed inset-0 z-[950] flex items-start justify-center overflow-y-auto bg-black/65 backdrop-blur-sm ${
-            modal === "shop" ? "p-0 sm:p-4" : "p-4"
-          }`}
+          className="fixed inset-0 z-[950] flex items-start justify-center overflow-y-auto bg-black/65 backdrop-blur-sm p-0 sm:p-4"
           onClick={() => setModal(null)}
         >
           <div
-            className={`relative my-auto w-full bg-white shadow-2xl ${
-              modal === "shop"
-                ? "min-h-full sm:min-h-0 max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6 dark:bg-gray-900"
-                : "max-w-lg lg:max-w-3xl rounded-2xl p-6 lg:p-8 dark:bg-neutral-900"
-            }`}
+            className="relative my-auto w-full bg-white shadow-2xl min-h-full sm:min-h-0 max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6 dark:bg-gray-900"
             role="dialog"
             aria-modal="true"
-            aria-label={modal === "shop" ? "Shop" : "Become concert host"}
+            aria-label="Shop"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex justify-between items-center">
               <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
-                {modal === "shop" ? "Shop" : "Become Concert Host"}
+                Shop
               </h1>
               <button
                 onClick={() => setModal(null)}
@@ -1493,11 +1486,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                 &#x2715;
               </button>
             </div>
-            {modal === "shop" ? (
-              <ShopTabs initialTab="patience" syncUrl={false} stacked />
-            ) : (
-              <SponsorForm mode="host" hideBack />
-            )}
+            <ShopTabs initialTab="patience" syncUrl={false} stacked />
           </div>
         </div>
       )}
