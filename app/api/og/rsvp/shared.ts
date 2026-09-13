@@ -12,14 +12,13 @@ export function fallbackResponse(): Response {
 }
 
 export async function screenshotPoster(show: Show): Promise<Response> {
-  const { W, H } = POSTER_DIMS.fbe;
+  const { W, H } = POSTER_DIMS.pdf;
 
   try {
     // Inlining is inside the try: a custom poster naming a file that isn't
     // deployed yet throws, and a link preview must degrade to the fallback
     // image rather than 500.
     const html = posterHtml(show, {
-      format: "fbe",
       posterLine: await posterLineForShow(show),
       tags: show.tags ?? PAY_WHAT_YOU_WANT_TAG,
       posterImgSrc: await inlineVenueImg(show.posterImg ?? ""),

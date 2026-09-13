@@ -34,7 +34,7 @@ export async function generateMetadata({
     title,
     description,
     robots,
-    openGraph: { title, description, images: [{ url: image, width: 1920, height: 1004 }] },
+    openGraph: { title, description, images: [{ url: image, width: 1224, height: 1584 }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }

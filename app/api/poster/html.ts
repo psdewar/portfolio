@@ -195,7 +195,11 @@ export function posterHtml(
 
   // Without a date there is nothing to announce: an invite asks for one, anything
   // else drops the block rather than print placeholders. Matches the <Poster>.
-  const detailsBlock = show.date
+  const detailsBlock = invite
+    ? `<div class="details">
+        <div class="detail-value date invite">${INVITE_HEADLINE}</div>
+      </div>`
+    : show.date
     ? `<div class="details">
         <div class="bottom-row">
           <div class="bottom-left${tagsList.length ? "" : " three-line"}">
@@ -210,11 +214,7 @@ export function posterHtml(
           </div>
         </div>
       </div>`
-    : invite
-      ? `<div class="details">
-        <div class="detail-value date invite">${INVITE_HEADLINE}</div>
-      </div>`
-      : "";
+    : "";
 
   return `<!doctype html>
 <html lang="en">
