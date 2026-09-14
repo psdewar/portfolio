@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite } from "../../lib/eventbrite";
-import { getShowBySlug, isShowListed, needsHostLocation, type Show } from "../../lib/shows";
+import {
+  getShowBySlug,
+  isShowListed,
+  needsHostLocation,
+  OPEN_INVITE_SLUG,
+  type Show,
+} from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -76,6 +82,24 @@ async function upsertHost(
   });
 }
 
+async function retireDraft(slug: string) {
+  const res = await fetch(`${SHOWS_API}/chorus/sponsors`, { cache: "no-store" });
+  const sponsors: Sponsor[] = res.ok ? await res.json() : [];
+  for (const s of sponsors) {
+    if (s.showSlug !== slug || !s.submittedAt) continue;
+    await fetch(`${SHOWS_API}/chorus/sponsors`, {
+      method: "DELETE",
+      headers: authJson,
+      body: JSON.stringify({ showSlug: slug, submittedAt: s.submittedAt }),
+    });
+  }
+  await fetch(`${SHOWS_API}/chorus/shows`, {
+    method: "DELETE",
+    headers: authJson,
+    body: JSON.stringify({ slug }),
+  });
+}
+
 export async function POST(request: NextRequest) {
   if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
@@ -105,10 +129,9 @@ export async function POST(request: NextRequest) {
       typeof doorTime === "string" && doorTime.trim() ? doorTime.trim() : show.doorTime;
     const contact = { name: name.trim(), email: email.trim(), phone: (phone || "").trim() };
 
-    // Press-kit invite: the admin's location-less draft (opaque "draft-N" slug) is
-    // a reusable template. Each host supplies their own location, so spawn a fresh
-    // location-derived show (chorus mints the clean city-region slug) and leave the
-    // draft in place — the same signed link keeps working for the next host.
+    // A location-less draft (opaque "draft-N" slug): the host supplies the location,
+    // so spawn a fresh location-derived show (chorus mints the city-region slug).
+    // The open invite stays for the next host; a pending booking is retired.
     if (needsHostLocation(show)) {
       const loc = { city: (city || "").trim(), region: (region || "").trim() };
       if (!loc.city || !loc.region) {
@@ -149,6 +172,7 @@ export async function POST(request: NextRequest) {
 
       const bookedShow: Show = { ...spawned, slug: newSlug };
       await upsertHost(newSlug, contact, bookedShow, nextItems);
+      if (slug !== OPEN_INVITE_SLUG) await retireDraft(slug);
 
       const eventbrite =
         !isShowListed(spawned) || spawned.visibility === "private"

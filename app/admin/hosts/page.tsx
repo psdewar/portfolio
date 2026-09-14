@@ -22,6 +22,7 @@ import Poster, { type PamphletShowItem } from "../../components/Poster";
 import {
   type Show,
   isShowDraft,
+  isOpenInvite,
   isShowListed,
   isShowOnTrip,
   getPosterLocationText,
@@ -186,40 +187,54 @@ function ToggleRow({
 
 // Single source of truth for a show's lifecycle status: label + color tone.
 // Read by the manage modal's pulse and the card badge so they never disagree.
-type StatusTone = "neutral" | "amber" | "sky" | "green";
+type StatusTone = "neutral" | "amber" | "sky" | "green" | "violet";
 
 const STATUS_TONE: Record<
   StatusTone,
-  { dot: string; text: string; pill: string }
+  { dot: string; text: string; pill: string; hover: string }
 > = {
   neutral: {
     dot: "bg-neutral-400",
     text: "text-neutral-400",
     pill: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400",
+    hover: "hover:bg-neutral-200 dark:hover:bg-neutral-700",
   },
   amber: {
     dot: "bg-amber-500",
     text: "text-amber-600 dark:text-amber-400",
     pill: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400",
+    hover: "hover:bg-amber-100 dark:hover:bg-amber-950/50",
   },
   sky: {
     dot: "bg-sky-500",
     text: "text-sky-600 dark:text-sky-400",
     pill: "bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400",
+    hover: "hover:bg-sky-100 dark:hover:bg-sky-950/50",
   },
   green: {
     dot: "bg-green-500",
     text: "text-green-600 dark:text-green-400",
     pill: "bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400",
+    hover: "hover:bg-green-100 dark:hover:bg-green-950/50",
+  },
+  violet: {
+    dot: "bg-violet-500",
+    text: "text-violet-600 dark:text-violet-400",
+    pill: "bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400",
+    hover: "hover:bg-violet-100 dark:hover:bg-violet-950/50",
   },
 };
 
-function getShowStatus(show?: Show | null): {
+function getShowStatus(show?: Show | null, hostName?: string): {
   label: string;
   tone: StatusTone;
 } {
   if (!show?.slug) return { label: "No show", tone: "neutral" };
-  if (isShowDraft(show)) return { label: "Draft", tone: "sky" };
+  if (isOpenInvite(show)) return { label: "Open invite", tone: "sky" };
+  if (isShowDraft(show)) {
+    const name = hostName?.trim();
+    return { label: name ? `Pending · ${name}` : "Pending booking", tone: "violet" };
+  }
   if (show.visibility === "private") return { label: "Private", tone: "amber" };
   return { label: "Public", tone: "green" };
 }
@@ -613,7 +628,7 @@ export default function HostsAdminPage() {
 
   // Drafts whose proposed date already passed, including shows reverted to draft
   // for rescheduling. Kept (never auto-deleted) so the poster survives for reuse,
-  // and surfaced under Unscheduled so they stay reachable to re-date or delete.
+  // and surfaced under Pending bookings so they stay reachable to re-date or delete.
   const staleDrafts = groups
     .filter(
       (g) =>
@@ -705,11 +720,11 @@ export default function HostsAdminPage() {
 
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
-  // Solo = confirmed shows with no leg (own poster). Unscheduled = drafts, plus
-  // past-dated ones (e.g. reverted for rescheduling) so they stay reachable.
+  // Solo = confirmed shows with no leg (own poster). Drafts, plus past-dated ones
+  // (e.g. reverted for rescheduling), split into the open invite and pending bookings.
   const solo = ungrouped.filter((g) => g.show && !isShowDraft(g.show));
   // Press-kit drafts have no date yet (the host sets it at confirmation); they'd
-  // fall out of the dated `upcoming` bucket, so surface them under Unscheduled.
+  // fall out of the dated `upcoming` bucket, so surface them with the pending bookings.
   const undatedDrafts = groups.filter(
     (g) => g.show && isShowDraft(g.show) && !g.host.date && !g.show.date,
   );
@@ -718,6 +733,8 @@ export default function HostsAdminPage() {
     ...staleDrafts,
     ...undatedDrafts,
   ];
+  const openInvites = unscheduled.filter((g) => g.show && isOpenInvite(g.show));
+  const pendingBookings = unscheduled.filter((g) => !g.show || !isOpenInvite(g.show));
   const suggested = suggestLegs(solo);
 
   const legPamphlet = (slug: string) => pamphletForLeg(legs, slug);
@@ -865,16 +882,35 @@ export default function HostsAdminPage() {
                       </div>
                     </div>
                   )}
-                  {unscheduled.length > 0 && (
+                  {openInvites.length > 0 && (
                     <div>
                       <div className="flex items-center gap-4 mb-4">
                         <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
-                          Unscheduled
+                          Open invite
                         </span>
                         <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
                       </div>
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
-                        {unscheduled.map((g) => (
+                        {openInvites.map((g) => (
+                          <ShowGroupCard
+                            key={g.showSlug}
+                            group={g}
+                            {...cardProps}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {pendingBookings.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
+                          Pending bookings
+                        </span>
+                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                        {pendingBookings.map((g) => (
                           <ShowGroupCard
                             key={g.showSlug}
                             group={g}
@@ -2693,7 +2729,7 @@ function ManageModal({
   const inputCls =
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
 
-  const status = getShowStatus(show);
+  const status = getShowStatus(show, host.name);
   const tone = STATUS_TONE[status.tone];
 
   const patchShow = async (fields: Partial<Show>) => {
@@ -2708,7 +2744,7 @@ function ManageModal({
 
   // "Needs rescheduling": revert a confirmed show to a draft (stage "intent") so it
   // drops off the public schedule but keeps its poster and details for reuse. Clearing
-  // `leg` pulls it out of any pamphlet so it lands under Unscheduled, not a live leg.
+  // `leg` pulls it out of any pamphlet so it lands under Pending bookings, not a live leg.
   // Re-confirm from the draft's Confirm section to give it a new date. Eventbrite is
   // only touched when opted in (cancelEb): a bare stage change never forwards the flag.
   const rescheduleShow = async () => {
@@ -2716,7 +2752,7 @@ function ManageModal({
     onShowUpdate(show.slug, { stage: "intent", leg: null });
     setAskingReschedule(false);
     onClose();
-    onMessage(`${show.slug} reverted to draft, poster kept`);
+    onMessage(`${show.slug} moved to pending bookings, poster kept`);
     await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -3048,7 +3084,7 @@ function ManageModal({
                   Copy confirm link
                 </span>
                 <span className="text-neutral-400">
-                  {copiedLink ? "Copied" : "for the host"}
+                  {copiedLink ? "Copied" : show && isOpenInvite(show) ? "for the next host" : "for the host"}
                 </span>
               </button>
               {confirmError && (
@@ -3382,7 +3418,7 @@ function ShowGroupCard({
   const location = [host.venue || host.address, host.city, host.region]
     .filter(Boolean)
     .join(", ");
-  const status = getShowStatus(show);
+  const status = getShowStatus(show, host.name);
   const statusTone = STATUS_TONE[status.tone];
 
   return (
@@ -3770,7 +3806,7 @@ function ShowGroupCard({
               <button
                 onClick={() => setManaging(true)}
                 title="Confirm or send a link"
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${statusTone.pill} hover:bg-sky-100 dark:hover:bg-sky-950/50 transition-colors`}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${statusTone.pill} ${statusTone.hover} transition-colors`}
               >
                 {status.label}
               </button>

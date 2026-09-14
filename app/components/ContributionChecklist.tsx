@@ -107,7 +107,7 @@ export default function ContributionChecklist({
           className={`flex cursor-pointer select-none items-start gap-2 list-none ${compact ? "pt-1.5 pb-1" : "pt-2.5 pb-1.5 lg:pt-2 lg:pb-1"} text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white`}
         >
           <CaretDownIcon size={size} className="mt-0.5 shrink-0 transition-transform group-open:rotate-180" />
-          You can also
+          You can also cover
         </summary>
         {COVER_ITEMS.map((item) => (
           <CheckRow

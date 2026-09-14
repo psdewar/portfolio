@@ -79,6 +79,14 @@ export function isShowDraft(show: Pick<Show, "stage" | "visibility">): boolean {
   return show.stage === "intent" || show.visibility === "draft";
 }
 
+// The one draft whose host link goes out to many people while shopping dates.
+// Every other draft is a pending booking for one host and is retired once booked.
+export const OPEN_INVITE_SLUG = "draft-0";
+
+export function isOpenInvite(show: Pick<Show, "slug" | "stage" | "visibility">): boolean {
+  return isShowDraft(show) && show.slug === OPEN_INVITE_SLUG;
+}
+
 // Drafts (unconfirmed) are hidden, and so are unlisted bookings. Confirmed shows
 // surface — public ones open for RSVP, private ones as locked (no-RSVP) tour stops.
 export function isShowListed(show: Pick<Show, "stage" | "visibility" | "unlisted">): boolean {

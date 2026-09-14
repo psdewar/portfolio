@@ -11,11 +11,11 @@ export const CORE_ITEMS = [
   HONORARIUM_ITEM,
 ];
 
-export const COVER_ITEMS = ["Cover lodging", "Cover car rental", "Cover round-trip flight"];
+export const COVER_ITEMS = ["Lodging", "Car rental", "Round-trip flight"];
 
 export const SUPPORT_MENU: { category: string; items: string[] }[] = [
   { category: "", items: CORE_ITEMS },
-  { category: "You can also", items: COVER_ITEMS },
+  { category: "You can also cover", items: COVER_ITEMS },
 ];
 
 // What every draft starts with checked until the host or admin edits the list.
