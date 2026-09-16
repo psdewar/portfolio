@@ -25,6 +25,7 @@ import {
   isOpenInvite,
   isShowListed,
   isShowOnTrip,
+  needsHostLocation,
   getPosterLocationText,
 } from "../../lib/shows";
 import { orderItems } from "../../lib/sponsor";
@@ -685,6 +686,7 @@ export default function HostsAdminPage() {
   };
 
   const cardProps = {
+    shows,
     legs,
     amendSlug,
     newSlug,
@@ -2667,6 +2669,7 @@ function ManageModal({
   host,
   supporters,
   legs,
+  dayDraft,
   rsvpCounts,
   emailSentSlugs,
   onCreateLeg,
@@ -2689,6 +2692,7 @@ function ManageModal({
   host: Sponsor;
   supporters: Sponsor[];
   legs: Leg[];
+  dayDraft: Show | null;
   rsvpCounts: { responses: number; attending: number } | null;
   emailSentSlugs: Set<string>;
   onCreateLeg: (slug: string) => Promise<void>;
@@ -2740,6 +2744,29 @@ function ManageModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: show.slug, ...fields }),
     });
+  };
+
+  const [slotBusy, setSlotBusy] = useState(false);
+  const toggleDaySlot = async (on: boolean) => {
+    if (!show?.slug || slotBusy) return;
+    setSlotBusy(true);
+    if (on) {
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: "intent", date: show.date, doorTime: "", leg: show.leg ?? null }),
+      });
+      onMessage(`Second concert slot opened for ${show.date}`);
+    } else if (dayDraft) {
+      await fetch("/api/shows", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: dayDraft.slug }),
+      });
+      onMessage(`Second concert slot closed for ${show.date}`);
+    }
+    onRefresh();
+    setSlotBusy(false);
   };
 
   // "Needs rescheduling": revert a confirmed show to a draft (stage "intent") so it
@@ -3070,6 +3097,14 @@ function ManageModal({
                 onChange={(v) => patchShow({ guestSet: v })}
                 className={drawerRow}
               />
+              {!draft && (
+                <ToggleRow
+                  label="Open this day for a second concert"
+                  checked={!!dayDraft}
+                  onChange={toggleDaySlot}
+                  className={drawerRow}
+                />
+              )}
               {legRow}
             </div>
           </section>
@@ -3317,6 +3352,7 @@ function ManageModal({
 
 function ShowGroupCard({
   group,
+  shows,
   legs,
   amendSlug,
   newSlug,
@@ -3331,6 +3367,7 @@ function ShowGroupCard({
   onRefresh,
 }: {
   group: ShowGroup;
+  shows: Show[];
   legs: Leg[];
   amendSlug: string | null;
   newSlug: string | null;
@@ -3345,6 +3382,19 @@ function ShowGroupCard({
   onRefresh: () => void;
 }) {
   const { show, host, supporters } = group;
+  const dayDraft =
+    show && !isShowDraft(show)
+      ? (shows.find(
+          (s) =>
+            s.slug !== show.slug &&
+            isShowDraft(s) &&
+            !isOpenInvite(s) &&
+            needsHostLocation(s) &&
+            s.status !== "cancelled" &&
+            s.date === show.date &&
+            (s.leg ?? null) === (show.leg ?? null),
+        ) ?? null)
+      : null;
   const [editingHost, setEditingHost] = useState(false);
   const [viewingSupporters, setViewingSupporters] = useState(false);
   const [editingSupporter, setEditingSupporter] = useState<Sponsor | null>(
@@ -3691,6 +3741,7 @@ function ShowGroupCard({
           host={host}
           supporters={supporters}
           legs={legs}
+          dayDraft={dayDraft}
           rsvpCounts={rsvpCounts}
           emailSentSlugs={emailSentSlugs}
           onCreateLeg={onCreateLeg}

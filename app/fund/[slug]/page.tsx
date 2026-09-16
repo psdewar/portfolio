@@ -182,7 +182,6 @@ export default async function Page({
         private: s.visibility === "private",
       };
     };
-    const legShowDates = new Set(legShows.map((s) => s.date));
     const openInvites: FundBooked[] = shows
       .filter(
         (s) =>
@@ -190,8 +189,7 @@ export default async function Page({
           isShowDraft(s) &&
           needsHostLocation(s) &&
           s.status !== "cancelled" &&
-          s.date >= today &&
-          !legShowDates.has(s.date),
+          s.date >= today,
       )
       .map((s) => ({
         venue: "Open",
@@ -213,6 +211,7 @@ export default async function Page({
     ].sort(
       (a, b) =>
         (a.date ?? "").localeCompare(b.date ?? "") ||
+        Number(!!a.hostHref) - Number(!!b.hostHref) ||
         doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
     );
     const booked = derived.length ? derived : fund.booked;

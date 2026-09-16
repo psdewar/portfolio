@@ -1,4 +1,4 @@
-import { isDatePast } from "./dates";
+import { doorTimeMinutes, isDatePast } from "./dates";
 
 export interface Show {
   slug: string;
@@ -128,7 +128,11 @@ export async function getUpcomingShows(): Promise<Show[]> {
   return shows
     .filter(isShowUpcoming)
     .filter(isShowListed)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime() ||
+        doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
+    );
 }
 
 export async function getShowBySlug(slug: string): Promise<Show | null> {
