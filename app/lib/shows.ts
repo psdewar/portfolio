@@ -60,10 +60,15 @@ export interface Show {
 
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
+// Renamed legs: shows still tagged with the old slug read as the new one until
+// the records are re-pointed, so code and data never have to land together.
+const LEG_ALIASES: Record<string, string> = { carolinas: "south-carolina" };
+
 export async function getShows(): Promise<Show[]> {
   const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
   if (!res.ok) return [];
-  return res.json();
+  const shows: Show[] = await res.json();
+  return shows.map((s) => (s.leg && LEG_ALIASES[s.leg] ? { ...s, leg: LEG_ALIASES[s.leg] } : s));
 }
 
 const GRACE_MS = 36 * 60 * 60 * 1000;

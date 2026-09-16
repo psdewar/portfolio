@@ -77,6 +77,9 @@ const nextConfig = {
       { source: "/concert", destination: "/live", permanent: true },
       { source: "/concerts", destination: "/live", permanent: true },
       { source: "/sponsor/confirm/:slug", destination: "/host/:slug", permanent: true },
+      { source: "/fund/carolinas", destination: "/fund/south-carolina", permanent: true },
+      { source: "/fund/sc", destination: "/fund/south-carolina", permanent: true },
+      { source: "/api/og/fund/carolinas", destination: "/api/og/fund/south-carolina", permanent: true },
       {
         source: "/2025/singles-and-16s",
         destination: "/api/download/pack?file=singles-16s-2025",

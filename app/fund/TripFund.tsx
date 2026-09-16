@@ -1238,7 +1238,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                     <div className="p-text">
                       <span className="p-label">Honorarium</span>{" "}
                       <span className="p-note">
-                        gift for performance, separate from tour expenses
+                        gift that recognizes my concert, separate from tour expenses
                       </span>
                     </div>
                   </div>
