@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { TIMELINE } from "../data/timeline";
+import { getShowHistory } from "../lib/shows";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/live" },
@@ -33,33 +33,33 @@ const performer = {
   "@id": "https://peytspencer.com/#artist",
 };
 
-const shows = TIMELINE.filter((e) => e.type === "show" && e.description && e.location);
+export default async function LiveLayout({ children }: { children: React.ReactNode }) {
+  const shows = (await getShowHistory()).filter((e) => e.description && e.location);
 
-const eventsSchema = {
-  "@context": "https://schema.org",
-  "@type": "ItemList",
-  name: "Peyt Spencer Live Shows",
-  itemListElement: shows.map((show) => {
-    const [city, region] = (show.location ?? "").split(", ");
-    return {
-      "@type": "MusicEvent",
-      name: show.title,
-      startDate: show.date,
-      location: {
-        "@type": "Place",
-        name: show.description,
-        address: {
-          "@type": "PostalAddress",
-          addressLocality: city,
-          addressRegion: region,
+  const eventsSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Peyt Spencer Live Shows",
+    itemListElement: shows.map((show) => {
+      const [city, region] = (show.location ?? "").split(", ");
+      return {
+        "@type": "MusicEvent",
+        name: show.title,
+        startDate: show.date,
+        location: {
+          "@type": "Place",
+          name: show.description,
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: city,
+            addressRegion: region,
+          },
         },
-      },
-      performer,
-    };
-  }),
-};
+        performer,
+      };
+    }),
+  };
 
-export default function LiveLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <script

@@ -13,18 +13,12 @@ import {
 } from "@phosphor-icons/react";
 
 import SupportModal from "./SupportModal";
-import {
-  getJourneyEvents,
-  getTourConcertCount,
-  formatEventDate,
-  EventType,
-  TimelineEvent,
-} from "../data/timeline";
+import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG } from "../data/patron-config";
 import { useDevTools } from "../contexts/DevToolsContext";
 import { useAudio } from "../contexts/AudioContext";
-import { type Show, isResidence, getVenueLabel } from "../lib/shows";
+import { type Show, showsToTimelineEvents } from "../lib/shows";
 import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
 
 const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -64,6 +58,8 @@ interface SupporterSectionProps {
   isModal?: boolean;
   forcePatron?: boolean;
   upcomingShows?: Show[];
+  pastShows?: Show[];
+  ask?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -72,6 +68,8 @@ export function SupporterSection({
   isModal = false,
   forcePatron = false,
   upcomingShows = [],
+  pastShows = [],
+  ask,
   children,
 }: SupporterSectionProps) {
   const { simulatePatron } = useDevTools();
@@ -94,6 +92,7 @@ export function SupporterSection({
   const [atBottom, setAtBottom] = useState(false);
   const [activeYear, setActiveYear] = useState<string | null>(null);
   const yearRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (window.location.hash === "#supporter") {
@@ -193,18 +192,10 @@ export function SupporterSection({
     }
   };
 
-  const upcomingEvents: TimelineEvent[] = upcomingShows.map((s) => ({
-    id: Number(s.date.replace(/-/g, "") + "50"),
-    date: s.date,
-    title: s.name === "From The Ground Up" ? "From The Ground Up Live Concert" : s.name,
-    location: `${s.city}, ${s.region}`,
-    description: isResidence(s) ? "House concert" : getVenueLabel(s) ?? undefined,
-    type: "show",
-    ...(s.visibility !== "private" ? { url: `/rsvp/${s.slug}`, urlLabel: "RSVP" } : {}),
-  }));
-  const pastEvents = getJourneyEvents();
-  const journeyEvents = [...upcomingEvents, ...pastEvents];
-  const showCount = getTourConcertCount();
+  const showEvents = showsToTimelineEvents([...upcomingShows, ...pastShows]);
+  const journeyEvents = [...showEvents, ...getJourneyEvents()].sort((a, b) =>
+    a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1,
+  );
 
   const eventsByYear = journeyEvents.reduce<Record<string, typeof journeyEvents>>((acc, event) => {
     const year = new Date(event.date + "T12:00:00").getFullYear().toString();
@@ -235,7 +226,7 @@ export function SupporterSection({
           className="mb-16"
         >
           <div
-            className={`flex items-end justify-between gap-3 sticky ${isModal ? "top-0" : "top-16"} backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 z-10 py-4`}
+            className={`flex items-end justify-between gap-3 sticky ${isModal ? "top-0" : "top-16 split:top-0"} backdrop-blur-md bg-neutral-50/80 dark:bg-neutral-950/80 ${isModal ? "" : "split:backdrop-blur-none split:bg-neutral-50 dark:split:bg-neutral-950"} z-10 py-4`}
             style={{ alignItems: "last baseline" }}
           >
             <h2
@@ -247,12 +238,6 @@ export function SupporterSection({
             >
               {year}
             </h2>
-            {year === years[0] && (
-              <span className="shrink-0 select-none pointer-events-none text-right font-mono text-[10px] uppercase leading-tight tracking-wider text-neutral-400 dark:text-neutral-500 sm:text-xs">
-                <span className="block">{showCount} concerts so far</span>
-                <span className="block">hundreds of participants</span>
-              </span>
-            )}
           </div>
 
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -445,7 +430,7 @@ export function SupporterSection({
   return (
     <div
       ref={containerRef}
-      className={`bg-neutral-50 dark:bg-neutral-950 relative ${isModal ? "h-full overflow-y-auto" : ""}`}
+      className={`bg-neutral-50 dark:bg-neutral-950 relative ${isModal ? "h-full overflow-y-auto" : "split:h-[calc(100dvh-4rem-1px-var(--player-h,0px))] split:overflow-hidden split:grid split:grid-cols-2 split:gap-x-0 split:max-w-7xl split:mx-auto split:px-8"}`}
     >
       {/* Modal close button */}
       {isModal && (
@@ -459,116 +444,127 @@ export function SupporterSection({
         </div>
       )}
 
-      {/* Become a Monthly Supporter */}
-      {!isPatron && (
-        <section
-          id="supporter"
-          ref={tierSectionRef}
-          className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 scroll-mt-16"
-        >
-          <div className="max-w-lg mx-auto">
-            <div className="mb-4">
-              <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
-                Become a Monthly{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
-                  Supporter
-                </span>
-              </h1>
-              <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                Everyone gets the same access to unreleased music and behind-the-scenes content, no
-                matter your tier.
-              </p>
-            </div>
-            {earlyAccessTracks.length > 0 && (
-              <div className="mb-4">
-                <div className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-                  {PATRON_CONFIG.earlyAccess.name}
-                </div>
-                <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
-                  {earlyAccessTracks.map((track) => (
-                    <button
-                      type="button"
-                      key={track.id}
-                      onClick={() => {
-                        setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
-                        setShowTierModal(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
-                    >
-                      <span
-                        aria-hidden
-                        className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
-                        style={PLAY_MASK_STYLE}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-neutral-900 dark:text-white font-medium truncate">
-                          {track.title}
-                        </div>
-                        {track.duration && (
-                          <div className="text-neutral-500 dark:text-neutral-400 text-sm">
-                            {formatDuration(track.duration)}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+      <div className="split:min-w-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:pr-6 split:border-r split:border-neutral-200 dark:split:border-neutral-800 split:pb-[clamp(0rem,calc(-144px_+_16vh),2rem)]">
+        {ask}
+
+        {/* Become a Monthly Supporter */}
+        {!isPatron && (
+          <section
+            id="supporter"
+            ref={tierSectionRef}
+            className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 split:pb-[clamp(0.5rem,calc(-172px_+_20vh),3rem)] split:px-0 split:max-w-none split:mx-0 scroll-mt-16"
+          >
+            <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
+              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+                <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
+                  Become a Monthly{" "}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
+                    Supporter
+                  </span>
+                </h1>
+                <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
+                  Everyone gets the same access to unreleased music and behind-the-scenes content, no
+                  matter your tier.
+                </p>
               </div>
-            )}
-            <div className="text-center mt-2">
-              {!showVerifyForm ? (
-                <button
-                  onClick={() => setShowVerifyForm(true)}
-                  className="inline-block py-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2"
-                >
-                  Already a monthly supporter? Sign in
-                </button>
-              ) : (
-                <div className="max-w-sm mx-auto space-y-3">
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={verifyEmail}
-                    onChange={(e) => setVerifyEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
-                    className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setShowVerifyForm(false);
-                        setVerifyEmail("");
-                        setVerifyError("");
-                      }}
-                      className="flex-1 py-3 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleVerifyPatron}
-                      disabled={verifyLoading || !verifyEmail.trim()}
-                      className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
-                    >
-                      {verifyLoading ? "Checking..." : "Verify"}
-                    </button>
+              {earlyAccessTracks.length > 0 && (
+                <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+                  <div className="text-xs text-neutral-400 uppercase tracking-wider mb-2 split:mb-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+                    {PATRON_CONFIG.earlyAccess.name}
+                  </div>
+                  <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
+                    {earlyAccessTracks.map((track) => (
+                      <button
+                        type="button"
+                        key={track.id}
+                        onClick={() => {
+                          setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
+                          setShowTierModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
+                      >
+                        <span
+                          aria-hidden
+                          className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
+                          style={PLAY_MASK_STYLE}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-neutral-900 dark:text-white font-medium truncate">
+                            {track.title}
+                          </div>
+                          {track.duration && (
+                            <div className="text-neutral-500 dark:text-neutral-400 text-sm">
+                              {formatDuration(track.duration)}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
+              <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+                {!showVerifyForm ? (
+                  <button
+                    onClick={() => setShowVerifyForm(true)}
+                    className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2"
+                  >
+                    Already a monthly supporter? Sign in
+                  </button>
+                ) : (
+                  <div className="max-w-sm mx-auto space-y-3">
+                    <input
+                      type="email"
+                      placeholder="Enter your email"
+                      value={verifyEmail}
+                      onChange={(e) => setVerifyEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
+                      className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowVerifyForm(false);
+                          setVerifyEmail("");
+                          setVerifyError("");
+                        }}
+                        className="flex-1 py-3 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleVerifyPatron}
+                        disabled={verifyLoading || !verifyEmail.trim()}
+                        className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
+                      >
+                        {verifyLoading ? "Checking..." : "Verify"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {children}
+        {children}
+      </div>
 
       {/* Journey timeline */}
-      <section className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isPatron ? "pb-8" : "pb-32"}`}>
-        <div className="max-w-lg mx-auto">
-          <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">
-            Stacking the Days
-          </h1>
-          {renderTimeline()}
+      <section
+        className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 split:px-0 split:pl-6 split:max-w-none split:mx-0 split:min-w-0 split:flex split:flex-col split:min-h-0 split:pb-0 ${isPatron ? "pb-8" : "pb-32"}`}
+      >
+        <div
+          ref={timelineRef}
+          className="split:flex-1 split:min-h-0 split:overflow-y-auto split:-mr-8 split:pr-8 split:[scrollbar-gutter:stable] split:pb-8"
+        >
+          <div className="max-w-lg mx-auto w-full split:max-w-none split:mx-0 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)]">
+            <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">
+              Stacking the Days
+            </h1>
+            {renderTimeline()}
+          </div>
         </div>
       </section>
 

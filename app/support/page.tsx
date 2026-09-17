@@ -7,6 +7,8 @@ import {
   isShowDraft,
   needsHostLocation,
   isShowUpcoming,
+  isShowCompleted,
+  getTourConcertCount,
 } from "../lib/shows";
 import { confirmPath } from "../lib/confirm";
 
@@ -38,6 +40,8 @@ export default async function SupportPage({
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const upcomingShows = liveShows.filter(isShowUpcoming);
+  const pastShows = liveShows.filter((s) => isShowCompleted(s) && !isShowUpcoming(s));
+  const concertCount = getTourConcertCount(shows);
   const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
   const sponsorHref = draft ? confirmPath(draft.slug) : undefined;
   const todayShow = liveShows.find((s) => {
@@ -49,13 +53,21 @@ export default async function SupportPage({
 
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">
-      <Suspense>
-        <TipsAndSocials interacFirst={!!todayShow} sponsorHref={sponsorHref} />
-      </Suspense>
-
-      <SupporterSection upcomingShows={upcomingShows}>
-        <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 scroll-mt-20">
-          <div className="max-w-lg mx-auto">
+      <SupporterSection
+        upcomingShows={upcomingShows}
+        pastShows={pastShows}
+        ask={
+          <Suspense>
+            <TipsAndSocials
+              interacFirst={!!todayShow}
+              sponsorHref={sponsorHref}
+              concertCount={concertCount}
+            />
+          </Suspense>
+        }
+      >
+        <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 split:pb-0 split:px-0 split:max-w-none split:mx-0 scroll-mt-20">
+          <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
             <SocialSection />
           </div>
         </section>

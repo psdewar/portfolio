@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { activatePatronStatus } from "../lib/patron";
-import { getTourConcertCount } from "../data/timeline";
 import SocialCards from "../components/SocialCards";
 import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
@@ -13,10 +12,12 @@ function TipsSection({
   interacFirst = false,
   isOg = false,
   sponsorHref,
+  concertCount,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
   sponsorHref?: string;
+  concertCount: number;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
 
@@ -28,8 +29,8 @@ function TipsSection({
           Your contribution helps me remain independent while funding my next tour stop.
         </p>
       )}
-      <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
-        {getTourConcertCount()} concerts so far &middot; hundreds of participants
+      <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
+        {concertCount} concerts since March &middot; hundreds of participants
       </p>
       {!isOg && (
         <PaymentOptions
@@ -39,10 +40,10 @@ function TipsSection({
         />
       )}
       {!isOg && sponsorHref && (
-        <div className="text-center mt-2">
+        <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
           <a
             href={sponsorHref}
-            className="inline-block py-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"
+            className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"
           >
             Interested in sponsoring a live concert?
           </a>
@@ -69,9 +70,11 @@ const SUCCESS_MESSAGES: Record<string, string> = {
 export default function TipsAndSocials({
   interacFirst = false,
   sponsorHref,
+  concertCount,
 }: {
   interacFirst?: boolean;
   sponsorHref?: string;
+  concertCount: number;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -105,12 +108,13 @@ export default function TipsAndSocials({
   }, [toast]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-12">
-      <div className="flex flex-col gap-8 max-w-lg mx-auto">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-12 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0">
+      <div className="flex flex-col gap-8 max-w-lg mx-auto split:max-w-none split:mx-0">
         <TipsSection
           interacFirst={interacFirst}
           isOg={searchParams.get("og") === "true"}
           sponsorHref={sponsorHref}
+          concertCount={concertCount}
         />
       </div>
     </div>

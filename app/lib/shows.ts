@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { doorTimeMinutes, isDatePast } from "./dates";
+import { getJourneyEvents, type TimelineEvent } from "../data/timeline";
 
 export interface Show {
   slug: string;
@@ -64,12 +66,12 @@ const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com"
 // the records are re-pointed, so code and data never have to land together.
 const LEG_ALIASES: Record<string, string> = { carolinas: "south-carolina" };
 
-export async function getShows(): Promise<Show[]> {
+export const getShows = cache(async (): Promise<Show[]> => {
   const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
   if (!res.ok) return [];
   const shows: Show[] = await res.json();
   return shows.map((s) => (s.leg && LEG_ALIASES[s.leg] ? { ...s, leg: LEG_ALIASES[s.leg] } : s));
-}
+});
 
 const GRACE_MS = 36 * 60 * 60 * 1000;
 
@@ -226,4 +228,48 @@ export function getPosterLocationText(
 ): string {
   const loc = getPosterLocation(show, posterLine);
   return loc.label ?? `${loc.prefix}${loc.cityRegion}`;
+}
+
+export function isGuestSet(show: Pick<Show, "guestSet">): boolean {
+  return !!show.guestSet;
+}
+
+// Concerts that count toward the tour total: every completed stop that was my own show.
+export function getTourConcertCount(shows: Show[]): number {
+  return shows.filter((s) => isShowCompleted(s) && !isGuestSet(s)).length;
+}
+
+export function showToTimelineEvent(show: Show, sameDayIndex = 0): TimelineEvent {
+  const upcoming = isShowUpcoming(show);
+  return {
+    id: Number(show.date.replace(/-/g, "") + "5" + sameDayIndex),
+    date: show.date,
+    title: show.name === "From The Ground Up" ? "From The Ground Up Live Concert" : show.name,
+    location: `${show.city}, ${show.region}`,
+    description: isResidence(show) ? "House concert" : getVenueLabel(show) ?? undefined,
+    type: "show",
+    ...(upcoming && show.visibility !== "private"
+      ? { url: `/rsvp/${show.slug}`, urlLabel: "RSVP" }
+      : {}),
+  };
+}
+
+// Listable shows as timeline rows, newest first; same-date shows get distinct ids.
+export function showsToTimelineEvents(shows: Show[]): TimelineEvent[] {
+  const sorted = [...shows].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const seen: Record<string, number> = {};
+  return sorted.map((s) => {
+    const i = seen[s.date] ?? 0;
+    seen[s.date] = i + 1;
+    return showToTimelineEvent(s, i);
+  });
+}
+
+// The full show history for public surfaces: completed chorus shows plus the
+// hand-kept pre-chorus rows in TIMELINE, newest first.
+export async function getShowHistory(): Promise<TimelineEvent[]> {
+  const shows = await getShows();
+  const past = shows.filter((s) => isShowListable(s) && isShowCompleted(s));
+  return [...showsToTimelineEvents(past), ...getJourneyEvents().filter((e) => e.type === "show")]
+    .sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1));
 }
