@@ -20,6 +20,7 @@ import {
 } from "app/data/tracks";
 import { isPatronTrack } from "app/data/patron-config";
 import { usePatronStatus } from "app/hooks/usePatronStatus";
+import SupportModal from "app/components/SupportModal";
 import { getLyrics, getCurrentLyric } from "app/lib/lyrics";
 
 const PLATFORM_ICONS: Partial<Record<StreamingPlatform, string>> = {
@@ -98,6 +99,12 @@ export default function SingleOverlay({
     : isPatronOnly && !isPatron
       ? "patronGated"
       : "playable";
+
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const previewTrack =
+    state === "patronGated" && trackData
+      ? { title: trackData.title, src: `/audio/${trackId}-preview.mp3` }
+      : null;
 
   const lyricsData = getLyrics(trackId);
   const currentLine = getCurrentLyric(trackId, getLyricTime())?.text;
@@ -221,6 +228,10 @@ export default function SingleOverlay({
   };
 
   const handlePlayToggle = () => {
+    if (state === "patronGated") {
+      setShowSupportModal(true);
+      return;
+    }
     if (isCurrent) {
       toggle();
       return;
@@ -471,9 +482,10 @@ export default function SingleOverlay({
             </button>
           </div>
         ) : (
-          <Link
-            href="/support#supporter"
-            className="relative block overflow-hidden bg-neutral-100 dark:bg-neutral-950 transition-colors group"
+          <button
+            type="button"
+            onClick={() => setShowSupportModal(true)}
+            className="relative block w-full text-left overflow-hidden bg-neutral-100 dark:bg-neutral-950 transition-colors group"
           >
             <span
               aria-hidden
@@ -499,18 +511,20 @@ export default function SingleOverlay({
                 />
               </span>
             </div>
-          </Link>
+          </button>
         )}
 
         <div className="sticky bottom-0 flex items-stretch w-full bg-neutral-200 dark:bg-neutral-800 z-10">
           <button
             type="button"
             onClick={handlePlayToggle}
-            disabled={state !== "playable"}
+            disabled={state === "streamOnly"}
             aria-label={
-              state !== "playable"
+              state === "streamOnly"
                 ? "Not playable in app"
-                : playing || (isLoading && isCurrent)
+                : state === "patronGated"
+                  ? "Play preview"
+                  : playing || (isLoading && isCurrent)
                   ? "Pause"
                   : "Play"
             }
@@ -610,6 +624,12 @@ export default function SingleOverlay({
             <CaretRightIcon className="w-5 h-5" weight="bold" />
           </Link>
         ) : null}
+        <SupportModal
+          open={showSupportModal}
+          onOpenChange={setShowSupportModal}
+          preview={previewTrack}
+          source="overlay"
+        />
       </div>
     </div>
   );
