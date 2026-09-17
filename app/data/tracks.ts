@@ -49,6 +49,17 @@ export type TrackSource = "hosted" | "stream-only";
 export const TRACK_DATA: TrackData[] = [
   // Patron-exclusive tracks (Welcome Pack)
   {
+    id: "best-foot-forward",
+    title: "Best Foot Forward",
+    artist: "Peyt Spencer",
+    audioUrl: "/api/audio/best-foot-forward",
+    thumbnail: "/images/covers/best-foot-forward.jpg",
+    duration: 134,
+    releaseDate: "2026-09-16",
+    label: "Lyrist Records",
+    artworkPending: true,
+  },
+  {
     id: "so-good",
     title: "So Good",
     artist: "Peyt Spencer",

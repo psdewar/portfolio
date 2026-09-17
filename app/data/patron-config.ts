@@ -2,7 +2,7 @@ export const PATRON_CONFIG = {
   earlyAccess: {
     name: "Early Access",
     description: "Exclusive tracks, yours now",
-    trackIds: ["crg-freestyle", "so-good"] as string[],
+    trackIds: ["crg-freestyle", "so-good", "best-foot-forward"] as string[],
   },
 };
 

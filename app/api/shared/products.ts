@@ -166,6 +166,10 @@ export const DIGITAL_ASSETS: Record<string, { blobPrefix: string; displayName: s
     blobPrefix: "vps", // Marker only - actual fetch is from VPS
     displayName: "So Good",
   },
+  "best-foot-forward": {
+    blobPrefix: "vps",
+    displayName: "Best Foot Forward",
+  },
   // Production assets (Vercel Blob)
   patience: { blobPrefix: "audio/patience", displayName: "Patience" },
   safe: { blobPrefix: "audio/safe", displayName: "Safe" },

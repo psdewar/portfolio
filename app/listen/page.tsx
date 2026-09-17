@@ -68,18 +68,23 @@ const EXTRA_TRACKS: TrackCard[] = [
 
 const PATRON_TRACKS: TrackCard[] = [
   {
+    id: "best-foot-forward",
+    title: "Best Foot Forward",
+    src: "/images/covers/best-foot-forward.jpg",
+  },
+  {
     id: "so-good",
-    title: "So Good (2026)",
+    title: "So Good",
     src: "/images/covers/so-good.jpg",
   },
   {
     id: "crg-freestyle",
-    title: "Can't Rush Greatness Freestyle (2026)",
+    title: "Can't Rush Greatness Freestyle",
     src: "/images/covers/crg-freestyle.jpg",
   },
 ];
 
-const ARTWORK_PENDING = new Set(["crg-freestyle", "so-good"]);
+const ARTWORK_PENDING = new Set(["best-foot-forward", "crg-freestyle", "so-good"]);
 const WELCOME_PACK_IDS = new Set(PATRON_TRACKS.map((t) => t.id));
 
 const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
