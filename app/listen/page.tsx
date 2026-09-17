@@ -12,6 +12,7 @@ import BlockVisualizer from "app/components/BlockVisualizer";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
+import { PATRON_CONFIG, PATRON_EXCLUSIVE_TRACKS } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import SupportModal from "app/components/SupportModal";
@@ -66,26 +67,15 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-const PATRON_TRACKS: TrackCard[] = [
-  {
-    id: "best-foot-forward",
-    title: "Best Foot Forward",
-    src: "/images/covers/best-foot-forward.jpg",
-  },
-  {
-    id: "so-good",
-    title: "So Good",
-    src: "/images/covers/so-good.jpg",
-  },
-  {
-    id: "crg-freestyle",
-    title: "Can't Rush Greatness Freestyle",
-    src: "/images/covers/crg-freestyle.jpg",
-  },
-];
+const PATRON_TRACKS: TrackCard[] = PATRON_CONFIG.earlyAccess.trackIds.map((id) => {
+  const track = TRACK_DATA.find((t) => t.id === id)!;
+  return { id, title: track.title, src: track.thumbnail };
+});
 
-const ARTWORK_PENDING = new Set(["best-foot-forward", "crg-freestyle", "so-good"]);
-const WELCOME_PACK_IDS = new Set(PATRON_TRACKS.map((t) => t.id));
+const ARTWORK_PENDING = new Set(
+  TRACK_DATA.filter((t) => t.artworkPending).map((t) => t.id),
+);
+const WELCOME_PACK_IDS = PATRON_EXCLUSIVE_TRACKS;
 
 const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
 const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
@@ -101,6 +91,7 @@ export default function Page() {
   const isPatron = usePatronStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [previewTrack, setPreviewTrack] = useState<{ title: string; src: string } | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
   const [patronWelcome, setPatronWelcome] = useState(false);
@@ -180,7 +171,12 @@ export default function Page() {
         </div>
       )}
 
-      <SupportModal open={showSupportModal} onOpenChange={setShowSupportModal} source="listen" />
+      <SupportModal
+        open={showSupportModal}
+        onOpenChange={setShowSupportModal}
+        preview={previewTrack}
+        source="listen"
+      />
 
       {isPatron && (
         <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
@@ -236,11 +232,12 @@ export default function Page() {
               key={t.id}
               type="button"
               onClick={() => {
+                setSuppressHoverId(t.id);
                 if (!isPatron && WELCOME_PACK_IDS.has(t.id)) {
+                  setPreviewTrack({ title: t.title, src: `/audio/${t.id}-preview.mp3` });
                   setShowSupportModal(true);
                   return;
                 }
-                setSuppressHoverId(t.id);
                 router.push(`/listen?play=${t.id}`);
               }}
               onPointerLeave={() => {
