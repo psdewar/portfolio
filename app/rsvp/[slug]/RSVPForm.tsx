@@ -25,6 +25,7 @@ interface RSVPFormProps {
   eventName?: string | null;
   address?: string | null;
   tags?: string | null;
+  fundDefault?: number | null;
   posterLine?: string | null;
   posterImg?: string | null;
   bgImg?: string | null;
@@ -53,6 +54,7 @@ export default function RSVPForm({
   eventName,
   address,
   tags,
+  fundDefault,
   posterLine,
   posterImg,
   bgImg,
@@ -71,7 +73,8 @@ export default function RSVPForm({
   const [submitted, setSubmitted] = useState(
     searchParams.get("test") === "success" || !!searchParams.get("session_id"),
   );
-  const [supportCents, setSupportCents] = useState(0);
+  const defaultSupportCents = (fundDefault ?? 0) * 100;
+  const [supportCents, setSupportCents] = useState(defaultSupportCents);
   const [showPay, setShowPay] = useState(false);
   const [payError, setPayError] = useState("");
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
@@ -318,7 +321,7 @@ export default function RSVPForm({
         <input
           type="checkbox"
           checked={supportCents === 0}
-          onChange={(e) => setSupportCents(e.target.checked ? 0 : 2000)}
+          onChange={(e) => setSupportCents(e.target.checked ? 0 : defaultSupportCents || 2000)}
           className="w-4 h-4 lg:w-5 lg:h-5 rounded accent-[#d4a553]"
         />
         <span>Walk in for free</span>

@@ -52,6 +52,7 @@ export interface Show {
   standalone?: boolean | null;
   // The night belongs to the host's own gathering and I play a set inside it.
   guestSet?: boolean | null;
+  fundDefault?: number | null;
   // Below private: on no public surface at all, but still counts on its leg's fund page.
   unlisted?: boolean | null;
   // Eventbrite event id, set when the show is auto-published to Eventbrite.

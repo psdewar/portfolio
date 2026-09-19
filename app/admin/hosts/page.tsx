@@ -2904,6 +2904,22 @@ function ManageModal({
                   </>
                 )}
               </div>
+              <label className={drawerRow}>
+                <span className="shrink-0">Fund my tour default</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  defaultValue={show.fundDefault ?? 0}
+                  onBlur={(e) => {
+                    const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                    e.target.value = String(n);
+                    patchShow({ fundDefault: n > 0 ? n : null });
+                  }}
+                  className="w-20 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-2 py-1 text-right tabular-nums"
+                />
+              </label>
               <ToggleRow
                 label="Guest set at the host's own gathering"
                 checked={!!show.guestSet}

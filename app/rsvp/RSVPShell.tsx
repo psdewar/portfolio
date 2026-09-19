@@ -67,6 +67,7 @@ export default function RSVPShell({
       <>
         {toast}
         <RSVPForm
+          key={selected.slug}
           eventId={selected.slug}
           date={selected.date}
           city={selected.city}
@@ -78,6 +79,7 @@ export default function RSVPShell({
           eventName={selected.eventName}
           address={selected.address}
           tags={selected.tags}
+          fundDefault={selected.fundDefault}
           posterLine={selected.posterLine}
           posterImg={selected.posterImg}
           bgImg={selected.bgImg}
