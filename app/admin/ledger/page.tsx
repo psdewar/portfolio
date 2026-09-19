@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { loadLedger, type LedgerRow } from "../../lib/ftgu-ledger";
+import { legSpans, loadLedger, type LedgerRow } from "../../lib/ftgu-ledger";
+import { getShows } from "../../lib/shows";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -65,10 +66,11 @@ function DetailRow({ r }: { r: LedgerRow }) {
   );
 }
 
-export default function LedgerPage() {
+export default async function LedgerPage() {
   let data;
   try {
-    data = loadLedger();
+    // Leg headers carry the trip's show dates from the admin; each row keeps its purchase date.
+    data = loadLedger(legSpans(await getShows()));
   } catch {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">

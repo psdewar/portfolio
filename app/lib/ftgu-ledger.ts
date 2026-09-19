@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Show } from "./shows";
 
 export const LEDGER_CSV =
   process.env.FTGU_LEDGER_PATH || join(homedir(), "Downloads", "statements", "ftgu-ledger.csv");
@@ -42,6 +43,10 @@ const LEG_LABELS: Record<string, string> = {
   "new-jersey": "New Jersey",
   dmv: "The DMV",
   norcal: "NorCal",
+  "norcal-2": "NorCal 2",
+  woodinville: "Woodinville",
+  socal: "SoCal",
+  "south-carolina": "South Carolina",
   gear: "Gear",
   overhead: "Overhead",
 };
@@ -54,7 +59,41 @@ const LEG_NOTES: Record<string, string> = {
   "new-jersey": "Personal and business travel mixed on this leg; meal lines include both.",
 };
 
-const ORDER = Object.keys(LEG_LABELS);
+// Buckets with no trip: always last, in this order.
+const TAIL = ["gear", "overhead"];
+
+export type LegSpan = { start: string; end: string };
+
+// Shows on one leg more than this many days apart are separate trips.
+const TRIP_GAP_DAYS = 14;
+const dayDiff = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86_400_000;
+
+// Trip dates per ledger leg, from the admin's booked shows. A site leg whose
+// shows fall in separate clusters is several trips: the first keeps the slug,
+// later ones are `<slug>-2`, `<slug>-3` (what the pamphlet calls "NorCal 2").
+// A show with no leg counts for the leg named by its slug prefix (woodinville-wa-0 → woodinville).
+export function legSpans(shows: Show[]): Record<string, LegSpan> {
+  const dates = new Map<string, string[]>();
+  for (const s of shows) {
+    if (!s.date || s.stage === "intent" || s.status === "cancelled") continue;
+    const leg = s.leg || s.slug.replace(/-[a-z]{2}-\d+$/, "");
+    (dates.get(leg) ?? dates.set(leg, []).get(leg)!).push(s.date);
+  }
+  const out: Record<string, LegSpan> = {};
+  for (const [leg, ds] of dates) {
+    ds.sort();
+    let k = 1, span: LegSpan = { start: ds[0], end: ds[0] };
+    for (const d of ds.slice(1)) {
+      if (dayDiff(span.end, d) > TRIP_GAP_DAYS) {
+        out[k === 1 ? leg : `${leg}-${k}`] = span;
+        k++;
+        span = { start: d, end: d };
+      } else span.end = d;
+    }
+    out[k === 1 ? leg : `${leg}-${k}`] = span;
+  }
+  return out;
+}
 
 function parseLine(line: string): string[] {
   const out: string[] = [];
@@ -76,7 +115,8 @@ function monthDay(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function loadLedger(): LedgerView {
+// `spans` gives each leg its trip dates (see legSpans); rows keep their own purchase dates.
+export function loadLedger(spans: Record<string, LegSpan> = {}): LedgerView {
   const text = readFileSync(LEDGER_CSV, "utf8").trim();
   const [head, ...lines] = text.split("\n");
   const cols = parseLine(head);
@@ -106,7 +146,12 @@ export function loadLedger(): LedgerView {
     (buckets.get(leg) ?? buckets.set(leg, []).get(leg)!).push(row);
   }
 
-  const ordered = [...ORDER, ...[...buckets.keys()].filter((k) => !ORDER.includes(k))];
+  const firstRow = (id: string) => buckets.get(id)!.map((r) => r.date).sort()[0];
+  const sortKey = (id: string) => spans[id]?.start ?? firstRow(id);
+  const ordered = [
+    ...[...buckets.keys()].filter((k) => !TAIL.includes(k)).sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+    ...TAIL,
+  ];
   const legs: LegView[] = [];
   let income = 0, expenses = 0;
   for (const id of ordered) {
@@ -114,11 +159,11 @@ export function loadLedger(): LedgerView {
     if (!rows) continue;
     const inc = rows.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0);
     const exp = rows.filter((r) => r.type !== "income").reduce((s, r) => s + r.amount, 0);
-    const dates = rows.map((r) => r.date).sort();
+    const span = spans[id];
     legs.push({
       id,
       label: LEG_LABELS[id] ?? id,
-      range: dates.length ? `${monthDay(dates[0])} – ${monthDay(dates[dates.length - 1])}` : "",
+      range: !span ? "" : span.start === span.end ? monthDay(span.start) : `${monthDay(span.start)} – ${monthDay(span.end)}`,
       note: LEG_NOTES[id],
       rows,
       income: inc,
