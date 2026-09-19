@@ -529,7 +529,6 @@ export function SupporterSection({
       <div className="split:min-w-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:-ml-8 split:pl-8 split:pr-6 split:border-r split:border-neutral-200 dark:split:border-neutral-800 split:pb-[clamp(0rem,calc(-144px_+_16vh),2rem)]">
         <div id="ask-slot">{ask}</div>
 
-        {/* Become a Monthly Supporter */}
         {!isPatron && (
           <section
             id="supporter"
@@ -539,36 +538,38 @@ export function SupporterSection({
             <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
                 <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
-                  Become a Monthly Supporter
+                  Be my monthly supporter
                 </h1>
                 <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
                   Every tier unlocks the same unreleased music and behind-the-scenes content.
                 </p>
               </div>
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
-                {!og && (
+                {!og ? (
                   <button
                     type="button"
                     onClick={() => {
                       setPreviewTrack(null);
                       setShowTierModal(true);
                     }}
-                    className="w-full min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full text-white text-[20px] font-semibold shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                    style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
+                    className="group w-full text-center"
                   >
-                    <MicrophoneStageIcon className="w-6 h-6" weight="regular" />
-                    Choose a monthly tier
+                    <span
+                      className="min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full text-white text-[20px] font-semibold shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
+                      style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
+                    >
+                      <MicrophoneStageIcon className="w-6 h-6" weight="regular" />
+                      Choose your tier
+                    </span>
+                    <span className="block mt-1 text-base text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-200 transition-colors">
+                      Think Patreon, but I receive 100% of your support.
+                    </span>
                   </button>
+                ) : (
+                  <p className="text-left text-base text-neutral-500 dark:text-neutral-400">
+                    Think Patreon, but I receive 100% of your support.
+                  </p>
                 )}
-                <p
-                  className={
-                    og
-                      ? "text-left text-base text-neutral-500 dark:text-neutral-400"
-                      : "mt-1 text-center text-base text-neutral-500 dark:text-neutral-400"
-                  }
-                >
-                  Think Patreon, but I receive 100% of your support.
-                </p>
               </div>
               {renderEarlyAccessTracks("Supporters get my unreleased songs first", (track) => {
                 setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
@@ -662,7 +663,7 @@ export function SupporterSection({
             setPreviewTrack(null);
             setShowTierModal(true);
           }}
-          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 ${atBottom ? "px-8 py-4 text-base md:px-10 md:py-5 md:text-lg" : "px-5 py-3 text-sm md:px-8 md:py-4 md:text-base"} cursor-pointer text-white font-medium flex items-center gap-2 md:gap-3 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95`}
+          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 ${atBottom ? "px-8 py-4 text-base md:px-10 md:py-5 md:text-lg" : "px-5 py-3 text-sm md:px-8 md:py-4 md:text-base"} cursor-pointer text-white font-medium flex items-center gap-2 md:gap-3 rounded-full whitespace-nowrap shadow-lg transition-all hover:scale-105 active:scale-95`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
             bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
@@ -672,7 +673,7 @@ export function SupporterSection({
             className={atBottom ? "w-7 h-7 md:w-8 md:h-8" : "w-6 h-6 md:w-7 md:h-7"}
             weight="regular"
           />
-          Become a Monthly Supporter
+          Be my monthly supporter
         </button>
       )}
 

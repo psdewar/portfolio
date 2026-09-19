@@ -16,14 +16,14 @@ export type PatronTierName = "Pen" | "Flow" | "Mind" | "Soul";
 
 export const PATRON_TIER_BASE: { name: PatronTierName; net: number; color: string }[] = [
   { name: "Pen", net: 5, color: "#f97316" },
-  { name: "Flow", net: 10, color: "#f56542" },
-  { name: "Mind", net: 25, color: "#f0566d" },
-  { name: "Soul", net: 50, color: "#ec4899" },
+  { name: "Flow", net: 20, color: "#f56542" },
+  { name: "Mind", net: 50, color: "#f0566d" },
+  { name: "Soul", net: 100, color: "#ec4899" },
 ];
 
 export function tierForMonthlyNet(net: number): PatronTierName {
-  if (net < 10) return "Pen";
-  if (net < 25) return "Flow";
-  if (net < 50) return "Mind";
+  if (net < 12.5) return "Pen";
+  if (net < 35) return "Flow";
+  if (net < 75) return "Mind";
   return "Soul";
 }

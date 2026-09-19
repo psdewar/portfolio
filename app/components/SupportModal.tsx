@@ -80,7 +80,9 @@ export default function SupportModal({
     null,
   );
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly");
-  const [customAmount, setCustomAmount] = useState("50");
+  const [customAmount, setCustomAmount] = useState(
+    String(SUPPORT_AMOUNTS[SUPPORT_AMOUNTS.length - 1].net),
+  );
   const amountSizerRef = useRef<HTMLSpanElement>(null);
   const [amountWidth, setAmountWidth] = useState(0);
   const soulPointerRef = useRef(false);

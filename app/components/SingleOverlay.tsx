@@ -500,9 +500,9 @@ export default function SingleOverlay({
               )}
               <span className="ml-auto shrink-0 inline-flex items-center gap-2 whitespace-nowrap">
                 <span className="font-bebas text-2xl leading-none text-neutral-900 dark:text-white group-hover:text-white transition-colors">
-                  Become a Monthly{" "}
+                  Be my monthly{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 group-hover:text-white">
-                    Supporter
+                    supporter
                   </span>
                 </span>
                 <CaretRightIcon
