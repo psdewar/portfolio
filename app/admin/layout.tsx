@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { CheckCircleIcon, CircleNotchIcon } from "@phosphor-icons/react";
+import { canAccess, type AdminRole } from "../lib/admin-roles";
 
 const adminPages = [
   { segment: "hosts", title: "Hosts", href: "/admin/hosts" },
@@ -16,7 +17,7 @@ const adminPages = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<AdminRole | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(true);
@@ -25,10 +26,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [signingIn, setSigningIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const isAuthenticated = role !== null;
 
   useEffect(() => {
     const stored = sessionStorage.getItem("admin-auth");
-    if (stored === "true") setIsAuthenticated(true);
+    if (stored === "owner" || stored === "agent") setRole(stored);
     setIsChecking(false);
   }, []);
 
@@ -52,6 +54,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
   const current = adminPages.find((p) => p.segment === segment);
   const isPrintouts = segment === "printouts";
+  const visiblePages = role ? adminPages.filter((p) => canAccess(role, p.href)) : [];
 
   return (
     <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950">
@@ -74,7 +77,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </button>
                 {dropdownOpen && (
                   <div className="absolute top-full left-0 mt-2 py-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl min-w-[160px] z-50">
-                    {adminPages.map((page) => (
+                    {visiblePages.map((page) => (
                       <Link
                         key={page.href}
                         href={page.href}
@@ -103,7 +106,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               onClick={() => {
                 fetch("/api/admin-login", { method: "DELETE" });
                 sessionStorage.removeItem("admin-auth");
-                setIsAuthenticated(false);
+                setRole(null);
                 setPassword("");
               }}
               className="text-sm text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
@@ -122,8 +125,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     body: JSON.stringify({ password }),
                   });
                   if (res.ok) {
-                    sessionStorage.setItem("admin-auth", "true");
-                    setIsAuthenticated(true);
+                    const { role: r } = await res.json();
+                    sessionStorage.setItem("admin-auth", r);
+                    setRole(r);
                     setError("");
                     setShowSignedIn(true);
                   } else {

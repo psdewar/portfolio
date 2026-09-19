@@ -32,8 +32,10 @@ import { orderItems } from "../../lib/sponsor";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
 import { type Leg, type PamphletFacet, FUND_LEGS } from "../../fund/legs";
 import projectsData from "../../../data/projects.json";
-import LegsManager from "../LegsManager";
+import LegCreator from "../LegCreator";
+import LegRow from "../LegRow";
 import BookingLoop from "../BookingLoop";
+import SectionHeading from "../SectionHeading";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
 import {
   formatEventDate,
@@ -410,12 +412,14 @@ interface ShowGroup {
   supporters: Sponsor[];
 }
 
-const ADMIN_NAV = [{ href: "/admin/catalog", label: "Catalog" }];
+const actionButton =
+  "px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50";
 
 export default function HostsAdminPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [legs, setLegs] = useState<Leg[]>([]);
+  const [openLeg, setOpenLeg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -535,7 +539,7 @@ export default function HostsAdminPage() {
     }
   }
 
-  // Group shows by their explicit leg (Show.leg). Shows without a leg are left
+  // Group shows by their explicit leg (Show.leg). One-offs are left
   // out here and surface in the ungrouped buckets below.
   const groupIntoLegs = (items: ShowGroup[]): ShowGroup[][] => {
     const byLeg = new Map<string, ShowGroup[]>();
@@ -720,6 +724,23 @@ export default function HostsAdminPage() {
     onRefresh: () => load(false),
   };
 
+  const legRowProps = {
+    shows,
+    setLegs,
+    assignShow,
+    onMessage: (type: "success" | "error", text: string) => setMessage({ type, text }),
+  };
+  const legRow = (leg: Leg, showShows: boolean, actions?: ReactNode) => (
+    <LegRow
+      leg={leg}
+      {...legRowProps}
+      open={openLeg === leg.slug}
+      onToggle={() => setOpenLeg((s) => (s === leg.slug ? null : leg.slug))}
+      showShows={showShows}
+      actions={actions}
+    />
+  );
+  const emptyLegs = legs.filter((l) => !shows.some((s) => s.leg === l.slug));
   const grouped = new Set(pamphletGroups.flat().map((g) => g.showSlug));
   const ungrouped = upcoming.filter((g) => !grouped.has(g.showSlug));
   // Solo = confirmed shows with no leg (own poster). Drafts, plus past-dated ones
@@ -744,22 +765,6 @@ export default function HostsAdminPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <h1 className="text-xs font-semibold tracking-[0.2em] uppercase text-neutral-900 dark:text-white">
-            Admin
-          </h1>
-          <nav className="flex items-center gap-2">
-            {ADMIN_NAV.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
         {message && (
           <div
             className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl text-sm border shadow-lg ${
@@ -772,6 +777,19 @@ export default function HostsAdminPage() {
           </div>
         )}
 
+        <BookingLoop
+          actions={
+            <>
+              <Link href="/admin/invite" className={actionButton}>
+                Invite a host
+              </Link>
+              <PressKitInviteButton
+                onMessage={(type, text) => setMessage({ type, text })}
+              />
+            </>
+          }
+        />
+
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
             {[...Array(6)].map((_, i) => (
@@ -783,49 +801,56 @@ export default function HostsAdminPage() {
           </div>
         ) : (
           <>
-            <BookingLoop />
-            <LegsManager
-              legs={legs}
-              shows={shows}
-              setLegs={setLegs}
-              assignShow={assignShow}
-              onMessage={(type, text) => setMessage({ type, text })}
-            />
-            {(upcoming.length > 0 || unscheduled.length > 0) && (
-              <div className="mb-16">
-                <div className="flex items-baseline justify-between mb-8">
-                  <h2 className="text-lg font-medium tracking-[0.15em] text-neutral-900 dark:text-white uppercase">
-                    Upcoming
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href="/admin/invite"
-                      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
-                    >
-                      Invite host
-                    </Link>
-                    <PressKitInviteButton
-                      onMessage={(type, text) => setMessage({ type, text })}
-                    />
-                    <CustomPosterButton />
-                    <BlankPamphletButton />
-                  </div>
+            <section className="mb-20">
+              <SectionHeading
+                title="Open invite for anyone who wants to see my press kit"
+                count={openInvites.length}
+              />
+              {openInvites.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                  {openInvites.map((g) => (
+                    <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                  ))}
                 </div>
-                <div className="space-y-10">
+              ) : (
+                <p className="text-sm text-neutral-400">
+                  None right now. Copy a blank invite link above to start one.
+                </p>
+              )}
+            </section>
+
+            <section className="mb-20">
+              <SectionHeading
+                title="Shows on the calendar, grouped by leg"
+                count={pamphletGroups.flat().length + solo.length}
+              />
+              {pamphletGroups.length > 0 || solo.length > 0 || emptyLegs.length > 0 ? (
+                <div className="space-y-14">
                   {pamphletGroups.map((cluster, i) => {
-                    const matched = legPamphlet(cluster[0]?.show?.leg ?? "");
+                    const legSlug = cluster[0]?.show?.leg ?? "";
+                    const matched = legPamphlet(legSlug);
+                    const legRecord = legs.find((l) => l.slug === legSlug);
+                    const editor = (
+                      <PosterEditor
+                        group={cluster}
+                        matchedPamphlet={matched ?? null}
+                        onPamphletSaved={handlePamphletSaved}
+                        onShowUpdate={cardProps.onShowUpdate}
+                        variant="leg"
+                      />
+                    );
                     return (
                       <div key={i}>
-                        <div className="flex items-center gap-4 mb-4">
-                          <PosterEditor
-                            group={cluster}
-                            matchedPamphlet={matched ?? null}
-                            onPamphletSaved={handlePamphletSaved}
-                            onShowUpdate={cardProps.onShowUpdate}
-                            variant="leg"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                        {legRecord ? (
+                          legRow(legRecord, false, editor)
+                        ) : (
+                          <div className="mb-4">{editor}</div>
+                        )}
+                        <div
+                          className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start ${
+                            legRecord ? "mt-1" : ""
+                          }`}
+                        >
                           {cluster.map((g) => (
                             <ShowGroupCard
                               key={g.showSlug}
@@ -837,18 +862,22 @@ export default function HostsAdminPage() {
                       </div>
                     );
                   })}
+                  {emptyLegs.length > 0 && (
+                    <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                      {emptyLegs.map((leg) => (
+                        <div key={leg.slug}>{legRow(leg, true)}</div>
+                      ))}
+                    </div>
+                  )}
                   {solo.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-4 mb-4">
-                        <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
-                          Solo
-                        </span>
-                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-                      </div>
+                      <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
+                        One-offs
+                      </h3>
                       {suggested.length > 0 && (
                         <div className="mb-4 rounded-lg border border-dashed border-[#d4a553]/40 p-3 space-y-2">
-                          <div className="text-xs uppercase tracking-wider text-[#d4a553]">
-                            Suggested legs
+                          <div className="text-sm text-neutral-600 dark:text-neutral-300">
+                            Could be grouped into a leg
                           </div>
                           {suggested.map((cluster, i) => (
                             <div
@@ -884,67 +913,51 @@ export default function HostsAdminPage() {
                       </div>
                     </div>
                   )}
-                  {openInvites.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-4 mb-4">
-                        <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
-                          Open invite
-                        </span>
-                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-                      </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
-                        {openInvites.map((g) => (
-                          <ShowGroupCard
-                            key={g.showSlug}
-                            group={g}
-                            {...cardProps}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {pendingBookings.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-4 mb-4">
-                        <span className="text-xs tracking-[0.15em] text-neutral-500 uppercase shrink-0">
-                          Pending bookings
-                        </span>
-                        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-                      </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
-                        {pendingBookings.map((g) => (
-                          <ShowGroupCard
-                            key={g.showSlug}
-                            group={g}
-                            {...cardProps}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
+              ) : (
+                <p className="text-sm text-neutral-400">
+                  Nothing on the calendar yet.
+                </p>
+              )}
+              <div className="mt-8">
+                <LegCreator
+                  legs={legs}
+                  setLegs={setLegs}
+                  onCreated={setOpenLeg}
+                  onMessage={(type, text) => setMessage({ type, text })}
+                />
               </div>
-            )}
+            </section>
+
+            <section className="mb-20">
+              <SectionHeading
+                title="Invites sent to one host, waiting on their confirmation"
+                count={pendingBookings.length}
+              />
+              {pendingBookings.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                  {pendingBookings.map((g) => (
+                    <ShowGroupCard key={g.showSlug} group={g} {...cardProps} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-400">None right now.</p>
+              )}
+            </section>
 
             {past.length > 0 && (
               <CompletedSection
                 legs={pastLegs}
+                allLegs={legs}
+                shows={shows}
+                setLegs={setLegs}
+                assignShow={assignShow}
                 ungrouped={pastUngrouped}
                 legPamphlet={legPamphlet}
                 onPamphletSaved={handlePamphletSaved}
                 onShowUpdate={cardProps.onShowUpdate}
+                onMessage={(type, text) => setMessage({ type, text })}
               />
-            )}
-
-            {groups.length === 0 && (
-              <div className="text-center py-24">
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  No shows yet.
-                </p>
-                <p className="text-xs text-neutral-600 mt-2">
-                  Share the sponsor form to book a date.
-                </p>
-              </div>
             )}
           </>
         )}
@@ -981,18 +994,29 @@ function pamphletForLeg(legs: Leg[], slug: string): Pamphlet | null {
 
 function CompletedSection({
   legs,
+  allLegs,
+  shows,
+  setLegs,
+  assignShow,
   ungrouped,
   legPamphlet,
   onPamphletSaved,
   onShowUpdate,
+  onMessage,
 }: {
   legs: ShowGroup[][];
+  allLegs: Leg[];
+  shows: Show[];
+  setLegs: React.Dispatch<React.SetStateAction<Leg[]>>;
+  assignShow: (slug: string, leg: string | null) => void;
   ungrouped: ShowGroup[];
   legPamphlet: (slug: string) => Pamphlet | null;
   onPamphletSaved: (slug: string, pamphlet: PamphletFacet) => void;
   onShowUpdate: (slug: string, fields: Partial<Show>) => void;
+  onMessage: (type: "success" | "error", text: string) => void;
 }) {
   const [viewing, setViewing] = useState<ShowGroup | null>(null);
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
 
   return (
     <div>
@@ -1059,13 +1083,8 @@ function CompletedSection({
           )}
         </Modal>
       )}
-      <div className="flex items-center gap-4 mb-8">
-        <h2 className="text-xs tracking-[0.2em] text-neutral-600 uppercase shrink-0">
-          Completed
-        </h2>
-        <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-      </div>
-      <div className="space-y-6">
+      <SectionHeading title="Past shows" />
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
         {legs.map((leg, i) => {
           const sorted = [...leg].sort(
             (a, b) =>
@@ -1073,39 +1092,54 @@ function CompletedSection({
               new Date(b.show!.date).getTime(),
           );
           const legName = sorted[0].show!.leg?.replace(/-/g, " ");
+          const legRecord = allLegs.find((l) => l.slug === sorted[0].show?.leg);
+
+          const editor = sorted[0].show?.leg && (
+            <PosterEditor
+              group={sorted}
+              matchedPamphlet={legPamphlet(sorted[0].show!.leg!)}
+              onPamphletSaved={onPamphletSaved}
+              onShowUpdate={onShowUpdate}
+              variant="leg"
+              readOnly
+            />
+          );
 
           return (
-            <div key={i}>
-              {legName && (
-                <h3
-                  className="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-2"
-                  style={{ fontFamily: '"Parkinsans", sans-serif' }}
-                >
-                  {legName}
-                </h3>
+            <div key={i} className="pb-4">
+              {legRecord ? (
+                <LegRow
+                  leg={legRecord}
+                  shows={shows}
+                  setLegs={setLegs}
+                  assignShow={assignShow}
+                  onMessage={onMessage}
+                  open={openSlug === legRecord.slug}
+                  onToggle={() =>
+                    setOpenSlug((s) => (s === legRecord.slug ? null : legRecord.slug))
+                  }
+                  showShows={false}
+                  actions={editor}
+                />
+              ) : (
+                <>
+                  {legName && (
+                    <h3 className="capitalize text-base font-medium text-neutral-900 dark:text-white mb-2">
+                      {legName}
+                    </h3>
+                  )}
+                  {editor && <div className="mb-3">{editor}</div>}
+                </>
               )}
-              {sorted[0].show?.leg && (
-                <div className="mb-3">
-                  <PosterEditor
-                    group={sorted}
-                    matchedPamphlet={legPamphlet(sorted[0].show!.leg!)}
-                    onPamphletSaved={onPamphletSaved}
-                    onShowUpdate={onShowUpdate}
-                    variant="leg"
-                    readOnly
-                  />
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mt-3">
                 {sorted.map((g) => (
                   <button
                     key={g.showSlug}
                     onClick={() => setViewing(g)}
-                    className="px-3 py-1.5 text-xs border border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:text-[#d4a553] hover:border-[#d4a553]/30 transition-colors"
-                    style={{ fontFamily: '"Space Mono", monospace' }}
+                    className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
                   >
                     {formatDayMonthDay(g.show!.date)}
-                    <span className="text-neutral-600 ml-1.5">
+                    <span className="text-neutral-400 ml-1.5">
                       {g.show!.city}
                     </span>
                   </button>
@@ -1115,20 +1149,24 @@ function CompletedSection({
           );
         })}
         {ungrouped.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {ungrouped.map((g) => (
-              <button
-                key={g.showSlug}
-                onClick={() => setViewing(g)}
-                className="px-3 py-1.5 text-xs border border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:text-[#d4a553] hover:border-[#d4a553]/30 transition-colors"
-                style={{ fontFamily: '"Space Mono", monospace' }}
-              >
-                {g.host.date ? formatDayMonthDay(g.host.date) : "No date"}
-                <span className="text-neutral-600 ml-1.5">
-                  {g.host.city || g.host.email}
-                </span>
-              </button>
-            ))}
+          <div className="py-4">
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
+              One-offs
+            </h3>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {ungrouped.map((g) => (
+                <button
+                  key={g.showSlug}
+                  onClick={() => setViewing(g)}
+                  className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
+                >
+                  {g.host.date ? formatDayMonthDay(g.host.date) : "No date"}
+                  <span className="text-neutral-400 ml-1.5">
+                    {g.host.city || g.host.email}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1217,229 +1255,10 @@ function PressKitInviteButton({
     <button
       onClick={handleClick}
       disabled={creating}
-      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50"
+      title="Creates an empty invite and copies the host's link. They fill in the details themselves."
+      className={actionButton}
     >
-      {creating ? "Creating…" : "Press kit (no location)"}
-    </button>
-  );
-}
-
-function CustomPosterButton() {
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState("");
-  const [city, setCity] = useState("");
-  const [region, setRegion] = useState("");
-  const [venue, setVenue] = useState("");
-  const [doorTime, setDoorTime] = useState("7PM");
-  const [venueLabel, setVenueLabel] = useState("");
-  const [doorLabel, setDoorLabel] = useState("");
-  const [taglineSuffix, setTaglineSuffix] = useState(DEFAULT_TAGLINE);
-  const [tags, setTags] = useState(PAY_WHAT_YOU_WANT_TAG);
-  const [doorsOpen, setDoorsOpen] = useState("");
-
-  const buildHref = () => {
-    const params = new URLSearchParams();
-    if (date) params.set("date", date);
-    if (city) params.set("city", city);
-    if (region) params.set("region", region);
-    if (venue) params.set("venue", venue);
-    if (doorTime) params.set("doorTime", doorTime);
-    if (venueLabel) params.set("venueLabel", venueLabel);
-    if (doorLabel) params.set("doorLabel", doorLabel);
-    if (taglineSuffix) params.set("label", taglineSuffix);
-    if (tags.trim()) params.set("tags", tags.trim());
-    if (doorsOpen.trim()) params.set("doorsOpen", doorsOpen.trim());
-    return `/api/poster?${params.toString()}`;
-  };
-
-  const canDownload = date && city && region;
-  const [generating, setGenerating] = useState(false);
-
-  const handleDownload = async () => {
-    if (!canDownload) return;
-    setGenerating(true);
-    try {
-      const res = await fetch(buildHref());
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `poster-${city.toLowerCase().replace(/\s+/g, "-")}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const inputClass =
-    "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
-
-  return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-3xl shadow-xl rounded-l-lg overflow-hidden flex h-[520px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex-1 min-w-0 bg-white dark:bg-neutral-800 p-6 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-light tracking-wide text-neutral-900 dark:text-white">
-                  CUSTOM POSTER
-                </h4>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-2 mb-4">
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  placeholder="Region (e.g. BC, WA)"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={venue}
-                  onChange={(e) => setVenue(e.target.value)}
-                  placeholder="Venue"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={doorTime}
-                  onChange={(e) => setDoorTime(e.target.value)}
-                  placeholder="Door time (e.g. 7PM)"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={venueLabel}
-                  onChange={(e) => setVenueLabel(e.target.value)}
-                  placeholder="Venue label override"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={doorLabel}
-                  onChange={(e) => setDoorLabel(e.target.value)}
-                  placeholder="Door label override"
-                  className={inputClass}
-                />
-                <textarea
-                  value={taglineSuffix}
-                  onChange={(e) => setTaglineSuffix(e.target.value)}
-                  placeholder="Tagline"
-                  rows={3}
-                  className={inputClass + " resize-none"}
-                />
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="Tags (comma-separated)"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={doorsOpen}
-                  onChange={(e) => setDoorsOpen(e.target.value)}
-                  placeholder="Doors open override"
-                  className={inputClass}
-                />
-              </div>
-              <button
-                onClick={handleDownload}
-                disabled={!canDownload || generating}
-                className="w-full text-center text-xs px-3 py-1.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition-colors font-light disabled:opacity-30"
-              >
-                {generating ? "Generating..." : "Download Poster"}
-              </button>
-            </div>
-            <div className="h-full">
-              <Poster
-                date={date || undefined}
-                city={city || undefined}
-                region={region || undefined}
-                venue={venue || undefined}
-                doorTime={doorTime || undefined}
-                venueLabel={venueLabel || undefined}
-                doorLabel={doorLabel || undefined}
-                taglineSuffix={taglineSuffix || undefined}
-                tags={tags || undefined}
-                doorsOpen={doorsOpen || undefined}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-      <button
-        onClick={() => setOpen(true)}
-        className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
-      >
-        Custom Poster
-      </button>
-    </>
-  );
-}
-
-function BlankPamphletButton() {
-  const [downloading, setDownloading] = useState(false);
-  const handleClick = async () => {
-    setDownloading(true);
-    try {
-      const [igRes, ytRes] = await Promise.all([
-        fetch("/api/pamphlet?blank=true&format=ig&pdf=true"),
-        fetch("/api/pamphlet?blank=true&format=yt&pdf=true"),
-      ]);
-      const [igBuf, ytBuf] = await Promise.all([
-        igRes.arrayBuffer(),
-        ytRes.arrayBuffer(),
-      ]);
-      const zip = buildZip([
-        { name: "pamphlet-blank-ig.pdf", data: new Uint8Array(igBuf) },
-        { name: "pamphlet-blank-yt.pdf", data: new Uint8Array(ytBuf) },
-      ]);
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(zip)], { type: "application/zip" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "pamphlet-blank.zip";
-      link.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloading(false);
-    }
-  };
-  return (
-    <button
-      onClick={handleClick}
-      disabled={downloading}
-      className="px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50"
-    >
-      {downloading ? "Generating..." : "Blank"}
+      {creating ? "Creating..." : "Copy blank invite link"}
     </button>
   );
 }
@@ -2648,15 +2467,9 @@ function PosterEditor({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+          className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
         >
-          <span className="text-xs tracking-widest text-neutral-500 uppercase">
-            {isSingle ? "Poster" : "Pamphlet"}
-          </span>
-          <span>
-            {matchedPamphlet?.id || label}
-            {!isSingle && ` · ${group.length} shows`}
-          </span>
+          {isSingle ? "Poster" : "Pamphlet"}
         </button>
       )}
     </>

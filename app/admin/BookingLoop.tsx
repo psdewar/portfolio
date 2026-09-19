@@ -1,71 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 
-const ASKS = ["Funding", "Hosting", "Spread the word", "Referrals"];
-const GIVES = ["Entertainment", "Connection", "Faith"];
-
-export default function BookingLoop() {
+export default function BookingLoop({ actions }: { actions: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [asked, setAsked] = useState<boolean[]>(() => ASKS.map(() => false));
-  const count = asked.filter(Boolean).length;
-
+  const notes = [
+    "I'm a rapper from Bellevue, Washington. In August I left Microsoft to be a full-time artist, now touring North America to share my concert-conversation From The Ground Up, introducing the Faith to an audience that is not youth-only nor Baha'i-only. Since March I've done 20.",
+    "All I need is one friend in your community to host a gathering in their living room, a coffee shop, Center, or any venue you suggest. I bring my own equipment, and hosting is low-maintenance: under half an hour for setup, an hour of music, then another hour to connect and take photos.",
+    "The honorarium is a gift that recognizes the concert, separate from expenses. Admission is pay what you want and defaults to free.",
+  ];
   return (
-    <div className="mb-8 border border-neutral-200 dark:border-neutral-800 rounded-xl">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-5 py-3 text-left"
-      >
-        <span className="text-sm font-medium tracking-[0.15em] uppercase text-neutral-700 dark:text-neutral-200">
-          The exchange
-          <span className="ml-2 normal-case tracking-normal font-normal text-neutral-400">
-            are you asking for all four?
-          </span>
-        </span>
-        <span className="flex items-center gap-3 shrink-0">
-          <span className="text-xs tabular-nums text-neutral-400">{count}/4</span>
-          <span className="text-neutral-400">{open ? "−" : "+"}</span>
-        </span>
-      </button>
-
+    <div className="mb-12">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-medium tracking-tight text-neutral-900 dark:text-white">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="flex items-center gap-3 text-left"
+          >
+            To keep in mind when I write to a community
+            <span className="text-neutral-400 font-normal">{open ? "−" : "+"}</span>
+          </button>
+        </h1>
+        <div className="flex items-center gap-2">{actions}</div>
+      </div>
       {open && (
-        <div className="px-5 pb-5 space-y-4">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-neutral-400 mb-2">Ask for</div>
-            <div className="flex flex-wrap gap-2">
-              {ASKS.map((a, i) => (
-                <label
-                  key={a}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors ${
-                    asked[i]
-                      ? "border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white text-white dark:text-neutral-900"
-                      : "border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={asked[i]}
-                    onChange={() => setAsked((d) => d.map((v, j) => (j === i ? !v : v)))}
-                    className="sr-only"
-                  />
-                  {a}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-wider text-neutral-400 mb-2">Give each show</div>
-            <div className="flex flex-wrap gap-2">
-              {GIVES.map((g) => (
-                <span
-                  key={g}
-                  className="inline-flex px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-sm"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-          </div>
+        <div className="mt-5 space-y-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+          {notes.map((n) => (
+            <p key={n}>{n}</p>
+          ))}
         </div>
       )}
     </div>

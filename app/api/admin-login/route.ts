@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminSessionToken } from "../shared/admin-auth";
+import { adminSessionToken, roleForPassword } from "../shared/admin-auth";
 
 export async function POST(req: NextRequest) {
   const { password } = await req.json().catch(() => ({ password: "" }));
-  const token = await adminSessionToken();
-  if (!token || password !== process.env.ADMIN_PASSWORD) {
+  const role = roleForPassword(password);
+  const token = role && (await adminSessionToken(role));
+  if (!token) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true, role });
   res.cookies.set("admin-auth", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

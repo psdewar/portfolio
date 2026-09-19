@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminSessionToken } from "./app/api/shared/admin-auth";
+import { roleForToken } from "./app/api/shared/admin-auth";
+import { canAccess } from "./app/lib/admin-roles";
+
+const OWNER_DELETE_PATHS = ["/api/legs", "/api/shows", "/api/sponsors", "/api/rsvp"];
 
 const TEE_COLOR_PATHS: Record<string, string> = { "/sHop": "maroon", "/Shop": "forest" };
 
@@ -28,15 +31,24 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/admin/") ||
     pathname.startsWith("/api/ledger") ||
     pathname.startsWith("/api/catalog");
-  if (needsAdmin) {
-    const cookie = request.cookies.get("admin-auth")?.value;
-    const expected = await adminSessionToken();
-    const authed = !!expected && cookie === expected;
-    if (!authed && pathname.startsWith("/api/")) {
+  const isApi = pathname.startsWith("/api/");
+  const ownerOnly =
+    request.method === "DELETE" && OWNER_DELETE_PATHS.some((p) => pathname.startsWith(p));
+  if (needsAdmin || ownerOnly) {
+    const role = await roleForToken(request.cookies.get("admin-auth")?.value);
+    if (!role && isApi) {
       return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "content-type": "application/json" },
       });
+    }
+    if (role && !canAccess(role, pathname, request.method)) {
+      return isApi
+        ? new NextResponse(JSON.stringify({ error: "Forbidden" }), {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          })
+        : new NextResponse("Forbidden", { status: 403 });
     }
   }
 
