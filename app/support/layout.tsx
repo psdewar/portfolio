@@ -4,11 +4,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/support" },
   title: "Support",
   description:
-    "Support rapper and Microsoft alum Peyt Spencer. Tips, social links, monthly supporter tiers, and the full timeline.",
+    "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
   openGraph: {
     title: "Support Peyt Spencer",
     description:
-      "Support rapper and Microsoft alum Peyt Spencer. Tips, social links, monthly supporter tiers, and the full timeline.",
+      "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
     images: [
       {
         url: "https://peytspencer.com/api/og/support",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Support Peyt Spencer",
     description:
-      "Support rapper and Microsoft alum Peyt Spencer. Tips, social links, monthly supporter tiers, and the full timeline.",
+      "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
     images: ["https://peytspencer.com/api/og/support"],
   },
 };

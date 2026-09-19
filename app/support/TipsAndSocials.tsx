@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { activatePatronStatus } from "../lib/patron";
 import SocialCards from "../components/SocialCards";
 import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
@@ -43,22 +42,13 @@ function TipsSection({
         <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
           <a
             href={sponsorHref}
-            className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2 transition-colors"
+            className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
           >
             Interested in sponsoring a live concert?
           </a>
         </div>
       )}
       {cardOpen && <ContributeCardModal onClose={() => setCardOpen(false)} />}
-    </div>
-  );
-}
-
-export function SocialSection() {
-  return (
-    <div className="flex-1 min-w-0">
-      <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">Find Me</h2>
-      <SocialCards />
     </div>
   );
 }
@@ -79,25 +69,15 @@ export default function TipsAndSocials({
   const searchParams = useSearchParams();
   const router = useRouter();
   const toast = useToast();
+  const thanks = searchParams.get("thanks");
+  const thanked = thanks === "tip" || thanks === "order";
 
   useEffect(() => {
-    if (searchParams.get("thanks") === "1") {
+    if (thanks === "1") {
       const sid = searchParams.get("session_id");
-      activatePatronStatus();
-
-      if (sid) {
-        fetch(`/api/checkout-session?session_id=${sid}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.email) localStorage.setItem("patronEmail", data.email);
-          })
-          .catch(console.error)
-          .finally(() => router.replace("/listen?patron_welcome=1"));
-      } else {
-        router.replace("/listen?patron_welcome=1");
-      }
+      router.replace(sid ? `/listen?patron_welcome=1&session_id=${encodeURIComponent(sid)}` : "/listen");
     }
-  }, [searchParams, router]);
+  }, [thanks, searchParams, router]);
 
   useEffect(() => {
     const key = new URLSearchParams(window.location.search).get("success");
@@ -110,12 +90,19 @@ export default function TipsAndSocials({
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-12 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0">
       <div className="flex flex-col gap-8 max-w-lg mx-auto split:max-w-none split:mx-0">
-        <TipsSection
-          interacFirst={interacFirst}
-          isOg={searchParams.get("og") === "true"}
-          sponsorHref={sponsorHref}
-          concertCount={concertCount}
-        />
+        {thanked ? (
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">Thank you</h2>
+            <SocialCards />
+          </div>
+        ) : (
+          <TipsSection
+            interacFirst={interacFirst}
+            isOg={searchParams.get("og") === "true"}
+            sponsorHref={sponsorHref}
+            concertCount={concertCount}
+          />
+        )}
       </div>
     </div>
   );

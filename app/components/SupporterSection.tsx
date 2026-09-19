@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import {
   XIcon,
@@ -16,8 +17,9 @@ import SupportModal from "./SupportModal";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG } from "../data/patron-config";
-import { useDevTools } from "../contexts/DevToolsContext";
 import { useAudio } from "../contexts/AudioContext";
+import { usePatronStatus } from "../hooks/usePatronStatus";
+import { activatePatronStatus, storePatronEmail, storePatronTier } from "../lib/patron";
 import { type Show, showsToTimelineEvents } from "../lib/shows";
 import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
 
@@ -61,6 +63,7 @@ interface SupporterSectionProps {
   pastShows?: Show[];
   ask?: React.ReactNode;
   children?: React.ReactNode;
+  og?: boolean;
 }
 
 export function SupporterSection({
@@ -71,13 +74,15 @@ export function SupporterSection({
   pastShows = [],
   ask,
   children,
+  og = false,
 }: SupporterSectionProps) {
-  const { simulatePatron } = useDevTools();
   const { loadTrack, toggle, isPlaying, currentTrack, isLoading: isAudioLoading } = useAudio();
+  const router = useRouter();
+  const patronStatus = usePatronStatus();
+  const isPatron = (patronStatus || forcePatron) && !og;
 
   const [showTierModal, setShowTierModal] = useState(false);
   const [previewTrack, setPreviewTrack] = useState<{ title: string; src: string } | null>(null);
-  const [isPatron, setIsPatron] = useState(forcePatron);
 
   const [showCalendarInfo, setShowCalendarInfo] = useState(false);
 
@@ -85,6 +90,7 @@ export function SupporterSection({
   const [verifyEmail, setVerifyEmail] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
+  const [verifyRedirectToPortal, setVerifyRedirectToPortal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const tierSectionRef = useRef<HTMLElement>(null);
@@ -100,17 +106,6 @@ export function SupporterSection({
       setTimeout(() => tierSectionRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
     }
   }, []);
-
-  useEffect(() => {
-    if (simulatePatron) {
-      setIsPatron(true);
-      return;
-    }
-    const status = localStorage.getItem("patronStatus");
-    const email = localStorage.getItem("patronEmail");
-    if (status === "active" && email) setIsPatron(true);
-    else if (status === "active") localStorage.removeItem("patronStatus");
-  }, [forcePatron, simulatePatron]);
 
   useEffect(() => {
     if (!isModal) {
@@ -173,10 +168,16 @@ export function SupporterSection({
         body: JSON.stringify({ email: verifyEmail.trim() }),
       });
       if (res.ok) {
-        localStorage.setItem("patronStatus", "active");
-        localStorage.setItem("patronEmail", verifyEmail.trim().toLowerCase());
-        setIsPatron(true);
+        const data = await res.json();
+        const email = verifyEmail.trim().toLowerCase();
+        activatePatronStatus();
+        storePatronEmail(email);
+        storePatronTier(data.tier ?? null);
         setShowVerifyForm(false);
+        if (verifyRedirectToPortal) {
+          setVerifyRedirectToPortal(false);
+          window.location.assign(`/api/stripe-portal?email=${encodeURIComponent(email)}`);
+        }
       } else {
         const data = await res.json();
         setVerifyError(
@@ -211,6 +212,82 @@ export function SupporterSection({
   const earlyAccessTracks = PATRON_CONFIG.earlyAccess.trackIds
     .map((id) => TRACK_DATA.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => !!t);
+
+  function renderEarlyAccessTracks(
+    introText: string,
+    onTrackClick: (track: (typeof earlyAccessTracks)[number]) => void,
+  ): React.ReactNode {
+    if (earlyAccessTracks.length === 0) return null;
+    return (
+      <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+        <p className="text-neutral-900 dark:text-white font-medium mb-2 split:mb-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+          {introText}
+        </p>
+        <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
+          {earlyAccessTracks.map((track) => (
+            <button
+              type="button"
+              key={track.id}
+              onClick={() => onTrackClick(track)}
+              className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
+            >
+              <span
+                aria-hidden
+                className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
+                style={PLAY_MASK_STYLE}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-neutral-900 dark:text-white font-medium truncate">
+                  {track.title}
+                </div>
+                {track.duration && (
+                  <div className="text-neutral-500 dark:text-neutral-400 text-sm">
+                    {formatDuration(track.duration)}
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderVerifyForm(): React.ReactNode {
+    return (
+      <div className="max-w-sm mx-auto space-y-3">
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={verifyEmail}
+          onChange={(e) => setVerifyEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
+          className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowVerifyForm(false);
+              setVerifyEmail("");
+              setVerifyError("");
+              setVerifyRedirectToPortal(false);
+            }}
+            className="flex-1 py-3 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleVerifyPatron}
+            disabled={verifyLoading || !verifyEmail.trim()}
+            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
+          >
+            {verifyLoading ? "Checking..." : "Verify"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   function renderTimeline(): React.ReactNode {
     return years.map((year) => {
@@ -430,8 +507,13 @@ export function SupporterSection({
   return (
     <div
       ref={containerRef}
-      className={`bg-neutral-50 dark:bg-neutral-950 relative ${isModal ? "h-full overflow-y-auto" : "split:h-[calc(100dvh-4rem-1px-var(--player-h,0px))] split:overflow-hidden split:grid split:grid-cols-2 split:gap-x-0 split:max-w-7xl split:mx-auto split:px-8"}`}
+      className={`bg-neutral-50 dark:bg-neutral-950 relative ${isModal ? "h-full overflow-y-auto" : "split:h-[calc(100dvh-4rem-1px-var(--player-h,0px))] split:overflow-hidden split:grid split:grid-cols-2 split:gap-x-0 split:max-w-7xl split:mx-auto split:px-8"}${og ? " supporter--og" : ""}`}
     >
+      {og && (
+        <style>{`
+          .supporter--og #ask-slot { padding-top: 12px; padding-bottom: 0; }
+        `}</style>
+      )}
       {/* Modal close button */}
       {isModal && (
         <div className="sticky top-0 z-20 flex items-center justify-end p-4 sm:p-6">
@@ -444,8 +526,8 @@ export function SupporterSection({
         </div>
       )}
 
-      <div className="split:min-w-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:pr-6 split:border-r split:border-neutral-200 dark:split:border-neutral-800 split:pb-[clamp(0rem,calc(-144px_+_16vh),2rem)]">
-        {ask}
+      <div className="split:min-w-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:-ml-8 split:pl-8 split:pr-6 split:border-r split:border-neutral-200 dark:split:border-neutral-800 split:pb-[clamp(0rem,calc(-144px_+_16vh),2rem)]">
+        <div id="ask-slot">{ask}</div>
 
         {/* Become a Monthly Supporter */}
         {!isPatron && (
@@ -457,93 +539,98 @@ export function SupporterSection({
             <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
                 <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
-                  Become a Monthly{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500">
-                    Supporter
-                  </span>
+                  Become a Monthly Supporter
                 </h1>
                 <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                  Everyone gets the same access to unreleased music and behind-the-scenes content, no
-                  matter your tier.
+                  Every tier unlocks the same unreleased music and behind-the-scenes content.
                 </p>
               </div>
-              {earlyAccessTracks.length > 0 && (
-                <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
-                  <div className="text-xs text-neutral-400 uppercase tracking-wider mb-2 split:mb-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-                    {PATRON_CONFIG.earlyAccess.name}
-                  </div>
-                  <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
-                    {earlyAccessTracks.map((track) => (
-                      <button
-                        type="button"
-                        key={track.id}
-                        onClick={() => {
-                          setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
-                          setShowTierModal(true);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
-                      >
-                        <span
-                          aria-hidden
-                          className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
-                          style={PLAY_MASK_STYLE}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-neutral-900 dark:text-white font-medium truncate">
-                            {track.title}
-                          </div>
-                          {track.duration && (
-                            <div className="text-neutral-500 dark:text-neutral-400 text-sm">
-                              {formatDuration(track.duration)}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+                {!og && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewTrack(null);
+                      setShowTierModal(true);
+                    }}
+                    className="w-full min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full text-white text-[20px] font-semibold shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
+                  >
+                    <MicrophoneStageIcon className="w-6 h-6" weight="regular" />
+                    Choose a monthly tier
+                  </button>
+                )}
+                <p
+                  className={
+                    og
+                      ? "text-left text-base text-neutral-500 dark:text-neutral-400"
+                      : "mt-1 text-center text-base text-neutral-500 dark:text-neutral-400"
+                  }
+                >
+                  Think Patreon, but I receive 100% of your support.
+                </p>
+              </div>
+              {renderEarlyAccessTracks("Supporters get my unreleased songs first", (track) => {
+                setPreviewTrack({ title: track.title, src: `/audio/${track.id}-preview.mp3` });
+                setShowTierModal(true);
+              })}
+              {!og && (
+                <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+                  {!showVerifyForm ? (
+                    <button
+                      onClick={() => setShowVerifyForm(true)}
+                      className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
+                    >
+                      Already a monthly supporter? Sign in
+                    </button>
+                  ) : (
+                    renderVerifyForm()
+                  )}
                 </div>
               )}
-              <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-                {!showVerifyForm ? (
-                  <button
-                    onClick={() => setShowVerifyForm(true)}
-                    className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 text-base underline underline-offset-2"
-                  >
-                    Already a monthly supporter? Sign in
-                  </button>
-                ) : (
-                  <div className="max-w-sm mx-auto space-y-3">
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      value={verifyEmail}
-                      onChange={(e) => setVerifyEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
-                      className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setShowVerifyForm(false);
-                          setVerifyEmail("");
-                          setVerifyError("");
-                        }}
-                        className="flex-1 py-3 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleVerifyPatron}
-                        disabled={verifyLoading || !verifyEmail.trim()}
-                        className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
-                      >
-                        {verifyLoading ? "Checking..." : "Verify"}
-                      </button>
-                    </div>
-                  </div>
-                )}
+            </div>
+          </section>
+        )}
+
+        {isPatron && (
+          <section
+            id="supporter"
+            className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 split:pb-[clamp(0.5rem,calc(-172px_+_20vh),3rem)] split:px-0 split:max-w-none split:mx-0 scroll-mt-16"
+          >
+            <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
+              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+                <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
+                  You&apos;re a monthly supporter
+                </h1>
+                <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
+                  Thank you for supporting my journey as an independent artist.
+                </p>
               </div>
+              {renderEarlyAccessTracks("Unlocked for you", (track) =>
+                router.push(`/listen?play=${track.id}`),
+              )}
+              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const email = localStorage.getItem("patronEmail");
+                    if (email) {
+                      window.location.assign(`/api/stripe-portal?email=${encodeURIComponent(email)}`);
+                    } else {
+                      setVerifyRedirectToPortal(true);
+                      setShowVerifyForm(true);
+                    }
+                  }}
+                  className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  Manage my subscription
+                </button>
+              </div>
+              {showVerifyForm && (
+                <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+                  {renderVerifyForm()}
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -569,7 +656,7 @@ export function SupporterSection({
       </section>
 
       {/* Floating CTA */}
-      {!isPatron && showBottomCta && (
+      {!isPatron && showBottomCta && !og && (
         <button
           onClick={() => {
             setPreviewTrack(null);

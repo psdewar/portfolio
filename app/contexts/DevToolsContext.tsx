@@ -29,7 +29,7 @@ const STORAGE_KEY = "dev-tools-state";
 
 const DEFAULT_STATE: DevToolsState = {
   simulateSlowNetwork: true,
-  useLocalAudio: true,
+  useLocalAudio: false,
   slowNetworkDelay: 5000,
   enableIngConversion: true,
   simulatePatron: false,

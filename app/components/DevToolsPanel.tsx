@@ -207,6 +207,17 @@ export function DevToolsPanel() {
             </button>
 
             <button
+              onClick={() => {
+                const to = prompt("Send the patron welcome email to:");
+                if (!to) return;
+                fetch(`/api/test-email?type=patron-welcome&to=${encodeURIComponent(to)}`);
+              }}
+              className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Send Welcome Email
+            </button>
+
+            <button
               onClick={() => navigateTo("/download?session_id=test_123")}
               className="w-full py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-medium transition-colors"
             >

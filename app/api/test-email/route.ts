@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendOtpEmail, sendGoLiveEmail, sendRsvpConfirmation, sendDownloadEmail } from "../../../lib/sendgrid";
+import { sendOtpEmail, sendGoLiveEmail, sendRsvpConfirmation, sendDownloadEmail, sendPatronWelcomeEmail } from "../../../lib/sendgrid";
+import { patronClaimPath } from "../../lib/confirm";
 
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
@@ -47,9 +48,12 @@ export async function GET(request: NextRequest) {
         downloadUrl: "https://peytspencer.com/download?session_id=test_123",
       });
       break;
+    case "patron-welcome":
+      await sendPatronWelcomeEmail({ to, claimPath: patronClaimPath(to) });
+      break;
     default:
       return NextResponse.json({
-        error: "Missing ?type=otp|live|rsvp|rsvp-music|download",
+        error: "Missing ?type=otp|live|rsvp|rsvp-music|download|patron-welcome",
         usage: "/api/test-email?type=otp&to=you@email.com",
       }, { status: 400 });
   }

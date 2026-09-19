@@ -248,7 +248,7 @@ function ContributeOverlay({
   useEffect(() => {
     if (!complete) return;
     const t = setTimeout(() => {
-      window.location.href = "/support#find-me";
+      window.location.href = "/support?thanks=tip";
     }, 1500);
     return () => clearTimeout(t);
   }, [complete]);

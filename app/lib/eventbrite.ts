@@ -73,13 +73,11 @@ async function eb(path: string, init?: RequestInit) {
   return data;
 }
 
-const DONATION_NAME = "Help fund my tour across North America";
-
 async function ensureTickets(eventId: string, startUtc: string) {
   const existing = await eb(`/events/${eventId}/ticket_classes/`);
   const list: Array<{ id: string; free?: boolean; donation?: boolean }> = existing.ticket_classes || [];
 
-  // Sales run to the start time (Eventbrite defaults to an hour before); 50 of each class.
+  // Sales run to the start time (Eventbrite defaults to an hour before); 50 seats.
   if (!list.some((t) => t.free && !t.donation)) {
     await eb(`/events/${eventId}/ticket_classes/`, {
       method: "POST",
@@ -98,16 +96,10 @@ async function ensureTickets(eventId: string, startUtc: string) {
   }
 
   const donation = list.find((t) => t.donation);
-  const donationFields = { name: DONATION_NAME, hide_sale_dates: true, sales_end: startUtc };
   if (donation) {
     await eb(`/events/${eventId}/ticket_classes/${donation.id}/`, {
       method: "POST",
-      body: JSON.stringify({ ticket_class: donationFields }),
-    });
-  } else {
-    await eb(`/events/${eventId}/ticket_classes/`, {
-      method: "POST",
-      body: JSON.stringify({ ticket_class: { ...donationFields, donation: true, quantity_total: 50 } }),
+      body: JSON.stringify({ ticket_class: { hidden: true } }),
     });
   }
 }

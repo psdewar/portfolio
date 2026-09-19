@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import TipsAndSocials, { SocialSection } from "./TipsAndSocials";
+import TipsAndSocials from "./TipsAndSocials";
 import { SupporterSection } from "../components/SupporterSection";
 import {
   getShows,
@@ -32,9 +32,10 @@ function getTodayInTz(tz: string): string {
 export default async function SupportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ now?: string }>;
+  searchParams: Promise<{ now?: string; og?: string }>;
 }) {
   const params = await searchParams;
+  const og = params.og === "true";
   const shows = await getShows();
   const liveShows = shows
     .filter(isShowListable)
@@ -56,6 +57,7 @@ export default async function SupportPage({
       <SupporterSection
         upcomingShows={upcomingShows}
         pastShows={pastShows}
+        og={og}
         ask={
           <Suspense>
             <TipsAndSocials
@@ -65,13 +67,7 @@ export default async function SupportPage({
             />
           </Suspense>
         }
-      >
-        <section id="find-me" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 split:pb-0 split:px-0 split:max-w-none split:mx-0 scroll-mt-20">
-          <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
-            <SocialSection />
-          </div>
-        </section>
-      </SupporterSection>
+      />
     </div>
   );
 }

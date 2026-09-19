@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
-import { getBaseUrl, createBaseMetadata } from "../shared/stripe-utils";
+import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
 import { extractIpAddress } from "../shared/audio-utils";
 
 // Map project slug -> Stripe product (or price) id
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         successPath = "/live?thanks=1";
         cancelPath = "/live";
       } else {
-        successPath = "/support?thanks=1&session_id={CHECKOUT_SESSION_ID}";
+        successPath = "/listen?patron_welcome=1&session_id={CHECKOUT_SESSION_ID}";
         cancelPath = "/support?canceled=1";
       }
     } else {
@@ -89,7 +89,18 @@ export async function POST(request: NextRequest) {
     const isAnnual = interval === "year";
     const priceTable = isAnnual ? ANNUAL_SUBSCRIPTION_PRICES : MONTHLY_SUBSCRIPTION_PRICES;
     const subscriptionPriceId = isPatronSupport ? priceTable[netAmountDollars] : null;
-    const useSubscription = isPatronSupport && subscriptionPriceId;
+    const priceId = isPatronSupport
+      ? subscriptionPriceId ??
+        (
+          await stripe.prices.create({
+            unit_amount: amount,
+            currency: "usd",
+            recurring: { interval: isAnnual ? "year" : "month" },
+            product_data: { name: isAnnual ? "Annual Support" : "Monthly Support" },
+          })
+        ).id
+      : null;
+    const useSubscription = !!priceId;
 
     const checkoutRequest: Parameters<typeof createCheckout>[0] = {
       mode: useSubscription ? "subscription" : "payment",
@@ -106,8 +117,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (useSubscription) {
-      // Use pre-created recurring price from Stripe
-      checkoutRequest.priceId = subscriptionPriceId;
+      checkoutRequest.priceId = priceId;
     } else {
       // Fall back to one-time payment with inline pricing
       checkoutRequest.lineItems = [

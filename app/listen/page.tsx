@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   WaveformIcon,
   LockSimpleIcon,
+  LockSimpleOpenIcon,
   DownloadSimpleIcon,
 } from "@phosphor-icons/react";
 import singles from "../../data/singles.json";
@@ -14,6 +15,7 @@ import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG, PATRON_EXCLUSIVE_TRACKS } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
+import { claimPatronSession, claimPatronLink, onPatronStatusChange } from "../lib/patron";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import SupportModal from "app/components/SupportModal";
 import { useToast } from "../contexts/ToastContext";
@@ -95,11 +97,16 @@ export default function Page() {
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
   const [patronWelcome, setPatronWelcome] = useState(false);
+  const [welcomeFromCheckout, setWelcomeFromCheckout] = useState(false);
   const [patronEmail, setPatronEmail] = useState<string | null>(null);
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const toast = useToast();
 
   useEffect(() => {
-    setPatronEmail(localStorage.getItem("patronEmail"));
+    const read = () => setPatronEmail(localStorage.getItem("patronEmail"));
+    read();
+    return onPatronStatusChange(read);
   }, []);
 
   useEffect(() => {
@@ -107,9 +114,22 @@ export default function Page() {
     const success = params.get("success");
 
     if (params.get("patron_welcome") === "1") {
-      setPatronWelcome(true);
+      const email = params.get("email");
+      const sig = params.get("sig");
+      const sessionId = params.get("session_id");
+      const isEmailLink = !!(email && sig);
       window.history.replaceState({}, "", "/listen");
-      setTimeout(() => setPatronWelcome(false), 4000);
+
+      const claimWelcome = async () => {
+        const activated = isEmailLink
+          ? await claimPatronLink(email, sig)
+          : await claimPatronSession(sessionId);
+        if (activated) {
+          setWelcomeFromCheckout(!isEmailLink);
+          setPatronWelcome(true);
+        }
+      };
+      claimWelcome();
       return;
     }
 
@@ -182,7 +202,18 @@ export default function Page() {
         <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-bebas text-2xl text-white">Your Exclusive Content</h2>
+              <div>
+                <h2 className="font-bebas text-2xl text-white">
+                  {patronWelcome ? "You're in. Thank you." : "Your Exclusive Content"}
+                </h2>
+                {patronWelcome && (
+                  <p className="text-neutral-400 text-sm mt-1">
+                    {welcomeFromCheckout
+                      ? "Tap a lock to unlock your song. A welcome email is on its way."
+                      : "Tap a lock to unlock your song."}
+                  </p>
+                )}
+              </div>
               {patronEmail ? (
                 <a
                   href={`/api/stripe-portal?email=${encodeURIComponent(patronEmail)}`}
@@ -226,6 +257,8 @@ export default function Page() {
         {visibleTracks.map((t) => {
           const isCurrent = currentTrack?.id === t.id;
           const isLoadingThis = loadingTrack?.id === t.id;
+          const isLockedWelcome = patronWelcome && WELCOME_PACK_IDS.has(t.id) && !unlockedIds.has(t.id);
+          const isUnlocking = unlockingId === t.id;
 
           return (
             <button
@@ -233,6 +266,16 @@ export default function Page() {
               type="button"
               onClick={() => {
                 setSuppressHoverId(t.id);
+                if (isLockedWelcome) {
+                  if (unlockingId) return;
+                  setUnlockingId(t.id);
+                  setTimeout(() => {
+                    setUnlockedIds((prev) => new Set(prev).add(t.id));
+                    setUnlockingId(null);
+                    router.push(`/listen?play=${t.id}`);
+                  }, 1500);
+                  return;
+                }
                 if (!isPatron && WELCOME_PACK_IDS.has(t.id)) {
                   setPreviewTrack({ title: t.title, src: `/audio/${t.id}-preview.mp3` });
                   setShowSupportModal(true);
@@ -247,7 +290,7 @@ export default function Page() {
               className={`relative aspect-square overflow-hidden cursor-pointer text-left transition-transform duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset${
                 suppressHoverId === t.id ? "" : " hover:scale-[1.05] hover:z-[70]"
               }${
-                patronWelcome && WELCOME_PACK_IDS.has(t.id) ? " animate-patron-glow" : ""
+                isUnlocking ? " animate-patron-glow" : ""
               }`}
             >
               {brokenImages.has(t.id) ? (
@@ -260,7 +303,7 @@ export default function Page() {
                   src={t.src}
                   fill
                   className="object-cover absolute inset-0"
-                  loading="lazy"
+                  loading={patronWelcome && WELCOME_PACK_IDS.has(t.id) ? "eager" : "lazy"}
                   sizes="(max-width: 768px) 50vw, 25vw"
                   onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
                 />
@@ -273,7 +316,7 @@ export default function Page() {
               )}
 
               {ARTWORK_PENDING.has(t.id) && (
-                <div className="absolute bottom-2 left-2 z-10">
+                <div className="absolute bottom-2 left-2 z-40">
                   <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
                     Early Listen
                   </span>
@@ -286,15 +329,28 @@ export default function Page() {
                 </div>
               )}
 
-              {patronWelcome && WELCOME_PACK_IDS.has(t.id) && (
-                <div className="absolute inset-0 z-30 animate-patron-unlock flex flex-col items-center justify-center gap-3">
-                  <LockSimpleIcon
-                    size={64}
-                    weight="bold"
-                    className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
-                  />
+              {isLockedWelcome && (
+                <div
+                  className={`absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/60 backdrop-blur-md backdrop-grayscale${
+                    isUnlocking ? " animate-patron-unlock" : ""
+                  }`}
+                >
+                  {isUnlocking ? (
+                    <LockSimpleOpenIcon
+                      size={64}
+                      weight="bold"
+                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                    />
+                  ) : (
+                    <LockSimpleIcon
+                      size={64}
+                      weight="bold"
+                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                    />
+                  )}
+                  <span className="text-sm font-medium text-white/90">{t.title}</span>
                   <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
-                    Unlocking
+                    {isUnlocking ? "Unlocking" : "Tap to unlock"}
                   </span>
                 </div>
               )}

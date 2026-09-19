@@ -10,8 +10,10 @@ import {
   isTestMode,
 } from "../../shared/products";
 import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "../../../../lib/supabase-admin";
-import { sendDownloadEmail } from "../../../../lib/sendgrid";
+import { sendDownloadEmail, sendPatronWelcomeEmail } from "../../../../lib/sendgrid";
+import { patronClaimPath } from "../../../lib/confirm";
 import PostHogClient from "../../../../lib/posthog";
+import { isPatronSession } from "../../shared/patron-lookup";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -127,6 +129,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Ignore keepalive pings
   if (isKeepalive(productId) || isKeepalive(session.id)) {
     return;
+  }
+
+  const patronEmail = session.customer_details?.email || session.customer_email;
+  if (isPatronSession(session) && patronEmail) {
+    await sendPatronWelcomeEmail({ to: patronEmail, claimPath: patronClaimPath(patronEmail) });
   }
 
   if (metadata.type === "project_funding" || productType === "funding") {

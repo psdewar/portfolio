@@ -25,7 +25,7 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
     if (!complete) return;
     const t = setTimeout(() => {
       onCloseRef.current();
-      window.location.href = "/support#find-me";
+      window.location.href = "/support?thanks=tip";
     }, 1500);
     return () => clearTimeout(t);
   }, [complete]);

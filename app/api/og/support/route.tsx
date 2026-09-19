@@ -6,7 +6,7 @@ export const maxDuration = 30;
 export async function GET() {
   try {
     const screenshot = await takeScreenshot({
-      path: "/support",
+      path: "/support?og=true",
       viewport: { width: 480, height: 780 },
       deviceScaleFactor: 3,
       waitForTimeout: 1500,

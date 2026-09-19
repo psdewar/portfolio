@@ -2,28 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
-import {
-  XIcon,
-  CheckIcon,
-  PencilIcon,
-  WavesIcon,
-  LightbulbIcon,
-  FireIcon,
-} from "@phosphor-icons/react";
+import { XIcon, CheckIcon } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
 import StayConnected from "./StayConnected";
 import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
+import { PATRON_TIERS } from "../data/patron-tiers";
 
-const TIER_ICONS = [PencilIcon, WavesIcon, LightbulbIcon, FireIcon];
-const TIER_COLORS = ["#f97316", "#f56542", "#f0566d", "#ec4899"];
+const TIER_ICONS = PATRON_TIERS.map((tier) => tier.icon);
+const TIER_COLORS = PATRON_TIERS.map((tier) => tier.color);
 
-const TIER_NAMES = ["Pen", "Flow", "Mind", "Soul"];
 const MAX_CUSTOM_AMOUNT = 100000;
 
 const grossUpCents = (net: number) => Math.round(Math.ceil(((net + 0.3) / 0.971) * 100));
-const SUPPORT_AMOUNTS = [5, 10, 25, 50].map((net, i) => {
-  const charge = Math.ceil(((net + 0.3) / 0.971) * 100) / 100;
-  return { net, charge, chargeCents: Math.round(charge * 100), name: TIER_NAMES[i] };
+const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => {
+  const charge = Math.ceil(((tier.net + 0.3) / 0.971) * 100) / 100;
+  return { net: tier.net, charge, chargeCents: Math.round(charge * 100), name: tier.name };
 });
 
 function useModalStage(open: boolean) {
@@ -385,7 +378,7 @@ export default function SupportModal({
                     style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
                   />
                   <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
-                    {preview.title}
+                    Previewing &quot;{preview.title}&quot;
                   </span>
                 </button>
               </div>

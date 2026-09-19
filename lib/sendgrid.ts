@@ -412,3 +412,34 @@ export async function sendDownloadEmail(params: {
     "Download",
   );
 }
+
+export async function sendPatronWelcomeEmail(params: {
+  to: string;
+  claimPath: string;
+}): Promise<boolean> {
+  const { to, claimPath } = params;
+  const claimUrl = `${SITE_URL}${claimPath}`;
+  const portalUrl = `${SITE_URL}/api/stripe-portal?email=${encodeURIComponent(to)}`;
+
+  return trySend(
+    {
+      to,
+      from: FROM,
+      subject: "You're in. Thank you.",
+      text: `You're in. Thank you.\n\nYour unreleased songs are unlocked. Hear them here:\n${claimUrl}\n\nThis link signs you in on any device.\n\nManage your subscription: ${portalUrl}\n\nPeyt`,
+      html: emailWrapper(`
+      ${goldHeading("You're in. Thank you.", "Your unreleased songs are unlocked.")}
+
+      <div style="margin-bottom:10px;">${ctaButton("Hear your unlocked songs", claimUrl)}</div>
+      <div style="text-align:center;color:#9a9a95;font-size:12px;margin-bottom:28px;">This link signs you in on any device.</div>
+
+      <div style="border-top:1px solid #ebebeb;padding-top:20px;">
+        <a href="${portalUrl}" style="color:#d4a553;text-decoration:none;font-size:14px;font-weight:500;">Manage your subscription</a>
+      </div>
+
+      ${signOff()}
+    `),
+    },
+    "PatronWelcome",
+  );
+}

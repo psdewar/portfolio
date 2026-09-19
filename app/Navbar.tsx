@@ -4,10 +4,15 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ArrowIcon } from "./ArrowIcon";
 import { Social } from "./components/Social";
+import { usePatronStatus, usePatronTier } from "./hooks/usePatronStatus";
+import { PATRON_TIERS } from "./data/patron-tiers";
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const isPatron = usePatronStatus();
+  const tier = usePatronTier();
+  const tierDef = PATRON_TIERS.find((t) => t.name === tier);
   const pathname = usePathname() ?? "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
@@ -53,12 +58,36 @@ export function Navbar() {
         <div className="relative flex items-center justify-between h-16">
           {/* Left: Logo + CTA */}
           <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="font-bebas text-2xl sm:text-3xl transition-colors tracking-tight leading-none text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 flex items-center -mb-1"
-            >
-              Peyt Spencer
-            </Link>
+            <div className="flex items-center min-w-0">
+              <Link
+                href="/"
+                className="font-bebas text-2xl sm:text-3xl transition-colors tracking-tight leading-none text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 flex items-center -mb-1"
+              >
+                Peyt Spencer
+              </Link>
+              {isPatron && tierDef && (
+                <Link
+                  href="/listen"
+                  className="shrink-0 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide rounded-full px-2 py-0.5 border"
+                  style={{
+                    color: tierDef.color,
+                    backgroundColor: `${tierDef.color}26`,
+                    borderColor: `${tierDef.color}66`,
+                  }}
+                >
+                  <tierDef.icon size={12} weight="bold" />
+                  {tierDef.name}
+                </Link>
+              )}
+              {isPatron && !tierDef && (
+                <Link
+                  href="/listen"
+                  className="shrink-0 ml-2 text-[10px] font-semibold tracking-wide rounded-full px-2 py-0.5 text-[#d4a553] bg-[#d4a553]/15 border border-[#d4a553]/40"
+                >
+                  Supporter
+                </Link>
+              )}
+            </div>
             {isMusicPage && (
               <Link
                 href="https://soundbetter.com/profiles/630479-peyt-spencer"
@@ -205,6 +234,9 @@ export function Navbar() {
               </Link>
             );
           })}
+          <div className="px-3 pt-4">
+            <Social isHorizontal />
+          </div>
         </div>
       </div>
     </header>

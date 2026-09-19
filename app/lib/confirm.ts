@@ -19,3 +19,8 @@ export function verifySlug(slug: string, sig: string | undefined): boolean {
 export function confirmPath(slug: string): string {
   return `/host/${slug}?sig=${signSlug(slug)}`;
 }
+
+export function patronClaimPath(email: string): string {
+  const normalized = email.trim().toLowerCase();
+  return `/listen?patron_welcome=1&email=${encodeURIComponent(normalized)}&sig=${signSlug(normalized)}`;
+}

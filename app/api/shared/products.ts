@@ -277,7 +277,7 @@ export const PRODUCTS: Record<string, Product> = {
       "https://peytspencer.com/images/merch/patience-forest.jpeg",
       "https://peytspencer.com/images/merch/patience-maroon.jpeg",
     ],
-    successPath: "/support#find-me",
+    successPath: "/support?thanks=order",
     cancelPath: "/shop?canceled=true",
     requiresShipping: true,
     shipping: {

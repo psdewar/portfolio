@@ -72,6 +72,7 @@ const nextConfig = {
       { source: "/join", destination: "/support", permanent: true },
       { source: "/subscribe", destination: "/support", permanent: true },
       { source: "/membership", destination: "/support", permanent: true },
+      { source: "/patreon", destination: "/support", permanent: false },
       { source: "/shows", destination: "/live", permanent: true },
       { source: "/events", destination: "/live", permanent: true },
       { source: "/concert", destination: "/live", permanent: true },
