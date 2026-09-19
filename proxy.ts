@@ -33,7 +33,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/catalog");
   const isApi = pathname.startsWith("/api/");
   const ownerOnly =
-    request.method === "DELETE" && OWNER_DELETE_PATHS.some((p) => pathname.startsWith(p));
+    request.method !== "GET" &&
+    (pathname.startsWith("/api/legs") ||
+      (request.method === "DELETE" && OWNER_DELETE_PATHS.some((p) => pathname.startsWith(p))));
   if (needsAdmin || ownerOnly) {
     const role = await roleForToken(request.cookies.get("admin-auth")?.value);
     if (!role && isApi) {
