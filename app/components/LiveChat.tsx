@@ -106,7 +106,7 @@ export default function LiveChat({
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    if (!WS_URL || !accessToken) return;
+    if (!WS_URL || !accessToken || !isLive) return;
 
     const ws = new WebSocket(`${WS_URL}/ws?accessToken=${accessToken}`);
 
@@ -179,12 +179,13 @@ export default function LiveChat({
     wsRef.current = ws;
 
     return () => {
+      ws.onclose = null;
       ws.close();
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [accessToken]);
+  }, [accessToken, isLive]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("owncastAccessToken");
@@ -197,11 +198,11 @@ export default function LiveChat({
   }, [commenterName, registerViewer, loadHistory]);
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && isLive) {
       const cleanup = connectWebSocket();
       return cleanup;
     }
-  }, [accessToken, connectWebSocket]);
+  }, [accessToken, isLive, connectWebSocket]);
 
   const sendMessage = () => {
     if (!inputValue.trim()) return;

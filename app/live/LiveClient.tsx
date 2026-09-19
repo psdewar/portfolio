@@ -9,46 +9,46 @@ import Hls from "hls.js";
 import StayConnected from "../components/StayConnected";
 import { Toast } from "../components/Toast";
 import LiveChat from "../components/LiveChat";
-import { useLiveStatus } from "../hooks/useLiveStatus";
-import { formatNextStream } from "../lib/dates";
-import { EyeIcon, BellIcon, SpeakerSlashIcon, PlayIcon, MapPinIcon } from "@phosphor-icons/react";
+import { useLiveStatus, type LiveStatus } from "../hooks/useLiveStatus";
+import { formatNextStream, formatTimeAgo } from "../lib/dates";
+import {
+  EyeIcon,
+  BellIcon,
+  SpeakerSlashIcon,
+  PlayIcon,
+  MapPinIcon,
+  CornersOutIcon,
+  ShareNetworkIcon,
+} from "@phosphor-icons/react";
 import { formatEventDate, type TimelineEvent } from "../data/timeline";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 
 const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
 
-interface StreamStatus {
-  online: boolean;
-  viewerCount: number;
-  title?: string;
-  lastConnectTime?: string;
-}
-
-export default function LiveClient({ recentShows }: { recentShows: TimelineEvent[] }) {
+export default function LiveClient({
+  recentShows,
+  initialStatus,
+  nextStream,
+}: {
+  recentShows: TimelineEvent[];
+  initialStatus: LiveStatus;
+  nextStream: string | null;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
   const isPatron = usePatronStatus();
   const isOgMode = searchParams.get("og") === "true";
-  const desktopVideoRef = useRef<HTMLVideoElement>(null);
-  const mobileVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const viewStartTime = useRef<number>(Date.now());
-  const [isDesktop, setIsDesktop] = useState(isOgMode); // OG mode forces desktop
-  const [videoPlaying, setVideoPlaying] = useState(false);
-  const [nextStreamDate, setNextStreamDate] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(isOgMode ? true : null);
 
   // Use SSE-based live status (no polling!)
-  // Disable when video is playing - the stream itself is proof we're live
-  const liveStatus = useLiveStatus({ enabled: !videoPlaying });
-  const status: StreamStatus = {
-    online: liveStatus.online || videoPlaying, // If video is playing, we're online
-    viewerCount: liveStatus.viewerCount,
-    title: liveStatus.title,
-    lastConnectTime: liveStatus.lastConnectTime,
-  };
-  const isLoading = isOgMode ? false : liveStatus.isLoading;
-  const [showThanks, setShowThanks] = useState(false);
+  const liveStatus = useLiveStatus({ initial: initialStatus });
+  const status: LiveStatus = liveStatus;
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
   const [showNotifyPanel, setShowNotifyPanel] = useState(false);
   const [commenterName, setCommenterName] = useState<string | null>(null);
@@ -58,13 +58,15 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
   const [needsPlayButton, setNeedsPlayButton] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const thanksHandled = useRef(false);
-  const hlsConnected = useRef(false);
 
   useEffect(() => {
     if (!isOgMode) return;
     document.documentElement.classList.add("og-mode");
     return () => document.documentElement.classList.remove("og-mode");
   }, [isOgMode]);
+
+  const onlineRef = useRef(status.online);
+  onlineRef.current = status.online;
 
   useEffect(() => {
     const isReturnVisitor = localStorage.getItem("livePageVisited") === "true";
@@ -76,10 +78,10 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
       posthog?.capture("stream_viewed", {
         duration_seconds: durationSeconds,
         is_return_visitor: isReturnVisitor,
-        stream_online: status.online,
+        stream_online: onlineRef.current,
       });
     };
-  }, [posthog, status.online]);
+  }, [posthog]);
 
   useEffect(() => {
     const storedName = localStorage.getItem("liveCommenterName");
@@ -105,9 +107,14 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
     }
   };
 
+  const showToast = (message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(message);
+    toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => {
     if (searchParams.get("thanks") !== "1" || thanksHandled.current) return;
-    if (isLoading) return;
     thanksHandled.current = true;
     activatePatronStatus();
     posthog?.capture("patron_checkout_completed", { source: "live" });
@@ -117,22 +124,9 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
       return;
     }
 
-    setShowThanks(true);
+    showToast("Thank you for supporting.");
     window.history.replaceState({}, "", "/live");
-    const exitTimer = setTimeout(() => setShowThanks(false), 5000);
-    return () => clearTimeout(exitTimer);
-  }, [searchParams, posthog, status.online, isLoading, router]);
-
-  useEffect(() => {
-    fetch("/api/livestream")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.nextStream) {
-          setNextStreamDate(data.nextStream);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  }, [searchParams, posthog, status.online, router]);
 
   useEffect(() => {
     if (!status.online || !status.lastConnectTime) {
@@ -178,16 +172,9 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
   }, [isOgMode]);
 
   useEffect(() => {
-    if (!status.online) {
-      hlsConnected.current = false;
-      return;
-    }
-    if (hlsConnected.current) return;
-
-    const video = desktopVideoRef.current || mobileVideoRef.current;
+    if (!status.online || isDesktop === null) return;
+    const video = videoRef.current;
     if (!video) return;
-
-    hlsConnected.current = true;
     const src = `${OWNCAST_URL}/hls/stream.m3u8`;
 
     const tryAutoplay = (hls?: Hls) => {
@@ -197,7 +184,6 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
         .play()
         .then(() => {
           setNeedsPlayButton(false);
-          setVideoPlaying(true);
           if (hls?.liveSyncPosition) {
             video.currentTime = hls.liveSyncPosition;
           }
@@ -207,38 +193,83 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
         });
     };
 
+    let disposed = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+
     if (Hls.isSupported()) {
       const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
       hls.loadSource(src);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => tryAutoplay(hls));
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (!data.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          retry = setTimeout(() => {
+            if (!disposed) hls.startLoad();
+          }, 3000);
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        } else {
+          hls.destroy();
+          setNeedsPlayButton(true);
+        }
+      });
       hlsRef.current = hls;
       return () => {
+        disposed = true;
+        if (retry) clearTimeout(retry);
         hls.destroy();
         hlsRef.current = null;
-        hlsConnected.current = false;
-      };
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      video.addEventListener("loadedmetadata", () => tryAutoplay(), {
-        once: true,
-      });
-      return () => {
-        video.src = "";
-        hlsConnected.current = false;
       };
     }
-  }, [status.online]);
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      video.addEventListener("loadedmetadata", () => tryAutoplay(), { once: true });
+      return () => {
+        video.removeAttribute("src");
+        video.load();
+      };
+    }
+  }, [status.online, isDesktop]);
 
   useEffect(() => {
-    if (!hlsRef.current) return;
-    const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
-    if (!video) return;
-    hlsRef.current.attachMedia(video);
-  }, [isDesktop]);
+    if (!("mediaSession" in navigator)) return;
+    if (!status.online) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: status.title || "Live",
+      artist: "Peyt Spencer",
+      artwork: [{ src: "https://peytspencer.com/images/home/new-era-6.jpg", type: "image/jpeg" }],
+    });
+    navigator.mediaSession.setActionHandler("play", () => videoRef.current?.play());
+    navigator.mediaSession.setActionHandler("pause", () => videoRef.current?.pause());
+    return () => {
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+    };
+  }, [status.online, status.title]);
+
+  useEffect(() => {
+    if (!status.online || needsPlayButton || !("wakeLock" in navigator)) return;
+    let sentinel: WakeLockSentinel | null = null;
+    const request = () => {
+      navigator.wakeLock.request("screen").then((s) => { sentinel = s; }).catch(() => {});
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") request();
+    };
+    request();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      sentinel?.release().catch(() => {});
+    };
+  }, [status.online, needsPlayButton]);
 
   const handleManualPlay = () => {
-    const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
+    const video = videoRef.current;
     if (!video) return;
     video.muted = false;
     setIsMuted(false);
@@ -246,7 +277,6 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
       .play()
       .then(() => {
         setNeedsPlayButton(false);
-        setVideoPlaying(true);
         if (hlsRef.current?.liveSyncPosition) {
           video.currentTime = hlsRef.current.liveSyncPosition;
         } else if (video.duration) {
@@ -257,16 +287,42 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
   };
 
   const handleUnmute = () => {
-    const video = isDesktop ? desktopVideoRef.current : mobileVideoRef.current;
+    const video = videoRef.current;
     if (!video) return;
     video.muted = false;
     setIsMuted(false);
   };
 
+  const handleShare = () => {
+    const url = "https://peytspencer.com/live";
+    posthog?.capture("live_shared", { stream_online: status.online });
+    if (navigator.share) {
+      navigator.share({ title: "Peyt Spencer Live", url }).catch(() => {});
+      return;
+    }
+    navigator.clipboard.writeText(url).then(() => showToast("Link copied"));
+  };
+
+  const handleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      return;
+    }
+    const stage = video.parentElement;
+    if (stage?.requestFullscreen) {
+      stage.requestFullscreen();
+      return;
+    }
+    const nativeVideo = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+    nativeVideo.webkitEnterFullscreen?.();
+  };
+
   const renderVideoOverlay = (isMobile: boolean) => (
     <>
       {/* Top bar */}
-      <div className={`absolute top-0 inset-x-0 z-10 ${isMobile ? "p-3" : "p-4"}`}>
+      <div className={`absolute top-0 inset-x-0 z-30 ${isMobile ? "p-3" : "p-4"}`}>
         <div className="flex items-start justify-between">
           {/* Elapsed time - top left */}
           {elapsedTime && (
@@ -285,16 +341,42 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
                 <EyeIcon size={16} weight="fill" />
                 {status.viewerCount}
               </div>
+              {!isMobile && (
+                <>
+                  <button
+                    onClick={handleShare}
+                    aria-label="Share"
+                    className="bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60"
+                  >
+                    <ShareNetworkIcon size={16} weight="fill" />
+                  </button>
+                  <button
+                    onClick={handleFullscreen}
+                    aria-label="Fullscreen"
+                    className="bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60"
+                  >
+                    <CornersOutIcon size={16} weight="bold" />
+                  </button>
+                </>
+              )}
             </div>
             {/* Action icons - mobile only */}
-            {isMobile && !isPatron && (
+            {isMobile && (
               <div className="flex flex-col gap-4">
-                <button onClick={() => setShowNotifyPanel(!showNotifyPanel)}>
-                  <BellIcon
-                    size={32}
-                    weight="duotone"
-                    className={`drop-shadow-lg ${showNotifyPanel ? "text-blue-400" : "text-white"}`}
-                  />
+                {!isPatron && (
+                  <button onClick={() => setShowNotifyPanel(!showNotifyPanel)}>
+                    <BellIcon
+                      size={32}
+                      weight="duotone"
+                      className={`drop-shadow-lg ${showNotifyPanel ? "text-blue-400" : "text-white"}`}
+                    />
+                  </button>
+                )}
+                <button onClick={handleShare} aria-label="Share">
+                  <ShareNetworkIcon size={32} weight="duotone" className="text-white drop-shadow-lg" />
+                </button>
+                <button onClick={handleFullscreen} aria-label="Fullscreen">
+                  <CornersOutIcon size={32} weight="duotone" className="text-white drop-shadow-lg" />
                 </button>
               </div>
             )}
@@ -394,13 +476,13 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
       <div
         className={`absolute inset-x-0 flex flex-col items-center ${isMobile ? "top-14 z-[5] px-4" : "top-16 z-10"}`}
       >
-        {nextStreamDate && (
+        {nextStream && (
           <>
             <p className="text-white/60 text-sm uppercase tracking-widest">Next Live</p>
             <h1
               className={`font-[family-name:var(--font-bebas)] tracking-wide text-white text-center mt-1 leading-none ${isMobile ? "text-3xl" : "text-4xl"}`}
             >
-              {formatNextStream(nextStreamDate)}
+              {formatNextStream(nextStream)}
             </h1>
           </>
         )}
@@ -413,6 +495,14 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
             Notify me by email
           </button>
         )}
+        {status.lastDisconnectTime && (
+          <p
+            suppressHydrationWarning
+            className="mt-3 text-white/50 text-xs uppercase tracking-widest"
+          >
+            Last live {formatTimeAgo(status.lastDisconnectTime)}
+          </p>
+        )}
       </div>
     </>
   );
@@ -423,7 +513,7 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
       style={{ bottom: isOgMode ? "0" : "var(--player-h, 0px)" }}
       data-og-container
     >
-      {showThanks && <Toast message="Thank you for supporting." />}
+      {toast && <Toast message={toast} />}
 
       {/* Notify Panel Modal */}
       {showNotifyPanel && (
@@ -443,156 +533,149 @@ export default function LiveClient({ recentShows }: { recentShows: TimelineEvent
 
       {/* Desktop Layout */}
       <div className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute inset-0 items-center justify-center z-[2]">
-        {isLoading ? (
-          <div className="flex h-full">
-            <div className="relative h-full aspect-[9/16] bg-neutral-900 flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            </div>
-            <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900" />
-          </div>
-        ) : (
-          <div className="flex h-full">
-            {/* Vertical Video Container */}
-            <div
-              className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : ""}`}
-              data-og-video
-            >
-              {status.online ? (
-                <>
-                  <video
-                    ref={desktopVideoRef}
-                    className="absolute inset-0 w-full h-full object-contain bg-neutral-900"
-                    playsInline
-                  />
-                  <div className="absolute inset-0 z-[5]" />
-                  {renderVideoOverlay(false)}
-                </>
-              ) : (
-                renderOfflineState(false)
-              )}
-            </div>
-
-            {/* Sidebar - hidden in OG mode */}
-            {!isOgMode && (
-              <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 flex flex-col overflow-hidden">
-                {/* Shows list - show when offline */}
-                {!status.online && (
-                  <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 overflow-y-auto max-h-64">
-                    <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
-                      Recent Shows
-                    </p>
-                    <div className="space-y-2">
-                      {recentShows.map((show) => {
-                        const date = formatEventDate(show.date);
-                        return (
-                          <div key={show.id} className="flex items-start gap-3">
-                            <div className="text-center shrink-0 w-10">
-                              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                {date.month}
-                              </p>
-                              <p className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                                {date.day}
-                              </p>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                                {show.title}
-                              </p>
-                              {show.location && (
-                                <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
-                                  <MapPinIcon size={12} weight="fill" />
-                                  {show.location}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Chat - always visible, gated when offline */}
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  {isLocalhost && !commenterName && renderLocalhostNameInput()}
-                  <LiveChat
-                    commenterName={status.online ? commenterName : null}
-                    onRequestSignIn={() => setShowNotifyPanel(true)}
-                    isFloating={false}
-                    isLive={status.online}
-                  />
-                </div>
-              </div>
+        <div className="flex h-full">
+          {/* Vertical Video Container */}
+          <div
+            className={`relative h-full aspect-[9/16] overflow-hidden bg-black ${isOgMode ? "rounded-2xl" : ""}`}
+            data-og-video
+          >
+            {status.online && isDesktop === true ? (
+              <>
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-contain bg-neutral-900"
+                  playsInline
+                />
+                <div className="absolute inset-0 z-[5]" />
+                {renderVideoOverlay(false)}
+              </>
+            ) : !status.online ? (
+              renderOfflineState(false)
+            ) : (
+              <div className="absolute inset-0 bg-neutral-900" />
             )}
           </div>
-        )}
+
+          {/* Sidebar - hidden in OG mode */}
+          {!isOgMode && (
+            <div className="flex-1 min-w-0 max-w-[calc((100vh-2rem)*27/80)] h-full bg-neutral-100 dark:bg-neutral-900 flex flex-col overflow-hidden">
+              {/* Shows list - show when offline */}
+              {!status.online && (
+                <div className="p-4 lg:p-5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 overflow-y-auto max-h-64">
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
+                    Recent Shows
+                  </p>
+                  <div className="space-y-2">
+                    {recentShows.map((show) => {
+                      const date = formatEventDate(show.date);
+                      return (
+                        <div key={show.id} className="flex items-start gap-3">
+                          <div className="text-center shrink-0 w-10">
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                              {date.month}
+                            </p>
+                            <p className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
+                              {date.day}
+                            </p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                              {show.title}
+                            </p>
+                            {show.location && (
+                              <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
+                                <MapPinIcon size={12} weight="fill" />
+                                {show.location}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat - always visible, gated when offline */}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {isDesktop === true && (
+                  <>
+                    {isLocalhost && !commenterName && renderLocalhostNameInput()}
+                    <LiveChat
+                      commenterName={status.online ? commenterName : null}
+                      onRequestSignIn={() => setShowNotifyPanel(true)}
+                      isFloating={false}
+                      isLive={status.online}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Mobile Layout */}
       <div className="[@media(min-width:768px)_and_(min-height:500px)]:hidden absolute inset-0 bg-black z-[2]">
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="relative h-full w-full flex">
-            {/* Video */}
-            <div className="relative h-full w-full z-[3] bg-black flex items-center justify-center">
-              {status.online ? (
-                <>
-                  <video
-                    ref={mobileVideoRef}
-                    className="absolute inset-0 w-full h-full object-cover bg-neutral-900"
-                    playsInline
-                  />
-                  <div className="absolute inset-x-0 top-0 h-1/2 z-[5]" />
-                  {renderVideoOverlay(true)}
-                </>
-              ) : (
-                renderOfflineState(true)
-              )}
-              {/* Localhost mock name input - floating */}
-              {isLocalhost && !commenterName && status.online && (
-                <div className="absolute top-16 left-3 right-3 z-30">
-                  <div className="bg-yellow-500/20 backdrop-blur rounded-xl p-3">
-                    <p className="text-yellow-500 text-xs mb-2">Localhost: Enter a name to test</p>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSetMockName();
-                      }}
-                      className="flex gap-2"
-                    >
-                      <input
-                        type="text"
-                        value={mockNameInput}
-                        onChange={(e) => setMockNameInput(e.target.value)}
-                        placeholder="Your name"
-                        className="flex-1 bg-black/50 text-white text-sm px-3 py-1.5 rounded-lg focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!mockNameInput.trim()}
-                        className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black text-sm px-3 py-1.5 rounded-lg font-medium"
-                      >
-                        Set
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              )}
-              {/* Chat - hidden in OG mode */}
-              {!isOgMode && (
-                <LiveChat
-                  commenterName={status.online ? commenterName : null}
-                  onRequestSignIn={() => setShowNotifyPanel(true)}
-                  isFloating={true}
-                  isLive={status.online}
+        <div className="relative h-full w-full flex">
+          {/* Video */}
+          <div className="relative h-full w-full z-[3] bg-black flex items-center justify-center">
+            {status.online && isDesktop === false ? (
+              <>
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover bg-neutral-900"
+                  playsInline
                 />
-              )}
-            </div>
+                <div className="absolute inset-x-0 top-0 h-1/2 z-[5]" />
+                {renderVideoOverlay(true)}
+              </>
+            ) : !status.online ? (
+              renderOfflineState(true)
+            ) : (
+              <div className="absolute inset-0 bg-neutral-900" />
+            )}
+            {/* Localhost mock name input - floating */}
+            {isDesktop === false && isLocalhost && !commenterName && status.online && (
+              <div className="absolute top-16 left-3 right-3 z-30">
+                <div className="bg-yellow-500/20 backdrop-blur rounded-xl p-3">
+                  <p className="text-yellow-500 text-xs mb-2">Localhost: Enter a name to test</p>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSetMockName();
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      value={mockNameInput}
+                      onChange={(e) => setMockNameInput(e.target.value)}
+                      placeholder="Your name"
+                      className="flex-1 bg-black/50 text-white text-sm px-3 py-1.5 rounded-lg focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!mockNameInput.trim()}
+                      className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black text-sm px-3 py-1.5 rounded-lg font-medium"
+                    >
+                      Set
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+            {/* Chat - hidden in OG mode */}
+            {isDesktop === false && !isOgMode && (
+              <LiveChat
+                commenterName={status.online ? commenterName : null}
+                onRequestSignIn={() => setShowNotifyPanel(true)}
+                isFloating={true}
+                isLive={status.online}
+              />
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
