@@ -37,6 +37,14 @@ export const TIMELINE: TimelineEvent[] = [
     type: "show",
   },
   {
+    id: 2026081400,
+    date: "2026-08-14",
+    title: "Resigned from Microsoft",
+    description: "Two weeks before ten-year anniversary",
+    type: "update",
+    media: "/microsoft.svg",
+  },
+  {
     id: 2026032800,
     date: "2026-03-28",
     title: "Sister's Wedding Reception",

@@ -26,8 +26,13 @@ function TipsSection({
     <div className="flex-1 min-w-0">
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Fund My Tour</h2>
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
-        {concertCount} concerts since March &middot; hundreds of participants
-        {nextStop && <> &middot; next stop: {nextStop}</>}
+        {concertCount} concerts since Mar '26 &middot; hundreds of participants
+        {nextStop && (
+          <>
+            <br />
+            Next stop: {nextStop}
+          </>
+        )}
       </p>
       {!isOg && (
         <PaymentOptions

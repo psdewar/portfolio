@@ -6,6 +6,8 @@ import { XIcon, CheckIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
 import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
 import { PATRON_TIERS } from "../data/patron-tiers";
+import { PATRON_CONFIG } from "../data/patron-config";
+import { TRACK_DATA } from "../data/tracks";
 import { grossUpCents, feeCents as netFeeCents, formatFee } from "../lib/fees";
 import CheckoutEmbed from "./CheckoutEmbed";
 
@@ -20,6 +22,10 @@ const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
 const feeCents = (monthlyNetDollars: number, annual: boolean) =>
   netFeeCents(periodNetCents(monthlyNetDollars, annual));
 const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => ({ net: tier.net, name: tier.name }));
+const PREVIEW_TRACKS = PATRON_CONFIG.earlyAccess.trackIds
+  .map((id) => TRACK_DATA.find((t) => t.id === id))
+  .filter((t): t is NonNullable<typeof t> => !!t)
+  .map((t) => ({ title: t.title, src: `/audio/${t.id}-preview.mp3` }));
 
 function useModalStage(open: boolean) {
   const [mounted, setMounted] = useState(open);
@@ -62,7 +68,7 @@ function useModalStage(open: boolean) {
 interface SupportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  preview?: { title: string; src: string } | null;
+  preview?: { title: string; src: string; autoplay?: boolean } | null;
   source: string;
   absoluteOverlay?: boolean;
 }
@@ -100,6 +106,17 @@ export default function SupportModal({
   const [progress, setProgress] = useState(0);
   const [previewStarted, setPreviewStarted] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [pickedSrc, setPickedSrc] = useState<string | null>(null);
+  const previewList = PREVIEW_TRACKS.some((t) => t.src === preview?.src)
+    ? PREVIEW_TRACKS
+    : preview
+      ? [preview]
+      : [];
+  const previewIndex = Math.max(
+    0,
+    previewList.findIndex((t) => t.src === (pickedSrc ?? preview?.src)),
+  );
+  const currentPreview = previewList[previewIndex] ?? null;
 
   const tierModal = useModalStage(open);
   const backdropStage = useModalStage(open);
@@ -137,7 +154,13 @@ export default function SupportModal({
   };
 
   useEffect(() => {
-    if (!open || !tierModal.mounted || (preview && !previewStarted) || tierFlashedRef.current) return;
+    if (
+      !open ||
+      !tierModal.mounted ||
+      (preview?.autoplay !== false && preview && !previewStarted) ||
+      tierFlashedRef.current
+    )
+      return;
     const rows = tierRowsRef.current?.querySelectorAll("button");
     if (!rows || rows.length === 0) return;
     tierFlashedRef.current = true;
@@ -173,16 +196,17 @@ export default function SupportModal({
   }, [open, tierModal.mounted, preview, previewStarted]);
 
   useEffect(() => {
-    if (!open || !tierModal.mounted || !preview) return;
+    if (!open || !tierModal.mounted || !currentPreview) return;
     const el = audioRef.current;
     if (!el) return;
-    if (previewPlayedRef.current === preview.src) return;
-    previewPlayedRef.current = preview.src;
+    if (previewPlayedRef.current === currentPreview.src) return;
+    previewPlayedRef.current = currentPreview.src;
     setProgress(0);
     setPreviewStarted(false);
     el.currentTime = 0;
+    if (pickedSrc === null && preview?.autoplay === false) return;
     el.play().catch(() => {});
-  }, [open, tierModal.mounted, preview]);
+  }, [open, tierModal.mounted, preview, currentPreview, pickedSrc]);
 
   useEffect(() => {
     if (open) return;
@@ -254,8 +278,13 @@ export default function SupportModal({
 
   const dismissTierModal = () => {
     previewPlayedRef.current = null;
+    setPickedSrc(null);
     setProgress(0);
     onOpenChange(false);
+  };
+
+  const nextPreview = () => {
+    if (previewIndex < previewList.length - 1) setPickedSrc(previewList[previewIndex + 1].src);
   };
 
   const togglePreview = () => {
@@ -368,16 +397,19 @@ export default function SupportModal({
                 <span className="text-green-600 dark:text-green-500">(2 months free)</span>
               </button>
             </div>
-            {preview && (
+            {currentPreview && (
               <div className="mb-2">
                 <audio
                   ref={audioRef}
-                  src={preview.src}
+                  src={currentPreview.src}
                   preload="auto"
                   onPlaying={() => setPreviewStarted(true)}
                   onPlay={() => setPreviewPlaying(true)}
                   onPause={() => setPreviewPlaying(false)}
-                  onEnded={() => setPreviewPlaying(false)}
+                  onEnded={() => {
+                    setPreviewPlaying(false);
+                    nextPreview();
+                  }}
                   onTimeUpdate={(e) => {
                     const el = e.currentTarget;
                     if (el.duration) setProgress(el.currentTime / el.duration);
@@ -395,7 +427,7 @@ export default function SupportModal({
                     style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
                   />
                   <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
-                    Previewing &quot;{preview.title}&quot;
+                    {previewStarted ? "Previewing" : "Preview"} &quot;{currentPreview.title}&quot;
                   </span>
                 </button>
               </div>
@@ -409,7 +441,7 @@ export default function SupportModal({
                   submitSoulTier();
                 }}
               />
-              {preview && (
+              {currentPreview && (
                 <div
                   aria-hidden
                   className="absolute top-0 left-0 z-10 h-0.5 bg-gradient-to-r from-orange-400 to-pink-500"
