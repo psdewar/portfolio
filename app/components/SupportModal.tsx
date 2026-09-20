@@ -80,6 +80,7 @@ export default function SupportModal({
   const [checkoutSecret, setCheckoutSecret] = useState<string | null>(null);
   const loadingRef = useRef(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly");
+  const fromSupporterSection = source === "page" || source === "modal";
   const [customAmount, setCustomAmount] = useState(
     String(SUPPORT_AMOUNTS[SUPPORT_AMOUNTS.length - 1].net),
   );
@@ -309,9 +310,11 @@ export default function SupportModal({
                   <h3 className="font-bebas text-2xl text-neutral-900 dark:text-white">
                     Choose a Tier
                   </h3>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                    Every tier unlocks the same unreleased music and behind-the-scenes content. Give what you can.
-                  </p>
+                  {!fromSupporterSection && (
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                      Every tier unlocks the same unreleased music and behind-the-scenes content. Give what you can.
+                    </p>
+                  )}
                 </div>
               )}
               <button
