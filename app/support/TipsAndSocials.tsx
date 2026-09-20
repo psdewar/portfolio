@@ -12,24 +12,22 @@ function TipsSection({
   isOg = false,
   sponsorHref,
   concertCount,
+  nextStop,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
   sponsorHref?: string;
   concertCount: number;
+  nextStop?: string;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
 
   return (
     <div className="flex-1 min-w-0">
       <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Fund My Tour</h2>
-      {isOg && (
-        <p className="text-base text-neutral-500 dark:text-neutral-400 mb-1">
-          Your contribution helps me remain independent while funding my next tour stop.
-        </p>
-      )}
       <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
         {concertCount} concerts since March &middot; hundreds of participants
+        {nextStop && <> &middot; next stop: {nextStop}</>}
       </p>
       {!isOg && (
         <PaymentOptions
@@ -44,7 +42,7 @@ function TipsSection({
             href={sponsorHref}
             className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
           >
-            Interested in sponsoring a live concert?
+            Host my concert in your living room
           </a>
         </div>
       )}
@@ -61,10 +59,12 @@ export default function TipsAndSocials({
   interacFirst = false,
   sponsorHref,
   concertCount,
+  nextStop,
 }: {
   interacFirst?: boolean;
   sponsorHref?: string;
   concertCount: number;
+  nextStop?: string;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -101,6 +101,7 @@ export default function TipsAndSocials({
             isOg={searchParams.get("og") === "true"}
             sponsorHref={sponsorHref}
             concertCount={concertCount}
+            nextStop={nextStop}
           />
         )}
       </div>

@@ -95,7 +95,6 @@ export function SupporterSection({
   const containerRef = useRef<HTMLDivElement>(null);
   const tierSectionRef = useRef<HTMLElement>(null);
   const [showBottomCta, setShowBottomCta] = useState(false);
-  const [atBottom, setAtBottom] = useState(false);
   const [activeYear, setActiveYear] = useState<string | null>(null);
   const yearRefs = useRef<Map<string, HTMLElement>>(new Map());
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -125,20 +124,6 @@ export function SupporterSection({
     observer.observe(tierSection);
     return () => observer.disconnect();
   }, [isPatron, isModal]);
-
-  useEffect(() => {
-    if (isPatron) return;
-    const onScroll = () => {
-      setAtBottom(window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [isPatron]);
 
   useEffect(() => {
     const root = isModal ? containerRef.current : null;
@@ -519,7 +504,7 @@ export function SupporterSection({
         <div className="sticky top-0 z-20 flex items-center justify-end p-4 sm:p-6">
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
           >
             <XIcon size={20} weight="bold" className="text-neutral-500" />
           </button>
@@ -541,7 +526,7 @@ export function SupporterSection({
                   Be my monthly supporter
                 </h1>
                 <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                  Every tier unlocks the same unreleased music and behind-the-scenes content.
+                  Every tier unlocks the same unreleased music and behind-the-scenes content. Give what you can.
                 </p>
               </div>
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
@@ -555,7 +540,7 @@ export function SupporterSection({
                     className="group w-full text-center"
                   >
                     <span
-                      className="min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full text-white text-[20px] font-semibold shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
+                      className="min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-xl text-white text-[20px] font-semibold shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
                       style={{ background: "linear-gradient(to right, #f97316, #ec4899)" }}
                     >
                       <MicrophoneStageIcon className="w-6 h-6" weight="regular" />
@@ -622,7 +607,7 @@ export function SupporterSection({
                       setShowVerifyForm(true);
                     }
                   }}
-                  className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   Manage my subscription
                 </button>
@@ -663,16 +648,12 @@ export function SupporterSection({
             setPreviewTrack(null);
             setShowTierModal(true);
           }}
-          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 ${atBottom ? "px-8 py-4 text-base md:px-10 md:py-5 md:text-lg" : "px-5 py-3 text-sm md:px-8 md:py-4 md:text-base"} cursor-pointer text-white font-medium flex items-center gap-2 md:gap-3 rounded-full whitespace-nowrap shadow-lg transition-all hover:scale-105 active:scale-95`}
+          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-8 flex items-center justify-center rounded-xl text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
             bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
           }}
         >
-          <MicrophoneStageIcon
-            className={atBottom ? "w-7 h-7 md:w-8 md:h-8" : "w-6 h-6 md:w-7 md:h-7"}
-            weight="regular"
-          />
           Be my monthly supporter
         </button>
       )}
@@ -700,7 +681,7 @@ export function SupporterSection({
               </h3>
               <button
                 onClick={() => setShowCalendarInfo(false)}
-                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
+                className="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
               >
                 <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
               </button>

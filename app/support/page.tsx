@@ -45,6 +45,8 @@ export default async function SupportPage({
   const concertCount = getTourConcertCount(shows);
   const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
   const sponsorHref = draft ? confirmPath(draft.slug) : undefined;
+  const nextShow = upcomingShows.find((s) => !needsHostLocation(s));
+  const nextStop = nextShow ? `${nextShow.city}, ${nextShow.region}` : undefined;
   const todayShow = liveShows.find((s) => {
     if (s.country !== "CA") return false;
     if (params.now) return params.now === s.date;
@@ -64,6 +66,7 @@ export default async function SupportPage({
               interacFirst={!!todayShow}
               sponsorHref={sponsorHref}
               concertCount={concertCount}
+              nextStop={nextStop}
             />
           </Suspense>
         }

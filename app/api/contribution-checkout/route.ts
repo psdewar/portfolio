@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
 import { getBaseUrl, createBaseMetadata } from "../shared/stripe-utils";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { feeCents } from "../../lib/fees";
 
 const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   flight: { name: "Flight", description: "round-trip, includes checked bags for equipment" },
@@ -9,8 +10,9 @@ const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   lodging: { name: "Lodging", description: "hotel, Airbnb, or local host" },
   food: { name: "Food", description: "breakfast, lunch, and dinner on the road" },
   buffer: { name: "Just in case", description: "life happens, like cancellations out of my control" },
-  honorarium: { name: "Honorarium", description: "gift for performance, separate from tour expenses" },
+  honorarium: { name: "Honorarium", description: "gift for the concert, separate from tour expenses" },
   tour: { name: "Contribution", description: "helps fund the next tour stop" },
+  support: { name: "One-time contribution", description: "Thank you for your generosity!" },
 };
 
 export async function POST(request: NextRequest) {
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { items, trip } = body;
+    const { items, trip, feeIncluded } = body;
 
     if (!Array.isArray(items) || items.length === 0 || items.length > 12) {
       return NextResponse.json({ error: "Invalid items" }, { status: 400 });
@@ -62,13 +64,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    const feeCents = Math.round((total + 30) / (1 - 0.029)) - total;
-    lineItems.push({
-      name: "Processing fee",
-      description: "so 100% of your gift is received",
-      amountCents: feeCents,
-      quantity: 1,
-    });
+    if (feeIncluded !== true) {
+      lineItems.push({
+        name: "Processing fee",
+        description: "so 100% of your gift is received",
+        amountCents: feeCents(total),
+        quantity: 1,
+      });
+    }
 
     const baseUrl = getBaseUrl(request);
 
