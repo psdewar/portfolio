@@ -2,22 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
-import { XIcon, CheckIcon } from "@phosphor-icons/react";
+import { XIcon, CheckIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
-import StayConnected from "./StayConnected";
 import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
 import { PATRON_TIERS } from "../data/patron-tiers";
+import { grossUpCents, feeCents as netFeeCents, formatFee } from "../lib/fees";
+import CheckoutEmbed from "./CheckoutEmbed";
 
 const TIER_ICONS = PATRON_TIERS.map((tier) => tier.icon);
 const TIER_COLORS = PATRON_TIERS.map((tier) => tier.color);
 
 const MAX_CUSTOM_AMOUNT = 100000;
+const MIN_CUSTOM_AMOUNT = PATRON_TIERS[PATRON_TIERS.length - 1].net;
 
-const grossUpCents = (net: number) => Math.round(Math.ceil(((net + 0.3) / 0.971) * 100));
-const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => {
-  const charge = Math.ceil(((tier.net + 0.3) / 0.971) * 100) / 100;
-  return { net: tier.net, charge, chargeCents: Math.round(charge * 100), name: tier.name };
-});
+const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
+  Math.round(monthlyNetDollars * (annual ? 1000 : 100));
+const feeCents = (monthlyNetDollars: number, annual: boolean) =>
+  netFeeCents(periodNetCents(monthlyNetDollars, annual));
+const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => ({ net: tier.net, name: tier.name }));
 
 function useModalStage(open: boolean) {
   const [mounted, setMounted] = useState(open);
@@ -74,11 +76,9 @@ export default function SupportModal({
 }: SupportModalProps) {
   const hydrated = useHydrated();
   const [isLoading, setIsLoading] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAmount, setPendingAmount] = useState<number | null>(null);
-  const [pendingTier, setPendingTier] = useState<{ name: string; amount: number } | null>(
-    null,
-  );
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const [checkoutSecret, setCheckoutSecret] = useState<string | null>(null);
+  const loadingRef = useRef(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly");
   const [customAmount, setCustomAmount] = useState(
     String(SUPPORT_AMOUNTS[SUPPORT_AMOUNTS.length - 1].net),
@@ -92,6 +92,7 @@ export default function SupportModal({
 
   const tierFlashedRef = useRef(false);
   const tierFlashingRef = useRef(false);
+  const flashTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const tierRowsRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const previewPlayedRef = useRef<string | null>(null);
@@ -100,8 +101,7 @@ export default function SupportModal({
   const [previewPlaying, setPreviewPlaying] = useState(false);
 
   const tierModal = useModalStage(open);
-  const authModal = useModalStage(showAuthModal);
-  const backdropStage = useModalStage(open || showAuthModal);
+  const backdropStage = useModalStage(open);
 
   useEffect(() => {
     const el = amountSizerRef.current;
@@ -110,64 +110,64 @@ export default function SupportModal({
   }, [customAmount, open, tierModal.mounted, billingPeriod]);
 
   useEffect(() => {
+    loadingRef.current = isLoading;
+  }, [isLoading]);
+
+  const paintRow = (el: HTMLElement, index: number) => {
+    el.style.backgroundColor = TIER_COLORS[index];
+    el.querySelectorAll("*").forEach((c) => ((c as HTMLElement).style.color = "white"));
+  };
+
+  const clearRow = (el: HTMLElement, index: number) => {
+    el.style.backgroundColor = "";
+    el.querySelectorAll("*").forEach((c) => {
+      if (!c.hasAttribute("data-icon")) (c as HTMLElement).style.color = "";
+    });
+    const icon = el.querySelector("[data-icon]") as HTMLElement | null;
+    if (icon) icon.style.color = TIER_COLORS[index];
+  };
+
+  const stopFlash = () => {
+    flashTimeoutsRef.current.forEach(clearTimeout);
+    flashTimeoutsRef.current = [];
+    tierFlashingRef.current = false;
+    const rows = tierRowsRef.current?.querySelectorAll("button");
+    rows?.forEach((row, i) => clearRow(row as HTMLElement, i));
+  };
+
+  useEffect(() => {
     if (!open || !tierModal.mounted || (preview && !previewStarted) || tierFlashedRef.current) return;
     const rows = tierRowsRef.current?.querySelectorAll("button");
     if (!rows || rows.length === 0) return;
     tierFlashedRef.current = true;
     tierFlashingRef.current = true;
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
-    const cached = Array.from(rows).map((row) => ({
-      el: row as HTMLElement,
-      children: Array.from(row.querySelectorAll("*")) as HTMLElement[],
-      icon: row.querySelector("[data-icon]") as HTMLElement | null,
-    }));
-    cached.forEach(({ el, children }) => {
+    const els = Array.from(rows) as HTMLElement[];
+    els.forEach((el) => {
       el.style.transition = "background-color 0.3s ease";
-      children.forEach((c) => (c.style.transition = "color 0.3s ease"));
+      el.querySelectorAll("*").forEach((c) => ((c as HTMLElement).style.transition = "color 0.3s ease"));
     });
-    timeouts.push(
-      setTimeout(() => {
-        cached.forEach(({ el, children }, i) => {
-          timeouts.push(
-            setTimeout(() => {
-              el.style.backgroundColor = TIER_COLORS[i];
-              children.forEach((c) => (c.style.color = "white"));
-            }, i * 400),
-          );
-        });
-        const fadeStart = cached.length * 400 + 600;
-        cached.forEach(({ el, children, icon }, i) => {
-          timeouts.push(
-            setTimeout(
-              () => {
-                el.style.backgroundColor = "";
-                children.forEach((c) => {
-                  if (!c.hasAttribute("data-icon")) c.style.color = "";
-                });
-                if (icon) icon.style.color = TIER_COLORS[i];
-              },
-              fadeStart + i * 400,
-            ),
-          );
-        });
-        timeouts.push(
-          setTimeout(
-            () => {
-              tierFlashingRef.current = false;
-              const i = cached.findIndex(({ el }) => el.matches(":hover"));
-              if (i >= 0) {
-                cached[i].el.style.backgroundColor = TIER_COLORS[i];
-                cached[i].children.forEach((c) => (c.style.color = "white"));
-              }
-            },
-            fadeStart + cached.length * 400 + 300,
-          ),
-        );
-      }, 500),
-    );
+    const push = (fn: () => void, delay: number) => {
+      flashTimeoutsRef.current.push(setTimeout(fn, delay));
+    };
+    push(() => {
+      els.forEach((el, i) => {
+        push(() => paintRow(el, i), i * 400);
+      });
+      const fadeStart = els.length * 400 + 600;
+      els.forEach((el, i) => {
+        push(() => clearRow(el, i), fadeStart + i * 400);
+      });
+      push(() => {
+        tierFlashingRef.current = false;
+        if (loadingRef.current) return;
+        const i = els.findIndex((el) => el.matches(":hover"));
+        if (i >= 0) paintRow(els[i], i);
+      }, fadeStart + els.length * 400 + 300);
+    }, 500);
     return () => {
       tierFlashingRef.current = false;
-      timeouts.forEach(clearTimeout);
+      flashTimeoutsRef.current.forEach(clearTimeout);
+      flashTimeoutsRef.current = [];
     };
   }, [open, tierModal.mounted, preview, previewStarted]);
 
@@ -187,19 +187,15 @@ export default function SupportModal({
     if (open) return;
     audioRef.current?.pause();
     setPreviewPlaying(false);
+    setSelectedTier(null);
+    setCheckoutSecret(null);
   }, [open]);
 
-  const proceedToCheckout = async (
-    monthlyChargeCents: number,
-    period: "monthly" | "annually",
-    email?: string,
-  ) => {
+  const proceedToCheckout = async (netAmount: number, period: "monthly" | "annually") => {
     setIsLoading(true);
 
-    const monthlyNet = Math.round(monthlyChargeCents * 0.971 - 30);
     const isAnnual = period === "annually";
-    const netAmount = isAnnual ? monthlyNet * 10 : monthlyNet;
-    const finalAmount = Math.ceil(((netAmount / 100 + 0.3) / 0.971) * 100);
+    const finalAmount = grossUpCents(netAmount);
     const interval = isAnnual ? "year" : "month";
     const displayAmount = Math.round(netAmount / 100);
 
@@ -220,45 +216,39 @@ export default function SupportModal({
           projectId: period === "annually" ? "annual-support" : "monthly-support",
           amount: finalAmount,
           interval,
-          ...(email && { customerEmail: email }),
+          embedded: true,
         }),
       });
 
-      const { url, error: serverError } = await response.json();
+      const { clientSecret, error: serverError } = await response.json();
 
-      if (serverError || !url) {
+      if (serverError || !clientSecret) {
         throw new Error(serverError || "Failed to create checkout");
       }
 
-      window.location.href = url;
+      setCheckoutSecret(clientSecret);
     } catch (error) {
       console.error("Error creating checkout:", error);
       alert("There was an error. Please try again.");
     } finally {
+      const rows = tierRowsRef.current?.querySelectorAll("button");
+      rows?.forEach((row, i) => clearRow(row as HTMLElement, i));
       setIsLoading(false);
+      setSelectedTier(null);
     }
   };
 
-  const handleSubscribe = (amountCents: number, period: "monthly" | "annually" = billingPeriod) => {
+  const handleSubscribe = (netCents: number, period: "monthly" | "annually" = billingPeriod) => {
     const name = localStorage.getItem("liveCommenterName");
 
     posthog.capture("patron_tier_selected", {
-      amount_cents: amountCents,
+      amount_cents: grossUpCents(netCents),
       billing_period: period,
       is_logged_in: !!name,
       source,
     });
 
-    if (!name) {
-      setPendingAmount(amountCents);
-      sessionStorage.setItem("pendingPatronAmount", amountCents.toString());
-      sessionStorage.setItem("pendingPatronPeriod", period);
-      onOpenChange(false);
-      setShowAuthModal(true);
-      return;
-    }
-
-    proceedToCheckout(amountCents, period);
+    proceedToCheckout(netCents, period);
   };
 
   const dismissTierModal = () => {
@@ -281,17 +271,14 @@ export default function SupportModal({
   const submitSoulTier = () => {
     if (isLoading || !hydrated || soulPointerRef.current) return;
     const net = parseInt(customAmount, 10);
-    if (!net || net < 1) return;
+    const minimum = billingPeriod === "annually" ? MIN_CUSTOM_AMOUNT * 10 : MIN_CUSTOM_AMOUNT;
+    if (!net || net < minimum) {
+      setCustomAmount(String(minimum));
+      return;
+    }
     soulPointerRef.current = true;
-    const monthlyNet = billingPeriod === "annually" ? net / 10 : net;
-    setPendingTier({ name: "Soul", amount: net });
-    handleSubscribe(grossUpCents(monthlyNet), billingPeriod);
+    handleSubscribe(net * 100, billingPeriod);
   };
-
-  const authSavedPeriod = authModal.mounted
-    ? (sessionStorage.getItem("pendingPatronPeriod") as "monthly" | "annually" | null)
-    : null;
-  const authPeriod = authSavedPeriod || billingPeriod;
 
   return (
     <>
@@ -304,20 +291,45 @@ export default function SupportModal({
           {tierModal.mounted && (
           <div
             ref={tierModal.ref}
-            className={`t-modal ${tierModal.stageClass} ${authModal.mounted ? "absolute" : ""} bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-md w-full shadow-xl max-h-full overflow-y-auto`}
+            className={`t-modal ${tierModal.stageClass} bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full shadow-xl max-h-full overflow-y-auto ${checkoutSecret ? "max-w-lg" : "max-w-md"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bebas text-2xl text-neutral-900 dark:text-white">
-                Choose a Tier
-              </h3>
+            <div className={`flex justify-between mb-1 ${checkoutSecret ? "items-center" : "items-start"}`}>
+              {checkoutSecret ? (
+                <button
+                  type="button"
+                  onClick={() => setCheckoutSecret(null)}
+                  className="min-h-11 inline-flex items-center gap-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  <ArrowLeftIcon className="w-4 h-4" weight="bold" />
+                  Back to tiers
+                </button>
+              ) : (
+                <div>
+                  <h3 className="font-bebas text-2xl text-neutral-900 dark:text-white">
+                    Choose a Tier
+                  </h3>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                    Every tier unlocks the same unreleased music and behind-the-scenes content. Give what you can.
+                  </p>
+                </div>
+              )}
               <button
                 onClick={dismissTierModal}
-                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
+                className={`w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors shrink-0 ${checkoutSecret ? "" : "-mt-1.5"}`}
               >
                 <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
               </button>
             </div>
+            {checkoutSecret ? (
+              <div className="pt-3">
+                <CheckoutEmbed
+                  fetchClientSecret={() => Promise.resolve(checkoutSecret)}
+                  onComplete={() => {}}
+                />
+              </div>
+            ) : (
+              <>
             <div className={`flex items-center justify-start text-sm ${preview ? "" : "mb-4"}`}>
               <button
                 onClick={() => {
@@ -330,7 +342,7 @@ export default function SupportModal({
                     return scaled.toString();
                   });
                 }}
-                className="w-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors py-2 flex items-center gap-2"
+                className="min-h-11 w-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors py-2 flex items-center gap-2"
               >
                 <span
                   className={`relative w-12 h-7 rounded-full transition-colors ${
@@ -372,7 +384,7 @@ export default function SupportModal({
                   type="button"
                   onClick={togglePreview}
                   aria-label={previewPlaying ? "Pause preview" : "Play preview"}
-                  className="flex w-full items-center gap-2 py-1 text-left"
+                  className="min-h-11 flex w-full items-center gap-2 py-1 text-left"
                 >
                   <span
                     aria-hidden
@@ -408,37 +420,43 @@ export default function SupportModal({
               {SUPPORT_AMOUNTS.map((tier, index) => {
                 const TierIcon = TIER_ICONS[index];
                 const isSoul = tier.name === "Soul";
+                const isSelected = selectedTier === tier.name;
                 const price = billingPeriod === "annually" ? tier.net * 10 : tier.net;
                 const period = billingPeriod === "annually" ? "yr" : "mo";
+                const annual = billingPeriod === "annually";
+                const soulAmount = parseInt(customAmount, 10);
+                const soulMonthlyNet = annual ? soulAmount / 10 : soulAmount;
+                const feeLabel = isSoul
+                  ? soulAmount > 0
+                    ? formatFee(feeCents(soulMonthlyNet, annual))
+                    : null
+                  : formatFee(feeCents(tier.net, annual));
                 return (
                   <button
                     key={tier.name}
                     onClick={() => {
+                      stopFlash();
+                      setSelectedTier(tier.name);
+                      const row = tierRowsRef.current?.children[index] as HTMLElement | undefined;
+                      if (row) paintRow(row, index);
                       if (isSoul) {
                         soulPointerRef.current = false;
                         submitSoulTier();
                         return;
                       }
-                      setPendingTier({ name: tier.name, amount: price });
-                      handleSubscribe(tier.chargeCents);
+                      handleSubscribe(periodNetCents(tier.net, annual));
                     }}
                     disabled={isLoading || !hydrated}
-                    className="w-full flex items-center gap-3 px-4 py-3 transition-colors group text-left"
+                    className={`min-h-11 w-full flex items-center gap-3 px-4 py-3 transition-colors group text-left ${
+                      isLoading && !isSelected ? "opacity-40" : ""
+                    }`}
                     onMouseEnter={(e) => {
-                      if (tierFlashingRef.current) return;
-                      e.currentTarget.style.backgroundColor = TIER_COLORS[index];
-                      e.currentTarget
-                        .querySelectorAll("*")
-                        .forEach((el) => ((el as HTMLElement).style.color = "white"));
+                      if (isLoading || tierFlashingRef.current) return;
+                      paintRow(e.currentTarget, index);
                     }}
                     onMouseLeave={(e) => {
-                      if (tierFlashingRef.current) return;
-                      e.currentTarget.style.backgroundColor = "";
-                      e.currentTarget.querySelectorAll("*").forEach((el) => {
-                        if (!el.hasAttribute("data-icon")) (el as HTMLElement).style.color = "";
-                      });
-                      const icon = e.currentTarget.querySelector("[data-icon]") as HTMLElement;
-                      if (icon) icon.style.color = TIER_COLORS[index];
+                      if (isLoading || tierFlashingRef.current) return;
+                      clearRow(e.currentTarget, index);
                     }}
                   >
                     <TierIcon
@@ -457,121 +475,89 @@ export default function SupportModal({
                         </div>
                       )}
                     </div>
-                    <span className="relative text-neutral-900 dark:text-white font-medium text-4xl shrink-0 tabular-nums ml-auto">
-                      {isLoading ? (
-                        <span className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-white rounded-full animate-spin inline-block" />
-                      ) : isSoul ? (
-                        <>
-                          $
-                          <span
-                            ref={amountSizerRef}
-                            aria-hidden
-                            className="invisible absolute left-0 top-0 whitespace-pre"
-                          >
-                            {customAmount || "0"}
+                    <div className="ml-auto shrink-0 flex flex-col items-end justify-center min-h-[60px]">
+                    {isLoading && isSelected ? (
+                      <span className="inline-flex items-center gap-1.5 text-sm font-normal tabular-nums">
+                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Opening checkout
+                      </span>
+                    ) : (
+                      <>
+                        <span className="relative text-neutral-900 dark:text-white font-medium text-4xl shrink-0 tabular-nums">
+                          {isSoul ? (
+                            <>
+                              $
+                              <span
+                                ref={amountSizerRef}
+                                aria-hidden
+                                className="invisible absolute left-0 top-0 whitespace-pre"
+                              >
+                                {customAmount || "0"}
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                enterKeyHint="go"
+                                form="soul-price-form"
+                                value={customAmount}
+                                onChange={(e) => {
+                                  const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                  const clamped =
+                                    digitsOnly && parseInt(digitsOnly, 10) > MAX_CUSTOM_AMOUNT
+                                      ? String(MAX_CUSTOM_AMOUNT)
+                                      : digitsOnly;
+                                  setCustomAmount(clamped);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onFocus={(e) => {
+                                  e.stopPropagation();
+                                  soulPointerRef.current = false;
+                                  document.addEventListener("pointerdown", markSoulPointer, true);
+                                }}
+                                onBlur={() => {
+                                  document.removeEventListener("pointerdown", markSoulPointer, true);
+                                  if (!document.hasFocus()) return;
+                                  submitSoulTier();
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "Enter") return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
+                                className="text-neutral-900 dark:text-white font-medium text-4xl tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white text-right"
+                                style={{ width: amountWidth ? `${Math.ceil(amountWidth)}px` : undefined }}
+                              />
+                              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                                /{period}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              ${price}
+                              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                                /{period}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                        {feeLabel && (
+                          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 tabular-nums">
+                            {feeLabel}
                           </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            enterKeyHint="go"
-                            form="soul-price-form"
-                            value={customAmount}
-                            onChange={(e) => {
-                              const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
-                              const clamped =
-                                digitsOnly && parseInt(digitsOnly, 10) > MAX_CUSTOM_AMOUNT
-                                  ? String(MAX_CUSTOM_AMOUNT)
-                                  : digitsOnly;
-                              setCustomAmount(clamped);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            onFocus={(e) => {
-                              e.stopPropagation();
-                              soulPointerRef.current = false;
-                              document.addEventListener("pointerdown", markSoulPointer, true);
-                            }}
-                            onBlur={() => {
-                              document.removeEventListener("pointerdown", markSoulPointer, true);
-                              if (!document.hasFocus()) return;
-                              submitSoulTier();
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key !== "Enter") return;
-                              e.preventDefault();
-                              e.currentTarget.blur();
-                            }}
-                            className="text-neutral-900 dark:text-white font-medium text-4xl tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white text-right"
-                            style={{ width: amountWidth ? `${Math.ceil(amountWidth)}px` : undefined }}
-                          />
-                          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                            /{period}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          ${price}
-                          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                            /{period}
-                          </span>
-                        </>
-                      )}
-                    </span>
+                        )}
+                      </>
+                    )}
+                    </div>
                   </button>
                 );
               })}
               </div>
+              <p className="border-t border-neutral-200 dark:border-neutral-800 px-6 pt-4 pb-6 text-sm text-neutral-500 dark:text-neutral-400">
+                Other platforms take a cut on top of payment processing. Here, you cover processing with no additional costs.
+              </p>
             </div>
-          </div>
-          )}
-
-          {authModal.mounted && (
-          <div ref={authModal.ref} className={`t-modal ${authModal.stageClass} w-full max-w-md flex justify-center`}>
-            <StayConnected
-              isModal
-              onChangeTier={() => {
-                setShowAuthModal(false);
-                setPendingAmount(null);
-                    setPendingTier(null);
-                sessionStorage.removeItem("pendingPatronAmount");
-                sessionStorage.removeItem("pendingPatronPeriod");
-                onOpenChange(true);
-              }}
-              selectedTier={
-                pendingTier
-                  ? {
-                      name: pendingTier.name,
-                      amount: pendingTier.amount,
-                      period: authPeriod,
-                    }
-                  : undefined
-              }
-              onClose={(email) => {
-                setShowAuthModal(false);
-                const name = localStorage.getItem("liveCommenterName");
-                if (name) {
-                  const savedAmount = sessionStorage.getItem("pendingPatronAmount");
-                  const savedPeriod = sessionStorage.getItem("pendingPatronPeriod") as
-                    | "monthly"
-                    | "annually"
-                    | null;
-                  const amount =
-                    pendingAmount || (savedAmount ? parseInt(savedAmount, 10) : null);
-                  if (amount) {
-                    sessionStorage.removeItem("pendingPatronAmount");
-                    sessionStorage.removeItem("pendingPatronPeriod");
-                    setPendingAmount(null);
-                    setPendingTier(null);
-                    proceedToCheckout(amount, savedPeriod || billingPeriod, email);
-                    return;
-                  }
-                }
-                setPendingAmount(null);
-                    setPendingTier(null);
-                sessionStorage.removeItem("pendingPatronAmount");
-                sessionStorage.removeItem("pendingPatronPeriod");
-              }}
-              shouldShow={true}
-            />
+              </>
+            )}
           </div>
           )}
         </div>

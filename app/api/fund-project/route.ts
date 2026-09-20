@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
 import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
 import { extractIpAddress } from "../shared/audio-utils";
+import { stripeFeeCents } from "../../lib/fees";
+import { PATRON_TIER_BASE } from "../../data/patron-config";
 
 // Map project slug -> Stripe product (or price) id
 const PROJECT_PRODUCT_MAP: Record<string, string> = {
@@ -10,24 +12,23 @@ const PROJECT_PRODUCT_MAP: Record<string, string> = {
   "annual-support": "annual-support",
 };
 
-// Monthly subscription prices (created in Stripe dashboard)
-// Format: net amount in dollars -> Stripe Price ID
 const MONTHLY_SUBSCRIPTION_PRICES: Record<number, string> = {
   5: process.env.STRIPE_PRICE_5 || "price_1SsFlJCWIzpWuQGpUFEWyA9B",
-  10: process.env.STRIPE_PRICE_10 || "price_1SsOrlCWIzpWuQGpYyVtnsuZ",
-  25: process.env.STRIPE_PRICE_25 || "price_1SsOrmCWIzpWuQGpsbSDaxJu",
+  20: process.env.STRIPE_PRICE_20 || "price_1UHdiUCWIzpWuQGp47pAiUwy",
+  50: process.env.STRIPE_PRICE_50 || "price_1UHommCWIzpWuQGp1DaWMBUm",
   100: process.env.STRIPE_PRICE_100 || "price_1SsOrnCWIzpWuQGpOLKEwX7L",
 };
 
-// Annual subscription prices (created in Stripe dashboard)
-// Format: net amount in dollars (yearly total) -> Stripe Price ID
-// Annual = 10x monthly (2 months free discount)
 const ANNUAL_SUBSCRIPTION_PRICES: Record<number, string> = {
-  50: process.env.STRIPE_PRICE_ANNUAL_50 || "price_1SsFlTCWIzpWuQGp6EK94Npo",   // $5/mo equivalent
-  100: process.env.STRIPE_PRICE_ANNUAL_100 || "price_1SsOrlCWIzpWuQGpqyg2NwtF", // $10/mo equivalent
-  250: process.env.STRIPE_PRICE_ANNUAL_250 || "price_1SsOrnCWIzpWuQGpky3nWJ3V", // $25/mo equivalent
-  1000: process.env.STRIPE_PRICE_ANNUAL_1000 || "price_1SsOrnCWIzpWuQGppDU3PcJk", // $100/mo equivalent
+  50: process.env.STRIPE_PRICE_ANNUAL_50 || "price_1UHommCWIzpWuQGpyKY3C7bP",
+  200: process.env.STRIPE_PRICE_ANNUAL_200 || "price_1UHommCWIzpWuQGpaVofunWF",
+  500: process.env.STRIPE_PRICE_ANNUAL_500 || "price_1UHomnCWIzpWuQGptzYwuzJ5",
+  1000: process.env.STRIPE_PRICE_ANNUAL_1000 || "price_1UHomnCWIzpWuQGpfG1LYkN0",
 };
+
+const SOUL_MONTHLY_PRODUCT = process.env.STRIPE_PRODUCT_SOUL || "prod_Tq51rjgmSMyLPJ";
+const SOUL_ANNUAL_PRODUCT = process.env.STRIPE_PRODUCT_SOUL_ANNUAL || "prod_VIEAF2GYSkGshj";
+const CUSTOM_MINIMUM_NET = PATRON_TIER_BASE[PATRON_TIER_BASE.length - 1].net;
 
 // Per-project minimum amounts in cents
 const PROJECT_MINIMUMS: Record<string, number> = {
@@ -40,7 +41,14 @@ export async function POST(request: NextRequest) {
   try {
     const ip = extractIpAddress(request);
     const body = await request.json();
-    const { amount, projectTitle, projectId, interval = "month", customerEmail } = body;
+    const {
+      amount,
+      projectTitle,
+      projectId,
+      interval = "month",
+      customerEmail,
+      embedded = false,
+    } = body;
 
     const productId = PROJECT_PRODUCT_MAP[projectId];
 
@@ -82,13 +90,18 @@ export async function POST(request: NextRequest) {
       cancelPath = `/fund/${projectId}?canceled=1`;
     }
 
-    // For monthly/annual support, try to use subscription pricing if available
-    // The amount passed is the charge amount (including fees)
-    // We need to find the matching subscription price by the NET amount
-    const netAmountDollars = Math.round((amount * 0.971 - 30) / 100);
+    const netAmountDollars = (amount - stripeFeeCents(amount)) / 100;
     const isAnnual = interval === "year";
     const priceTable = isAnnual ? ANNUAL_SUBSCRIPTION_PRICES : MONTHLY_SUBSCRIPTION_PRICES;
-    const subscriptionPriceId = isPatronSupport ? priceTable[netAmountDollars] : null;
+    const subscriptionPriceId =
+      isPatronSupport && Number.isInteger(netAmountDollars) ? priceTable[netAmountDollars] : null;
+    const customMinimumNet = isAnnual ? CUSTOM_MINIMUM_NET * 10 : CUSTOM_MINIMUM_NET;
+    if (isPatronSupport && !subscriptionPriceId && netAmountDollars < customMinimumNet) {
+      return NextResponse.json(
+        { error: `Minimum custom amount is $${customMinimumNet}` },
+        { status: 400 },
+      );
+    }
     const priceId = isPatronSupport
       ? subscriptionPriceId ??
         (
@@ -96,7 +109,7 @@ export async function POST(request: NextRequest) {
             unit_amount: amount,
             currency: "usd",
             recurring: { interval: isAnnual ? "year" : "month" },
-            product_data: { name: isAnnual ? "Annual Support" : "Monthly Support" },
+            product: isAnnual ? SOUL_ANNUAL_PRODUCT : SOUL_MONTHLY_PRODUCT,
           })
         ).id
       : null;
@@ -128,6 +141,13 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ];
+    }
+
+    if (embedded) {
+      checkoutRequest.uiMode = "embedded";
+      checkoutRequest.returnUrl = `${baseUrl}${successPath}`;
+      const { clientSecret } = await createCheckout(checkoutRequest);
+      return NextResponse.json({ clientSecret });
     }
 
     const { sessionId, url } = await createCheckout(checkoutRequest);

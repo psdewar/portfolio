@@ -1,3 +1,4 @@
+import { grossUpCents } from "../../lib/fees";
 /**
  * Product Configuration
  *
@@ -597,7 +598,7 @@ export function getAssetBlobPrefix(assetId: string): string | undefined {
  * Calculate Stripe processing fee (2.9% + $0.30)
  */
 export function calculateStripeFee(baseCents: number): number {
-  return Math.ceil(((baseCents / 100 + 0.3) / 0.971) * 100);
+  return grossUpCents(baseCents);
 }
 
 /**

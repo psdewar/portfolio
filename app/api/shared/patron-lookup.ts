@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "./stripe-utils";
 import { tierForMonthlyNet, type PatronTierName } from "../../data/patron-config";
+import { stripeFeeCents } from "../../lib/fees";
 
 export function tierFromPrice(price: Stripe.Price | null | undefined): PatronTierName | null {
   if (!price || !price.unit_amount) return null;
-  const gross = price.unit_amount / 100;
-  const net = (gross * 0.971 - 0.3) / (price.recurring?.interval === "year" ? 10 : 1);
+  const periodNet = (price.unit_amount - stripeFeeCents(price.unit_amount)) / 100;
+  const net = periodNet / (price.recurring?.interval === "year" ? 10 : 1);
   return tierForMonthlyNet(net);
 }
 
@@ -21,7 +22,8 @@ export function tierFromSession(session: Stripe.Checkout.Session): PatronTierNam
     return tierFromPrice(session.subscription.items.data[0]?.price);
   }
   if (!isPatronSession(session) || !session.amount_total) return null;
-  const net = ((session.amount_total / 100) * 0.971 - 0.3) / (session.metadata?.projectId === "annual-support" ? 10 : 1);
+  const periodNet = (session.amount_total - stripeFeeCents(session.amount_total)) / 100;
+  const net = periodNet / (session.metadata?.projectId === "annual-support" ? 10 : 1);
   return tierForMonthlyNet(net);
 }
 
