@@ -9,9 +9,9 @@ const TIER_ICONS: Record<PatronTierName, Icon> = {
 };
 
 const TIER_HINTS: Record<PatronTierName, { monthly: string; annually: string }> = {
-  Pen: { monthly: "pays for one gallon of gas", annually: "pays for one day of meals" },
-  Flow: { monthly: "pays for lunch", annually: "pays for one overnight stay" },
-  Mind: { monthly: "pays for one day car rental", annually: "pays for one round-trip flight" },
+  Pen: { monthly: "pays for two gallons of gas", annually: "pays to fly my gear" },
+  Flow: { monthly: "pays for lunch", annually: "pays for an overnight stay" },
+  Mind: { monthly: "pays for a day's car rental", annually: "pays for a round-trip flight" },
   Soul: { monthly: "Name your price", annually: "Name your price" },
 };
 

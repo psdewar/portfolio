@@ -11,19 +11,17 @@ import {
   MicrophoneStageIcon,
   UserIcon,
   ArchiveIcon,
+  CalendarPlusIcon,
 } from "@phosphor-icons/react";
 
-import SupportModal from "./SupportModal";
+import { MonthlySupporter } from "./SupportModal";
+import PatronSignInForm from "./PatronSignInForm";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG } from "../data/patron-config";
 import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
-import {
-  activatePatronStatus,
-  storePatronEmail,
-  storePatronTier,
-} from "../lib/patron";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { type Show, showsToTimelineEvents } from "../lib/shows";
 import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
 
@@ -70,8 +68,48 @@ interface SupporterSectionProps {
   upcomingShows?: Show[];
   pastShows?: Show[];
   ask?: React.ReactNode;
+  sponsorHref?: string;
   children?: React.ReactNode;
   og?: boolean;
+}
+
+const ROW_HOVER =
+  "group transition-all duration-300 hover:bg-gradient-to-r hover:to-transparent active:bg-gradient-to-r active:to-transparent split:hover:pl-2";
+
+const ROW_ACCENT = {
+  rsvp: {
+    row: "hover:from-[#d4a553]/15 active:from-[#d4a553]/15",
+    day: "group-hover:text-[#d4a553] group-active:text-[#d4a553]",
+  },
+  song: {
+    row: "hover:from-amber-500/15 active:from-amber-500/15",
+    day: "group-hover:text-amber-500 group-active:text-amber-500",
+  },
+  info: {
+    row: "hover:from-neutral-500/10 active:from-neutral-500/10",
+    day: "group-hover:text-neutral-500 group-active:text-neutral-500",
+  },
+};
+
+function DateStack({
+  date,
+  hover = "",
+}: {
+  date: ReturnType<typeof formatEventDate>;
+  hover?: string;
+}) {
+  return (
+    <div className="w-[0.8em] mr-[0.2em] shrink-0 flex flex-col items-center gap-[0.2em] text-3xl sm:text-4xl">
+      <div className="text-[0.41em] uppercase tracking-wide leading-none [text-box:trim-both_cap_alphabetic] text-neutral-500">
+        {date.month}
+      </div>
+      <div
+        className={`font-bebas leading-none [text-box:trim-both_cap_alphabetic] text-neutral-900 dark:text-white transition-all duration-300 group-hover:scale-110 ${hover}`}
+      >
+        {date.day}
+      </div>
+    </div>
+  );
 }
 
 export function SupporterSection({
@@ -81,6 +119,7 @@ export function SupporterSection({
   upcomingShows = [],
   pastShows = [],
   ask,
+  sponsorHref,
   children,
   og = false,
 }: SupporterSectionProps) {
@@ -95,20 +134,11 @@ export function SupporterSection({
   const patronStatus = usePatronStatus();
   const isPatron = (patronStatus || forcePatron) && !og;
 
-  const [showTierModal, setShowTierModal] = useState(false);
-  const [previewTrack, setPreviewTrack] = useState<{
-    title: string;
-    src: string;
-    autoplay?: boolean;
-  } | null>(null);
-
   const [showCalendarInfo, setShowCalendarInfo] = useState(false);
 
   const [showVerifyForm, setShowVerifyForm] = useState(false);
-  const [verifyEmail, setVerifyEmail] = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
   const [verifyRedirectToPortal, setVerifyRedirectToPortal] = useState(false);
+  useScrollLock(showVerifyForm);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const tierSectionRef = useRef<HTMLElement>(null);
@@ -166,45 +196,6 @@ export function SupporterSection({
     return () => observer.disconnect();
   }, [isModal]);
 
-  const handleVerifyPatron = async () => {
-    if (!verifyEmail.trim()) return;
-    setVerifyLoading(true);
-    setVerifyError("");
-    try {
-      const res = await fetch("/api/verify-patron", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verifyEmail.trim() }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const email = verifyEmail.trim().toLowerCase();
-        activatePatronStatus();
-        storePatronEmail(email);
-        storePatronTier(data.tier ?? null);
-        setShowVerifyForm(false);
-        if (verifyRedirectToPortal) {
-          setVerifyRedirectToPortal(false);
-          window.location.assign(
-            `/api/stripe-portal?email=${encodeURIComponent(email)}`,
-          );
-        }
-      } else {
-        const data = await res.json();
-        setVerifyError(
-          data.error === "No subscription found" ||
-            data.error === "No active subscription"
-            ? "No active subscription found for this email"
-            : "Verification failed",
-        );
-      }
-    } catch {
-      setVerifyError("Something went wrong");
-    } finally {
-      setVerifyLoading(false);
-    }
-  };
-
   const showEvents = showsToTimelineEvents([...upcomingShows, ...pastShows]);
   const allEvents = [...showEvents, ...getJourneyEvents()];
   const upcomingDates = new Set(upcomingShows.map((s) => s.date));
@@ -241,29 +232,10 @@ export function SupporterSection({
   const earlyAccessTracks = PATRON_CONFIG.earlyAccess.trackIds
     .map((id) => TRACK_DATA.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => !!t);
-  const openTierModal = () => {
-    let opens = 0;
-    try {
-      opens = Number(localStorage.getItem("tierPreviewOpens")) || 0;
-      localStorage.setItem("tierPreviewOpens", String(opens + 1));
-    } catch {}
-    const track = earlyAccessTracks[opens % earlyAccessTracks.length];
-    setPreviewTrack(
-      track
-        ? {
-            title: track.title,
-            src: `/audio/${track.id}-preview.mp3`,
-            autoplay: false,
-          }
-        : null,
-    );
-    setShowTierModal(true);
-  };
 
   function renderEarlyAccessTracks(
     introText: string | null,
     onTrackClick: (track: (typeof earlyAccessTracks)[number]) => void,
-    leading?: React.ReactNode,
   ): React.ReactNode {
     if (earlyAccessTracks.length === 0) return null;
     return (
@@ -273,8 +245,7 @@ export function SupporterSection({
             {introText}
           </p>
         )}
-        {leading && <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">{leading}</div>}
-        <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
+        <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 overflow-hidden">
           {earlyAccessTracks.map((track) => (
             <button
               type="button"
@@ -304,40 +275,9 @@ export function SupporterSection({
     );
   }
 
-  function renderVerifyForm(): React.ReactNode {
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-        <input
-          type="email"
-          placeholder="Enter your email"
-          value={verifyEmail}
-          onChange={(e) => setVerifyEmail(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleVerifyPatron()}
-          className="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
-        />
-        {verifyError && <p className="text-red-500 text-base">{verifyError}</p>}
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setShowVerifyForm(false);
-              setVerifyEmail("");
-              setVerifyError("");
-              setVerifyRedirectToPortal(false);
-            }}
-            className="flex-1 py-3 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 text-base"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleVerifyPatron}
-            disabled={verifyLoading || !verifyEmail.trim()}
-            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-base rounded-lg font-medium"
-          >
-            {verifyLoading ? "Checking..." : "Verify"}
-          </button>
-        </div>
-      </div>
-    );
+  function closeVerifyForm() {
+    setShowVerifyForm(false);
+    setVerifyRedirectToPortal(false);
   }
 
   function renderTimeline(): React.ReactNode {
@@ -394,29 +334,21 @@ export function SupporterSection({
 
               if (isCheckpoint) {
                 return (
-                  <div
-                    key={event.id}
-                    className="relative min-w-0 border-t border-neutral-200 dark:border-neutral-800"
-                  >
+                  <div key={event.id} className="relative min-w-0">
                     <button
                       onClick={() => setShowCalendarInfo(true)}
-                      className="w-full flex items-center gap-3 px-4 sm:px-6 lg:px-8 split:px-0 py-3 sm:py-4 bg-neutral-100/50 dark:bg-neutral-900/50 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors text-left group"
+                      className={`w-full flex items-center gap-3 px-4 sm:px-6 lg:px-8 split:px-0 py-3 sm:py-4 split:py-2.5 text-left ${ROW_HOVER} ${ROW_ACCENT.info.row}`}
                     >
-                      <div className="w-12 sm:w-14 shrink-0 flex flex-col items-center">
-                        <div className="text-xs uppercase tracking-wide leading-none text-neutral-500">
-                          {dateInfo.month}
-                        </div>
-                        <div className="font-bebas text-3xl sm:text-4xl leading-none text-neutral-400 dark:text-neutral-500">
-                          {dateInfo.day}
-                        </div>
-                      </div>
+                      <DateStack date={dateInfo} hover={ROW_ACCENT.info.day} />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-lg text-neutral-700 dark:text-neutral-300">
+                        <h3 className="font-medium text-lg leading-tight text-neutral-900 dark:text-white">
                           {event.title}
                         </h3>
                       </div>
-                      <div className="shrink-0 w-12 sm:w-14 flex items-center justify-center font-serif text-sm italic text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors">
-                        i
+                      <div className="shrink-0 w-12 sm:w-14 flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center font-serif text-sm text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors duration-300">
+                          i
+                        </span>
                       </div>
                     </button>
                   </div>
@@ -434,7 +366,9 @@ export function SupporterSection({
                 isRsvp ? Link : rowTrack ? "button" : "div"
               ) as React.ElementType;
               const isRowLoading =
-                !!rowTrack && isAudioLoading && currentTrack?.id === rowTrack.id;
+                !!rowTrack &&
+                isAudioLoading &&
+                currentTrack?.id === rowTrack.id;
               const playRowTrack = () => {
                 if (!rowTrack) return;
                 if (currentTrack?.id === rowTrack.id) {
@@ -454,34 +388,44 @@ export function SupporterSection({
                 }
               };
 
+              const rowAccent = isRsvp
+                ? ROW_ACCENT.rsvp
+                : rowTrack
+                  ? ROW_ACCENT.song
+                  : null;
               const isCityRow = event.type === "show" && !!event.location;
-              const divider =
-                " border-t border-neutral-200 dark:border-neutral-800";
 
               return (
                 <Fragment key={event.id}>
                   {groupLabel && (
-                    <div className="px-4 sm:px-6 lg:px-8 split:px-0 pt-4 pb-1 text-base font-medium text-neutral-500 dark:text-neutral-400">
+                    <div className="px-4 sm:px-6 lg:px-8 split:px-0 pt-4 pb-1 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-4 text-base font-medium text-neutral-500 dark:text-neutral-400">
                       {groupLabel}
+                      {isUpcoming && sponsorHref && !og && (
+                        <a
+                          href={sponsorHref}
+                          className="group -my-3 min-h-11 flex items-center gap-1.5 origin-right font-normal text-neutral-500 dark:text-neutral-400 transition-all duration-300 hover:scale-105 hover:text-neutral-900 dark:hover:text-white active:opacity-60"
+                        >
+                          <CalendarPlusIcon
+                            size={20}
+                            weight="regular"
+                            className="shrink-0 transition-colors group-hover:text-[#d4a553]"
+                          />
+                          Host my concert
+                        </a>
+                      )}
                     </div>
                   )}
                   <RowTag
                     {...(isRsvp ? { href: event.url } : {})}
-                    {...(rowTrack ? { onClick: playRowTrack, "aria-label": `Play ${rowTrack.title}` } : {})}
-                    className={`flex items-center gap-3 px-4 sm:px-6 lg:px-8 split:px-0 ${rowTrack ? "w-full text-left group" : "py-3 sm:py-4 split:py-2.5"} min-w-0${divider}${isRsvp ? " group hover:bg-gradient-to-r hover:from-[#d4a553]/15 hover:to-transparent split:hover:pl-2 transition-all duration-300" : ""}`}
+                    {...(rowTrack
+                      ? {
+                          onClick: playRowTrack,
+                          "aria-label": `Play ${rowTrack.title}`,
+                        }
+                      : {})}
+                    className={`flex items-center gap-3 px-4 sm:px-6 lg:px-8 split:px-0 ${rowTrack ? "w-full text-left" : "py-3 sm:py-4 split:py-2.5"} min-w-0${rowAccent ? ` ${ROW_HOVER} ${rowAccent.row}` : ""}`}
                   >
-                    <div className="w-12 sm:w-14 shrink-0 flex flex-col items-center">
-                      <div
-                        className={`text-xs uppercase tracking-wide leading-none ${isUpcoming ? "text-[#b8862f] dark:text-[#d4a553]" : "text-neutral-500"}`}
-                      >
-                        {dateInfo.month}
-                      </div>
-                      <div
-                        className={`font-bebas text-3xl sm:text-4xl leading-none transition-all duration-300 group-hover:scale-110 group-hover:text-[#d4a553] ${isUpcoming ? "text-[#b8862f] dark:text-[#d4a553]" : "text-neutral-900 dark:text-white"}`}
-                      >
-                        {dateInfo.day}
-                      </div>
-                    </div>
+                    <DateStack date={dateInfo} hover={rowAccent?.day} />
                     {rowTrack && (
                       <div className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 overflow-hidden relative">
                         <img
@@ -494,9 +438,15 @@ export function SupporterSection({
                           {isRowLoading ? (
                             <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           ) : isRowPlaying ? (
-                            <PauseIcon className="w-8 h-8 text-white" weight="regular" />
+                            <PauseIcon
+                              className="w-8 h-8 text-white"
+                              weight="regular"
+                            />
                           ) : (
-                            <PlayIcon className="w-8 h-8 text-white" weight="regular" />
+                            <PlayIcon
+                              className="w-8 h-8 text-white"
+                              weight="regular"
+                            />
                           )}
                         </div>
                       </div>
@@ -529,7 +479,7 @@ export function SupporterSection({
                         </div>
                       )}
                       <h3
-                        className={`${isCityRow ? "font-medium text-lg leading-tight" : isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
+                        className={`${isCityRow ? "font-medium text-lg leading-tight" : isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg leading-tight"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
                         style={
                           isFGTU && !isCityRow
                             ? { fontFamily: '"Parkinsans", sans-serif' }
@@ -544,12 +494,12 @@ export function SupporterSection({
                         <p className="text-neutral-500 dark:text-neutral-400 text-base">
                           {isCityRow && !isFGTU && event.description ? (
                             <>
-                              {event.title}
-                              <br />
                               {event.description}
+                              <br />
+                              {event.title}
                             </>
                           ) : (
-                            event.description ?? event.title
+                            (event.description ?? event.title)
                           )}
                         </p>
                       )}
@@ -575,13 +525,11 @@ export function SupporterSection({
                       />
                     )}
                     {isRsvp && (
-                      <span className="shrink-0 flex items-center gap-2">
-                        <span
-                          className={`text-base uppercase tracking-wide ${isUpcoming ? "text-[#b8862f] dark:text-[#d4a553]" : "text-neutral-500"}`}
-                        >
+                      <span className="shrink-0 flex items-center gap-2 text-3xl sm:text-4xl">
+                        <span className="text-[0.41em] uppercase tracking-wide leading-none text-neutral-500">
                           {dateInfo.dayOfWeek}
                         </span>
-                        <span className="shrink-0 rounded border-2 border-neutral-300 dark:border-neutral-700 px-2 py-1 font-mono text-base uppercase tracking-wider text-neutral-500 dark:text-neutral-400 transition-all duration-300 group-hover:border-[#d4a553] group-hover:bg-[#d4a553] group-hover:text-neutral-950 group-hover:shadow-[0_0_18px_rgba(212,165,83,0.55)]">
+                        <span className="shrink-0 rounded border-2 border-neutral-300 dark:border-neutral-700 px-2 py-1.5 font-mono text-[0.41em] uppercase tracking-wider leading-none text-neutral-500 dark:text-neutral-400 transition-all duration-300 group-hover:border-[#d4a553] group-hover:bg-[#d4a553] group-hover:text-neutral-950 group-hover:shadow-[0_0_18px_rgba(212,165,83,0.55)]">
                           RSVP NOW
                         </span>
                       </span>
@@ -650,61 +598,22 @@ export function SupporterSection({
             className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 split:pb-[clamp(0.5rem,calc(-172px_+_20vh),3rem)] split:px-0 split:max-w-none split:mx-0 scroll-mt-16"
           >
             <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
-              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
-                <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
-                  Be my monthly supporter
-                </h1>
-                <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                  Supporters at every tier get my unreleased songs and
-                  behind-the-scenes videos first. Think Patreon, but I receive
-                  100%. From $5 a month.
-                </p>
-              </div>
-              {renderEarlyAccessTracks(
-                null,
-                (track) => {
-                  setPreviewTrack({
-                    title: track.title,
-                    src: `/audio/${track.id}-preview.mp3`,
-                  });
-                  setShowTierModal(true);
-                },
-                og ? null : (
-                  <button
-                    type="button"
-                    onClick={openTierModal}
-                    className="group w-full text-center"
-                  >
-                    <span
-                      className="min-h-[54px] flex items-center justify-center gap-2 py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-xl text-white text-[20px] font-semibold shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
-                      style={{
-                        background:
-                          "linear-gradient(to right, #f97316, #ec4899)",
-                      }}
-                    >
-                      <MicrophoneStageIcon
-                        className="w-6 h-6"
-                        weight="regular"
-                      />
-                      Choose your tier
-                    </span>
-                  </button>
-                ),
-              )}
-              {!og && (
-                <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-                  {!showVerifyForm ? (
-                    <button
-                      onClick={() => setShowVerifyForm(true)}
-                      className="inline-block py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
-                    >
-                      Already a monthly supporter? Sign in
-                    </button>
-                  ) : (
-                    renderVerifyForm()
-                  )}
-                </div>
-              )}
+              <MonthlySupporter
+                heading="h1"
+                source={isModal ? "modal" : "page"}
+                preview={
+                  earlyAccessTracks[0]
+                    ? {
+                        title: earlyAccessTracks[0].title,
+                        src: `/audio/${earlyAccessTracks[0].id}-preview.mp3`,
+                        autoplay: false,
+                      }
+                    : null
+                }
+                panelBleed="-mx-4 sm:mx-0 sm:rounded-lg [--tp-x:1rem] sm:[--tp-x:1.5rem]"
+                og={og}
+                onSignIn={og ? undefined : () => setShowVerifyForm(true)}
+              />
             </div>
           </section>
         )}
@@ -745,11 +654,6 @@ export function SupporterSection({
                   Manage my subscription
                 </button>
               </div>
-              {showVerifyForm && (
-                <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-                  {renderVerifyForm()}
-                </div>
-              )}
             </div>
           </section>
         )}
@@ -780,7 +684,9 @@ export function SupporterSection({
       {/* Floating CTA */}
       {!isPatron && showBottomCta && !og && (
         <button
-          onClick={openTierModal}
+          onClick={() =>
+            tierSectionRef.current?.scrollIntoView({ behavior: "smooth" })
+          }
           className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-5 sm:px-8 flex items-center justify-center gap-2 rounded-xl text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
@@ -792,13 +698,33 @@ export function SupporterSection({
         </button>
       )}
 
-      <SupportModal
-        open={showTierModal && !isPatron}
-        onOpenChange={setShowTierModal}
-        preview={previewTrack}
-        source={isModal ? "modal" : "page"}
-        absoluteOverlay={isModal}
-      />
+      {showVerifyForm && (
+        <div
+          className={`${isModal ? "absolute" : "fixed"} inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
+          onClick={closeVerifyForm}
+        >
+          <div
+            className="bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-md w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-4 font-bebas text-3xl text-neutral-900 dark:text-white">
+              Sign in with your supporter email
+            </h2>
+            <PatronSignInForm
+              onCancel={closeVerifyForm}
+              onVerified={(email) => {
+                closeVerifyForm();
+                if (verifyRedirectToPortal) {
+                  window.location.assign(
+                    `/api/stripe-portal?email=${encodeURIComponent(email)}`,
+                  );
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Calendar Info Modal */}
       {showCalendarInfo && (
         <div

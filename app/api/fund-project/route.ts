@@ -13,14 +13,14 @@ const PROJECT_PRODUCT_MAP: Record<string, string> = {
 };
 
 const MONTHLY_SUBSCRIPTION_PRICES: Record<number, string> = {
-  5: process.env.STRIPE_PRICE_5 || "price_1SsFlJCWIzpWuQGpUFEWyA9B",
+  10: process.env.STRIPE_PRICE_10 || "price_1UIbyNCWIzpWuQGpCIAh3Vza",
   20: process.env.STRIPE_PRICE_20 || "price_1UHdiUCWIzpWuQGp47pAiUwy",
   50: process.env.STRIPE_PRICE_50 || "price_1UHommCWIzpWuQGp1DaWMBUm",
   100: process.env.STRIPE_PRICE_100 || "price_1SsOrnCWIzpWuQGpOLKEwX7L",
 };
 
 const ANNUAL_SUBSCRIPTION_PRICES: Record<number, string> = {
-  50: process.env.STRIPE_PRICE_ANNUAL_50 || "price_1UHommCWIzpWuQGpyKY3C7bP",
+  100: process.env.STRIPE_PRICE_ANNUAL_100 || "price_1UIbyNCWIzpWuQGpy6DLu1Zu",
   200: process.env.STRIPE_PRICE_ANNUAL_200 || "price_1UHommCWIzpWuQGpaVofunWF",
   500: process.env.STRIPE_PRICE_ANNUAL_500 || "price_1UHomnCWIzpWuQGptzYwuzJ5",
   1000: process.env.STRIPE_PRICE_ANNUAL_1000 || "price_1UHomnCWIzpWuQGpfG1LYkN0",

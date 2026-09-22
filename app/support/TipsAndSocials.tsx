@@ -10,13 +10,11 @@ import ContributeCardModal from "./ContributeCardModal";
 function TipsSection({
   interacFirst = false,
   isOg = false,
-  sponsorHref,
   concertCount,
   nextStop,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
-  sponsorHref?: string;
   concertCount: number;
   nextStop?: string;
 }) {
@@ -24,50 +22,44 @@ function TipsSection({
 
   return (
     <div className="flex-1 min-w-0">
-      <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-1">Fund My Tour</h2>
-      <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
-        {concertCount} concerts since Mar '26 &middot; hundreds of participants
-        {nextStop && (
-          <>
-            <br />
-            Next stop: {nextStop}
-          </>
-        )}
-      </p>
+      <h2
+        className={`font-bebas text-3xl text-neutral-900 dark:text-white ${isOg ? "mb-4" : "mb-1"}`}
+      >
+        Fund My Tour
+      </h2>
       {!isOg && (
-        <PaymentOptions
-          venmoUrl="https://venmo.com/u/psdewar"
-          onCard={() => setCardOpen(true)}
-          interacFirst={interacFirst}
-        />
+        <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
+          {concertCount} concerts since Mar '26 &middot; hundreds of
+          participants
+          {nextStop && (
+            <>
+              <br />
+              Next stop: {nextStop}
+            </>
+          )}
+        </p>
       )}
-      {!isOg && sponsorHref && (
-        <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-          <a
-            href={sponsorHref}
-            className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
-          >
-            Host my concert in your living room
-          </a>
-        </div>
-      )}
+      <PaymentOptions
+        venmoUrl="https://venmo.com/u/psdewar"
+        onCard={() => setCardOpen(true)}
+        interacFirst={interacFirst}
+      />
       {cardOpen && <ContributeCardModal onClose={() => setCardOpen(false)} />}
     </div>
   );
 }
 
 const SUCCESS_MESSAGES: Record<string, string> = {
-  no_shows: "No shows on the schedule right now. Support the tour to help book the next one.",
+  no_shows:
+    "No shows on the schedule right now. Support the tour to help book the next one.",
 };
 
 export default function TipsAndSocials({
   interacFirst = false,
-  sponsorHref,
   concertCount,
   nextStop,
 }: {
   interacFirst?: boolean;
-  sponsorHref?: string;
   concertCount: number;
   nextStop?: string;
 }) {
@@ -80,7 +72,11 @@ export default function TipsAndSocials({
   useEffect(() => {
     if (thanks === "1") {
       const sid = searchParams.get("session_id");
-      router.replace(sid ? `/listen?patron_welcome=1&session_id=${encodeURIComponent(sid)}` : "/listen");
+      router.replace(
+        sid
+          ? `/listen?patron_welcome=1&session_id=${encodeURIComponent(sid)}`
+          : "/listen",
+      );
     }
   }, [thanks, searchParams, router]);
 
@@ -93,18 +89,19 @@ export default function TipsAndSocials({
   }, [toast]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-12 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-8 md:pt-12 md:pb-10 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0">
       <div className="flex flex-col gap-8 max-w-lg mx-auto split:max-w-none split:mx-0">
         {thanked ? (
           <div className="flex-1 min-w-0">
-            <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">Thank you</h2>
+            <h2 className="font-bebas text-3xl text-neutral-900 dark:text-white mb-4">
+              Thank you
+            </h2>
             <SocialCards />
           </div>
         ) : (
           <TipsSection
             interacFirst={interacFirst}
             isOg={searchParams.get("og") === "true"}
-            sponsorHref={sponsorHref}
             concertCount={concertCount}
             nextStop={nextStop}
           />

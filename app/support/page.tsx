@@ -41,12 +41,16 @@ export default async function SupportPage({
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const upcomingShows = liveShows.filter(isShowUpcoming);
-  const pastShows = liveShows.filter((s) => isShowCompleted(s) && !isShowUpcoming(s));
+  const pastShows = liveShows.filter(
+    (s) => isShowCompleted(s) && !isShowUpcoming(s),
+  );
   const concertCount = getTourConcertCount(shows);
   const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
   const sponsorHref = draft ? confirmPath(draft.slug) : undefined;
   const nextShow = upcomingShows.find((s) => !needsHostLocation(s));
-  const nextStop = nextShow ? `${nextShow.city}, ${nextShow.region}` : undefined;
+  const nextStop = nextShow
+    ? `${nextShow.city}, ${nextShow.region}`
+    : undefined;
   const todayShow = liveShows.find((s) => {
     if (s.country !== "CA") return false;
     if (params.now) return params.now === s.date;
@@ -60,11 +64,11 @@ export default async function SupportPage({
         upcomingShows={upcomingShows}
         pastShows={pastShows}
         og={og}
+        sponsorHref={sponsorHref}
         ask={
           <Suspense>
             <TipsAndSocials
               interacFirst={!!todayShow}
-              sponsorHref={sponsorHref}
               concertCount={concertCount}
               nextStop={nextStop}
             />

@@ -15,14 +15,14 @@ export function isPatronTrack(trackId: string): boolean {
 export type PatronTierName = "Pen" | "Flow" | "Mind" | "Soul";
 
 export const PATRON_TIER_BASE: { name: PatronTierName; net: number; color: string }[] = [
-  { name: "Pen", net: 5, color: "#f97316" },
+  { name: "Pen", net: 10, color: "#f97316" },
   { name: "Flow", net: 20, color: "#f56542" },
   { name: "Mind", net: 50, color: "#f0566d" },
   { name: "Soul", net: 100, color: "#ec4899" },
 ];
 
 export function tierForMonthlyNet(net: number): PatronTierName {
-  if (net < 12.5) return "Pen";
+  if (net < 15) return "Pen";
   if (net < 35) return "Flow";
   if (net < 75) return "Mind";
   return "Soul";
