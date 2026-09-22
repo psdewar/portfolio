@@ -8,7 +8,11 @@ import { grossUpCents, feeCents, formatFee } from "../lib/fees";
 
 const PRESETS = [25, 50, 100];
 
-export default function ContributeCardModal({ onClose }: { onClose: () => void }) {
+export default function ContributeCardModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
   const [amount, setAmount] = useState("25");
   const [creating, setCreating] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
@@ -101,7 +105,9 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
         <div className="px-6 pb-6">
           {complete ? (
             <div className="flex flex-col items-center gap-4 py-2">
-              <p className="text-xl text-neutral-600 dark:text-neutral-300">Find me on socials</p>
+              <p className="text-xl text-neutral-600 dark:text-neutral-300">
+                Find me on socials
+              </p>
               <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-neutral-200 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white" />
             </div>
           ) : secret ? (
@@ -129,7 +135,9 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
                 ))}
               </div>
               <div className="relative mb-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-neutral-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-neutral-400">
+                  $
+                </span>
                 <input
                   type="number"
                   min="1"
@@ -140,7 +148,9 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
                 />
               </div>
               <div className="text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums mb-4">
-                {cents >= 100 ? formatFee(feeCents(cents)) : " "}
+                {cents >= 100
+                  ? `${formatFee(feeCents(cents))}, so I receive 100%`
+                  : " "}
               </div>
               <button
                 onClick={startCheckout}
@@ -157,13 +167,10 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
                 )}
               </button>
               {error && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-              )}
-              <div className="-mx-6 -mb-6">
-                <p className="border-t-2 border-neutral-200 dark:border-neutral-800 px-6 py-5 text-sm text-neutral-500 dark:text-neutral-400">
-                  Stripe checkout adds a small processing fee. All your support goes directly to me.
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {error}
                 </p>
-              </div>
+              )}
             </>
           )}
         </div>

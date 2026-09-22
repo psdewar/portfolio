@@ -12,5 +12,5 @@ export function feeCents(netCents: number): number {
 }
 
 export function formatFee(cents: number): string {
-  return `+$${(cents / 100).toFixed(2)} fee`;
+  return `+$${(cents / 100).toFixed(2)} card fee`;
 }
