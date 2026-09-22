@@ -261,22 +261,26 @@ export function SupporterSection({
   };
 
   function renderEarlyAccessTracks(
-    introText: string,
+    introText: string | null,
     onTrackClick: (track: (typeof earlyAccessTracks)[number]) => void,
+    leading?: React.ReactNode,
   ): React.ReactNode {
     if (earlyAccessTracks.length === 0) return null;
     return (
       <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
-        <p className="text-neutral-900 dark:text-white font-medium mb-2 split:mb-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
-          {introText}
-        </p>
+        {introText && (
+          <p className="text-neutral-900 dark:text-white font-medium mb-2 split:mb-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
+            {introText}
+          </p>
+        )}
+        {leading && <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">{leading}</div>}
         <div className="rounded-xl border-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800 overflow-hidden">
           {earlyAccessTracks.map((track) => (
             <button
               type="button"
               key={track.id}
               onClick={() => onTrackClick(track)}
-              className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
             >
               <span
                 aria-hidden
@@ -507,17 +511,17 @@ export function SupporterSection({
                             {style.label}
                           </span>
                           {event.location && (
-                            <span className="text-neutral-500 text-base truncate">
+                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate">
                               {event.location}
                             </span>
                           )}
                           {isContent && event.relatedSong && (
-                            <span className="text-neutral-500 text-base truncate">
+                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate">
                               {event.relatedSong}
                             </span>
                           )}
                           {isFeature && event.artist && (
-                            <span className="text-neutral-500 text-base truncate flex items-center gap-1">
+                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate flex items-center gap-1">
                               <UserIcon className="w-3 h-3" />
                               {event.artist}
                             </span>
@@ -525,7 +529,7 @@ export function SupporterSection({
                         </div>
                       )}
                       <h3
-                        className={`${isCityRow ? "font-medium text-lg leading-tight" : isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 truncate`}
+                        className={`${isCityRow ? "font-medium text-lg leading-tight" : isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
                         style={
                           isFGTU && !isCityRow
                             ? { fontFamily: '"Parkinsans", sans-serif' }
@@ -651,12 +655,21 @@ export function SupporterSection({
                   Be my monthly supporter
                 </h1>
                 <p className="text-base text-neutral-500 dark:text-neutral-400 mt-1">
-                  Every tier unlocks the same unreleased music and
-                  behind-the-scenes content. Give what you can.
+                  Supporters at every tier get my unreleased songs and
+                  behind-the-scenes videos first. Think Patreon, but I receive
+                  100%. From $5 a month.
                 </p>
               </div>
-              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
-                {!og ? (
+              {renderEarlyAccessTracks(
+                null,
+                (track) => {
+                  setPreviewTrack({
+                    title: track.title,
+                    src: `/audio/${track.id}-preview.mp3`,
+                  });
+                  setShowTierModal(true);
+                },
+                og ? null : (
                   <button
                     type="button"
                     onClick={openTierModal}
@@ -675,32 +688,15 @@ export function SupporterSection({
                       />
                       Choose your tier
                     </span>
-                    <span className="block mt-1 text-base text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-200 transition-colors">
-                      Think Patreon, but I receive 100% of your support.
-                    </span>
                   </button>
-                ) : (
-                  <p className="text-left text-base text-neutral-500 dark:text-neutral-400">
-                    Think Patreon, but I receive 100% of your support.
-                  </p>
-                )}
-              </div>
-              {renderEarlyAccessTracks(
-                "Supporters get my unreleased songs first",
-                (track) => {
-                  setPreviewTrack({
-                    title: track.title,
-                    src: `/audio/${track.id}-preview.mp3`,
-                  });
-                  setShowTierModal(true);
-                },
+                ),
               )}
               {!og && (
                 <div className="text-center mt-2 split:mt-[clamp(0.25rem,calc(-14px_+_2vh),0.5rem)]">
                   {!showVerifyForm ? (
                     <button
                       onClick={() => setShowVerifyForm(true)}
-                      className="inline-block py-3 split:py-[clamp(0.25rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
+                      className="inline-block py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 text-base underline underline-offset-2 transition-colors"
                     >
                       Already a monthly supporter? Sign in
                     </button>
@@ -719,7 +715,7 @@ export function SupporterSection({
             className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 split:pb-[clamp(0.5rem,calc(-172px_+_20vh),3rem)] split:px-0 split:max-w-none split:mx-0 scroll-mt-16"
           >
             <div className="max-w-lg mx-auto split:max-w-none split:mx-0">
-              <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
+              <div className="mb-5 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
                 <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
                   You&apos;re a monthly supporter
                 </h1>
@@ -785,12 +781,13 @@ export function SupporterSection({
       {!isPatron && showBottomCta && !og && (
         <button
           onClick={openTierModal}
-          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-8 flex items-center justify-center rounded-xl text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
+          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-5 sm:px-8 flex items-center justify-center gap-2 rounded-xl text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
             bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
           }}
         >
+          <MicrophoneStageIcon className="w-6 h-6" weight="regular" />
           Be my monthly supporter
         </button>
       )}

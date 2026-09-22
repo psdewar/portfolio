@@ -37,6 +37,7 @@ import LegRow from "../LegRow";
 import BookingLoop from "../BookingLoop";
 import SectionHeading from "../SectionHeading";
 import { areRegionsAdjacent } from "../../lib/region-adjacency";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import {
   formatEventDate,
   formatEventDateShort,
@@ -121,6 +122,8 @@ function Modal({
   children: ReactNode;
   widthClassName?: string;
 }) {
+  useScrollLock();
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -1333,6 +1336,7 @@ function PosterEditor({
   };
 
   const [open, setOpen] = useState(false);
+  useScrollLock(open);
   const [legId, setLegId] = useState(
     matchedPamphlet?.id ?? group[0]?.show?.leg ?? "",
   );

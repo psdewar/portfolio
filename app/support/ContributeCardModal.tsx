@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { XIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import CheckoutEmbed from "../components/CheckoutEmbed";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { grossUpCents, feeCents, formatFee } from "../lib/fees";
 
 const PRESETS = [25, 50, 100];
@@ -13,6 +14,8 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
   const [secret, setSecret] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
+
+  useScrollLock();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -157,8 +160,8 @@ export default function ContributeCardModal({ onClose }: { onClose: () => void }
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
               )}
               <div className="-mx-6 -mb-6">
-                <p className="border-t border-neutral-200 dark:border-neutral-800 px-6 pt-4 pb-6 text-sm text-neutral-500 dark:text-neutral-400">
-                  Other platforms take a cut on top of payment processing. Here, you cover processing with no additional costs.
+                <p className="border-t-2 border-neutral-200 dark:border-neutral-800 px-6 py-5 text-sm text-neutral-500 dark:text-neutral-400">
+                  Stripe checkout adds a small processing fee. All your support goes directly to me.
                 </p>
               </div>
             </>

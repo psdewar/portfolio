@@ -33,6 +33,7 @@ import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 
@@ -236,6 +237,8 @@ function ContributeOverlay({
 }) {
   const [complete, setComplete] = useState(false);
   const [method, setMethod] = useState<"card" | null>(null);
+
+  useScrollLock();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -507,6 +510,7 @@ export function TripFund({
     setIntroOpen(true);
   };
   const [modal, setModal] = useState<"shop" | null>(null);
+  useScrollLock(modal === "shop");
 
   useEffect(() => {
     if (!modal) return;

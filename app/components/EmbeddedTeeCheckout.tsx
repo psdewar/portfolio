@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { XIcon } from "@phosphor-icons/react";
 import CheckoutEmbed from "./CheckoutEmbed";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 const GOLD = "#d4a553";
 
@@ -31,6 +32,8 @@ export default function EmbeddedTeeCheckout({
   onCrossSell,
 }: Props) {
   const [complete, setComplete] = useState(false);
+
+  useScrollLock();
 
   const fetchClientSecret = useCallback(async () => {
     const res = await fetch("/api/create-checkout-session", {

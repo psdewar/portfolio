@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getVideoMetadata } from "app/lib/videos.config";
+import { useScrollLock } from "app/hooks/useScrollLock";
 
 interface VideoContextType {
   videoState: {
@@ -190,6 +191,8 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       el.addEventListener("loadedmetadata", enterFullscreenIfLandscape, { once: true });
     }
   }, [enterFullscreenIfLandscape]);
+
+  useScrollLock(videoState.isOpen && !!modalData);
 
   return (
     <VideoContext.Provider value={{ videoState, openVideo, closeVideo, registerVideo }}>

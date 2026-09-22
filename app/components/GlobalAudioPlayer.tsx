@@ -15,6 +15,7 @@ import {
 import { TRACK_DATA } from "../data/tracks";
 import { getLyrics, getCurrentLyric, isCtaLyric, type LyricLine } from "../lib/lyrics";
 import { useLiveStatus } from "../hooks/useLiveStatus";
+import { useScrollLocked } from "../hooks/useScrollLock";
 
 const ROW_BTN =
   "hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset";
@@ -80,13 +81,14 @@ export const GlobalAudioPlayer: React.FC = () => {
     previousTrack,
   } = useAudio();
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const isModalOpen = useScrollLocked();
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
   const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
   const { online: isStreamLive } = useLiveStatus({ enabled: isLivePage });
-  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isOverlayOpen && !(isLivePage && isStreamLive);
+  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isOverlayOpen && !isModalOpen && !(isLivePage && isStreamLive);
 
   useEffect(() => {
     if (isVisible) {

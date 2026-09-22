@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { PlayIcon, PauseIcon, XIcon } from "@phosphor-icons/react";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 function IntroVideoModal({ onClose }: { onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -11,6 +12,8 @@ function IntroVideoModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   onCloseRef.current = onClose;
+
+  useScrollLock();
 
   useEffect(() => {
     const video = videoRef.current;

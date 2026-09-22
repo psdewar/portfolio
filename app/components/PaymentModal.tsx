@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useScrollLock } from "../hooks/useScrollLock";
 import PaymentOptions from "./PaymentOptions";
 
 export function venmoPayUrl(amount: number | string, note: string) {
@@ -26,6 +27,8 @@ export default function PaymentModal({
   error?: string;
   zelle?: boolean;
 }) {
+  useScrollLock();
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

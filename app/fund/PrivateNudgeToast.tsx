@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 export default function PrivateNudgeToast({ destination }: { destination: string }) {
   const [open, setOpen] = useState(true);
+
+  useScrollLock(open);
 
   useEffect(() => {
     const url = new URL(window.location.href);

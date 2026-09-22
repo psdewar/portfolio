@@ -1,5 +1,7 @@
 "use client";
 
+import { useScrollLock } from "../hooks/useScrollLock";
+
 interface SuccessModalProps {
   show: boolean;
   onClose: () => void;
@@ -8,6 +10,7 @@ interface SuccessModalProps {
 }
 
 export function SuccessModal({ show, onClose, amountCents, sessionId }: SuccessModalProps) {
+  useScrollLock(show);
   if (!show) return null;
 
   return (

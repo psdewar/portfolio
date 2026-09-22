@@ -20,6 +20,7 @@ import {
 } from "app/data/tracks";
 import { isPatronTrack } from "app/data/patron-config";
 import { usePatronStatus } from "app/hooks/usePatronStatus";
+import { useScrollLock } from "app/hooks/useScrollLock";
 import SupportModal from "app/components/SupportModal";
 import { getLyrics, getCurrentLyric } from "app/lib/lyrics";
 
@@ -86,6 +87,8 @@ export default function SingleOverlay({
     getLyricTime,
   } = useAudio();
   const isPatron = usePatronStatus();
+
+  useScrollLock();
 
   const trackData = TRACK_DATA.find((t) => t.id === trackId);
   const isCurrent = currentTrack?.id === trackId;

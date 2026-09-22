@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { useDocumentReady } from "../../hooks/useDocumentReady";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 const PAPER = "#eef0f3";
 const INK = "#262b3f";
@@ -140,17 +141,7 @@ export default function CheckInClient({
     };
   }, []);
 
-  useEffect(() => {
-    const html = document.documentElement;
-    const prevHtml = html.style.overflow;
-    const prevBody = document.body.style.overflow;
-    html.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    return () => {
-      html.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-    };
-  }, []);
+  useScrollLock();
 
   useEffect(() => {
     const el = cityRef.current;

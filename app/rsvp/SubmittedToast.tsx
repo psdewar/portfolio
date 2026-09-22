@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 export default function SubmittedToast({
   slug,
@@ -11,6 +12,8 @@ export default function SubmittedToast({
 }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useScrollLock();
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 

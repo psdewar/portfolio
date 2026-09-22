@@ -6,6 +6,7 @@ import posthog from "posthog-js";
 import type { GalleryItem } from "../api/shared/moments";
 import { formatShortDate } from "../lib/dates";
 import { useSunLights } from "../hooks/useSunLights";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 // Full-res URLs are signed on demand and remembered for the session; the
 // featured payload itself stays stable so it can cache until an admin change.
@@ -683,6 +684,8 @@ function Lightbox({
     };
   }, [item.key]);
 
+  useScrollLock();
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -690,11 +693,8 @@ function Lightbox({
       else if (e.key === "ArrowLeft") onStep(-1);
     };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
     };
   }, [onClose, onStep]);
 

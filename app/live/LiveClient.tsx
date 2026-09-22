@@ -10,6 +10,7 @@ import StayConnected from "../components/StayConnected";
 import { Toast } from "../components/Toast";
 import LiveChat from "../components/LiveChat";
 import { useLiveStatus, type LiveStatus } from "../hooks/useLiveStatus";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { formatNextStream, formatTimeAgo } from "../lib/dates";
 import {
   EyeIcon,
@@ -51,6 +52,7 @@ export default function LiveClient({
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
   const [showNotifyPanel, setShowNotifyPanel] = useState(false);
+  useScrollLock(showNotifyPanel);
   const [commenterName, setCommenterName] = useState<string | null>(null);
 
   const [mockNameInput, setMockNameInput] = useState("");

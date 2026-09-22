@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
 import { XIcon, CheckIcon, ArrowLeftIcon } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
 import { PATRON_TIERS } from "../data/patron-tiers";
 import { PATRON_CONFIG } from "../data/patron-config";
 import { TRACK_DATA } from "../data/tracks";
-import { grossUpCents, feeCents as netFeeCents, formatFee } from "../lib/fees";
+import { grossUpCents } from "../lib/fees";
 import CheckoutEmbed from "./CheckoutEmbed";
 
 const TIER_ICONS = PATRON_TIERS.map((tier) => tier.icon);
@@ -19,9 +20,7 @@ const MIN_CUSTOM_AMOUNT = PATRON_TIERS[PATRON_TIERS.length - 1].net;
 
 const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
   Math.round(monthlyNetDollars * (annual ? 1000 : 100));
-const feeCents = (monthlyNetDollars: number, annual: boolean) =>
-  netFeeCents(periodNetCents(monthlyNetDollars, annual));
-const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => ({ net: tier.net, name: tier.name }));
+const SUPPORT_AMOUNTS = PATRON_TIERS.map((tier) => ({ net: tier.net, name: tier.name, hint: tier.hint }));
 const PREVIEW_TRACKS = PATRON_CONFIG.earlyAccess.trackIds
   .map((id) => TRACK_DATA.find((t) => t.id === id))
   .filter((t): t is NonNullable<typeof t> => !!t)
@@ -84,22 +83,14 @@ export default function SupportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [checkoutSecret, setCheckoutSecret] = useState<string | null>(null);
-  const loadingRef = useRef(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">("monthly");
-  const fromSupporterSection = source === "page" || source === "modal";
-  const [customAmount, setCustomAmount] = useState(
-    String(SUPPORT_AMOUNTS[SUPPORT_AMOUNTS.length - 1].net),
-  );
-  const amountSizerRef = useRef<HTMLSpanElement>(null);
-  const [amountWidth, setAmountWidth] = useState(0);
+  const [customAmount, setCustomAmount] = useState(String(MIN_CUSTOM_AMOUNT));
+  const soulInputRef = useRef<HTMLInputElement>(null);
   const soulPointerRef = useRef(false);
-  const markSoulPointer = useRef(() => {
-    soulPointerRef.current = true;
+  const markSoulPointer = useRef((e: PointerEvent) => {
+    if (e.target !== soulInputRef.current) soulPointerRef.current = true;
   }).current;
 
-  const tierFlashedRef = useRef(false);
-  const tierFlashingRef = useRef(false);
-  const flashTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const tierRowsRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const previewPlayedRef = useRef<string | null>(null);
@@ -120,16 +111,8 @@ export default function SupportModal({
 
   const tierModal = useModalStage(open);
   const backdropStage = useModalStage(open);
+  useScrollLock(tierModal.mounted);
 
-  useEffect(() => {
-    const el = amountSizerRef.current;
-    if (!el) return;
-    setAmountWidth(el.getBoundingClientRect().width);
-  }, [customAmount, open, tierModal.mounted, billingPeriod]);
-
-  useEffect(() => {
-    loadingRef.current = isLoading;
-  }, [isLoading]);
 
   const paintRow = (el: HTMLElement, index: number) => {
     el.style.backgroundColor = TIER_COLORS[index];
@@ -145,64 +128,14 @@ export default function SupportModal({
     if (icon) icon.style.color = TIER_COLORS[index];
   };
 
-  const stopFlash = () => {
-    flashTimeoutsRef.current.forEach(clearTimeout);
-    flashTimeoutsRef.current = [];
-    tierFlashingRef.current = false;
-    const rows = tierRowsRef.current?.querySelectorAll("button");
-    rows?.forEach((row, i) => clearRow(row as HTMLElement, i));
-  };
-
-  useEffect(() => {
-    if (
-      !open ||
-      !tierModal.mounted ||
-      (preview?.autoplay !== false && preview && !previewStarted) ||
-      tierFlashedRef.current
-    )
-      return;
-    const rows = tierRowsRef.current?.querySelectorAll("button");
-    if (!rows || rows.length === 0) return;
-    tierFlashedRef.current = true;
-    tierFlashingRef.current = true;
-    const els = Array.from(rows) as HTMLElement[];
-    els.forEach((el) => {
-      el.style.transition = "background-color 0.3s ease";
-      el.querySelectorAll("*").forEach((c) => ((c as HTMLElement).style.transition = "color 0.3s ease"));
-    });
-    const push = (fn: () => void, delay: number) => {
-      flashTimeoutsRef.current.push(setTimeout(fn, delay));
-    };
-    push(() => {
-      els.forEach((el, i) => {
-        push(() => paintRow(el, i), i * 400);
-      });
-      const fadeStart = els.length * 400 + 600;
-      els.forEach((el, i) => {
-        push(() => clearRow(el, i), fadeStart + i * 400);
-      });
-      push(() => {
-        tierFlashingRef.current = false;
-        if (loadingRef.current) return;
-        const i = els.findIndex((el) => el.matches(":hover"));
-        if (i >= 0) paintRow(els[i], i);
-      }, fadeStart + els.length * 400 + 300);
-    }, 500);
-    return () => {
-      tierFlashingRef.current = false;
-      flashTimeoutsRef.current.forEach(clearTimeout);
-      flashTimeoutsRef.current = [];
-    };
-  }, [open, tierModal.mounted, preview, previewStarted]);
-
   useEffect(() => {
     if (!open || !tierModal.mounted || !currentPreview) return;
     const el = audioRef.current;
     if (!el) return;
     if (previewPlayedRef.current === currentPreview.src) return;
+    if (previewPlayedRef.current === null) setPreviewStarted(false);
     previewPlayedRef.current = currentPreview.src;
     setProgress(0);
-    setPreviewStarted(false);
     el.currentTime = 0;
     if (pickedSrc === null && preview?.autoplay === false) return;
     el.play().catch(() => {});
@@ -276,12 +209,14 @@ export default function SupportModal({
     proceedToCheckout(netCents, period);
   };
 
-  const dismissTierModal = () => {
+  useEffect(() => {
+    if (tierModal.mounted) return;
     previewPlayedRef.current = null;
     setPickedSrc(null);
     setProgress(0);
-    onOpenChange(false);
-  };
+  }, [tierModal.mounted]);
+
+  const dismissTierModal = () => onOpenChange(false);
 
   const nextPreview = () => {
     if (previewIndex < previewList.length - 1) setPickedSrc(previewList[previewIndex + 1].src);
@@ -298,15 +233,32 @@ export default function SupportModal({
     el.play().catch(() => {});
   };
 
+  const soulMinimum = billingPeriod === "annually" ? MIN_CUSTOM_AMOUNT * 10 : MIN_CUSTOM_AMOUNT;
+  const soulBelowMinimum = !(parseInt(customAmount, 10) >= soulMinimum);
+
+  const snapSoulToMinimum = () => {
+    setCustomAmount(String(soulMinimum));
+    const input = soulInputRef.current;
+    input?.focus();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    input?.parentElement?.animate(
+      [0, -6, 6, -4, 4, 0].map((x) => ({ transform: `translateX(${x}px)` })),
+      { duration: 320, easing: "ease-out" },
+    );
+  };
+
   const submitSoulTier = () => {
     if (isLoading || !hydrated || soulPointerRef.current) return;
-    const net = parseInt(customAmount, 10);
-    const minimum = billingPeriod === "annually" ? MIN_CUSTOM_AMOUNT * 10 : MIN_CUSTOM_AMOUNT;
-    if (!net || net < minimum) {
-      setCustomAmount(String(minimum));
+    if (soulBelowMinimum) {
+      snapSoulToMinimum();
       return;
     }
+    const net = parseInt(customAmount, 10);
     soulPointerRef.current = true;
+    const soulIndex = SUPPORT_AMOUNTS.length - 1;
+    setSelectedTier("Soul");
+    const row = tierRowsRef.current?.querySelectorAll("button")[soulIndex];
+    if (row) paintRow(row, soulIndex);
     handleSubscribe(net * 100, billingPeriod);
   };
 
@@ -321,40 +273,33 @@ export default function SupportModal({
           {tierModal.mounted && (
           <div
             ref={tierModal.ref}
-            className={`t-modal ${tierModal.stageClass} bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full shadow-xl max-h-full overflow-y-auto ${checkoutSecret ? "max-w-lg" : "max-w-md"}`}
+            className={`t-modal ${tierModal.stageClass} relative bg-white dark:bg-neutral-900 rounded-2xl w-full shadow-xl max-h-full overflow-y-auto ${checkoutSecret ? "max-w-[428px] py-6" : "max-w-md p-6"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`flex justify-between mb-1 ${checkoutSecret ? "items-center" : "items-start"}`}>
+            <button
+              onClick={dismissTierModal}
+              className={`absolute z-20 right-6 top-6 w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors`}
+            >
+              <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
+            </button>
+            <div className={`flex items-center pr-14 ${checkoutSecret ? "relative z-10 px-6" : "mb-2.5"}`}>
               {checkoutSecret ? (
                 <button
                   type="button"
                   onClick={() => setCheckoutSecret(null)}
-                  className="min-h-11 inline-flex items-center gap-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  className="min-h-11 -mx-3 px-3 inline-flex items-center gap-2 text-left text-base font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
                 >
                   <ArrowLeftIcon className="w-4 h-4" weight="bold" />
                   Back to tiers
                 </button>
               ) : (
-                <div>
-                  <h3 className="font-bebas text-2xl text-neutral-900 dark:text-white">
-                    Choose a Tier
-                  </h3>
-                  {!fromSupporterSection && (
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                      Every tier unlocks the same unreleased music and behind-the-scenes content. Give what you can.
-                    </p>
-                  )}
-                </div>
+                <h3 className="text-xl font-semibold text-neutral-900 dark:text-white">
+                  Choose your tier
+                </h3>
               )}
-              <button
-                onClick={dismissTierModal}
-                className={`w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors shrink-0 ${checkoutSecret ? "" : "-mt-1.5"}`}
-              >
-                <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
-              </button>
             </div>
             {checkoutSecret ? (
-              <div className="pt-3">
+              <div className="-mt-3 px-2">
                 <CheckoutEmbed
                   fetchClientSecret={() => Promise.resolve(checkoutSecret)}
                   onComplete={() => {}}
@@ -362,7 +307,7 @@ export default function SupportModal({
               </div>
             ) : (
               <>
-            <div className={`flex items-center justify-start text-sm ${preview ? "" : "mb-4"}`}>
+            <div className={`flex items-center justify-start text-base ${preview ? "" : "mb-4"}`}>
               <button
                 onClick={() => {
                   const nextPeriod = billingPeriod === "monthly" ? "annually" : "monthly";
@@ -377,7 +322,7 @@ export default function SupportModal({
                 className="min-h-11 w-full text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors py-2 flex items-center gap-2"
               >
                 <span
-                  className={`relative w-12 h-7 rounded-full transition-colors ${
+                  className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${
                     billingPeriod === "annually"
                       ? "bg-orange-500"
                       : "bg-neutral-300 dark:bg-neutral-700"
@@ -393,21 +338,23 @@ export default function SupportModal({
                     )}
                   </span>
                 </span>
-                <span className="leading-none">Pay annually</span>
-                <span className="text-green-600 dark:text-green-500">(2 months free)</span>
+                <span className="leading-none whitespace-nowrap">Pay annually</span>
+                <span className="leading-none whitespace-nowrap text-green-600 dark:text-green-500">(2 months free)</span>
               </button>
             </div>
             {currentPreview && (
-              <div className="mb-2">
+              <div>
                 <audio
                   ref={audioRef}
                   src={currentPreview.src}
                   preload="auto"
                   onPlaying={() => setPreviewStarted(true)}
                   onPlay={() => setPreviewPlaying(true)}
-                  onPause={() => setPreviewPlaying(false)}
+                  onPause={(e) => {
+                    if (!e.currentTarget.ended) setPreviewPlaying(false);
+                  }}
                   onEnded={() => {
-                    setPreviewPlaying(false);
+                    if (previewIndex === previewList.length - 1) setPreviewPlaying(false);
                     nextPreview();
                   }}
                   onTimeUpdate={(e) => {
@@ -419,14 +366,15 @@ export default function SupportModal({
                   type="button"
                   onClick={togglePreview}
                   aria-label={previewPlaying ? "Pause preview" : "Play preview"}
-                  className="min-h-11 flex w-full items-center gap-2 py-1 text-left"
+                  className="group min-h-11 -mx-6 w-[calc(100%+3rem)] flex px-6 items-center gap-3 py-1 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  <span
-                    aria-hidden
-                    className="w-6 h-6 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
-                    style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
-                  />
-                  <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
+                  <span aria-hidden className="w-6 shrink-0 flex justify-center">
+                    <span
+                      className="w-4 h-4 bg-gradient-to-br from-orange-400 to-pink-500"
+                      style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
+                    />
+                  </span>
+                  <span className="truncate text-base font-medium text-neutral-900 dark:text-white">
                     {previewStarted ? "Previewing" : "Preview"} &quot;{currentPreview.title}&quot;
                   </span>
                 </button>
@@ -450,7 +398,7 @@ export default function SupportModal({
               )}
               <div
                 ref={tierRowsRef}
-                className="border-t-2 border-neutral-200 dark:border-neutral-800 divide-y-2 divide-neutral-200 dark:divide-neutral-800"
+                className="border-t-2 border-neutral-200 dark:border-neutral-800"
               >
               {SUPPORT_AMOUNTS.map((tier, index) => {
                 const TierIcon = TIER_ICONS[index];
@@ -459,20 +407,12 @@ export default function SupportModal({
                 const price = billingPeriod === "annually" ? tier.net * 10 : tier.net;
                 const period = billingPeriod === "annually" ? "yr" : "mo";
                 const annual = billingPeriod === "annually";
-                const soulAmount = parseInt(customAmount, 10);
-                const soulMonthlyNet = annual ? soulAmount / 10 : soulAmount;
-                const feeLabel = isSoul
-                  ? soulAmount > 0
-                    ? formatFee(feeCents(soulMonthlyNet, annual))
-                    : null
-                  : formatFee(feeCents(tier.net, annual));
                 return (
                   <button
                     key={tier.name}
                     onClick={() => {
-                      stopFlash();
                       setSelectedTier(tier.name);
-                      const row = tierRowsRef.current?.children[index] as HTMLElement | undefined;
+                      const row = tierRowsRef.current?.querySelectorAll("button")[index];
                       if (row) paintRow(row, index);
                       if (isSoul) {
                         soulPointerRef.current = false;
@@ -482,113 +422,124 @@ export default function SupportModal({
                       handleSubscribe(periodNetCents(tier.net, annual));
                     }}
                     disabled={isLoading || !hydrated}
-                    className={`min-h-11 w-full flex items-center gap-3 px-4 py-3 transition-colors group text-left ${
+                    className={`min-h-11 w-full flex items-start gap-4 px-6 py-4 transition-colors group text-left ${
                       isLoading && !isSelected ? "opacity-40" : ""
                     }`}
                     onMouseEnter={(e) => {
-                      if (isLoading || tierFlashingRef.current) return;
+                      if (isLoading) return;
                       paintRow(e.currentTarget, index);
                     }}
                     onMouseLeave={(e) => {
-                      if (isLoading || tierFlashingRef.current) return;
+                      if (isLoading) return;
                       clearRow(e.currentTarget, index);
                     }}
                   >
-                    <TierIcon
-                      data-icon
-                      size={44}
-                      weight="regular"
-                      style={{ color: TIER_COLORS[index] }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-neutral-900 dark:text-white font-medium text-xl">
-                        {tier.name}
-                      </span>
-                      {isSoul && (
-                        <div className="text-neutral-500 dark:text-neutral-400 text-sm">
-                          Name your price
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-auto shrink-0 flex flex-col items-end justify-center min-h-[60px]">
-                    {isLoading && isSelected ? (
-                      <span className="inline-flex items-center gap-1.5 text-sm font-normal tabular-nums">
-                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Opening checkout
-                      </span>
-                    ) : (
-                      <>
-                        <span className="relative text-neutral-900 dark:text-white font-medium text-4xl shrink-0 tabular-nums">
-                          {isSoul ? (
-                            <>
-                              $
-                              <span
-                                ref={amountSizerRef}
-                                aria-hidden
-                                className="invisible absolute left-0 top-0 whitespace-pre"
-                              >
-                                {customAmount || "0"}
-                              </span>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                enterKeyHint="go"
-                                form="soul-price-form"
-                                value={customAmount}
-                                onChange={(e) => {
-                                  const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
-                                  const clamped =
-                                    digitsOnly && parseInt(digitsOnly, 10) > MAX_CUSTOM_AMOUNT
-                                      ? String(MAX_CUSTOM_AMOUNT)
-                                      : digitsOnly;
-                                  setCustomAmount(clamped);
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                onFocus={(e) => {
-                                  e.stopPropagation();
-                                  soulPointerRef.current = false;
-                                  document.addEventListener("pointerdown", markSoulPointer, true);
-                                }}
-                                onBlur={() => {
-                                  document.removeEventListener("pointerdown", markSoulPointer, true);
-                                  if (!document.hasFocus()) return;
-                                  submitSoulTier();
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key !== "Enter") return;
-                                  e.preventDefault();
-                                  e.currentTarget.blur();
-                                }}
-                                className="text-neutral-900 dark:text-white font-medium text-4xl tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white text-right"
-                                style={{ width: amountWidth ? `${Math.ceil(amountWidth)}px` : undefined }}
-                              />
-                              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                                /{period}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              ${price}
-                              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                                /{period}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                        {feeLabel && (
-                          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 tabular-nums">
-                            {feeLabel}
+                    <p className="flex-1 min-w-0 text-base leading-snug text-neutral-600 dark:text-neutral-300">
+                      <span className="block sm:inline">
+                          <span
+                            className={`whitespace-nowrap text-neutral-900 dark:text-white font-medium text-3xl tabular-nums ${isSoul ? "cursor-text" : ""}`}
+                            onPointerDown={isSoul ? (e) => e.stopPropagation() : undefined}
+                            onMouseDown={
+                              isSoul
+                                ? (e) => {
+                                    if (e.target !== soulInputRef.current) e.preventDefault();
+                                  }
+                                : undefined
+                            }
+                            onClick={
+                              isSoul
+                                ? (e) => {
+                                    e.stopPropagation();
+                                    soulInputRef.current?.focus();
+                                  }
+                                : undefined
+                            }
+                          >
+                            {isSoul ? (
+                              <>
+                                $
+                                <span className="inline-grid">
+                                  <span aria-hidden className="invisible col-start-1 row-start-1 whitespace-pre pr-0.5">
+                                    {customAmount || "0"}
+                                  </span>
+                                  <input
+                                    ref={soulInputRef}
+                                    type="text"
+                                    inputMode="numeric"
+                                    size={1}
+                                    enterKeyHint="go"
+                                    form="soul-price-form"
+                                    value={customAmount}
+                                    onChange={(e) => {
+                                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                      const clamped =
+                                        digitsOnly && parseInt(digitsOnly, 10) > MAX_CUSTOM_AMOUNT
+                                          ? String(MAX_CUSTOM_AMOUNT)
+                                          : digitsOnly;
+                                      setCustomAmount(clamped);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      soulPointerRef.current = false;
+                                      document.addEventListener("pointerdown", markSoulPointer, true);
+                                    }}
+                                    onBlur={() => {
+                                      document.removeEventListener("pointerdown", markSoulPointer, true);
+                                      if (!document.hasFocus()) return;
+                                      submitSoulTier();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key !== "Enter") return;
+                                      e.preventDefault();
+                                      if (soulBelowMinimum) {
+                                        snapSoulToMinimum();
+                                        return;
+                                      }
+                                      soulPointerRef.current = false;
+                                      e.currentTarget.blur();
+                                    }}
+                                    className="col-start-1 row-start-1 w-full min-w-0 h-9 text-neutral-900 dark:text-white font-medium text-3xl tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white"
+                                  />
+                                </span>
+                                <span className="text-base font-normal text-neutral-500 dark:text-neutral-400">
+                                  /{period}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                ${price}
+                                <span className="text-base font-normal text-neutral-500 dark:text-neutral-400">
+                                  /{period}
+                                </span>
+                              </>
+                            )}
                           </span>
+                      </span> <span className="block sm:inline text-balance">{isSoul && soulBelowMinimum ? `starts at $${soulMinimum.toLocaleString()}/${period}` : tier.hint[billingPeriod]}</span>
+                    </p>
+                    <span className="shrink-0 self-center">
+                      <span className="h-9 flex flex-row-reverse items-center gap-2">
+                        <span className="w-[2.6em] text-neutral-900 dark:text-white font-medium text-xl leading-none">{tier.name}</span>
+                        {isLoading && isSelected ? (
+                          <span aria-label="Opening checkout" className="w-6 h-6 flex items-center justify-center">
+                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          </span>
+                        ) : (
+                          <TierIcon
+                            data-icon
+                            size={24}
+                            weight="regular"
+                            style={{ color: TIER_COLORS[index] }}
+                          />
                         )}
-                      </>
-                    )}
-                    </div>
+                      </span>
+                    </span>
                   </button>
                 );
               })}
               </div>
-              <p className="border-t border-neutral-200 dark:border-neutral-800 px-6 pt-4 pb-6 text-sm text-neutral-500 dark:text-neutral-400">
-                Other platforms take a cut on top of payment processing. Here, you cover processing with no additional costs.
+              <p className="border-t-2 border-neutral-200 dark:border-neutral-800 px-6 py-5 text-base text-neutral-500 dark:text-neutral-400">
+                Cancel anytime. Stripe checkout adds a small processing fee. All your support goes directly to me.
               </p>
             </div>
               </>
