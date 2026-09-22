@@ -18,6 +18,7 @@ export default {
   theme: {
     extend: {
       screens: {
+        "3xl": "1600px",
         lgtall: { raw: "(min-width: 1024px) and (min-height: 900px)" },
         split: { raw: "(min-width: 1024px) and (min-height: 500px)" },
       },

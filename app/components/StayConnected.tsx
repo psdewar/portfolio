@@ -37,7 +37,7 @@ function formatCountdown(seconds: number): string {
 }
 
 const PRIMARY_BUTTON_CLASS =
-  "w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium py-3 px-4 text-base rounded-lg transition-colors disabled:cursor-not-allowed";
+  "w-full bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:bg-gray-400 text-white dark:text-neutral-900 font-medium px-4 transition-colors disabled:cursor-not-allowed";
 
 const MODE_SWITCH_BUTTON_CLASS =
   "w-full py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 underline underline-offset-2 transition-colors";
@@ -95,6 +95,8 @@ export default function StayConnected({
   };
 
   useEffect(() => {
+    // Inline placement must not grab focus on page load: it scrolls the page to the form.
+    if (!isModal && step !== "code") return;
     const id = setTimeout(() => {
       if (step === "code") {
         otpRef.current?.focus();
@@ -243,7 +245,23 @@ export default function StayConnected({
 
   const containerClass = isModal
     ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
-    : "bg-white dark:bg-neutral-800 rounded-xl p-4 sm:p-6";
+    : "bg-white dark:bg-neutral-800 p-4 sm:p-6 w-full h-full flex flex-col";
+
+  // Inline placement sits in the track grid as a square-cornered tile. Stacked on mobile;
+  // from md a landscape banner (copy left, fields 2x2 right) that spans the row; from xl a
+  // double-wide tile with stacked fields; from 3xl (1600px) a single square once the row is tall enough.
+  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-lg`;
+  const formLayoutClass = isModal
+    ? ""
+    : " md:grid md:grid-cols-[1fr_2fr] xl:grid-cols-2 md:gap-x-6 xl:p-4 3xl:flex";
+  const fieldsClass = `space-y-3 sm:space-y-4${
+    isModal
+      ? ""
+      : " md:row-span-2 md:self-center md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:block xl:gap-0 xl:space-y-2 3xl:self-stretch 3xl:flex 3xl:flex-col 3xl:flex-1 3xl:space-y-2"
+  }`;
+  // Sign-in link sits under the fields; in the square it fills the leftover height so the
+  // whole area is pressable.
+  const modeSwitchClass = `${MODE_SWITCH_BUTTON_CLASS}${isModal ? "" : " md:col-span-2 md:py-0 min-h-11 3xl:flex-1"}`;
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -271,7 +289,7 @@ export default function StayConnected({
 
   if (isSuccess) {
     return (
-      <div className={`${containerClass} shadow-2xl text-center`}>
+      <div className={`${containerClass} shadow-2xl text-center${isModal ? "" : " justify-center"}`}>
         <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-green-100 dark:bg-green-900 rounded-full mx-auto mb-3 sm:mb-4">
           <svg
             className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400"
@@ -307,27 +325,33 @@ export default function StayConnected({
       : selectedTier
         ? `Sign ${mode === "signup" ? "up" : "in"} to continue to checkout`
         : mode === "signup"
-          ? "Drop your info and I'll keep you updated on releases, livestreams, and upcoming shows."
+          ? "Drop your info to stay posted about my releases!"
           : "Enter your email to get a verification code.";
 
   return (
-    <div className={`${containerClass} shadow-2xl`}>
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className={`${containerClass} shadow-2xl${formLayoutClass}`}>
+      <div className={`flex items-start justify-between gap-3 mb-4${isModal ? "" : " md:row-span-2 md:self-center md:mb-0 3xl:self-stretch 3xl:mb-3"}`}>
+        <div
+          className="grid grid-cols-[4.25rem_1fr] gap-3 min-w-0"
+        >
           {!(selectedTier && step !== "code") && (
-            <Image
-              src="/images/home/openmic-square.jpeg"
-              alt="Peyt rhymes with heat"
-              width={48}
-              height={48}
-              className="rounded-full shrink-0"
-            />
+            <div
+              className="relative w-full aspect-square self-center rounded-full overflow-hidden"
+            >
+              <Image
+                src="/images/home/openmic-square.jpeg"
+                alt="Peyt rhymes with heat"
+                fill
+                sizes="96px"
+                className="object-cover"
+              />
+            </div>
           )}
-          <div className="min-w-0">
-            <h3 className="font-bebas text-2xl leading-none text-neutral-900 dark:text-white">
+          <div className="min-w-0 self-center">
+            <h3 className={`font-bebas text-2xl leading-none text-neutral-900 dark:text-white${isModal ? "" : " md:text-3xl"}`}>
               {headerTitle}
             </h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className={`text-sm text-neutral-500 dark:text-neutral-400 mt-1`}>
               {selectedTier && step === "form" ? (
                 <>
                   ${selectedTier.amount}
@@ -375,7 +399,7 @@ export default function StayConnected({
       </div>
 
       {step === "code" ? (
-        <div className="space-y-3 sm:space-y-4">
+        <div className={`space-y-3 sm:space-y-4${isModal ? "" : " md:row-span-2 md:self-center 3xl:self-stretch"}`}>
           {countdown > 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
               Expires in {formatCountdown(countdown)}
@@ -409,7 +433,7 @@ export default function StayConnected({
             type="button"
             onClick={handleVerifyCode}
             disabled={isLoading || countdown <= 0}
-            className={PRIMARY_BUTTON_CLASS}
+            className={primaryButtonClass}
           >
             {isLoading ? "Verifying..." : countdown <= 0 ? "Code expired" : "Verify"}
           </button>
@@ -424,7 +448,7 @@ export default function StayConnected({
           )}
         </div>
       ) : mode === "signup" ? (
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className={fieldsClass}>
           <ContactFields
             ref={emailRef}
             email={contactFormData.email}
@@ -434,25 +458,21 @@ export default function StayConnected({
             onNameChange={(v) => handleInputChange("name", v)}
             onPhoneChange={(v) => handleInputChange("phone", v)}
             errors={errors}
-            compact
+            scale={isModal ? "compact" : "tile"}
           />
           <button
             type="submit"
             disabled={isLoading}
-            className={PRIMARY_BUTTON_CLASS}
+            className={primaryButtonClass}
           >
             {isLoading ? "Sending code..." : "Stay connected"}
           </button>
-          <button
-            type="button"
-            onClick={() => switchMode("signin")}
-            className={MODE_SWITCH_BUTTON_CLASS}
-          >
+          <button type="button" onClick={() => switchMode("signin")} className={modeSwitchClass}>
             Already signed up? Sign in
           </button>
         </form>
       ) : (
-        <div className="space-y-3 sm:space-y-4">
+        <div className={fieldsClass}>
           <FormInput
             ref={emailRef}
             type="email"
@@ -464,21 +484,17 @@ export default function StayConnected({
             }}
             onKeyDown={(e) => e.key === "Enter" && handleRequestSignInCode()}
             error={errors.email}
-            compact
+            scale={isModal ? "compact" : "tile"}
           />
           <button
             type="button"
             onClick={handleRequestSignInCode}
             disabled={isLoading}
-            className={PRIMARY_BUTTON_CLASS}
+            className={primaryButtonClass}
           >
             {isLoading ? "Sending..." : "Send code"}
           </button>
-          <button
-            type="button"
-            onClick={() => switchMode("signup")}
-            className={MODE_SWITCH_BUTTON_CLASS}
-          >
+          <button type="button" onClick={() => switchMode("signup")} className={modeSwitchClass}>
             New here? Sign up
           </button>
         </div>

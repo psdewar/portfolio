@@ -1,11 +1,19 @@
 import { forwardRef } from "react";
 
 type Variant = "neutral" | "gold";
+// page: scales up with the viewport; tile: stays base size; compact: modal density
+export type Scale = "page" | "tile" | "compact";
+
+const scaleClasses: Record<Scale, string> = {
+  page: "px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 text-base md:text-2xl rounded-xl",
+  tile: "px-3 sm:px-4 py-2 sm:py-3 text-base rounded-xl",
+  compact: "px-4 py-3 text-base rounded-lg",
+};
 
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   variant?: Variant;
-  compact?: boolean;
+  scale?: Scale;
 }
 
 const variantClasses: Record<Variant, { base: string; focus: string }> = {
@@ -20,16 +28,13 @@ const variantClasses: Record<Variant, { base: string; focus: string }> = {
 };
 
 const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ error, variant = "neutral", compact = false, className, ...props }, ref) => {
+  ({ error, variant = "neutral", scale = "page", className, ...props }, ref) => {
     const v = variantClasses[variant];
-    const sizeClasses = compact
-      ? "px-4 py-3 text-base rounded-lg"
-      : "px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 text-base md:text-2xl rounded-xl";
     return (
       <div>
         <input
           ref={ref}
-          className={`w-full ${sizeClasses} border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none ${
+          className={`w-full ${scaleClasses[scale]} border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none ${
             error ? "border-red-500 focus:border-red-500" : `${v.base} ${v.focus}`
           } ${className ?? ""}`}
           {...props}

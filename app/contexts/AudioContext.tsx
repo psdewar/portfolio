@@ -30,7 +30,6 @@ interface AudioState {
   isLoading: boolean;
   buffered: number;
   playlist: Track[];
-  analyser: AnalyserNode | null;
 }
 
 interface AudioContextType extends AudioState {
@@ -62,7 +61,6 @@ const getGlobalAudio = () => {
   if (!globalAudio && typeof window !== "undefined") {
     globalAudio = new Audio();
     globalAudio.preload = "metadata";
-    globalAudio.crossOrigin = "anonymous";
   }
   return globalAudio;
 };
@@ -92,45 +90,16 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     isLoading: false,
     buffered: 0,
     playlist: [],
-    analyser: null,
   });
 
-  const isAudioSourceConnected = useRef(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const pendingReload = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const isTransitioning = useRef(false);
 
-  useEffect(() => {
-    if (!audio || isAudioSourceConnected.current) return;
-
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const audioCtx = new AudioCtx();
-      audioCtxRef.current = audioCtx;
-      const analyserNode = audioCtx.createAnalyser();
-      analyserNode.fftSize = 64;
-
-      const source = audioCtx.createMediaElementSource(audio);
-      source.connect(analyserNode);
-      analyserNode.connect(audioCtx.destination);
-
-      isAudioSourceConnected.current = true;
-      setState((prev) => ({ ...prev, analyser: analyserNode }));
-
-      const resumeOnce = () => {
-        audioCtx.resume().catch(() => {});
-      };
-      const events: (keyof DocumentEventMap)[] = ["pointerdown", "touchend", "keydown"];
-      events.forEach((e) =>
-        document.addEventListener(e, resumeOnce, { once: true, capture: true, passive: true }),
-      );
-    } catch (e) {
-      console.error("Web Audio API setup failed", e);
-    }
-  }, [audio]);
+  // Playback is a bare <audio> element on purpose. Routing it through Web Audio
+  // (createMediaElementSource) for the visualizer left Safari silently "playing"
+  // whenever its audio rendering process wedged: context state "running", element
+  // advancing, no sound. Plain media elements are unaffected.
 
   useEffect(() => {
     if (!audio) return;
@@ -227,9 +196,6 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const play = useCallback(async () => {
     if (!audio || !audio.src) return;
-    if (audioCtxRef.current?.state === "suspended") {
-      audioCtxRef.current.resume();
-    }
     if (pendingReload.current) {
       pendingReload.current = false;
       audio.load();
@@ -287,12 +253,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     [audio]
   );
 
-  const getLyricTime = useCallback(() => {
-    if (!audio) return 0;
-    const ctx = audioCtxRef.current;
-    const latency = (ctx?.baseLatency ?? 0) + (ctx?.outputLatency ?? 0);
-    return audio.currentTime + latency;
-  }, [audio]);
+  const getLyricTime = useCallback(() => audio?.currentTime ?? 0, [audio]);
 
   const loadTrack = useCallback(
     async (track: Track, autoPlay = false) => {

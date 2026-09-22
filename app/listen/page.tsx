@@ -150,9 +150,7 @@ export default function Page() {
   const visibleTracks = ALL_VISIBLE_TRACKS;
 
   useEffect(() => {
-    if (shouldShowStayConnected()) {
-      setShowStayConnected(true);
-    }
+    setShowStayConnected(shouldShowStayConnected());
   }, []);
   useEffect(() => {
     if (playlist.length === 0 && !currentTrack && !loadingTrack) {
@@ -185,12 +183,6 @@ export default function Page() {
 
   return (
     <>
-      {showStayConnected && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <StayConnected isModal onClose={() => setShowStayConnected(false)} />
-        </div>
-      )}
-
       <SupportModal
         open={showSupportModal}
         onOpenChange={setShowSupportModal}
@@ -254,7 +246,7 @@ export default function Page() {
       )}
 
       <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {visibleTracks.map((t) => {
+        {visibleTracks.map((t, i) => {
           const isCurrent = currentTrack?.id === t.id;
           const isLoadingThis = loadingTrack?.id === t.id;
           const isLockedWelcome = patronWelcome && WELCOME_PACK_IDS.has(t.id) && !unlockedIds.has(t.id);
@@ -264,6 +256,7 @@ export default function Page() {
             <button
               key={t.id}
               type="button"
+              style={{ order: (i + 1) * 2 }}
               onClick={() => {
                 setSuppressHoverId(t.id);
                 if (isLockedWelcome) {
@@ -357,6 +350,11 @@ export default function Page() {
             </button>
           );
         })}
+        {showStayConnected && !isPatron && (
+          <section className="col-span-2 md:col-span-full xl:col-span-2 3xl:col-span-1 flex justify-center bg-neutral-900 order-[13] lg:order-[17] xl:order-[13]">
+            <StayConnected onClose={() => setShowStayConnected(false)} />
+          </section>
+        )}
       </div>
     </>
   );

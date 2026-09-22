@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import FormInput from "./FormInput";
+import FormInput, { type Scale } from "./FormInput";
 
 type Variant = "neutral" | "gold";
 
@@ -12,11 +12,11 @@ interface ContactFieldsProps {
   onPhoneChange: (value: string) => void;
   errors?: { email?: string; name?: string };
   variant?: Variant;
-  compact?: boolean;
+  scale?: Scale;
 }
 
 const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
-  ({ email, name, phone, onEmailChange, onNameChange, onPhoneChange, errors, variant = "neutral", compact = false }, ref) => {
+  ({ email, name, phone, onEmailChange, onNameChange, onPhoneChange, errors, variant = "neutral", scale }, ref) => {
     return (
       <>
         <FormInput
@@ -27,7 +27,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           onChange={(e) => onEmailChange(e.target.value)}
           error={errors?.email}
           variant={variant}
-          compact={compact}
+          scale={scale}
           enterKeyHint="next"
           autoComplete="email"
         />
@@ -38,7 +38,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           onChange={(e) => onNameChange(e.target.value)}
           error={errors?.name}
           variant={variant}
-          compact={compact}
+          scale={scale}
           enterKeyHint="next"
           autoComplete="name"
         />
@@ -48,7 +48,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           value={phone}
           onChange={(e) => onPhoneChange(e.target.value)}
           variant={variant}
-          compact={compact}
+          scale={scale}
           enterKeyHint="done"
           autoComplete="tel"
         />

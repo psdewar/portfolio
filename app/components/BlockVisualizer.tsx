@@ -2,8 +2,13 @@
 import { useEffect, useRef } from "react";
 import { useAudio } from "app/contexts/AudioContext";
 
+// Bars animate on a clock rather than an AnalyserNode: pulling real levels means
+// routing playback through Web Audio, which is what left Safari silent.
+const BAR_RATES = [2.1, 3.3, 2.7, 4.1];
+const BAR_PHASES = [0, 1.3, 2.6, 0.7];
+
 export default function BlockVisualizer() {
-  const { analyser, isPlaying } = useAudio();
+  const { isPlaying } = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
 
@@ -18,39 +23,19 @@ export default function BlockVisualizer() {
     const gap = 3;
     const barWidth = (canvas.width - (barCount - 1) * gap) / barCount;
 
-    // fftSize is 64 in AudioContext, so we have ~32 frequency bins
-    const dataArray = new Uint8Array(analyser ? analyser.frequencyBinCount : 0);
-
-    const render = () => {
+    const render = (now: number) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (analyser && isPlaying) {
-        analyser.getByteFrequencyData(dataArray);
-      } else {
-        // If paused, show a small "ready" state (flat line)
-        dataArray.fill(40);
-      }
+      const t = now / 1000;
 
       for (let i = 0; i < barCount; i++) {
-        // Select specific frequency bands for the 4 bars:
-        // Bar 0: Deep Bass (Index 1)
-        // Bar 1: Mid Bass (Index 3)
-        // Bar 2: Mids (Index 7)
-        // Bar 3: Highs (Index 15)
-        // These indices work well with fftSize=64 to get visible movement
-        const indices = [1, 3, 7, 15];
-        const index = indices[i] || i;
-
-        // Get value (0-255)
-        const value = isPlaying ? dataArray[index] || 0 : 40;
-
-        // Calculate height
-        // value / 255 * canvas height
-        // We add a tiny minimum height (4px) so bars never disappear completely
-        const percent = value / 255;
+        // Two out-of-phase sines per bar keep the motion from looking metronomic.
+        const wave =
+          0.5 +
+          0.3 * Math.sin(t * BAR_RATES[i] + BAR_PHASES[i]) +
+          0.2 * Math.sin(t * BAR_RATES[i] * 1.7 + BAR_PHASES[i] * 2);
+        const percent = isPlaying ? wave : 40 / 255;
         const height = Math.max(4, percent * canvas.height);
 
-        // Draw Bar
         const x = i * (barWidth + gap);
         const y = canvas.height - height;
 
@@ -58,15 +43,15 @@ export default function BlockVisualizer() {
         ctx.fillRect(x, y, barWidth, height);
       }
 
-      animationRef.current = requestAnimationFrame(render);
+      if (isPlaying) animationRef.current = requestAnimationFrame(render);
     };
 
-    render();
+    render(performance.now());
 
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [analyser, isPlaying]);
+  }, [isPlaying]);
 
   return (
     <div className="w-8 h-8 bg-black/70 rounded-full flex items-center justify-center p-1.5">
