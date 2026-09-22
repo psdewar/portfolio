@@ -12,6 +12,7 @@ import {
 import { DRAFT_DEFAULT_ITEMS } from "../lib/sponsor";
 import ContributionChecklist from "./ContributionChecklist";
 import { useGoogleMaps, createAutocomplete } from "../lib/maps";
+import { parseTypedLocation, resolveLocation } from "../lib/location";
 import { formatLongDate } from "../lib/dates";
 import { DOOR_TIMES } from "../lib/door-times";
 
@@ -23,27 +24,6 @@ function parseDoorTimeMinutes(t: string): number | null {
   if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
   if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
   return h * 60 + min;
-}
-
-// "Bwe Kafe, West Palm Beach, FL" → { venue, city, region }. Two- or
-// three-part comma form only — used when the host typed an address Google
-// didn't autocomplete (or skipped picking a suggestion).
-function parseTypedLocation(raw: string): {
-  venue: string;
-  city: string;
-  region: string;
-} | null {
-  const parts = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.length < 2) return null;
-  if (parts.length === 2) return { venue: "", city: parts[0], region: parts[1] };
-  return {
-    venue: parts.slice(0, -2).join(", "),
-    city: parts[parts.length - 2],
-    region: parts[parts.length - 1],
-  };
 }
 
 export interface SponsorFields {
@@ -141,14 +121,13 @@ export default function SponsorForm({
     createAutocomplete(
       cityContainerRef.current,
       (result) => {
-        setEventVenue(result.venue === result.city ? "" : result.venue);
+        setEventVenue(result.venue);
         setEventAddress(result.address);
         setEventCity(result.city);
         setEventRegion(result.region);
         setEventCountry(result.country);
       },
-      cls,
-      typedLocationRef.current,
+      { inputClassName: cls, initialValue: typedLocationRef.current },
     );
   }, [mapsReady, cityReadOnly, compact]);
 
@@ -189,34 +168,36 @@ export default function SponsorForm({
     // Captured here so the rest of submit uses the recovered values even
     // before setState has flushed.
     let resolvedVenue = eventVenue;
+    let resolvedAddress = eventAddress;
     let resolvedCity = eventCity;
     let resolvedRegion = eventRegion;
     let resolvedCountry = eventCountry;
 
-    // Pending invites may skip location and dates (press-kit style): the host
-    // supplies the where and when at confirmation.
-    if (!resolvedCity || !resolvedRegion) {
-      const typedInput = cityContainerRef.current?.querySelector("input");
-      const typed = typedInput?.value?.trim() || "";
-      const parsed = typed ? parseTypedLocation(typed) : null;
-      if (parsed) {
-        resolvedVenue = resolvedVenue || parsed.venue;
-        resolvedCity = parsed.city;
-        resolvedRegion = parsed.region;
-        resolvedCountry = resolvedCountry || "US";
-        setEventVenue(resolvedVenue);
-        setEventCity(resolvedCity);
-        setEventRegion(resolvedRegion);
-        setEventCountry(resolvedCountry);
-      } else if (!pending || typed) {
-        setSubmitResult({
-          ok: false,
-          msg: typed
-            ? "Add city and state, like 'Bwe Kafe, West Palm Beach, FL'."
-            : "Add a venue or address.",
-        });
+    const typedInput = cityContainerRef.current?.querySelector("input");
+    const typed = typedInput?.value?.trim() || "";
+
+    // Pending invites may skip location entirely (press-kit style). Otherwise,
+    // public self-booking requires a venue or address, not just a city and state.
+    if (!(pending && !typed && !resolvedCity)) {
+      const resolved = resolveLocation(
+        { venue: eventVenue, address: eventAddress, city: eventCity, region: eventRegion },
+        typed,
+        { allowCityOnly: pending || cityReadOnly },
+      );
+      if (resolved.loc === null) {
+        setSubmitResult({ ok: false, msg: resolved.error });
         return;
       }
+      resolvedVenue = resolved.loc.venue || "";
+      resolvedAddress = resolved.loc.address || "";
+      resolvedCity = resolved.loc.city || "";
+      resolvedRegion = resolved.loc.region || "";
+      resolvedCountry = resolvedCountry || "US";
+      setEventVenue(resolvedVenue);
+      setEventAddress(resolvedAddress);
+      setEventCity(resolvedCity);
+      setEventRegion(resolvedRegion);
+      setEventCountry(resolvedCountry);
     }
 
     const multi = eventDates.length > 1;
@@ -277,7 +258,7 @@ export default function SponsorForm({
       region: resolvedRegion,
       country: resolvedCountry,
       venue: resolvedVenue || "",
-      address: eventAddress || "",
+      address: resolvedAddress || "",
       date: primarySlot.date,
       doorTime: primarySlot.doorTime,
       items: Array.from(checked),
@@ -332,7 +313,7 @@ export default function SponsorForm({
                       region: resolvedRegion,
                       country: resolvedCountry,
                       venue: resolvedVenue || null,
-                      address: eventAddress || null,
+                      address: resolvedAddress || null,
                     }
                   : {}),
                 // pending = admin-created draft awaiting host confirmation; public self-booking is live on submit.
@@ -415,7 +396,7 @@ export default function SponsorForm({
                     region: resolvedRegion,
                     country: resolvedCountry,
                     venue: resolvedVenue || null,
-                    address: eventAddress || null,
+                    address: resolvedAddress || null,
                   }
                 : {}),
             }),
@@ -559,9 +540,10 @@ export default function SponsorForm({
                       typedLocationRef.current = e.target.value;
                       const parsed = parseTypedLocation(e.target.value);
                       if (parsed) {
-                        setEventVenue(parsed.venue);
-                        setEventCity(parsed.city);
-                        setEventRegion(parsed.region);
+                        setEventVenue(parsed.venue || "");
+                        setEventAddress(parsed.address || "");
+                        setEventCity(parsed.city || "");
+                        setEventRegion(parsed.region || "");
                         if (!eventCountry) setEventCountry("US");
                       }
                     }}

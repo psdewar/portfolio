@@ -7,21 +7,9 @@ import { isEmailValid } from "../../lib/email";
 import { formatEventDateShort, formatLongDate } from "../../lib/dates";
 import { DOOR_TIMES } from "../../lib/door-times";
 import { useGoogleMaps, createAutocomplete } from "../../lib/maps";
+import { resolveLocation } from "../../lib/location";
 import { SUPPORT_ITEMS, SPECIAL_ITEMS, DRAFT_DEFAULT_ITEMS } from "../../lib/sponsor";
 import ContributionChecklist from "../../components/ContributionChecklist";
-
-// "Cafe Zoe, Menlo Park, CA" → parts, when the host typed a location but never
-// picked a suggestion. Two- or three-part comma form only.
-function parseTypedLocation(raw: string): { venue: string; city: string; region: string } | null {
-  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
-  if (parts.length < 2) return null;
-  if (parts.length === 2) return { venue: "", city: parts[0], region: parts[1] };
-  return {
-    venue: parts.slice(0, -2).join(", "),
-    city: parts[parts.length - 2],
-    region: parts[parts.length - 1],
-  };
-}
 
 export default function ConfirmForm({
   slug,
@@ -82,15 +70,14 @@ export default function ConfirmForm({
     const input = createAutocomplete(
       locRef.current,
       (r) => {
-        const venueName = r.venue === r.city ? "" : r.venue;
-        setVenue(venueName);
+        setVenue(r.venue);
         setAddress(r.address);
         setCity(r.city);
         setRegion(r.region);
         setCountry(r.country);
-        input.value = [venueName, r.city, r.region].filter(Boolean).join(", ");
+        input.value = [r.venue, r.city, r.region].filter(Boolean).join(", ");
       },
-      cls,
+      { inputClassName: cls },
     );
     input.addEventListener("input", () => {
       setCity("");
@@ -117,16 +104,22 @@ export default function ConfirmForm({
       return;
     }
     // Location fields only when the draft was created without one. The host may
-    // have typed an address without picking a suggestion — parse that as a fallback.
+    // have typed an address without picking a suggestion, so resolve that as a fallback.
     let loc = { venue, address, city, region, country };
-    if (needsLocation && (!city || !region)) {
+    if (needsLocation) {
       const typed = locRef.current?.querySelector("input")?.value ?? "";
-      const parsed = parseTypedLocation(typed);
-      if (!parsed) {
-        setError("Add the venue or address, like 'Cafe Zoe, Menlo Park, CA'.");
+      const resolved = resolveLocation({ venue, address, city, region }, typed);
+      if (resolved.loc === null) {
+        setError(resolved.error);
         return;
       }
-      loc = { venue: parsed.venue, address: typed, city: parsed.city, region: parsed.region, country };
+      loc = {
+        venue: resolved.loc.venue || "",
+        address: resolved.loc.address || "",
+        city: resolved.loc.city || "",
+        region: resolved.loc.region || "",
+        country,
+      };
     }
     submitting.current = true;
     setLoading(true);

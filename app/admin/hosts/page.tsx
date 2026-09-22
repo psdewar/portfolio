@@ -412,6 +412,10 @@ interface ShowGroup {
   supporters: Sponsor[];
 }
 
+function hostLocationLabel(host: Sponsor): string {
+  return [host.venue || host.address, host.city, host.region].filter(Boolean).join(", ");
+}
+
 const actionButton =
   "px-3 py-1.5 text-xs rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-[#d4a553] hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors disabled:opacity-50";
 
@@ -2725,9 +2729,7 @@ function ManageModal({
     return opts;
   }, [legs]);
 
-  const location = [host.venue || host.address, host.city, host.region]
-    .filter(Boolean)
-    .join(", ");
+  const location = hostLocationLabel(host);
 
   const handleDeleteShow = async () => {
     setDeleting(true);
@@ -3294,9 +3296,7 @@ function ShowGroupCard({
     dateSave.save({ date: newDate });
   };
 
-  const location = [host.venue || host.address, host.city, host.region]
-    .filter(Boolean)
-    .join(", ");
+  const location = hostLocationLabel(host);
   const status = getShowStatus(show, host.name);
   const statusTone = STATUS_TONE[status.tone];
 

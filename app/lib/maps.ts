@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CITY_LEVEL_PLACE_TYPES } from "./location";
 
 export interface PlaceResult {
   venue: string;
@@ -65,9 +66,9 @@ export function preloadGoogleMaps(): void {
 export function createAutocomplete(
   container: HTMLElement,
   onSelect: (place: PlaceResult) => void,
-  inputClassName?: string,
-  initialValue?: string,
+  options?: { inputClassName?: string; initialValue?: string },
 ) {
+  const { inputClassName, initialValue } = options || {};
   const google = (window as any).google;
 
   const wrapper = document.createElement("div");
@@ -150,6 +151,8 @@ export function createAutocomplete(
           result.address = [streetNumber, route].filter(Boolean).join(" ");
         }
 
+        if (result.venue === result.city || result.venue === result.address) result.venue = "";
+
         input.value = "";
         suggestions = [];
         renderSuggestions();
@@ -177,7 +180,11 @@ export function createAutocomplete(
             sessionToken,
           });
         if (thisRequest !== requestId) return;
-        suggestions = response.suggestions || [];
+        const all = response.suggestions || [];
+        suggestions = all.filter((s: any) => {
+          const types = s.placePrediction?.types;
+          return !types || !types.some((t: string) => CITY_LEVEL_PLACE_TYPES.includes(t));
+        });
       } catch {
         if (thisRequest !== requestId) return;
         suggestions = [];

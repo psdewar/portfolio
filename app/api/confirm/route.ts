@@ -9,6 +9,7 @@ import {
 } from "../../lib/shows";
 import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
+import { locationError } from "../../lib/location";
 import { isAdminAuthorized } from "../shared/admin-auth";
 
 export const maxDuration = 30;
@@ -104,8 +105,21 @@ export async function POST(request: NextRequest) {
   if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
-    const { slug, sig, name, email, phone, date, doorTime, venue, address, city, region, country, items } =
-      await request.json();
+    const {
+      slug,
+      sig,
+      name,
+      email,
+      phone,
+      date,
+      doorTime,
+      venue,
+      address,
+      city,
+      region,
+      country,
+      items,
+    } = await request.json();
     const nextItems = Array.isArray(items)
       ? Array.from(new Set(items.filter((item): item is string => typeof item === "string")))
       : undefined;
@@ -133,17 +147,24 @@ export async function POST(request: NextRequest) {
     // so spawn a fresh location-derived show (chorus mints the city-region slug).
     // The open invite stays for the next host; a pending booking is retired.
     if (needsHostLocation(show)) {
-      const loc = { city: (city || "").trim(), region: (region || "").trim() };
-      if (!loc.city || !loc.region) {
-        return NextResponse.json({ error: "Add the city and state." }, { status: 400 });
+      const loc = {
+        venue: (venue || "").trim(),
+        address: (address || "").trim(),
+        city: (city || "").trim(),
+        region: (region || "").trim(),
+      };
+      const error = locationError(loc);
+      if (error) {
+        return NextResponse.json({ error }, { status: 400 });
       }
 
       const spawned: Show = {
         ...show,
-        ...loc,
+        city: loc.city,
+        region: loc.region,
         country: (country || show.country || "US").trim(),
-        venue: (venue || "").trim() || null,
-        address: (address || "").trim() || null,
+        venue: loc.venue || null,
+        address: loc.address || null,
         date: nextDate,
         doorTime: nextDoorTime,
         stage: "booked",
