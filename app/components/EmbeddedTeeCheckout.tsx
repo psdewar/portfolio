@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { XIcon } from "@phosphor-icons/react";
-import CheckoutEmbed from "./CheckoutEmbed";
+import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
 import { useScrollLock } from "../hooks/useScrollLock";
 
 const GOLD = "#d4a553";
@@ -39,7 +39,11 @@ export default function EmbeddedTeeCheckout({
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, embedded: true, metadata: { color, size } }),
+      body: JSON.stringify({
+        productId,
+        embedded: true,
+        metadata: { color, size },
+      }),
     });
     const { clientSecret } = await res.json();
     return clientSecret;
@@ -50,23 +54,25 @@ export default function EmbeddedTeeCheckout({
       className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div
-        className="relative my-8 w-full max-w-md rounded-2xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-neutral-500 hover:text-neutral-900"
+      {complete ? (
+        <div
+          className="relative my-8 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
         >
-          <XIcon size={20} weight="bold" />
-        </button>
-        {complete ? (
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute right-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-neutral-500 hover:text-neutral-900"
+          >
+            <XIcon size={20} weight="bold" />
+          </button>
           <div className="animate-fade-in px-6 py-16 text-center">
             <h2 className="font-bebas text-5xl" style={{ color: accent }}>
               Order Confirmed
             </h2>
-            <p className="mx-auto mt-3 max-w-xs text-neutral-600">{confirmation}</p>
+            <p className="mx-auto mt-3 max-w-xs text-neutral-600">
+              {confirmation}
+            </p>
             <div className="mx-auto mt-8 flex max-w-xs flex-col gap-3">
               {onCrossSell && crossSellLabel && (
                 <button
@@ -85,10 +91,20 @@ export default function EmbeddedTeeCheckout({
               </Link>
             </div>
           </div>
-        ) : (
-          <CheckoutEmbed fetchClientSecret={fetchClientSecret} onComplete={() => setComplete(true)} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div
+          className={`${CHECKOUT_CARD} my-8`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CheckoutPanel
+            backLabel="Back to shop"
+            onBack={onClose}
+            fetchClientSecret={fetchClientSecret}
+            onComplete={() => setComplete(true)}
+          />
+        </div>
+      )}
     </div>
   );
 }

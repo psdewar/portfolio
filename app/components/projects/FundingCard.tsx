@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
+import { MAX_CARD_CENTS } from "app/lib/fees";
 
 interface FundingCardProps {
   raisedCents: number;
@@ -87,6 +88,10 @@ export function FundingCard({
       alert("Minimum amount is $10.00");
       return;
     }
+    if (amount * 100 > MAX_CARD_CENTS) {
+      alert("Card checkout is up to $10,000");
+      return;
+    }
 
     const amountInCents = Math.round(amount * 100);
     handlePayment(amountInCents);
@@ -116,7 +121,9 @@ export function FundingCard({
           <div className="text-3xl lg:text-4xl font-semibold text-green-600 dark:text-green-400 mb-1 tabular-nums">
             {backers}
           </div>
-          <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300">backers</div>
+          <div className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
+            backers
+          </div>
         </div>
       </div>
 
@@ -147,7 +154,9 @@ export function FundingCard({
                 </span>
               </div>
               <span className="text-sm lg:text-base text-gray-600 dark:text-gray-300 leading-snug">
-                {isLoading && selectedAmount === amount ? "Processing..." : label}
+                {isLoading && selectedAmount === amount
+                  ? "Processing..."
+                  : label}
               </span>
             </button>
           );
@@ -170,7 +179,9 @@ export function FundingCard({
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span className="text-base lg:text-lg text-gray-600 dark:text-gray-300">
-                {isLoading && selectedAmount === amount ? "Processing..." : label}
+                {isLoading && selectedAmount === amount
+                  ? "Processing..."
+                  : label}
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-xl lg:text-2xl font-medium text-gray-900 dark:text-white tabular-nums">
@@ -198,6 +209,7 @@ export function FundingCard({
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
                 min="10"
+                max={MAX_CARD_CENTS / 100}
                 step="5"
                 disabled={isLoading}
                 className="text-2xl lg:text-3xl font-medium w-full pl-5 lg:pl-6 pr-10 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"
@@ -214,11 +226,17 @@ export function FundingCard({
             disabled={isLoading || !customAmount}
             className="relative px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
           >
-            <span>{isLoading && selectedAmount === null ? "Processing..." : "Contribute"}</span>
+            <span>
+              {isLoading && selectedAmount === null
+                ? "Processing..."
+                : "Contribute"}
+            </span>
           </button>
         </div>
         <div className="flex items-start justify-between">
-          <p className="w-1/2 text-xs text-gray-900 dark:text-white">Name your price</p>
+          <p className="w-1/2 text-xs text-gray-900 dark:text-white">
+            Name your price
+          </p>
           <p className="w-1/2 text-xs text-gray-600 dark:text-gray-400 text-right">
             Your contribution helps with processing fees
           </p>
@@ -240,9 +258,9 @@ export function FundingCard({
               // instagramUrl="https://www.instagram.com/peytspencer/reel/DPg61j5EWb8" TODO: add new link here
             />
             <p className="text-base lg:text-xl text-gray-600 dark:text-gray-300">
-              Thank you for your generosity! Since we reached our initial goal within just one week,
-              let's stretch the goal to $1,500. I invite your support to bring my next single to
-              life.
+              Thank you for your generosity! Since we reached our initial goal
+              within just one week, let's stretch the goal to $1,500. I invite
+              your support to bring my next single to life.
             </p>
           </div>
         )}

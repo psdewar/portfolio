@@ -2,7 +2,6 @@
 
 import { Social } from "../components/Social";
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -11,7 +10,8 @@ import {
 } from "react";
 import posthog from "posthog-js";
 import PaymentOptions from "../components/PaymentOptions";
-import CheckoutEmbed from "../components/CheckoutEmbed";
+import { grossUpCents, formatCents, MAX_CARD_CENTS } from "../lib/fees";
+import CheckoutPanel, { CHECKOUT_CARD } from "../components/CheckoutPanel";
 import { venmoPayUrl } from "../components/PaymentModal";
 import GalleryPlayer from "../moments/GalleryPlayer";
 import type { GalleryItem } from "../api/shared/moments";
@@ -194,9 +194,16 @@ function LineMatchControl({
             className="match-input"
             type="number"
             min="1"
+            max={MAX_CARD_CENTS / 100}
             placeholder="0"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) =>
+              onChange(
+                parseFloat(e.target.value) > MAX_CARD_CENTS / 100
+                  ? String(MAX_CARD_CENTS / 100)
+                  : e.target.value,
+              )
+            }
           />
         </div>
         {full !== undefined && (
@@ -236,7 +243,9 @@ function ContributeOverlay({
   onClose: () => void;
 }) {
   const [complete, setComplete] = useState(false);
-  const [method, setMethod] = useState<"card" | null>(null);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
   useScrollLock();
 
@@ -256,51 +265,40 @@ function ContributeOverlay({
     return () => clearTimeout(t);
   }, [complete]);
 
-  const fetchClientSecret = useCallback(async () => {
-    const res = await fetch("/api/contribution-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, trip }),
-    });
-    const { clientSecret } = await res.json();
-    return clientSecret;
-  }, [items, trip]);
+  const startCheckout = async () => {
+    if (creating) return;
+    setCreating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/contribution-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, trip }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const { clientSecret } = await res.json();
+      if (!clientSecret) throw new Error("failed");
+      setSecret(clientSecret);
+    } catch {
+      setError("Checkout couldn't open. Try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="contribute-overlay" onClick={onClose}>
-      <div
-        className="contribute-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Contribute"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="contribute-header">
-          {!complete && (
-            <span className="contribute-title">
-              {method === "card"
-                ? "Fund my From The Ground Up tour"
-                : `Send ${money(amountCents / 100)} with`}
-            </span>
-          )}
-          <button
-            className="contribute-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            &#x2715;
-          </button>
-        </div>
-        {complete ? (
-          <div className="contribute-thanks">
-            <div className="contribute-thanks-title">
-              Thank you, find me on socials
-            </div>
-            <div className="contribute-thanks-spinner" aria-label="Loading" />
-          </div>
-        ) : method === "card" ? (
-          <CheckoutEmbed
-            fetchClientSecret={fetchClientSecret}
+      {secret && !complete ? (
+        <div
+          className={`${CHECKOUT_CARD} m-auto`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Contribute"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CheckoutPanel
+            onBack={() => setSecret(null)}
+            fetchClientSecret={() => Promise.resolve(secret)}
             onComplete={() => {
               posthog.capture("fund_contribution_completed", {
                 trip,
@@ -310,22 +308,56 @@ function ContributeOverlay({
               setComplete(true);
             }}
           />
-        ) : (
-          <div className="contribute-choice">
-            <PaymentOptions
-              venmoUrl={venmoUrl}
-              onCard={() => setMethod("card")}
-              onSelect={(method) =>
-                posthog.capture("fund_payment_method", {
-                  trip,
-                  method,
-                  amount_cents: amountCents,
-                })
-              }
-            />
+        </div>
+      ) : (
+        <div
+          className="contribute-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Contribute"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="contribute-header">
+            {!complete && (
+              <span className="contribute-title">
+                Send {money(amountCents / 100)} with
+              </span>
+            )}
+            <button
+              className="contribute-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              &#x2715;
+            </button>
           </div>
-        )}
-      </div>
+          {complete ? (
+            <div className="contribute-thanks">
+              <div className="contribute-thanks-title">
+                Thank you, find me on socials
+              </div>
+              <div className="contribute-thanks-spinner" aria-label="Loading" />
+            </div>
+          ) : (
+            <div className="contribute-choice">
+              <PaymentOptions
+                venmoUrl={venmoUrl}
+                onCard={startCheckout}
+                cardLoading={creating}
+                cardTotal={formatCents(grossUpCents(amountCents))}
+                onSelect={(method) =>
+                  posthog.capture("fund_payment_method", {
+                    trip,
+                    method,
+                    amount_cents: amountCents,
+                  })
+                }
+              />
+              {error && <p className="contribute-error">{error}</p>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -387,7 +419,12 @@ export function TripFund({
     notes?: FundNote[];
   };
   pastNotes?: FundNote[];
-  soFar?: { count: number; regions: FundRegion[]; next?: FundRegion; since?: string };
+  soFar?: {
+    count: number;
+    regions: FundRegion[];
+    next?: FundRegion;
+    since?: string;
+  };
   galleryItems: GalleryItem[];
   hostHref?: string;
 }) {
@@ -401,8 +438,7 @@ export function TripFund({
   const hasBooked = allBooked.length > 0;
   const displayPast = past.length > 0 ? past : (prevTrip?.stops ?? []);
   const showsVisible = upcoming.length > 0 || displayPast.length > 0;
-  const pastDestination =
-    past.length > 0 ? leg.shortName : prevTrip?.shortName;
+  const pastDestination = past.length > 0 ? leg.shortName : prevTrip?.shortName;
   const pastSeason = seasonLabel(
     displayPast.flatMap((b) => (b.date ? [b.date] : [])),
   );
@@ -1016,6 +1052,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
   margin: auto;
   overflow: hidden;
 }
+.contribute-error { margin: 12px 0 0; color: #dc2626; font-size: var(--fs-sm); }
 .contribute-header { display: flex; align-items: center; padding: 10px 10px 0 28px; }
 .contribute-title { font-family: var(--font-outfit), system-ui, -apple-system, sans-serif; font-size: var(--fs-xl); font-weight: 500; color: #1a1915; letter-spacing: -0.01em; }
 .contribute-close {
@@ -1242,7 +1279,8 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                     <div className="p-text">
                       <span className="p-label">Honorarium</span>{" "}
                       <span className="p-note">
-                        gift that recognizes my concert, separate from tour expenses
+                        gift that recognizes my concert, separate from tour
+                        expenses
                       </span>
                     </div>
                   </div>

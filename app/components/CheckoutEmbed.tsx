@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import {
+  EmbeddedCheckoutProvider,
+  EmbeddedCheckout,
+} from "@stripe/react-stripe-js";
 import { getStripe } from "../lib/stripeClient";
 
 let activeCheckouts = 0;
@@ -50,7 +53,8 @@ export default function CheckoutEmbed({
     return (
       <div className="px-6 py-10 text-center">
         <p className="text-neutral-600 dark:text-neutral-300">
-          Card checkout couldn't load. Check your connection and try again, or use Venmo or Zelle.
+          Card checkout couldn't load. Check your connection and try again, or
+          use Venmo or Zelle.
         </p>
         <button
           onClick={() => {
@@ -74,8 +78,11 @@ export default function CheckoutEmbed({
   }
 
   return (
-    <EmbeddedCheckoutProvider stripe={stripePromise} options={{ fetchClientSecret, onComplete }}>
-      <EmbeddedCheckout />
+    <EmbeddedCheckoutProvider
+      stripe={stripePromise}
+      options={{ fetchClientSecret, onComplete }}
+    >
+      <EmbeddedCheckout className="px-2" />
     </EmbeddedCheckoutProvider>
   );
 }

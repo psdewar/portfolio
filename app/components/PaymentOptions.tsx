@@ -8,6 +8,8 @@ const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 export default function PaymentOptions({
   venmoUrl,
   onCard,
+  cardTotal,
+  cardLoading = false,
   onSelect,
   zelle = true,
   interac = false,
@@ -15,6 +17,8 @@ export default function PaymentOptions({
 }: {
   venmoUrl: string;
   onCard?: () => void;
+  cardTotal?: string;
+  cardLoading?: boolean;
   onSelect?: (method: "venmo" | "zelle" | "card") => void;
   zelle?: boolean;
   interac?: boolean;
@@ -30,13 +34,20 @@ export default function PaymentOptions({
   const showInterac = interac && !!INTERAC_EMAIL;
 
   const interacRail = showInterac && (
-    <button className="cc-btn cc-interac" onClick={() => copy(INTERAC_EMAIL, "interac")}>
+    <button
+      className="cc-btn cc-interac"
+      onClick={() => copy(INTERAC_EMAIL, "interac")}
+    >
       {copied === "interac" ? (
         <span className="cc-copied">You copied my email</span>
       ) : (
         <>
           <span className="cc-tag">no fees</span>
-          <img className="cc-rail-logo" src="/interac_logo.svg" alt="Interac e-Transfer" />
+          <img
+            className="cc-rail-logo"
+            src="/interac_logo.svg"
+            alt="Interac e-Transfer"
+          />
           <span className="cc-copy">Copy my email</span>
         </>
       )}
@@ -89,17 +100,30 @@ export default function PaymentOptions({
       {onCard && (
         <button
           className="cc-btn cc-card"
+          disabled={cardLoading}
           onClick={() => {
             onSelect?.("card");
             onCard();
           }}
         >
-          Pay with your card
+          {cardLoading ? (
+            <>
+              <span className="cc-spinner" />
+              Opening checkout
+            </>
+          ) : cardTotal ? (
+            `Pay ${cardTotal} with your card`
+          ) : (
+            "Pay with your card"
+          )}
         </button>
       )}
       <style>{`
         .cc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 12px; font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; margin-bottom: 12px; transition: opacity 0.15s ease; }
         .cc-btn:hover { opacity: 0.92; }
+        .cc-btn:disabled { cursor: wait; opacity: 0.85; }
+        .cc-spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: cc-spin 0.8s linear infinite; }
+        @keyframes cc-spin { to { transform: rotate(360deg); } }
         .cc-venmo { background: #008CFF; color: #fff; }
         .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
         .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }

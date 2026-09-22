@@ -3,27 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import posthog from "posthog-js";
-import {
-  XIcon,
-  CheckIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-} from "@phosphor-icons/react";
+import { XIcon, CheckIcon, ArrowRightIcon } from "@phosphor-icons/react";
 import { useHydrated } from "../hooks/useHydrated";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useAudio } from "../contexts/AudioContext";
 import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
 import { PATRON_TIERS } from "../data/patron-tiers";
 import { PATRON_CONFIG } from "../data/patron-config";
 import { TRACK_DATA } from "../data/tracks";
-import { grossUpCents } from "../lib/fees";
-import CheckoutEmbed from "./CheckoutEmbed";
+import { grossUpCents, MAX_CARD_CENTS } from "../lib/fees";
+import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
 import PatronSignInForm from "./PatronSignInForm";
 
 const PICKER_TIERS = [...PATRON_TIERS].reverse();
 const TIER_ICONS = PICKER_TIERS.map((tier) => tier.icon);
 const TIER_COLORS = PICKER_TIERS.map((tier) => tier.color);
 
-const MAX_CUSTOM_AMOUNT = 100000;
+const MAX_CUSTOM_AMOUNT = MAX_CARD_CENTS / 100;
 const MIN_CUSTOM_AMOUNT = PATRON_TIERS[PATRON_TIERS.length - 1].net;
 
 const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
@@ -224,6 +220,7 @@ export function TierPicker({
 
   const tierRowsRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { pause: pauseTrack } = useAudio();
   const previewPlayedRef = useRef<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [previewStarted, setPreviewStarted] = useState(false);
@@ -403,25 +400,15 @@ export function TierPicker({
             onClick={() => setCheckoutSecret(null)}
           >
             <div
-              className="relative w-full max-w-[428px] max-h-full overflow-y-auto rounded-2xl bg-white dark:bg-neutral-900 py-6 shadow-xl"
+              className={`${CHECKOUT_CARD} max-h-full overflow-y-auto`}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="relative z-10 flex items-center px-6">
-                <button
-                  type="button"
-                  onClick={() => setCheckoutSecret(null)}
-                  className="min-h-11 -mx-3 px-3 inline-flex items-center gap-2 text-left text-base font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                >
-                  <ArrowLeftIcon className="w-4 h-4" weight="bold" />
-                  Back to tiers
-                </button>
-              </div>
-              <div className="-mt-3 px-2">
-                <CheckoutEmbed
-                  fetchClientSecret={() => Promise.resolve(checkoutSecret)}
-                  onComplete={() => {}}
-                />
-              </div>
+              <CheckoutPanel
+                backLabel="Back to tiers"
+                onBack={() => setCheckoutSecret(null)}
+                fetchClientSecret={() => Promise.resolve(checkoutSecret)}
+                onComplete={() => {}}
+              />
             </div>
           </div>,
           document.body,
@@ -434,7 +421,10 @@ export function TierPicker({
               src={currentPreview.src}
               preload="auto"
               onPlaying={() => setPreviewStarted(true)}
-              onPlay={() => setPreviewPlaying(true)}
+              onPlay={() => {
+                pauseTrack();
+                setPreviewPlaying(true);
+              }}
               onPause={(e) => {
                 if (!e.currentTarget.ended) setPreviewPlaying(false);
               }}

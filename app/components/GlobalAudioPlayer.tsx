@@ -13,7 +13,12 @@ import {
   CopyrightIcon,
 } from "@phosphor-icons/react";
 import { TRACK_DATA } from "../data/tracks";
-import { getLyrics, getCurrentLyric, isCtaLyric, type LyricLine } from "../lib/lyrics";
+import {
+  getLyrics,
+  getCurrentLyric,
+  isCtaLyric,
+  type LyricLine,
+} from "../lib/lyrics";
 import { useLiveStatus } from "../hooks/useLiveStatus";
 import { useScrollLocked } from "../hooks/useScrollLock";
 
@@ -47,7 +52,9 @@ const LyricView: React.FC<{
   }
   if (hasLyrics) {
     return (
-      <p className={`text-[15px] font-medium text-neutral-600 dark:text-white/55 text-left leading-tight ${isLoaded ? "" : "italic"}`}>
+      <p
+        className={`text-[15px] font-medium text-neutral-600 dark:text-white/55 text-left leading-tight ${isLoaded ? "" : "italic"}`}
+      >
         Read lyrics here...
       </p>
     );
@@ -85,10 +92,18 @@ export const GlobalAudioPlayer: React.FC = () => {
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
+  const isSupportPage = pathname === "/support";
   const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
   const { online: isStreamLive } = useLiveStatus({ enabled: isLivePage });
-  const isVisible = !!currentTrack && !isHirePage && !isFundPage && !isOverlayOpen && !isModalOpen && !(isLivePage && isStreamLive);
+  const isVisible =
+    !!currentTrack &&
+    !isHirePage &&
+    !isFundPage &&
+    !isSupportPage &&
+    !isOverlayOpen &&
+    !isModalOpen &&
+    !(isLivePage && isStreamLive);
 
   useEffect(() => {
     if (isVisible) {
@@ -130,125 +145,133 @@ export const GlobalAudioPlayer: React.FC = () => {
         className="md:max-w-md mx-auto pointer-events-auto bg-neutral-200 dark:bg-neutral-800 border-t md:border-x border-neutral-300 dark:border-neutral-700"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-      <button
-        type="button"
-        aria-label="Seek"
-        onPointerDown={(e) => {
-          if (!duration) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          setIsScrubbing(true);
-          handleScrub(e.clientX, e.currentTarget);
-        }}
-        onPointerMove={(e) => {
-          if (!isScrubbing) return;
-          handleScrub(e.clientX, e.currentTarget);
-        }}
-        onPointerUp={(e) => {
-          e.currentTarget.releasePointerCapture(e.pointerId);
-          setIsScrubbing(false);
-        }}
-        onPointerCancel={(e) => {
-          e.currentTarget.releasePointerCapture(e.pointerId);
-          setIsScrubbing(false);
-        }}
-        className={`flex flex-col justify-center w-full h-12 px-4 cursor-pointer touch-none group/scrub border-b border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${isLoading ? "animate-pulse" : ""}`}
-      >
-        <div
-          className={`relative w-full bg-black/10 dark:bg-white/10 overflow-hidden transition-all rounded-full ${
-            isScrubbing ? "h-3" : "h-1"
-          }`}
-        >
-          <div
-            className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/25 rounded-full"
-            style={{ width: `${buffered * 100}%` }}
-          />
-          <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full"
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-3 text-neutral-500 dark:text-white/55 text-[10px] leading-none mt-1.5">
-          <span className="tabular-nums shrink-0">{formatTime(currentTime || 0)}</span>
-          {label && (
-            <span className="inline-flex items-center gap-1 min-w-0">
-              <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
-              <span className="truncate">
-                <span className="tabular-nums">{releaseYear}</span> {label}
-              </span>
-            </span>
-          )}
-          <span className="tabular-nums shrink-0">{formatTime(duration || 0)}</span>
-        </div>
-      </button>
-
-      <div className="relative flex items-stretch border-b border-neutral-300 dark:border-neutral-700">
         <button
           type="button"
-          onClick={toggle}
-          aria-label={isPlaying || isLoading ? "Pause" : "Play"}
-          className="relative shrink-0 w-12 h-12 overflow-hidden hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset group/play z-10"
-        >
-          {currentTrack.thumbnail && (
-            <img
-              src={currentTrack.thumbnail}
-              alt={currentTrack.title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          )}
-          <span className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/play:bg-black/55 group-active/play:bg-black/65 transition-colors text-white">
-            {isPlaying || isLoading ? (
-              <PauseIcon size={20} weight="fill" />
-            ) : (
-              <PlayIcon size={22} weight="fill" className="ml-px" />
-            )}
-          </span>
-        </button>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={openOverlay}
-          onKeyDown={(e) => {
-            if (e.key === " " || e.key === "Enter") {
-              e.preventDefault();
-              openOverlay();
-            }
+          aria-label="Seek"
+          onPointerDown={(e) => {
+            if (!duration) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setIsScrubbing(true);
+            handleScrub(e.clientX, e.currentTarget);
           }}
-          aria-label="Open track view"
-          className={`flex flex-1 items-center min-w-0 px-3 border-x border-neutral-300 dark:border-neutral-700 ${ROW_BTN}`}
+          onPointerMove={(e) => {
+            if (!isScrubbing) return;
+            handleScrub(e.clientX, e.currentTarget);
+          }}
+          onPointerUp={(e) => {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setIsScrubbing(false);
+          }}
+          onPointerCancel={(e) => {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setIsScrubbing(false);
+          }}
+          className={`flex flex-col justify-center w-full h-12 px-4 cursor-pointer touch-none group/scrub border-b border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${isLoading ? "animate-pulse" : ""}`}
         >
-          <LyricView lyric={currentLyric} hasLyrics={!!lyricsData} trackTitle={currentTrack.title} isLoaded={!isLoading} />
-        </div>
-
-        <div className="flex items-stretch shrink-0">
-          <button
-            type="button"
-            onClick={previousTrack}
-            aria-label="Previous track"
-            className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+          <div
+            className={`relative w-full bg-black/10 dark:bg-white/10 overflow-hidden transition-all rounded-full ${
+              isScrubbing ? "h-3" : "h-1"
+            }`}
           >
-            <CaretLeftIcon size={20} weight="bold" />
-          </button>
-          <button
-            type="button"
-            onClick={nextTrack}
-            aria-label="Next track"
-            className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
-          >
-            <CaretRightIcon size={20} weight="bold" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={openOverlay}
-          aria-label="Open track view"
-          className={`w-12 h-12 shrink-0 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
-        >
-          <CaretUpIcon size={20} weight="bold" />
+            <div
+              className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/25 rounded-full"
+              style={{ width: `${buffered * 100}%` }}
+            />
+            <div
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 text-neutral-500 dark:text-white/55 text-[10px] leading-none mt-1.5">
+            <span className="tabular-nums shrink-0">
+              {formatTime(currentTime || 0)}
+            </span>
+            {label && (
+              <span className="inline-flex items-center gap-1 min-w-0">
+                <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
+                <span className="truncate">
+                  <span className="tabular-nums">{releaseYear}</span> {label}
+                </span>
+              </span>
+            )}
+            <span className="tabular-nums shrink-0">
+              {formatTime(duration || 0)}
+            </span>
+          </div>
         </button>
 
-      </div>
+        <div className="relative flex items-stretch border-b border-neutral-300 dark:border-neutral-700">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={isPlaying || isLoading ? "Pause" : "Play"}
+            className="relative shrink-0 w-12 h-12 overflow-hidden hover:bg-neutral-300 dark:hover:bg-neutral-700 active:bg-neutral-400 dark:active:bg-neutral-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset group/play z-10"
+          >
+            {currentTrack.thumbnail && (
+              <img
+                src={currentTrack.thumbnail}
+                alt={currentTrack.title}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover/play:bg-black/55 group-active/play:bg-black/65 transition-colors text-white">
+              {isPlaying || isLoading ? (
+                <PauseIcon size={20} weight="fill" />
+              ) : (
+                <PlayIcon size={22} weight="fill" className="ml-px" />
+              )}
+            </span>
+          </button>
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openOverlay}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                openOverlay();
+              }
+            }}
+            aria-label="Open track view"
+            className={`flex flex-1 items-center min-w-0 px-3 border-x border-neutral-300 dark:border-neutral-700 ${ROW_BTN}`}
+          >
+            <LyricView
+              lyric={currentLyric}
+              hasLyrics={!!lyricsData}
+              trackTitle={currentTrack.title}
+              isLoaded={!isLoading}
+            />
+          </div>
+
+          <div className="flex items-stretch shrink-0">
+            <button
+              type="button"
+              onClick={previousTrack}
+              aria-label="Previous track"
+              className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+            >
+              <CaretLeftIcon size={20} weight="bold" />
+            </button>
+            <button
+              type="button"
+              onClick={nextTrack}
+              aria-label="Next track"
+              className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+            >
+              <CaretRightIcon size={20} weight="bold" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={openOverlay}
+            aria-label="Open track view"
+            className={`w-12 h-12 shrink-0 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
+          >
+            <CaretUpIcon size={20} weight="bold" />
+          </button>
+        </div>
       </div>
     </div>
   );

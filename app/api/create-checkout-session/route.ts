@@ -11,6 +11,7 @@ import {
   type Product,
 } from "../shared/products";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import {
   getBaseUrl,
   sanitizeInput,
@@ -30,7 +31,9 @@ function buildLineItem(
   }
 
   const color = metadata?.color?.toLowerCase();
-  const colorImage = color ? product.images?.find((u) => u.toLowerCase().includes(color)) : undefined;
+  const colorImage = color
+    ? product.images?.find((u) => u.toLowerCase().includes(color))
+    : undefined;
 
   return {
     name: product.name,
@@ -106,7 +109,16 @@ export async function POST(request: NextRequest) {
       customerEmail,
     } = body;
 
-    console.log("[Checkout] Product:", productId, "amount:", amount, "successPath:", customSuccessPath, "cancelPath:", customCancelPath);
+    console.log(
+      "[Checkout] Product:",
+      productId,
+      "amount:",
+      amount,
+      "successPath:",
+      customSuccessPath,
+      "cancelPath:",
+      customCancelPath,
+    );
 
     if (!productId) {
       return NextResponse.json(
@@ -124,7 +136,11 @@ export async function POST(request: NextRequest) {
     }
 
     const finalAmount = amount || product.basePriceCents;
-    if (typeof finalAmount !== "number" || finalAmount < 50) {
+    if (
+      typeof finalAmount !== "number" ||
+      finalAmount < 50 ||
+      finalAmount > MAX_CARD_GROSS_CENTS
+    ) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
@@ -167,7 +183,9 @@ export async function POST(request: NextRequest) {
       if (product.stripePriceId) {
         embeddedRequest.priceId = product.stripePriceId;
       } else {
-        embeddedRequest.lineItems = [buildLineItem(product, finalAmount, metadata)];
+        embeddedRequest.lineItems = [
+          buildLineItem(product, finalAmount, metadata),
+        ];
       }
 
       if (requiresShipping(product) && !skipShipping) {
