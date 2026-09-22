@@ -127,7 +127,7 @@ export default function SupportModal({
               </button>
               {signingIn ? (
                 <>
-                  <h2 className="pr-12 mb-4 font-bebas text-3xl text-neutral-900 dark:text-white">
+                  <h2 className="pr-12 mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
                     Sign in with your supporter email
                   </h2>
                   <PatronSignInForm

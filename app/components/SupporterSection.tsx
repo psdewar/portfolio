@@ -707,7 +707,7 @@ export function SupporterSection({
             className="bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-md w-full shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 font-bebas text-3xl text-neutral-900 dark:text-white">
+            <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
               Sign in with your supporter email
             </h2>
             <PatronSignInForm
