@@ -159,18 +159,17 @@ type SiteShellProps = {
   mainClassName?: string;
   showFooter?: boolean;
   bare?: boolean;
+  clearPlayer?: boolean;
 };
 
-function SiteShell({ children, mainClassName, showFooter, bare }: SiteShellProps) {
+function SiteShell({ children, mainClassName, showFooter, bare, clearPlayer }: SiteShellProps) {
   const base = mainClassName ?? "flex-auto min-w-0 flex flex-col";
 
   if (bare) {
     return (
       <>
         <Navbar />
-        <div style={{ paddingBottom: "var(--player-h, 0px)" }}>
-          <Suspense>{children}</Suspense>
-        </div>
+        <Suspense>{children}</Suspense>
         <GlobalAudioPlayer />
         <SiteTools />
       </>
@@ -179,7 +178,7 @@ function SiteShell({ children, mainClassName, showFooter, bare }: SiteShellProps
   return (
     <>
       <Navbar />
-      <main className={base} style={{ paddingBottom: "var(--player-h, 0px)" }}>
+      <main className={base} style={clearPlayer ? { paddingBottom: "var(--player-h, 0px)" } : undefined}>
         <Suspense>{children}</Suspense>
       </main>
       {showFooter && <Footer />}
@@ -218,10 +217,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   if (pathname?.startsWith("/host/")) {
     return (
       <>
-        <main
-          className="flex-auto min-w-0 flex flex-col"
-          style={{ paddingBottom: "var(--player-h, 0px)" }}
-        >
+        <main className="flex-auto min-w-0 flex flex-col">
           <Suspense>{children}</Suspense>
         </main>
         <GlobalAudioPlayer />
@@ -234,7 +230,11 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
     return <SiteShell bare>{children}</SiteShell>;
   }
 
-  if (pathname === "/live" || pathname === "/listen") {
+  if (pathname === "/listen") {
+    return <SiteShell clearPlayer>{children}</SiteShell>;
+  }
+
+  if (pathname === "/live") {
     return <SiteShell>{children}</SiteShell>;
   }
 

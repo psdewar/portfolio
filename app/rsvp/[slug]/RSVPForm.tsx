@@ -373,7 +373,7 @@ export default function RSVPForm({
   );
 
   return (
-    <div className="fixed left-0 right-0 top-14 bg-white dark:bg-neutral-950 overflow-hidden" style={{ bottom: "var(--player-h, 0px)" }}>
+    <div className="fixed inset-x-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
       {showPay && (
         <PaymentModal
           venmoUrl={venmoPayUrl(supportCents / 100, `Concert support ${city}`)}
@@ -515,7 +515,10 @@ export default function RSVPForm({
       {/* Desktop layout */}
       <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
         <div className="h-full flex-shrink-0" style={{ aspectRatio: posterAspect() }}>{poster}</div>
-        <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto @container">
+        <div
+          className="flex-1 min-w-0 flex flex-col px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto @container"
+          style={{ paddingBottom: "max(2rem, var(--player-h, 0px))" }}
+        >
           {backButton}
 
           {submitted ? (

@@ -509,8 +509,7 @@ export default function LiveClient({
 
   return (
     <div
-      className={`fixed left-0 right-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"}`}
-      style={{ bottom: isOgMode ? "0" : "var(--player-h, 0px)" }}
+      className={`fixed inset-x-0 bottom-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${isOgMode ? "top-0" : "top-14"}`}
       data-og-container
     >
       {toast && <Toast message={toast} />}

@@ -54,7 +54,7 @@ export function ShopTabs({
       className={`flex min-w-0 flex-col gap-5 ${
         stacked
           ? ""
-          : "lg:grid lg:h-[calc(100svh-8rem-var(--player-h,0px))] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-4 xl:grid-cols-[minmax(0,1fr)_27rem]"
+          : "lg:grid lg:h-[calc(100svh-8rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-4 xl:grid-cols-[minmax(0,1fr)_27rem]"
       }`}
     >
       <div

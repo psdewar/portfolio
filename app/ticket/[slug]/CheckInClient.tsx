@@ -328,7 +328,6 @@ export default function CheckInClient({
         background: `radial-gradient(130% 85% at 50% -15%, #e3bd72, ${EDGE})`,
         touchAction: keyboardOpen ? "pan-y" : "none",
         overscrollBehavior: "none",
-        bottom: "var(--player-h, 0px)",
       }}
     >
       {!ready && (

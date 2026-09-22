@@ -114,8 +114,7 @@ export default function RSVPShell({
 
   return (
     <div
-      className="fixed left-0 right-0 top-14 bg-white dark:bg-neutral-950 overflow-hidden"
-      style={{ bottom: "var(--player-h, 0px)" }}
+      className="fixed inset-x-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden"
     >
       {toast}
 
@@ -130,7 +129,12 @@ export default function RSVPShell({
         <div className="h-full flex-shrink-0" style={{ aspectRatio: posterAspect() }}>
           <Poster />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center py-6">{list}</div>
+        <div
+          className="flex-1 min-w-0 flex flex-col justify-center py-6"
+          style={{ paddingBottom: "max(1.5rem, var(--player-h, 0px))" }}
+        >
+          {list}
+        </div>
       </div>
     </div>
   );
