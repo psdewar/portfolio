@@ -53,3 +53,4 @@ node_modules/
 .env.local
 _db*.mjs
 supabase/prod-ca-2021.crt
+supabase/.temp

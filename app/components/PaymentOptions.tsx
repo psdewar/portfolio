@@ -5,6 +5,29 @@ import { useState } from "react";
 const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
 const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 
+export const PAYMENT_OPTIONS_STYLE = `
+  .cc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 12px; font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; margin-bottom: 12px; transition: opacity 0.15s ease; }
+  .cc-btn:hover { opacity: 0.92; }
+  .cc-btn:disabled { cursor: wait; opacity: 0.85; }
+  .cc-spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: cc-spin 0.8s linear infinite; }
+  @keyframes cc-spin { to { transform: rotate(360deg); } }
+  .cc-venmo { background: #008CFF; color: #fff; }
+  .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
+  .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
+  .cc-venmo, .cc-zelle, .cc-interac { position: relative; }
+  .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }
+  .cc-zelle .cc-tag { background: rgba(109,30,212,0.12); color: #6D1ED4; }
+  .cc-copy { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 600; color: #6D1ED4; }
+  .cc-copied { font-size: 15px; font-weight: 600; color: #6D1ED4; }
+  .cc-rail-hint { margin: -2px 0 12px; text-align: center; font-size: 15px; line-height: 1.5; font-weight: 600; color: #6D1ED4; }
+  .cc-rail-logo { height: 46px; width: auto; }
+  .cc-interac { background: #FFBE00; }
+  .cc-interac .cc-tag { background: rgba(0,0,0,0.12); color: #333; }
+  .cc-interac .cc-copy, .cc-interac .cc-copied { color: #333; }
+  .cc-interac-hint { color: #8a6d00; }
+`;
+
 export default function PaymentOptions({
   venmoUrl,
   onCard,
@@ -118,28 +141,7 @@ export default function PaymentOptions({
           )}
         </button>
       )}
-      <style>{`
-        .cc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 12px; font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; margin-bottom: 12px; transition: opacity 0.15s ease; }
-        .cc-btn:hover { opacity: 0.92; }
-        .cc-btn:disabled { cursor: wait; opacity: 0.85; }
-        .cc-spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: cc-spin 0.8s linear infinite; }
-        @keyframes cc-spin { to { transform: rotate(360deg); } }
-        .cc-venmo { background: #008CFF; color: #fff; }
-        .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
-        .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
-        .cc-venmo, .cc-zelle, .cc-interac { position: relative; }
-        .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }
-        .cc-zelle .cc-tag { background: rgba(109,30,212,0.12); color: #6D1ED4; }
-        .cc-copy { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 600; color: #6D1ED4; }
-        .cc-copied { font-size: 15px; font-weight: 600; color: #6D1ED4; }
-        .cc-rail-hint { margin: -2px 0 12px; text-align: center; font-size: 15px; line-height: 1.5; font-weight: 600; color: #6D1ED4; }
-        .cc-rail-logo { height: 46px; width: auto; }
-        .cc-interac { background: #FFBE00; }
-        .cc-interac .cc-tag { background: rgba(0,0,0,0.12); color: #333; }
-        .cc-interac .cc-copy, .cc-interac .cc-copied { color: #333; }
-        .cc-interac-hint { color: #8a6d00; }
-      `}</style>
+      <style>{PAYMENT_OPTIONS_STYLE}</style>
     </div>
   );
 }

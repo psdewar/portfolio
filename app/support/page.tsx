@@ -3,12 +3,12 @@ import TipsAndSocials from "./TipsAndSocials";
 import { SupporterSection } from "../components/SupporterSection";
 import {
   getShows,
-  isShowListable,
   isShowDraft,
   needsHostLocation,
   isShowUpcoming,
   isShowCompleted,
   getTourConcertCount,
+  listableShows,
 } from "../lib/shows";
 import { confirmPath } from "../lib/confirm";
 
@@ -37,9 +37,7 @@ export default async function SupportPage({
   const params = await searchParams;
   const og = params.og === "true";
   const shows = await getShows();
-  const liveShows = shows
-    .filter(isShowListable)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const liveShows = listableShows(shows);
   const upcomingShows = liveShows.filter(isShowUpcoming);
   const pastShows = liveShows.filter(
     (s) => isShowCompleted(s) && !isShowUpcoming(s),

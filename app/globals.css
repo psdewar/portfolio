@@ -949,3 +949,12 @@ input[type="email"] {
     animation-duration: 1ms;
   }
 }
+
+@keyframes live-tip {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

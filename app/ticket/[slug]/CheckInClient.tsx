@@ -12,10 +12,8 @@ const INK = "#262b3f";
 const EDGE = "#d4a553";
 const MUSTARD = "#d4a553";
 const STAMP = "#c0392b";
-// Metallic gold: a bright highlight band through the middle reads as a sheen.
 const SHINE_GOLD =
   "linear-gradient(150deg, #b07f33 0%, #e8c878 26%, #f8ecb6 48%, #d4a553 64%, #a8772f 100%)";
-// Distress mask: fractal-noise alpha so the stamp ink looks worn, not a flat fill.
 const STAMP_TEXTURE =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='110'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.16 0.22' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.1 1.32'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E\")";
 
@@ -27,7 +25,6 @@ function Star({ size = "0.66em" }: { size?: string }) {
   );
 }
 
-// Deterministic barcode bar widths derived from the ticket number.
 function seededBarWidths(value: string): number[] {
   let seed = 2166136261 >>> 0;
   for (let i = 0; i < value.length; i++) {
@@ -66,7 +63,7 @@ export default function CheckInClient({
 }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [website, setWebsite] = useState(""); // honeypot: only bots fill it
+  const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [error, setError] = useState("");
   const [scale, setScale] = useState(1);
@@ -86,8 +83,7 @@ export default function CheckInClient({
   const restored = useRef(false);
 
   useEffect(() => {
-    if (capture) return; // keepsake render fills the form itself
-    // Restore a prior check-in so Back lands on their ticket; ?fresh=1 skips it for testing.
+    if (capture) return;
     const skip = new URLSearchParams(window.location.search).has("fresh");
     try {
       const raw = skip ? null : localStorage.getItem(`ticket:${slug}`);
@@ -102,13 +98,14 @@ export default function CheckInClient({
         setRevealButton(true);
         return;
       }
-    } catch {
-      // ignore malformed cache and fall through to prefill
-    }
+    } catch {}
     const e = localStorage.getItem("attendeeEmail");
-    const n = localStorage.getItem("liveCommenterName");
     if (e) setEmail(e);
-    if (n) setName(n);
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.name) setName(data.name);
+      });
   }, [slug, capture]);
 
   useEffect(() => {
@@ -170,7 +167,6 @@ export default function CheckInClient({
   const barWidths = seededBarWidths(ticketLabel);
   const display = { fontFamily: "var(--font-parkinsans), sans-serif" } as const;
   const mono = { fontFamily: "var(--font-space-mono), monospace" } as const;
-  // Side notches + perforation holes mark the tear line, punched via intersect (transparent to backdrop).
   const dashRow = (y: string) =>
     `radial-gradient(3px 1.5px at 6px ${y}, #0000 92%, #000) 0 0/12px 100% repeat-x`;
   const bodyMask =
@@ -212,7 +208,6 @@ export default function CheckInClient({
       if (data.rsvpd) setRsvpd(true);
       const emailLower = email.trim().toLowerCase();
       localStorage.setItem("attendeeEmail", emailLower);
-      localStorage.setItem("liveCommenterName", name.trim());
       localStorage.setItem(
         `ticket:${slug}`,
         JSON.stringify({ name: name.trim(), email: emailLower, ticketNo: no, rsvpd: !!data.rsvpd }),
@@ -252,13 +247,11 @@ export default function CheckInClient({
     if (blob) setTicketBlob({ url: URL.createObjectURL(blob), blob });
   };
 
-  // Tap hits the OS share sheet (mobile) or download (desktop); the blob is prefetched so share fires in-gesture.
   const saveTicket = () => {
     if (!ticketBlob) return;
     const file = new File([ticketBlob.blob], "ground-up-ticket.png", { type: "image/png" });
     const coarse = window.matchMedia?.("(pointer: coarse)")?.matches;
     if (coarse && navigator.canShare?.({ files: [file] })) {
-      // The share API never reports which target they chose, so we just surface the next step after.
       navigator
         .share({ files: [file] })
         .then(() => setSaveAttempted(true))
@@ -270,7 +263,6 @@ export default function CheckInClient({
     }
   };
 
-  // On check-in, count down 3 → 2 → 1, then snap (flash + auto-grab the keepsake).
   useEffect(() => {
     if (status === "done" && !capture && !restored.current && countdown === null && !snapped) {
       setCountdown(3);
@@ -290,7 +282,6 @@ export default function CheckInClient({
     return () => clearTimeout(t);
   }, [countdown]);
 
-  // Prefetch the keepsake on admit so the "Keep Your Ticket" tap and its in-gesture share are instant.
   useEffect(() => {
     if (status !== "done" || capture || prefetched.current) return;
     prefetched.current = true;
@@ -298,7 +289,6 @@ export default function CheckInClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, capture]);
 
-  // Reveal the button only once the flash and rip have finished.
   useEffect(() => {
     if (!snapped) return;
     const t = setTimeout(() => setRevealButton(true), 1400);

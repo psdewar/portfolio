@@ -41,6 +41,7 @@ export default {
         "fade-in": "fade-in 0.3s ease-out",
         "slide-up-fade": "slide-up-fade 0.3s ease-out",
         "slide-down": "slide-down 0.4s ease-out",
+        "adlib-float": "adlib-float 2.4s ease-out forwards",
       },
       keyframes: {
         "fade-in": {
@@ -54,6 +55,11 @@ export default {
         "slide-down": {
           "0%": { opacity: "0", transform: "translateY(-16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "adlib-float": {
+          "0%": { opacity: "0", transform: "translateY(0) scale(0.8)" },
+          "15%": { opacity: "1", transform: "translateY(-10px) scale(1)" },
+          "100%": { opacity: "0", transform: "translateY(-120px) scale(1)" },
         },
       },
     },

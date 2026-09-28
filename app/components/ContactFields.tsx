@@ -13,10 +13,27 @@ interface ContactFieldsProps {
   errors?: { email?: string; name?: string };
   variant?: Variant;
   scale?: Scale;
+  namePlaceholder?: string;
+  hidePhone?: boolean;
 }
 
 const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
-  ({ email, name, phone, onEmailChange, onNameChange, onPhoneChange, errors, variant = "neutral", scale }, ref) => {
+  (
+    {
+      email,
+      name,
+      phone,
+      onEmailChange,
+      onNameChange,
+      onPhoneChange,
+      errors,
+      variant = "neutral",
+      scale,
+      namePlaceholder = "Name",
+      hidePhone,
+    },
+    ref,
+  ) => {
     return (
       <>
         <FormInput
@@ -33,7 +50,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
         />
         <FormInput
           type="text"
-          placeholder="Name"
+          placeholder={namePlaceholder}
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           error={errors?.name}
@@ -42,16 +59,18 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           enterKeyHint="next"
           autoComplete="name"
         />
-        <FormInput
-          type="tel"
-          placeholder="Phone number"
-          value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
-          variant={variant}
-          scale={scale}
-          enterKeyHint="done"
-          autoComplete="tel"
-        />
+        {!hidePhone && (
+          <FormInput
+            type="tel"
+            placeholder="Phone number"
+            value={phone}
+            onChange={(e) => onPhoneChange(e.target.value)}
+            variant={variant}
+            scale={scale}
+            enterKeyHint="done"
+            autoComplete="tel"
+          />
+        )}
       </>
     );
   },

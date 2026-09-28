@@ -1,10 +1,10 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { usePostHog } from "posthog-js/react";
 import { ContactFormData } from "../actions";
 import FormInput from "./FormInput";
 import ContactFields from "./ContactFields";
+import { notifySessionChange } from "../hooks/useSession";
 
 interface SelectedTier {
   name: string;
@@ -12,12 +12,15 @@ interface SelectedTier {
   period: "monthly" | "annually";
 }
 
+export type StayConnectedPurpose = "updates" | "chat" | "notify";
+
 interface StayConnectedProps {
   onClose?: (email?: string) => void;
   onChangeTier?: () => void;
   isModal?: boolean;
   shouldShow?: boolean;
   selectedTier?: SelectedTier;
+  purpose?: StayConnectedPurpose;
 }
 
 interface FormErrors {
@@ -42,16 +45,11 @@ const PRIMARY_BUTTON_CLASS =
 const MODE_SWITCH_BUTTON_CLASS =
   "w-full py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-neutral-100 underline underline-offset-2 transition-colors";
 
-// This should only be called client-side (inside useEffect)
 export const shouldShowStayConnected = (): boolean => {
   const urlParams = new URLSearchParams(window.location.search);
-  // Hide for OG screenshot captures
   if (urlParams.get("og") === "true") return false;
-  // Hide on any success redirect
   if (urlParams.get("success")) return false;
-  // Never show to patrons
   if (localStorage.getItem("patronStatus") === "active") return false;
-  // Already completed or dismissed this session (tab)
   if (sessionStorage.getItem("stayConnectedCompleted")) return false;
   if (sessionStorage.getItem("stayConnectedDismissed")) return false;
   return true;
@@ -63,8 +61,8 @@ export default function StayConnected({
   isModal = false,
   shouldShow: externalShouldShow,
   selectedTier,
+  purpose = "updates",
 }: StayConnectedProps) {
-  const posthog = usePostHog();
   const [contactFormData, setContactFormData] = useState<ContactFormData>({
     name: "",
     email: "",
@@ -76,7 +74,6 @@ export default function StayConnected({
   const emailRef = useRef<HTMLInputElement | null>(null);
   const otpRef = useRef<HTMLInputElement | null>(null);
 
-  // Mode and step state
   const [mode, setMode] = useState<Mode>("signup");
   const [step, setStep] = useState<Step>("form");
   const [signInEmail, setSignInEmail] = useState("");
@@ -84,7 +81,6 @@ export default function StayConnected({
   const [otpCode, setOtpCode] = useState("");
   const [countdown, setCountdown] = useState(0);
 
-  // Visibility controlled by parent - if not provided, default to true (parent should control rendering)
   const componentShouldShow = externalShouldShow ?? true;
 
   const handleClose = (email?: string) => {
@@ -95,7 +91,6 @@ export default function StayConnected({
   };
 
   useEffect(() => {
-    // Inline placement must not grab focus on page load: it scrolls the page to the form.
     if (!isModal && step !== "code") return;
     const id = setTimeout(() => {
       if (step === "code") {
@@ -107,7 +102,6 @@ export default function StayConnected({
     return () => clearTimeout(id);
   }, [isModal, mode, step]);
 
-  // Countdown timer for OTP expiry
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
@@ -115,6 +109,7 @@ export default function StayConnected({
   }, [countdown]);
 
   const handleRequestSignInCode = async () => {
+    if (isLoading) return;
     if (!signInEmail.trim() || !signInEmail.includes("@")) {
       setErrors({ email: "Please enter a valid email" });
       return;
@@ -140,7 +135,7 @@ export default function StayConnected({
 
       setOtpToken(data.token);
       setStep("code");
-      setCountdown(120); // 2 minutes
+      setCountdown(120);
     } catch {
       setErrors({ email: "Failed to send code. Please try again." });
     } finally {
@@ -149,6 +144,7 @@ export default function StayConnected({
   };
 
   const handleRequestSignUpCode = async () => {
+    if (isLoading) return;
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -176,7 +172,7 @@ export default function StayConnected({
 
       setOtpToken(data.token);
       setStep("code");
-      setCountdown(120); // 2 minutes
+      setCountdown(120);
     } catch {
       setErrors({ email: "Failed to send code. Please try again." });
     } finally {
@@ -185,6 +181,7 @@ export default function StayConnected({
   };
 
   const handleVerifyCode = async () => {
+    if (isLoading) return;
     if (otpCode.length !== 4) {
       setErrors({ otp: "Please enter the 4-digit code" });
       return;
@@ -194,7 +191,6 @@ export default function StayConnected({
     setErrors({});
 
     try {
-      // Use different endpoint for signup vs signin
       const endpoint = mode === "signup" ? "/api/otp/verify-signup" : "/api/otp/verify";
 
       const res = await fetch(endpoint, {
@@ -211,25 +207,20 @@ export default function StayConnected({
         return;
       }
 
-      // Success - store name and close
-      if (typeof window !== "undefined") {
-        if (data.firstName) localStorage.setItem("liveCommenterName", data.firstName);
-        sessionStorage.setItem("stayConnectedCompleted", now().toString());
-      }
-
-      // Track email capture (only for signup, not signin)
-      if (mode === "signup") {
-        posthog?.capture("email_captured", { source: "live" });
-      }
-
+      notifySessionChange();
       const verifiedEmail = mode === "signup" ? contactFormData.email : signInEmail;
-      setIsSuccess(true);
-      setTimeout(() => handleClose(verifiedEmail.trim().toLowerCase()), 2000);
+      completeSuccess(verifiedEmail.trim().toLowerCase());
     } catch {
       setErrors({ otp: "Verification failed. Please try again." });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const completeSuccess = (email: string) => {
+    sessionStorage.setItem("stayConnectedCompleted", now().toString());
+    setIsSuccess(true);
+    setTimeout(() => handleClose(email), 2000);
   };
 
   const switchMode = (newMode: Mode) => {
@@ -247,9 +238,6 @@ export default function StayConnected({
     ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
     : "bg-white dark:bg-neutral-800 p-4 sm:p-6 w-full h-full flex flex-col";
 
-  // Inline placement sits in the track grid as a square-cornered tile. Stacked on mobile;
-  // from md a landscape banner (copy left, fields 2x2 right) that spans the row; from xl a
-  // double-wide tile with stacked fields; from 3xl (1600px) a single square once the row is tall enough.
   const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-lg`;
   const formLayoutClass = isModal
     ? ""
@@ -259,9 +247,8 @@ export default function StayConnected({
       ? ""
       : " md:row-span-2 md:self-center md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:block xl:gap-0 xl:space-y-2 3xl:self-stretch 3xl:flex 3xl:flex-col 3xl:flex-1 3xl:space-y-2"
   }`;
-  // Sign-in link sits under the fields; in the square it fills the leftover height so the
-  // whole area is pressable.
   const modeSwitchClass = `${MODE_SWITCH_BUTTON_CLASS}${isModal ? "" : " md:col-span-2 md:py-0 min-h-11 3xl:flex-1"}`;
+  const stepWrapperClass = `space-y-3 sm:space-y-4${isModal ? "" : " md:row-span-2 md:self-center 3xl:self-stretch"}`;
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -301,10 +288,22 @@ export default function StayConnected({
           </svg>
         </div>
         <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2">
-          {mode === "signin" ? "Welcome back!" : "Thanks for your support!"}
+          {mode === "signin"
+            ? "Welcome back!"
+            : purpose === "chat"
+              ? "You're in!"
+              : purpose === "notify"
+                ? "You're on the list!"
+                : "Thanks for your support!"}
         </h3>
         <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
-          {mode === "signin" ? "You're signed in" : "I'll be in touch soon"}
+          {mode === "signin"
+            ? "You're signed in"
+            : purpose === "chat"
+              ? "Head back to chat"
+              : purpose === "notify"
+                ? "I'll email you when I go live"
+                : "I'll be in touch soon"}
         </p>
       </div>
     );
@@ -316,7 +315,11 @@ export default function StayConnected({
       : selectedTier
         ? `Join the ${selectedTier.name} tier`
         : mode === "signup"
-          ? "Stay connected"
+          ? purpose === "chat"
+            ? "Join the chat"
+            : purpose === "notify"
+              ? "Notify me"
+              : "Stay connected"
           : "Welcome back";
 
   const headerSub =
@@ -325,7 +328,11 @@ export default function StayConnected({
       : selectedTier
         ? `Sign ${mode === "signup" ? "up" : "in"} to continue to checkout`
         : mode === "signup"
-          ? "Drop your info to stay posted about my releases!"
+          ? purpose === "chat"
+            ? "Your first name shows next to your messages."
+            : purpose === "notify"
+              ? "I'll email you when I go live."
+              : "Drop your info to stay posted about my releases!"
           : "Enter your email to get a verification code.";
 
   return (
@@ -399,7 +406,7 @@ export default function StayConnected({
       </div>
 
       {step === "code" ? (
-        <div className={`space-y-3 sm:space-y-4${isModal ? "" : " md:row-span-2 md:self-center 3xl:self-stretch"}`}>
+        <div className={stepWrapperClass}>
           {countdown > 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
               Expires in {formatCountdown(countdown)}
@@ -459,13 +466,21 @@ export default function StayConnected({
             onPhoneChange={(v) => handleInputChange("phone", v)}
             errors={errors}
             scale={isModal ? "compact" : "tile"}
+            namePlaceholder={purpose === "chat" || purpose === "notify" ? "First name" : undefined}
+            hidePhone={purpose === "chat" || purpose === "notify"}
           />
           <button
             type="submit"
             disabled={isLoading}
             className={primaryButtonClass}
           >
-            {isLoading ? "Sending code..." : "Stay connected"}
+            {isLoading
+              ? "Sending code..."
+              : purpose === "chat"
+                ? "Send code"
+                : purpose === "notify"
+                  ? "Notify me"
+                  : "Stay connected"}
           </button>
           <button type="button" onClick={() => switchMode("signin")} className={modeSwitchClass}>
             Already signed up? Sign in

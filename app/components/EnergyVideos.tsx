@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { PlayIcon } from "@phosphor-icons/react";
 import { getVideoMetadata } from "../lib/videos.config";
+
+export interface EnergyVideosHandle {
+  silence: () => void;
+}
 
 function Chevron({ dir }: { dir: "left" | "right" }) {
   return (
@@ -13,18 +17,72 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
 }
 
 const GAP = 12;
+export const CLIP_MIN_H = 280;
 function stepOf(el: HTMLElement) {
   const first = el.firstElementChild as HTMLElement | null;
   return first ? first.clientWidth + GAP : el.clientWidth;
 }
 
-export default function EnergyVideos({ title, videoIds }: { title?: string; videoIds: string[] }) {
+function playIgnoringAbort(el: HTMLVideoElement) {
+  el.play().catch((err) => {
+    if (err.name !== "AbortError") throw err;
+  });
+}
+
+const EnergyVideos = forwardRef<EnergyVideosHandle, {
+  title?: string;
+  videoIds: string[];
+  className?: string;
+  fitHeight?: boolean;
+  onLoudPlay?: () => void;
+  onLoudEnd?: () => void;
+}>(function EnergyVideos(
+  {
+    title,
+    videoIds,
+    className,
+    fitHeight = false,
+    onLoudPlay,
+    onLoudEnd,
+  },
+  outerRef,
+) {
   const ref = useRef<HTMLDivElement>(null);
   const players = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const [entered, setEntered] = useState(false);
+  useLayoutEffect(() => {
+    if (!fitHeight) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setEntered(true);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(raf);
+  }, [fitHeight]);
   const [canLeft, setCanLeft] = useState(false);
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState<string | null>(null);
   const [ready, setReady] = useState<Set<string>>(new Set());
+  const loudClipRef = useRef<string | null>(null);
+
+  useImperativeHandle(outerRef, () => ({
+    silence: () => {
+      const id = loudClipRef.current;
+      if (!id) return;
+      const el = players.current.get(id);
+      if (el) el.muted = true;
+    },
+  }), []);
+
+  const onLoudEndRef = useRef(onLoudEnd);
+  useEffect(() => {
+    onLoudEndRef.current = onLoudEnd;
+  }, [onLoudEnd]);
+  useEffect(() => {
+    return () => {
+      if (loudClipRef.current) onLoudEndRef.current?.();
+    };
+  }, []);
 
   const clips = videoIds
     .map((id) => {
@@ -61,7 +119,47 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
     return () => window.removeEventListener("resize", sync);
   }, [sync]);
 
-  const play = (id: string) => players.current.get(id)?.play().catch(() => {});
+  useEffect(() => {
+    if (!fitHeight) return;
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitHeight, sync]);
+
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.energyCard;
+          if (!id || loudClipRef.current !== id) continue;
+          if (entry.intersectionRatio < 0.5) {
+            const el = players.current.get(id);
+            if (el) el.muted = true;
+          }
+        }
+      },
+      { root, threshold: [0, 0.5] },
+    );
+    root.querySelectorAll<HTMLElement>("[data-energy-card]").forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [clips.length]);
+
+  const playSilently = (id: string) => {
+    const el = players.current.get(id);
+    if (!el) return;
+    el.muted = true;
+    playIgnoringAbort(el);
+  };
+  const playWithSound = (id: string) => {
+    const el = players.current.get(id);
+    if (!el) return;
+    el.muted = false;
+    playIgnoringAbort(el);
+  };
 
   const onStripScroll = () => {
     sync();
@@ -73,21 +171,41 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
       if (idx === settled.current) return;
       settled.current = idx;
       const clip = clips[idx];
-      if (clip) play(clip.id);
+      if (clip && !fitHeight) playSilently(clip.id);
     }, 160);
   };
 
+  const maxIndex = clips.length - 1;
   const nudge = (dir: 1 | -1) => {
     const el = ref.current;
     if (!el) return;
     const step = stepOf(el);
     const current = Math.round(el.scrollLeft / step);
-    const target = Math.min(clips.length - 1, Math.max(0, current + dir));
+    const target = Math.min(maxIndex, Math.max(0, current + dir));
     el.scrollTo({ left: target * step, behavior: "smooth" });
     settled.current = target;
     const clip = clips[target];
-    if (clip) play(clip.id);
+    if (clip && !fitHeight) playSilently(clip.id);
   };
+
+  function handleVideoPlay(id: string, el: HTMLVideoElement) {
+    setPlaying(id);
+    if (!el.muted) {
+      loudClipRef.current = id;
+      onLoudPlay?.();
+    }
+    players.current.forEach((p, pid) => {
+      if (pid !== id) {
+        p.pause();
+        p.currentTime = 0;
+      }
+    });
+  }
+  function handleLoudEndFor(id: string) {
+    if (loudClipRef.current !== id) return;
+    loudClipRef.current = null;
+    onLoudEnd?.();
+  }
 
   if (!clips.length) return null;
 
@@ -98,10 +216,14 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
     "hover:bg-white/65 dark:hover:bg-neutral-900/60 active:scale-90";
 
   return (
-    <div>
-      {(title || clips.length > 1) && (
+    <div
+      className={`flex flex-col min-h-0 ${
+        fitHeight ? `transition-transform duration-700 ease-out ${entered ? "translate-x-0" : "translate-x-[140px]"}` : ""
+      } ${className ?? ""}`}
+    >
+      {title && (
         <div className="flex items-center gap-2 mb-2">
-          {title && <h3 className="text-xs text-neutral-400 uppercase tracking-wider">{title}</h3>}
+          <h3 className="text-xs text-neutral-400 uppercase tracking-wider">{title}</h3>
           {clips.length > 1 && (
             <div className="flex items-center gap-1" aria-hidden>
               {clips.map((clip, i) => (
@@ -117,17 +239,22 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
         </div>
       )}
 
-      <div className="relative">
+      <div className={`relative ${fitHeight ? "flex-1 min-h-0" : ""}`}>
         <div
           ref={ref}
           onScroll={onStripScroll}
-          className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`flex gap-3 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            fitHeight ? "h-full" : "pb-2"
+          }`}
         >
-          {clips.map((clip) => (
+          {clips.map((clip, i) => (
             <div
               key={clip.id}
-              className="group relative snap-start shrink-0 w-[300px] max-w-[78vw] bg-black rounded-lg overflow-hidden"
-              style={{ aspectRatio: "9 / 16" }}
+              data-energy-card={clip.id}
+              className={`group relative bg-black rounded-lg overflow-hidden ${
+                fitHeight && i === clips.length - 1 ? "snap-end" : "snap-start"
+              } shrink-0 ${fitHeight ? "h-full" : "w-[300px] max-w-[78vw]"}`}
+              style={{ aspectRatio: "9 / 16", minHeight: CLIP_MIN_H }}
             >
               {clip.thumbnail && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -151,21 +278,25 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
                 playsInline
                 loop
                 preload="none"
-                onPlay={() => {
-                  setPlaying(clip.id);
-                  players.current.forEach((p, id) => {
-                    if (id !== clip.id) {
-                      p.pause();
-                      p.currentTime = 0;
-                    }
-                  });
-                }}
+                onPlay={(e) => handleVideoPlay(clip.id, e.currentTarget)}
                 onPlaying={() => setReady((s) => (s.has(clip.id) ? s : new Set(s).add(clip.id)))}
+                onPause={() => handleLoudEndFor(clip.id)}
+                onEnded={() => handleLoudEndFor(clip.id)}
+                onVolumeChange={(e) => {
+                  const el = e.currentTarget;
+                  if (el.paused) return;
+                  if (el.muted && loudClipRef.current === clip.id) {
+                    handleLoudEndFor(clip.id);
+                  } else if (!el.muted && loudClipRef.current !== clip.id) {
+                    loudClipRef.current = clip.id;
+                    onLoudPlay?.();
+                  }
+                }}
               />
               {playing !== clip.id && (
                 <button
                   type="button"
-                  onClick={() => play(clip.id)}
+                  onClick={() => playWithSound(clip.id)}
                   aria-label={clip.title ? `Play ${clip.title}` : "Play clip"}
                   className="absolute inset-0"
                 >
@@ -177,15 +308,22 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
               )}
             </div>
           ))}
-          <div aria-hidden className="shrink-0 w-[min(calc(100%-312px),320px)]" />
+          {!fitHeight && <div aria-hidden className="shrink-0 w-[min(calc(100%-312px),320px)]" />}
         </div>
 
-        {canLeft && (
+        {fitHeight && canLeft && (
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/50 to-transparent" />
+        )}
+        {fitHeight && canRight && (
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/50 to-transparent" />
+        )}
+
+        {!fitHeight && canLeft && (
           <button type="button" onClick={() => nudge(-1)} aria-label="Previous videos" className={`${glass} left-2`}>
             <Chevron dir="left" />
           </button>
         )}
-        {canRight && (
+        {!fitHeight && canRight && (
           <button type="button" onClick={() => nudge(1)} aria-label="More videos" className={`${glass} right-2`}>
             <Chevron dir="right" />
           </button>
@@ -193,4 +331,6 @@ export default function EnergyVideos({ title, videoIds }: { title?: string; vide
       </div>
     </div>
   );
-}
+});
+
+export default EnergyVideos;

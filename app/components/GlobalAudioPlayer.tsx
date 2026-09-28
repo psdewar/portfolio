@@ -95,7 +95,7 @@ export const GlobalAudioPlayer: React.FC = () => {
   const isSupportPage = pathname === "/support";
   const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
-  const { online: isStreamLive } = useLiveStatus({ enabled: isLivePage });
+  const { live: isStreamLive } = useLiveStatus({ enabled: isLivePage });
   const isVisible =
     !!currentTrack &&
     !isHirePage &&

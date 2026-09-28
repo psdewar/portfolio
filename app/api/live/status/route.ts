@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
-import { getStreamStatus } from "../../../lib/live";
+import { NextRequest, NextResponse } from "next/server";
+import { getStreamStatus, isStreamPath } from "../../../lib/live";
 
-export async function GET() {
-  return NextResponse.json(await getStreamStatus());
+export async function GET(request: NextRequest) {
+  const requested = request.nextUrl.searchParams.get("path");
+  const path = requested && isStreamPath(requested) ? requested : "live";
+  return NextResponse.json(await getStreamStatus(path));
 }

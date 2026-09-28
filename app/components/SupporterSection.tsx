@@ -18,12 +18,13 @@ import { MonthlySupporter } from "./SupportModal";
 import PatronSignInForm from "./PatronSignInForm";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
-import { PATRON_CONFIG } from "../data/patron-config";
+import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW } from "../data/patron-config";
 import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { type Show, showsToTimelineEvents } from "../lib/shows";
 import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
+import { DateStack, PendingRsvpProvider, ShowRow } from "./ShowRow";
 
 const formatDuration = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -77,10 +78,6 @@ const ROW_HOVER =
   "group transition-all duration-300 hover:bg-gradient-to-r hover:to-transparent active:bg-gradient-to-r active:to-transparent split:hover:pl-2";
 
 const ROW_ACCENT = {
-  rsvp: {
-    row: "hover:from-[#d4a553]/15 active:from-[#d4a553]/15",
-    day: "group-hover:text-[#d4a553] group-active:text-[#d4a553]",
-  },
   song: {
     row: "hover:from-amber-500/15 active:from-amber-500/15",
     day: "group-hover:text-amber-500 group-active:text-amber-500",
@@ -90,27 +87,6 @@ const ROW_ACCENT = {
     day: "group-hover:text-neutral-500 group-active:text-neutral-500",
   },
 };
-
-function DateStack({
-  date,
-  hover = "",
-}: {
-  date: ReturnType<typeof formatEventDate>;
-  hover?: string;
-}) {
-  return (
-    <div className="w-[0.8em] mr-[0.2em] shrink-0 flex flex-col items-center gap-[0.2em] text-3xl sm:text-4xl">
-      <div className="text-[0.41em] uppercase tracking-wide leading-none [text-box:trim-both_cap_alphabetic] text-neutral-500">
-        {date.month}
-      </div>
-      <div
-        className={`font-bebas leading-none [text-box:trim-both_cap_alphabetic] text-neutral-900 dark:text-white transition-all duration-300 group-hover:scale-110 ${hover}`}
-      >
-        {date.day}
-      </div>
-    </div>
-  );
-}
 
 export function SupporterSection({
   onClose,
@@ -229,9 +205,7 @@ export function SupporterSection({
     (a, b) => parseInt(b) - parseInt(a),
   );
 
-  const earlyAccessTracks = PATRON_CONFIG.earlyAccess.trackIds
-    .map((id) => TRACK_DATA.find((t) => t.id === id))
-    .filter((t): t is NonNullable<typeof t> => !!t);
+  const earlyAccessTracks = EARLY_ACCESS_TRACKS;
 
   function renderEarlyAccessTracks(
     introText: string | null,
@@ -361,10 +335,7 @@ export function SupporterSection({
                 : undefined;
               const isRowPlaying =
                 !!rowTrack && isPlaying && currentTrack?.id === rowTrack.id;
-              const isRsvp = !!event.url && event.urlLabel === "RSVP";
-              const RowTag = (
-                isRsvp ? Link : rowTrack ? "button" : "div"
-              ) as React.ElementType;
+              const RowTag = (rowTrack ? "button" : "div") as React.ElementType;
               const isRowLoading =
                 !!rowTrack &&
                 isAudioLoading &&
@@ -388,11 +359,7 @@ export function SupporterSection({
                 }
               };
 
-              const rowAccent = isRsvp
-                ? ROW_ACCENT.rsvp
-                : rowTrack
-                  ? ROW_ACCENT.song
-                  : null;
+              const rowAccent = rowTrack ? ROW_ACCENT.song : null;
               const isCityRow = event.type === "show" && !!event.location;
 
               return (
@@ -415,8 +382,12 @@ export function SupporterSection({
                       )}
                     </div>
                   )}
+                  {isCityRow ? (
+                    <div className="px-4 sm:px-6 lg:px-8 split:px-0">
+                      <ShowRow event={event} />
+                    </div>
+                  ) : (
                   <RowTag
-                    {...(isRsvp ? { href: event.url } : {})}
                     {...(rowTrack
                       ? {
                           onClick: playRowTrack,
@@ -479,28 +450,18 @@ export function SupporterSection({
                         </div>
                       )}
                       <h3
-                        className={`${isCityRow ? "font-medium text-lg leading-tight" : isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg leading-tight"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
+                        className={`${isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg leading-tight"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
                         style={
-                          isFGTU && !isCityRow
+                          isFGTU
                             ? { fontFamily: '"Parkinsans", sans-serif' }
                             : undefined
                         }
                       >
-                        {isCityRow ? event.location : event.title}
+                        {event.title}
                       </h3>
-                      {(isCityRow
-                        ? !isFGTU || event.description
-                        : event.description) && (
+                      {event.description && (
                         <p className="text-neutral-500 dark:text-neutral-400 text-base">
-                          {isCityRow && !isFGTU && event.description ? (
-                            <>
-                              {event.description}
-                              <br />
-                              {event.title}
-                            </>
-                          ) : (
-                            (event.description ?? event.title)
-                          )}
+                          {event.description}
                         </p>
                       )}
                       {event.url &&
@@ -524,17 +485,8 @@ export function SupporterSection({
                         className="shrink-0 self-stretch w-12 sm:w-14 object-contain"
                       />
                     )}
-                    {isRsvp && (
-                      <span className="shrink-0 flex items-center gap-2 text-3xl sm:text-4xl">
-                        <span className="text-[0.41em] uppercase tracking-wide leading-none text-neutral-500">
-                          {dateInfo.dayOfWeek}
-                        </span>
-                        <span className="shrink-0 rounded border-2 border-neutral-300 dark:border-neutral-700 px-2 py-1.5 font-mono text-[0.41em] uppercase tracking-wider leading-none text-neutral-500 dark:text-neutral-400 transition-all duration-300 group-hover:border-[#d4a553] group-hover:bg-[#d4a553] group-hover:text-neutral-950 group-hover:shadow-[0_0_18px_rgba(212,165,83,0.55)]">
-                          RSVP NOW
-                        </span>
-                      </span>
-                    )}
                   </RowTag>
+                  )}
                 </Fragment>
               );
             })}
@@ -576,7 +528,6 @@ export function SupporterSection({
           .supporter--og #ask-slot { padding-top: 12px; padding-bottom: 0; }
         `}</style>
       )}
-      {/* Modal close button */}
       {isModal && (
         <div className="sticky top-0 z-20 flex items-center justify-end p-4 sm:p-6">
           <button
@@ -601,15 +552,7 @@ export function SupporterSection({
               <MonthlySupporter
                 heading="h1"
                 source={isModal ? "modal" : "page"}
-                preview={
-                  earlyAccessTracks[0]
-                    ? {
-                        title: earlyAccessTracks[0].title,
-                        src: `/audio/${earlyAccessTracks[0].id}-preview.mp3`,
-                        autoplay: false,
-                      }
-                    : null
-                }
+                preview={EARLY_ACCESS_PREVIEW}
                 panelBleed="-mx-4 sm:mx-0 sm:rounded-lg [--tp-x:1rem] sm:[--tp-x:1.5rem]"
                 og={og}
                 onSignIn={og ? undefined : () => setShowVerifyForm(true)}
@@ -661,7 +604,6 @@ export function SupporterSection({
         {children}
       </div>
 
-      {/* Journey timeline */}
       <section
         className={`px-4 sm:px-6 lg:px-8 split:px-0 split:pl-6 split:max-w-none split:mx-0 split:min-w-0 split:flex split:flex-col split:min-h-0 split:pb-0 ${isPatron ? "pb-8" : "pb-32"}`}
       >
@@ -676,12 +618,11 @@ export function SupporterSection({
             <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4">
               From The Ground Up
             </p>
-            {renderTimeline()}
+            <PendingRsvpProvider>{renderTimeline()}</PendingRsvpProvider>
           </div>
         </div>
       </section>
 
-      {/* Floating CTA */}
       {!isPatron && showBottomCta && !og && (
         <button
           onClick={() =>
@@ -725,7 +666,6 @@ export function SupporterSection({
         </div>
       )}
 
-      {/* Calendar Info Modal */}
       {showCalendarInfo && (
         <div
           className={`${isModal ? "absolute" : "fixed"} inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}

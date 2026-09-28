@@ -1,3 +1,5 @@
+import { TRACK_DATA } from "./tracks";
+
 export const PATRON_CONFIG = {
   earlyAccess: {
     name: "Early Access",
@@ -11,6 +13,24 @@ export const PATRON_EXCLUSIVE_TRACKS = new Set<string>(PATRON_CONFIG.earlyAccess
 export function isPatronTrack(trackId: string): boolean {
   return PATRON_EXCLUSIVE_TRACKS.has(trackId);
 }
+
+export const EARLY_ACCESS_TRACKS = PATRON_CONFIG.earlyAccess.trackIds
+  .map((id) => TRACK_DATA.find((t) => t.id === id))
+  .filter((t): t is NonNullable<typeof t> => !!t);
+
+export interface TrackPreview {
+  title: string;
+  src: string;
+  autoplay: boolean;
+}
+
+export function toTrackPreview(track: { id: string; title: string }): TrackPreview {
+  return { title: track.title, src: `/audio/${track.id}-preview.mp3`, autoplay: false };
+}
+
+export const EARLY_ACCESS_PREVIEW: TrackPreview | null = EARLY_ACCESS_TRACKS[0]
+  ? toTrackPreview(EARLY_ACCESS_TRACKS[0])
+  : null;
 
 export type PatronTierName = "Pen" | "Flow" | "Mind" | "Soul";
 

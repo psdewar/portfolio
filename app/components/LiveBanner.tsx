@@ -32,7 +32,7 @@ function formatStreamTime(iso: string): string {
 export default function LiveBanner() {
   const [nextStream, setNextStream] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<string | null>(null);
-  const { online } = useLiveStatus();
+  const { live: online } = useLiveStatus();
 
   useEffect(() => {
     fetch("/api/livestream")

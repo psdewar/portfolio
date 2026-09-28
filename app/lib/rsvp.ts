@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../lib/supabase-admin";
+import { upsertIdentity } from "./identity";
 
 export async function upsertRsvp({
   email,
@@ -15,31 +16,15 @@ export async function upsertRsvp({
 }): Promise<void> {
   const guestCount = Math.max(1, Math.min(10, guests || 1));
   const emailLower = email.trim().toLowerCase();
-  const phoneTrimmed = phone?.trim();
-  const nameTrimmed = name?.trim();
 
-  const { data: contact } = await supabaseAdmin
-    .from("stay-connected")
-    .select("id")
-    .eq("email", emailLower)
-    .maybeSingle();
-
-  if (contact) {
-    if (nameTrimmed || phoneTrimmed) {
-      const { error } = await supabaseAdmin
-        .from("stay-connected")
-        .update({ ...(nameTrimmed && { name: nameTrimmed }), ...(phoneTrimmed && { phone: phoneTrimmed }) })
-        .eq("id", contact.id);
-      if (error) throw new Error(error.message);
-    }
-  } else {
-    const { error } = await supabaseAdmin.from("stay-connected").insert({
-      email: emailLower,
-      ...(nameTrimmed && { name: nameTrimmed }),
-      ...(phoneTrimmed && { phone: phoneTrimmed }),
-    });
-    if (error) throw new Error(error.message);
-  }
+  await upsertIdentity({
+    email: emailLower,
+    name,
+    phone,
+    overwrite: true,
+    captureEvent: false,
+    source: "rsvp",
+  });
 
   const { error: rsvpError } = await supabaseAdmin
     .from("rsvps")
@@ -47,8 +32,6 @@ export async function upsertRsvp({
   if (rsvpError) throw new Error(rsvpError.message);
 }
 
-// Atomic, race-free admission number via attend() (see 004_attendances.sql):
-// derived from arrival rank, idempotent across devices, never reserved by RSVP.
 export async function markAttended({
   email,
   name,
@@ -74,18 +57,13 @@ export async function markAttended({
   });
   if (error) throw new Error(error.message);
 
-  const { data: contact } = await supabaseAdmin
-    .from("stay-connected")
-    .select("id")
-    .eq("email", emailLower)
-    .maybeSingle();
-  if (!contact) {
-    const { error: insertError } = await supabaseAdmin.from("stay-connected").insert({
-      email: emailLower,
-      ...(name?.trim() && { name: name.trim() }),
-    });
-    if (insertError) throw new Error(insertError.message);
-  }
+  await upsertIdentity({
+    email: emailLower,
+    name,
+    overwrite: false,
+    captureEvent: false,
+    source: "checkin",
+  });
 
   return { number: assignedNumber as number, rsvpd };
 }
@@ -98,3 +76,4 @@ export async function namesByEmail(emails: string[]): Promise<Map<string, string
     .in("email", emails);
   return new Map((data || []).map((c) => [c.email, c.name || ""]));
 }
+

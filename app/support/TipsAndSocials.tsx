@@ -7,15 +7,15 @@ import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
 import ContributeCardModal from "./ContributeCardModal";
 
-function TipsSection({
+export function TipsSection({
   interacFirst = false,
   isOg = false,
-  concertCount,
+  concertCount = 0,
   nextStop,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
-  concertCount: number;
+  concertCount?: number;
   nextStop?: string;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
@@ -23,12 +23,12 @@ function TipsSection({
   return (
     <div className="flex-1 min-w-0">
       <h2
-        className={`font-bebas text-3xl text-neutral-900 dark:text-white ${isOg ? "mb-4" : "mb-1"}`}
+        className={`font-bebas text-neutral-900 dark:text-white text-3xl ${isOg ? "mb-4" : "mb-1"}`}
       >
         Fund My Tour
       </h2>
       {!isOg && (
-        <p className="text-base text-neutral-500 dark:text-neutral-400 mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
+        <p className="text-neutral-500 dark:text-neutral-400 text-base mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
           {concertCount} concerts since Mar '26 &middot; hundreds of
           participants
           {nextStop && (

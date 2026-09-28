@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyOtpToken, verifyOtpCodeSafe } from "../../../../lib/otp-token";
-import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
+import { setSessionCookie } from "../../../../lib/session";
+import { upsertIdentity, firstNameOf } from "../../../lib/identity";
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +30,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify and decrypt token
     const payload = verifyOtpToken(token);
     if (!payload) {
       return NextResponse.json(
@@ -38,7 +38,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Compare codes (timing-safe to prevent timing attacks)
     if (!verifyOtpCodeSafe(payload.code, code.trim())) {
       return NextResponse.json(
         { error: "Invalid code. Please try again." },
@@ -46,25 +45,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store in Supabase
-    const { error: dbError } = await supabaseAdmin
-      .from("stay-connected")
-      .insert({
-        email: payload.email.toLowerCase().trim(),
-        name: payload.firstName?.trim() || null,
-        phone: payload.phone?.trim() || null,
-        tier: payload.tier?.trim() || null,
-      });
+    const { contact } = await upsertIdentity({
+      email: payload.email,
+      name: payload.firstName,
+      phone: payload.phone,
+      tier: payload.tier,
+      source: "email",
+    });
+    const firstName = firstNameOf(contact.name) || payload.firstName;
 
-    if (dbError) {
-      console.error("[OTP Verify-Signup] Database error:", dbError);
-      return NextResponse.json(
-        { error: "Failed to save. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({ firstName: payload.firstName });
+    const res = NextResponse.json({ firstName });
+    return setSessionCookie(res, { email: contact.email, name: firstName });
   } catch (error) {
     console.error("[OTP Verify-Signup] Error:", error);
     return NextResponse.json(

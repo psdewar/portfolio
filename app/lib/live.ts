@@ -1,30 +1,31 @@
-export interface StreamStatus {
-  online: boolean;
-  viewerCount: number;
-  title?: string;
-  lastConnectTime?: string;
-  lastDisconnectTime?: string;
+import type { LiveStatusValue } from "./live-status";
+
+export type StreamPath = "live" | "rehearsal";
+
+export function isStreamPath(value: string): value is StreamPath {
+  return value === "live" || value === "rehearsal";
 }
 
-const OWNCAST_URL = process.env.NEXT_PUBLIC_OWNCAST_URL;
+const ADLIB_URL = process.env.NEXT_PUBLIC_ADLIB_URL || "http://localhost:8787";
 const SCHEDULE_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const OFFLINE: StreamStatus = { online: false, viewerCount: 0 };
+const OFFLINE: LiveStatusValue = { live: false, since: null, endedAt: null };
 
-export async function getStreamStatus(): Promise<StreamStatus> {
-  if (!OWNCAST_URL) return OFFLINE;
-  const res = await fetch(`${OWNCAST_URL}/api/status`, {
+async function getRoomStatus(path: StreamPath): Promise<LiveStatusValue> {
+  const res = await fetch(`${ADLIB_URL}/adlib/health?room=${path}`, {
     cache: "no-store",
     signal: AbortSignal.timeout(2000),
   }).catch(() => null);
   if (!res?.ok) return OFFLINE;
   const data = await res.json();
   return {
-    online: !!data.online,
-    viewerCount: data.viewerCount ?? 0,
-    title: data.streamTitle || undefined,
-    lastConnectTime: data.lastConnectTime || undefined,
-    lastDisconnectTime: data.lastDisconnectTime || undefined,
+    live: !!data.live,
+    since: typeof data.since === "number" ? data.since : null,
+    endedAt: typeof data.ended_at === "number" ? data.ended_at : null,
   };
+}
+
+export async function getStreamStatus(path: StreamPath = "live"): Promise<LiveStatusValue> {
+  return getRoomStatus(path);
 }
 
 export async function getNextStream(): Promise<string | null> {

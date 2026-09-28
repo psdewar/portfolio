@@ -18,12 +18,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const names = await namesByEmail([
+  const allEmails = [
     ...new Set([
       ...(attRes.data || []).map((r) => r.email),
       ...(rsvpRes.data || []).map((r) => r.email),
     ]),
-  ]);
+  ];
+  const names = await namesByEmail(allEmails);
 
   const grouped: Record<string, Array<{ name: string; email: string }>> = {};
   const seenPerSlug = new Map<string, Set<string>>();

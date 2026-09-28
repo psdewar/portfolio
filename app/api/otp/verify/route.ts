@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyOtpToken, verifyOtpCodeSafe } from "../../../../lib/otp-token";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
+import { setSessionCookie } from "../../../../lib/session";
+import { upsertIdentity, firstNameOf } from "../../../lib/identity";
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +30,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify and decrypt token
     const payload = verifyOtpToken(token);
     if (!payload) {
       return NextResponse.json(
@@ -37,7 +38,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Compare codes (timing-safe to prevent timing attacks)
     if (!verifyOtpCodeSafe(payload.code, code.trim())) {
       return NextResponse.json(
         { error: "Invalid code. Please try again." },
@@ -45,7 +45,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ firstName: payload.firstName });
+    const { contact } = await upsertIdentity({
+      email: payload.email,
+      source: "email",
+      captureEvent: false,
+    });
+    const firstName = firstNameOf(contact.name) || payload.firstName;
+
+    const res = NextResponse.json({ firstName });
+    return setSessionCookie(res, { email: contact.email, name: firstName });
   } catch (error) {
     console.error("[OTP Verify] Error:", error);
     return NextResponse.json(

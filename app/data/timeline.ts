@@ -34,7 +34,7 @@ export const TIMELINE: TimelineEvent[] = [
     title: "Better World Concert w/ Colby Jeffers",
     location: "San Francisco, CA",
     description: "Baha'i Center of San Francisco",
-    type: "show",
+    type: "update",
   },
   {
     id: 2026081400,
@@ -50,7 +50,7 @@ export const TIMELINE: TimelineEvent[] = [
     title: "Sister's Wedding Reception",
     description: "Najil Chak Residence",
     location: "Tulum, Mexico",
-    type: "show",
+    type: "update",
   },
   { id: 2026032100, date: "2026-03-21", title: "Naw-Ruz 183", type: "checkpoint" },
   {
