@@ -41,8 +41,8 @@ export function HoverTip({
 
   const style =
     side === "right"
-      ? { left: rect.right + 2, top: rect.top + rect.height / 2, transform: "translateY(-50%)" }
-      : { left: rect.left - 2, top: rect.top + rect.height / 2, transform: "translate(-100%, -50%)" };
+      ? { left: rect.right + 10, top: rect.top + rect.height / 2, transform: "translateY(-50%)" }
+      : { left: rect.left - 10, top: rect.top + rect.height / 2, transform: "translate(-100%, -50%)" };
 
   return (
     <span

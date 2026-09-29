@@ -49,7 +49,7 @@ export default function LiveClient({
   const posthog = usePostHog();
   const isPatron = usePatronStatus();
   const isOgMode = searchParams.get("og") === "true";
-  const whepUrl = WHEP_URL.replace("/live/whep", `/${path}/whep`);
+  const whepUrl = WHEP_URL.replace("/live/whep", `/${path}_opus/whep`);
   const hlsUrl = HLS_URL.replace("/live_aac/", `/${path}_aac/`);
   const viewStartTime = useRef<number>(Date.now());
 

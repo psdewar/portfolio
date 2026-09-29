@@ -8,7 +8,6 @@ import {
   TShirtIcon,
   BroadcastIcon,
   TicketIcon,
-  HouseIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { navItems } from "../Navbar";
@@ -140,21 +139,6 @@ function BrandRow({ compact = false, expanded = false }: { compact?: boolean; ex
   const { open, bind } = useHoverTip();
   const wordmarkColorClass = "text-neutral-700 dark:text-neutral-300";
   const spencerClass = "bg-clip-text bg-[position:100%_0%] group-hover:bg-[position:0%_0%]";
-
-  if (expanded) {
-    return (
-      <RailRow
-        icon={HouseIcon}
-        label="Home"
-        color="#737373"
-        current={false}
-        href="/"
-        compact={compact}
-        expanded={expanded}
-      />
-    );
-  }
-
   return (
     <Link
       href="/"
@@ -163,7 +147,17 @@ function BrandRow({ compact = false, expanded = false }: { compact?: boolean; ex
       {...bind}
     >
       <span className="absolute inset-0 group-hover:bg-neutral-100 dark:group-hover:bg-neutral-800/60" aria-hidden />
-      {compact ? (
+      {expanded ? (
+        <span
+          ref={wordmarkRef}
+          className={`absolute left-[25px] top-1/2 -translate-y-1/2 font-bebas text-[26px] leading-none tracking-tight whitespace-nowrap text-left ${wordmarkColorClass}`}
+        >
+          <span>PEYT</span>{" "}
+          <span className={spencerClass} style={BRAND_SWEEP_STYLE}>
+            SPENCER
+          </span>
+        </span>
+      ) : compact ? (
         <span
           ref={wordmarkRef}
           className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-bebas leading-none tracking-tight text-[32px] ${wordmarkColorClass}`}

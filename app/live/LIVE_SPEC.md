@@ -161,8 +161,9 @@ itself (WHEP/HLS, autoplay, cleanup).
 The chat room is the stream path. `LiveClient` receives `path?: StreamPath` (`"live" | "rehearsal"`,
 default `"live"`) and passes it straight through: `useAdlibSocket(onNotify, path)` takes it as
 `room`, `useLiveStatus({ path })` and `getStreamStatus(path)` key the Owncast-successor status
-lookup on it, and the WHEP/HLS URLs are rewritten from `/live/...` to `/${path}/...`. There is no
-separate room concept: one path, one stream, one chat room.
+lookup on it, and the WHEP URL is rewritten from `/live/...` to `/${path}_opus/...` (Opus mirror)
+while the HLS URL is rewritten to `/${path}_aac/...`. There is no separate room concept: one path,
+one stream, one chat room.
 
 The wire shapes and the reactions list in `app/lib/adlib.ts` mirror `src/room.ts` in the adlib
 worker repo and change together.

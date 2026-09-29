@@ -1,8 +1,8 @@
 # Browser Live-Stream Player Spec
 
 Scope: the WHEP-first, HLS-fallback video player on `/live`. mediamtx 1.21 serves WHEP at
-`{live|rehearsal}/whep` and LL-HLS (AAC mirror, since OBS sends AAC and WebRTC needs Opus) at
-`{live|rehearsal}_aac/index.m3u8`. coturn runs beside mediamtx for NAT traversal. Viewers are
+`{live|rehearsal}_opus/whep` (Opus mirror, since OBS sends AAC and WebRTC needs Opus) and LL-HLS at
+`{live|rehearsal}_aac/index.m3u8` (AAC mirror, ffmpeg-transcoded from the source path same as the Opus mirror). coturn runs beside mediamtx for NAT traversal. Viewers are
 mostly iPhone Safari and desktop Chrome watching a rap set, so audio quality and sync matter more
 than raw resolution. The stage `<video>` sits inside a page with a chat rail and schedule that
 reflow, so it must survive layout changes without a visible reload.
@@ -94,10 +94,11 @@ reflow, so it must survive layout changes without a visible reload.
 - [ ] iOS Safari: prefer native HLS (`video.canPlayType('application/vnd.apple.mpegurl')`) for
       compatibility, or hls.js with the Managed Media Source API (iOS 17+) if low-latency parity
       with desktop matters more than simplicity. Desktop/Chrome: hls.js with MSE.
-- [ ] Tune LL-HLS on the client to match the server's part duration: set `liveSyncDuration`/
-      `liveSyncDurationCount` explicitly rather than relying on hls.js defaults, since native
-      Safari and hls.js compute different live edges from the same manifest when `HOLD-BACK`/
-      `PART-HOLD-BACK` aren't both honored.
+- [ ] Tune LL-HLS on the client to match the server's part duration: set `liveSyncDuration` only
+      (three part durations) rather than relying on hls.js defaults, since native Safari and
+      hls.js compute different live edges from the same manifest when `HOLD-BACK`/
+      `PART-HOLD-BACK` aren't both honored. hls.js throws if `liveSyncDurationCount` is passed
+      alongside `liveSyncDuration`.
 - [ ] Keep attempting to return to WHEP on an interval while parked on HLS; do not treat the
       fallback as a one-way door for the rest of the session.
 - [ ] Latency mode is an internal detail, not necessarily UI: only surface it if support needs to
@@ -197,10 +198,11 @@ reflow, so it must survive layout changes without a visible reload.
     recovery path. Listen for an unexpected `pause` while `connectionState` is still healthy and
     resume on the next `play`-eligible moment.
 12. `app/live/LiveClient.tsx:507-526` — the hls.js fallback sets only `lowLatencyMode: true` and
-    relies on defaults for `liveSyncDuration`/`liveSyncDurationCount`; set them explicitly to
-    match the server's `hlsPartDuration`/`hlsSegmentDuration` so the live edge behaves predictably
-    across hls.js (desktop/Android) and native Safari HLS (iOS), which otherwise compute different
-    live edges from the same manifest.
+    relies on defaults for `liveSyncDuration`; set `liveSyncDuration` only (three part durations)
+    to match the server's `hlsPartDuration`/`hlsSegmentDuration` so the live edge behaves
+    predictably across hls.js (desktop/Android) and native Safari HLS (iOS), which otherwise
+    compute different live edges from the same manifest. hls.js throws if
+    `liveSyncDurationCount` is passed alongside `liveSyncDuration`.
 
 ## Sources
 

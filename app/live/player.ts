@@ -8,7 +8,6 @@ import type { StreamPath } from "../lib/live";
 
 const HLS_PART_DURATION_S = 0.2;
 const HLS_LIVE_SYNC_DURATION_S = HLS_PART_DURATION_S * 3;
-const HLS_LIVE_SYNC_DURATION_COUNT = 3;
 
 const STATS_POLL_MS = 2000;
 const FREEZE_STALL_POLLS = 2;
@@ -339,7 +338,6 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
           lowLatencyMode: true,
           enableWorker: true,
           liveSyncDuration: HLS_LIVE_SYNC_DURATION_S,
-          liveSyncDurationCount: HLS_LIVE_SYNC_DURATION_COUNT,
         });
         h.loadSource(hlsUrl);
         h.attachMedia(v);
