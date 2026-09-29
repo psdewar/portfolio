@@ -8,6 +8,7 @@ import {
   TShirtIcon,
   BroadcastIcon,
   TicketIcon,
+  HouseIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { navItems } from "../Navbar";
@@ -16,8 +17,9 @@ import { SOCIAL_LINKS } from "../components/Social";
 import { LiveClips, type EnergyClipHandlers } from "./LiveClips";
 import { LiveSupportAsk, type LiveSupportAskCore } from "./LiveSupportAsk";
 import { Stage, type StageProps } from "./Stage";
-import { PortraitChatRail, DesktopChatRail, OfflineStoryRail, StoryColumn } from "./ChatRail";
-import { SUPPORT_OVERLAY_PX, STORY_MIN_PX } from "./useLiveLayout";
+import { DesktopChatRail, OfflineStoryRail, StoryColumn } from "./ChatRail";
+import { SUPPORT_OVERLAY_PX, RAIL_ROW_COMPACT_HEIGHT_PX, DESKTOP_STAGE_ASPECT } from "./useLiveLayout";
+import { LiveBand } from "./LiveBand";
 import { HoverTip, useHoverTip } from "./HoverTip";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 
@@ -77,11 +79,16 @@ function RailRow({
     ? "bg-neutral-200 dark:bg-neutral-800"
     : "group-hover:bg-neutral-100 dark:group-hover:bg-neutral-800/60";
   const icon = <Icon size={compact ? 20 : 22} weight={accentActive ? "fill" : "regular"} />;
+  const iconRef = useRef<HTMLSpanElement>(null);
+  const { open, bind } = useHoverTip();
+  const compactTipProps = compact ? bind : {};
   return (
     <Tag
       href={href}
       {...extraProps}
+      {...compactTipProps}
       aria-current={current ? "page" : undefined}
+      aria-label={compact ? label : undefined}
       className="group relative block shrink-0 h-[var(--rail-row)]"
       style={{ "--row": color } as React.CSSProperties}
     >
@@ -96,6 +103,7 @@ function RailRow({
       ) : (
         <>
           <span
+            ref={iconRef}
             className={`absolute left-0 top-1/2 h-10 w-10 grid place-items-center ${iconColorClass}`}
             style={{
               transform: compact
@@ -115,6 +123,7 @@ function RailRow({
           )}
         </>
       )}
+      {compact && <HoverTip open={open} anchorRef={iconRef} label={label} side="right" />}
     </Tag>
   );
 }
@@ -131,25 +140,40 @@ function BrandRow({ compact = false, expanded = false }: { compact?: boolean; ex
   const { open, bind } = useHoverTip();
   const wordmarkColorClass = "text-neutral-700 dark:text-neutral-300";
   const spencerClass = "bg-clip-text bg-[position:100%_0%] group-hover:bg-[position:0%_0%]";
+
+  if (expanded) {
+    return (
+      <RailRow
+        icon={HouseIcon}
+        label="Home"
+        color="#737373"
+        current={false}
+        href="/"
+        compact={compact}
+        expanded={expanded}
+      />
+    );
+  }
+
   return (
-    <Link href="/" className="group relative block shrink-0 h-[var(--rail-row)]" {...bind}>
+    <Link
+      href="/"
+      className="group relative block shrink-0 h-[var(--rail-row)]"
+      aria-label={compact ? "Home" : undefined}
+      {...bind}
+    >
       <span className="absolute inset-0 group-hover:bg-neutral-100 dark:group-hover:bg-neutral-800/60" aria-hidden />
-      {expanded ? (
+      {compact ? (
         <span
           ref={wordmarkRef}
-          className={`absolute left-[25px] top-1/2 -translate-y-1/2 font-bebas text-[26px] leading-none tracking-tight whitespace-nowrap text-left ${wordmarkColorClass}`}
+          className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-bebas leading-none tracking-tight text-[32px] ${wordmarkColorClass}`}
         >
-          <span>PEYT</span>{" "}
-          <span className={spencerClass} style={BRAND_SWEEP_STYLE}>
-            SPENCER
-          </span>
+          PS
         </span>
       ) : (
         <span
           ref={wordmarkRef}
-          className={`absolute left-[25px] top-1/2 -translate-y-1/2 font-bebas leading-none tracking-tight whitespace-nowrap text-left ${
-            compact ? "text-[14px]" : "text-[18px]"
-          } ${wordmarkColorClass}`}
+          className={`absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-bebas leading-none tracking-tight whitespace-nowrap text-[18px] ${wordmarkColorClass}`}
         >
           <span>PEYT</span>
           <br />
@@ -170,22 +194,19 @@ export function DesktopTree({
   railNavRef,
   railCompact,
   isLive,
-  usePortraitDesktopLayout,
   supportAsk,
   isDesktop,
   energyClip,
-  effectiveAspect,
-  portraitStageSlotRef,
   useSchemeS,
   desktopLeftColWidthPx,
   desktopStageHeightPx,
   desktopStageWidthPx,
   isShortViewport,
   handleDesktopScheduleMeasured,
+  handleBandFloorMeasured,
   schemeSStripHeightPx,
   naturalClipsWidth,
   railMotionStyle,
-  stageAspect,
   desktopStageSlotRef,
   desktopChatRailVisible,
   adlib,
@@ -198,29 +219,26 @@ export function DesktopTree({
   railNavRef: RefObject<HTMLElement>;
   railCompact: boolean;
   isLive: boolean;
-  usePortraitDesktopLayout: boolean;
   supportAsk: LiveSupportAskCore;
   isDesktop: boolean | null;
   energyClip: EnergyClipHandlers;
-  effectiveAspect: number;
-  portraitStageSlotRef: RefObject<HTMLDivElement>;
   useSchemeS: boolean;
   desktopLeftColWidthPx: number | null;
   desktopStageHeightPx: number | null;
   desktopStageWidthPx: number | null;
   isShortViewport: boolean;
   handleDesktopScheduleMeasured: (px: number) => void;
+  handleBandFloorMeasured: (px: number) => void;
   schemeSStripHeightPx: number;
   naturalClipsWidth: number;
   railMotionStyle: React.CSSProperties;
-  stageAspect: number;
   desktopStageSlotRef: RefObject<HTMLDivElement>;
   desktopChatRailVisible: boolean;
   adlib: UseAdlibSocketResult;
   onHideChat: () => void;
   stageProps: Omit<StageProps, "isDesktopStage">;
 }) {
-  const desktopStageBox = usePortraitDesktopLayout ? null : (
+  const desktopStageBox = (
     <div
       ref={desktopStageSlotRef}
       data-live-stage
@@ -233,7 +251,7 @@ export function DesktopTree({
         ...(isLive ? { backgroundImage: "linear-gradient(#000, #000)" } : {}),
         ...(desktopStageWidthPx != null && desktopStageHeightPx != null
           ? { width: desktopStageWidthPx, height: desktopStageHeightPx }
-          : { width: "100%", aspectRatio: stageAspect }),
+          : { width: "100%", aspectRatio: DESKTOP_STAGE_ASPECT }),
       }}
     >
       <Stage {...stageProps} isDesktopStage />
@@ -243,10 +261,12 @@ export function DesktopTree({
   return (
     <div ref={desktopRowRef} className={`hidden ${LIVE_DESKTOP_FLEX} absolute inset-0 z-[2] bg-neutral-50 dark:bg-black`}>
         <div
-          className={`relative shrink-0 h-full ${railNavExpanded ? "w-[220px]" : "w-[72px]"} flex flex-col border-r border-neutral-200 dark:border-neutral-800 overflow-hidden`}
+          className={`relative shrink-0 h-full ${railNavExpanded ? "w-[220px]" : "w-[72px]"} flex flex-col border-r border-neutral-200 dark:border-neutral-800 overflow-y-auto overflow-x-hidden scrollbar-hide`}
           style={
             {
-              "--rail-row": `clamp(2.25rem, calc((100dvh - var(--header-h, 0px)) / ${railRowCount}), 4rem)`,
+              "--rail-row": railCompact
+                ? `${RAIL_ROW_COMPACT_HEIGHT_PX}px`
+                : `clamp(2.25rem, calc((100dvh - var(--header-h, 0px)) / ${railRowCount}), 4rem)`,
             } as React.CSSProperties
           }
         >
@@ -285,35 +305,7 @@ export function DesktopTree({
           </div>
         </div>
 
-        {usePortraitDesktopLayout ? (
-          <>
-            <div
-              data-live-left-col
-              className="shrink-0 h-full flex flex-col"
-              style={{ width: "28%", minWidth: "20rem" }}
-            >
-              <div data-live-schedule className="min-h-0 flex-1">
-                <LiveSupportAsk
-                  {...supportAsk}
-                />
-              </div>
-              <div className="shrink-0 p-3">
-                <LiveClips
-                  active={isDesktop === true}
-                  {...energyClip}
-                />
-              </div>
-            </div>
-            <div
-              data-live-stage
-              className="relative flex-1 min-w-0 h-full flex items-center justify-center bg-black overflow-hidden"
-            >
-              <div ref={portraitStageSlotRef} className="relative h-full bg-black" style={{ aspectRatio: effectiveAspect }}>
-                <Stage {...stageProps} isDesktopStage />
-              </div>
-            </div>
-          </>
-        ) : useSchemeS ? (
+        {useSchemeS ? (
           <div
             data-live-left-col
             className="min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden"
@@ -344,7 +336,7 @@ export function DesktopTree({
                       className="h-full w-full py-3"
                     />
                   </div>
-                  <div className="h-full flex-1 overflow-y-auto" style={{ minWidth: STORY_MIN_PX }}>
+                  <div className="h-full flex-1 min-w-0 overflow-y-auto">
                     <StoryColumn />
                   </div>
                 </>
@@ -366,37 +358,33 @@ export function DesktopTree({
           >
             {desktopStageBox}
 
-            <div
-              data-live-support-area
-              data-live-strip
-              className="min-w-0 flex-1 min-h-0 flex gap-3 overflow-x-auto"
-            >
+            {isLive ? (
+              <LiveBand
+                supportAsk={supportAsk}
+                energyClip={energyClip}
+                isDesktop={isDesktop}
+                isShortViewport={isShortViewport}
+                onFirstScreenMeasured={handleDesktopScheduleMeasured}
+                onBandFloorMeasured={handleBandFloorMeasured}
+              />
+            ) : (
               <div
-                data-live-schedule
-                className="shrink-0 h-full bg-neutral-50 dark:bg-black"
-                style={{ width: SUPPORT_OVERLAY_PX }}
+                data-live-support-area
+                data-live-strip
+                className="min-w-0 flex gap-3 flex-1 min-h-0 overflow-x-auto"
               >
-                <LiveSupportAsk
-                  {...supportAsk}
-                  pastShows={isShortViewport ? [] : supportAsk.pastShows}
-                  onFirstScreenMeasured={handleDesktopScheduleMeasured}
-                />
-              </div>
-              {isLive ? (
-                <div className="h-full flex-1 min-w-0 flex gap-3 overflow-x-auto">
-                  <div className="h-full shrink-0" style={{ width: naturalClipsWidth }}>
-                    <LiveClips
-                      active={isDesktop === true}
-                      {...energyClip}
-                      fitHeight
-                      className="h-full w-full py-3"
-                    />
-                  </div>
-                  <div className="h-full flex-1 overflow-y-auto" style={{ minWidth: STORY_MIN_PX }}>
-                    <StoryColumn />
-                  </div>
+                <div
+                  data-live-schedule
+                  className="shrink-0 h-full bg-neutral-50 dark:bg-black"
+                  style={{ width: SUPPORT_OVERLAY_PX }}
+                >
+                  <LiveSupportAsk
+                    {...supportAsk}
+                    pastShows={isShortViewport ? [] : supportAsk.pastShows}
+                    onFirstScreenMeasured={handleDesktopScheduleMeasured}
+                    onBandFloorMeasured={handleBandFloorMeasured}
+                  />
                 </div>
-              ) : (
                 <div className="h-full flex-1 min-w-0 overflow-x-auto">
                   <LiveClips
                     active={isDesktop === true}
@@ -405,18 +393,16 @@ export function DesktopTree({
                     className="h-full w-full py-3"
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
-        {isDesktop === true && usePortraitDesktopLayout && <PortraitChatRail adlib={adlib} />}
-
-        {isDesktop === true && !usePortraitDesktopLayout && desktopChatRailVisible && (
+        {isDesktop === true && desktopChatRailVisible && (
           <DesktopChatRail adlib={adlib} onHideChat={onHideChat} />
         )}
 
-        {isDesktop === true && !usePortraitDesktopLayout && !isLive && <OfflineStoryRail />}
+        {isDesktop === true && !isLive && <OfflineStoryRail />}
       </div>
   );
 }

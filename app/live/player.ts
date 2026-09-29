@@ -114,6 +114,12 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
     let recoveryAttempts = 0;
     let probeInFlight = false;
 
+    const updateAspect = () => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      const next = Math.round((video.videoWidth / video.videoHeight) * 1000) / 1000;
+      setVideoAspect((prev) => (prev !== null && Math.abs(prev - next) < 0.001 ? prev : next));
+    };
+
     const logPath = (next: PlayerPath) => {
       if (mode === next) return;
       mode = next;
@@ -410,6 +416,9 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
     };
     video.addEventListener("pause", handlePause);
     video.addEventListener("play", handlePlay);
+    updateAspect();
+    video.addEventListener("loadedmetadata", updateAspect);
+    video.addEventListener("resize", updateAspect);
 
     const handlePageHide = () => {
       stopWhepRetry();
@@ -433,6 +442,9 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
       disposed = true;
       video.removeEventListener("pause", handlePause);
       video.removeEventListener("play", handlePlay);
+      video.removeEventListener("loadedmetadata", updateAspect);
+      video.removeEventListener("resize", updateAspect);
+      setVideoAspect(null);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -445,24 +457,6 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
     };
     }
   }, [isLive, isDemo, path, whepUrl, hlsUrl]);
-
-  useEffect(() => {
-    if (!isLive || isDemo) return;
-    const video = videoRef.current;
-    if (!video) return;
-    const updateAspect = () => {
-      if (!video.videoWidth || !video.videoHeight) return;
-      const next = Math.round((video.videoWidth / video.videoHeight) * 1000) / 1000;
-      setVideoAspect((prev) => (prev !== null && Math.abs(prev - next) < 0.001 ? prev : next));
-    };
-    updateAspect();
-    video.addEventListener("loadedmetadata", updateAspect);
-    video.addEventListener("resize", updateAspect);
-    return () => {
-      video.removeEventListener("loadedmetadata", updateAspect);
-      video.removeEventListener("resize", updateAspect);
-    };
-  }, [isLive, isDemo]);
 
   const handleManualPlay = () => {
     const video = videoRef.current;

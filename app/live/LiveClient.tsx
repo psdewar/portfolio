@@ -105,13 +105,14 @@ export default function LiveClient({
 
   const isLive = isDemo ? true : status.live;
   const player = usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog });
-  const effectiveAspect = isDemo
-    ? demoOrientation === "landscape"
-      ? 16 / 9
-      : 9 / 16
-    : (player.videoAspect ?? 9 / 16);
-  const isPortraitStream = isDemo ? demoOrientation === "portrait" : player.videoAspect !== null && player.videoAspect < 1;
-  const stageAspect = isLive ? effectiveAspect : 16 / 9;
+  const streamAspect = isLive
+    ? isDemo
+      ? demoOrientation === "landscape"
+        ? 16 / 9
+        : 9 / 16
+      : (player.videoAspect ?? 9 / 16)
+    : null;
+  const stageAspect = streamAspect ?? 16 / 9;
 
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
@@ -119,7 +120,6 @@ export default function LiveClient({
     isDesktop,
     isShortViewport,
     fullBleedDesktop,
-    usePortraitDesktopLayout,
     vvHeight,
     mobileOfflineScroll,
     railRowCount,
@@ -128,6 +128,7 @@ export default function LiveClient({
     railMotionStyle,
     desktopRowRef,
     handleDesktopScheduleMeasured,
+    handleBandFloorMeasured,
     chatCollapsed,
     setChatCollapsed,
     mobileColRef,
@@ -146,12 +147,12 @@ export default function LiveClient({
     mobileStageHeightPx,
     mobileStageConstrained,
     mobilePhotoFit,
-  } = useLiveLayout({ isOgMode, isLive, isPortraitStream, stageAspect });
+    mobilePanelChat,
+  } = useLiveLayout({ isOgMode, isLive, stageAspect });
 
-  const { desktopStageSlotRef, portraitStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo } = useStageVideo({
+  const { desktopStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo } = useStageVideo({
     isLive,
     isDesktop,
-    usePortraitDesktopLayout,
     isDemo,
     videoRef: player.videoRef,
   });
@@ -288,7 +289,6 @@ export default function LiveClient({
     demoOrientation,
     isLive,
     isDesktop,
-    usePortraitDesktopLayout,
     mobileLandscape,
     player,
     adlib,
@@ -298,6 +298,7 @@ export default function LiveClient({
     setNotifyPurpose,
     chatCollapsed,
     onShowChat: () => setChatCollapsed(false),
+    onOpenSupport,
     showToast,
     posthog,
     nextStream,
@@ -361,22 +362,19 @@ export default function LiveClient({
         railNavRef={railNavRef}
         railCompact={railCompact}
         isLive={isLive}
-        usePortraitDesktopLayout={usePortraitDesktopLayout}
         supportAsk={supportAsk}
         isDesktop={isDesktop}
         energyClip={energyClip}
-        effectiveAspect={effectiveAspect}
-        portraitStageSlotRef={portraitStageSlotRef}
         useSchemeS={useSchemeS}
         desktopLeftColWidthPx={desktopLeftColWidthPx}
         desktopStageHeightPx={desktopStageHeightPx}
         desktopStageWidthPx={desktopStageWidthPx}
         isShortViewport={isShortViewport}
         handleDesktopScheduleMeasured={handleDesktopScheduleMeasured}
+        handleBandFloorMeasured={handleBandFloorMeasured}
         schemeSStripHeightPx={schemeSStripHeightPx}
         naturalClipsWidth={naturalClipsWidth}
         railMotionStyle={railMotionStyle}
-        stageAspect={stageAspect}
         desktopStageSlotRef={desktopStageSlotRef}
         desktopChatRailVisible={desktopChatRailVisible}
         adlib={adlib}
@@ -393,7 +391,8 @@ export default function LiveClient({
         mobileOfflineScroll={mobileOfflineScroll}
         mobileStageHeightPx={mobileStageHeightPx}
         mobileLandscape={mobileLandscape}
-        effectiveAspect={effectiveAspect}
+        mobilePanelChat={mobilePanelChat}
+        stageAspect={stageAspect}
         supportAsk={supportAsk}
         handleMobileScheduleMeasured={handleMobileScheduleMeasured}
         energyClip={energyClip}

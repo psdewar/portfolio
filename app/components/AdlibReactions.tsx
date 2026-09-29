@@ -15,8 +15,12 @@ export function AdlibReactionButtons({
     variant === "panel"
       ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-300 dark:hover:bg-neutral-700"
       : "bg-black/40 text-white backdrop-blur hover:bg-black/60";
+  const emojiClass =
+    variant === "overlay"
+      ? "h-10 w-10 flex items-center justify-center text-[22px] leading-none transition-transform hover:scale-110 active:scale-90 drop-shadow-lg"
+      : "h-10 w-10 flex items-center justify-center text-[22px] leading-none transition-transform hover:scale-110 active:scale-90";
   return (
-    <div className="flex gap-1.5">
+    <div className="flex items-center gap-0.5">
       {onSupport && (
         <button
           type="button"
@@ -32,7 +36,7 @@ export function AdlibReactionButtons({
           type="button"
           onClick={() => onReact(emoji)}
           aria-label={`React with ${emoji}`}
-          className={`flex h-11 w-11 items-center justify-center rounded-full text-lg transition-colors active:scale-90 ${pill}`}
+          className={emojiClass}
         >
           {emoji}
         </button>

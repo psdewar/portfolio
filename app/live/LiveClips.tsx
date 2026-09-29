@@ -16,10 +16,12 @@ export function LiveClips({
   onLoudStart,
   onLoudEnd,
   fitHeight,
+  flush,
   className,
 }: EnergyClipHandlers & {
   active: boolean;
   fitHeight?: boolean;
+  flush?: boolean;
   className?: string;
 }) {
   return (
@@ -27,6 +29,7 @@ export function LiveClips({
       ref={active ? energyVideosRef : undefined}
       videoIds={ENERGY_VIDEO_IDS}
       fitHeight={fitHeight}
+      flush={flush}
       className={className}
       onLoudPlay={onLoudStart}
       onLoudEnd={onLoudEnd}

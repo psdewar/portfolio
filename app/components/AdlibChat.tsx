@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
-import { EyeSlashIcon, SpeakerSlashIcon } from "@phosphor-icons/react";
+import { EyeSlashIcon, PaperPlaneRightIcon, SpeakerSlashIcon } from "@phosphor-icons/react";
 import {
   ADLIB_MESSAGE_MAX_LENGTH,
   adlibErrorText,
@@ -10,6 +10,8 @@ import {
   type AdlibMessage,
 } from "../lib/adlib";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
+
+export { nameColorClass };
 
 interface Props {
   socket: UseAdlibSocketResult;
@@ -46,7 +48,7 @@ function formatChatTime(ts: number) {
 }
 
 const HOST_DISPLAY_NAME = "Peyt S.";
-function displayName(message: AdlibMessage): string {
+export function displayName(message: AdlibMessage): string {
   return message.role === "host" ? HOST_DISPLAY_NAME : message.name;
 }
 
@@ -169,7 +171,7 @@ export function AdlibChat({
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className={`min-h-0 flex-1 overflow-y-auto pl-1 pr-3 py-2 ${textClassName}`}
+        className={`min-h-0 flex-1 overflow-y-auto pl-1 pr-3 py-2 ${messages.length === 0 && historyLoaded ? "flex flex-col" : ""} ${textClassName}`}
       >
         {!historyLoaded ? (
           <div className="space-y-2" aria-hidden>
@@ -182,11 +184,11 @@ export function AdlibChat({
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <p className="py-4 text-center text-xs text-neutral-400 dark:text-neutral-600">
+          <p className="flex-1 flex items-center justify-center text-center text-sm text-neutral-400 dark:text-neutral-600">
             No messages yet.
           </p>
         ) : (
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {messages.map((m) => (
               <ChatRow
                 key={m.id}
@@ -216,12 +218,7 @@ export function AdlibChat({
         </button>
       )}
 
-      {reactionsBar && (
-        <div className="shrink-0 border-t border-neutral-200 px-2 pt-2 dark:border-neutral-800">
-          {reactionsBar}
-        </div>
-      )}
-
+      {reactionsBar && <div className="shrink-0 px-1 pt-1">{reactionsBar}</div>}
 
       <div
         className={`shrink-0 p-2 ${reactionsBar ? "" : "border-t border-neutral-200 dark:border-neutral-800"}`}
@@ -237,15 +234,16 @@ export function AdlibChat({
                 onChange={(e) => setDraft(e.target.value.slice(0, ADLIB_MESSAGE_MAX_LENGTH))}
                 placeholder="Send a message"
                 maxLength={ADLIB_MESSAGE_MAX_LENGTH}
-                className="min-w-0 flex-1 rounded-lg bg-white px-3 py-2 text-[16px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-500 dark:focus:ring-neutral-600"
+                className="min-w-0 flex-1 rounded-full bg-white px-4 py-2 text-[16px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-500 dark:focus:ring-neutral-600"
               />
               <button
                 type="submit"
                 disabled={!draft.trim() || !connected}
                 title={!connected ? "Reconnecting..." : undefined}
-                className="shrink-0 min-h-11 flex items-center justify-center rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-neutral-900"
+                aria-label="Send"
+                className="shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-neutral-900 text-white disabled:opacity-40 dark:bg-white dark:text-neutral-900"
               >
-                Send
+                <PaperPlaneRightIcon weight="fill" size={18} />
               </button>
             </div>
             <div className="flex min-h-[1rem] items-center justify-between px-1">

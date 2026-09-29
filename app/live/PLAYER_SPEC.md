@@ -81,6 +81,11 @@ reflow, so it must survive layout changes without a visible reload.
 - [ ] Cleanup order on every exit path: stop remote tracks / close the `RTCPeerConnection`, `DELETE`
       the WHEP session, destroy the HLS instance if any, then clear `srcObject`/`src` and call
       `video.load()`.
+- [ ] Attach the `loadedmetadata`/`resize` aspect listeners inside the same `start()` lifecycle that
+      mounts the video, not a separate effect keyed on `[isLive, isDemo]`: the `<video>` mounts
+      through a portal after the online flip, so a separate effect reads `videoRef.current` as `null`
+      at effect-time and never re-runs. Render at 16:9 while the aspect is unknown, and treat the
+      stream as portrait only once real metadata reports it.
 
 ### Fallback strategy
 - [ ] Fall back from WHEP to HLS when: the POST/negotiation fails outright, ICE reaches `failed`

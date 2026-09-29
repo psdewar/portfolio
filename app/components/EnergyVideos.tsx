@@ -34,6 +34,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
   videoIds: string[];
   className?: string;
   fitHeight?: boolean;
+  flush?: boolean;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
 }>(function EnergyVideos(
@@ -42,6 +43,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
     videoIds,
     className,
     fitHeight = false,
+    flush = false,
     onLoudPlay,
     onLoudEnd,
   },
@@ -243,7 +245,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
         <div
           ref={ref}
           onScroll={onStripScroll}
-          className={`flex gap-3 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          className={`flex ${flush ? "gap-0" : "gap-3"} overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
             fitHeight ? "h-full" : "pb-2"
           }`}
         >
@@ -251,7 +253,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
             <div
               key={clip.id}
               data-energy-card={clip.id}
-              className={`group relative bg-black rounded-lg overflow-hidden ${
+              className={`group relative bg-black overflow-hidden ${flush ? "" : "rounded-lg"} ${
                 fitHeight && i === clips.length - 1 ? "snap-end" : "snap-start"
               } shrink-0 ${fitHeight ? "h-full" : "w-[300px] max-w-[78vw]"}`}
               style={{ aspectRatio: "9 / 16", minHeight: CLIP_MIN_H }}

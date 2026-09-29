@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import { AdlibChat } from "../components/AdlibChat";
+import { AdlibChatOverlay } from "../components/AdlibChatOverlay";
 import { AdlibReactionButtons } from "../components/AdlibReactions";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { LiveClips, type EnergyClipHandlers } from "./LiveClips";
@@ -20,7 +21,8 @@ export function MobileTree({
   mobileOfflineScroll,
   mobileStageHeightPx,
   mobileLandscape,
-  effectiveAspect,
+  mobilePanelChat,
+  stageAspect,
   supportAsk,
   handleMobileScheduleMeasured,
   energyClip,
@@ -35,7 +37,8 @@ export function MobileTree({
   mobileOfflineScroll: boolean;
   mobileStageHeightPx: number | null;
   mobileLandscape: boolean;
-  effectiveAspect: number;
+  mobilePanelChat: boolean;
+  stageAspect: number;
   supportAsk: LiveSupportAskCore;
   handleMobileScheduleMeasured: (px: number) => void;
   energyClip: EnergyClipHandlers;
@@ -43,15 +46,8 @@ export function MobileTree({
   stageProps: Omit<StageProps, "isDesktopStage">;
 }) {
   const { onOpenSupport } = supportAsk;
-  const mobileAdlibChat = (
-    <AdlibChat
-      socket={adlib}
-      reactionsBar={mobileLandscape ? undefined : <AdlibReactionButtons onReact={adlib.react} variant="panel" />}
-    />
-  );
-  const chatPane =
-    isDesktop === false && !isOgMode && isLive && <div className="min-h-0 flex-1">{mobileAdlibChat}</div>;
-  const fundMyTourBar = isDesktop === false && isLive && (
+  const overlayChat = !mobilePanelChat && (mobileLandscape || stageAspect < 1);
+  const fundMyTourButton = (
     <button
       type="button"
       onClick={onOpenSupport}
@@ -60,6 +56,22 @@ export function MobileTree({
       Fund My Tour
     </button>
   );
+  const mobileAdlibChat = (
+    <AdlibChat
+      socket={adlib}
+      reactionsBar={
+        <>
+          <AdlibReactionButtons onReact={adlib.react} variant="panel" />
+          {fundMyTourButton}
+        </>
+      }
+    />
+  );
+  const showChatOverlay = isDesktop === false && !isOgMode && isLive && overlayChat;
+  const chatPane =
+    isDesktop === false && !isOgMode && isLive && !overlayChat && (
+      <div className="min-h-0 flex-1">{mobileAdlibChat}</div>
+    );
   const offlineMobileContent = !isLive && !isOgMode && (
     <div data-live-schedule>
       <LiveSupportAsk
@@ -101,13 +113,15 @@ export function MobileTree({
               ? { height: mobileStageHeightPx }
               : { aspectRatio: `${PHOTO_NAT_W} / ${PHOTO_NAT_H}` }
             : {
-                height: mobileLandscape
-                  ? `min(${100 / effectiveAspect}vw, calc(100dvh - var(--header-h, 56px)))`
-                  : `min(${100 / effectiveAspect}vw, 55dvh)`,
+                height:
+                  overlayChat && !mobileLandscape
+                    ? `calc(100dvh - var(--header-h, 56px))`
+                    : `min(${100 / stageAspect}vw, calc(100dvh - var(--header-h, 56px)))`,
               }
         }
       >
         <Stage {...stageProps} isDesktopStage={false} />
+        {showChatOverlay && <AdlibChatOverlay socket={adlib} onOpenSupport={onOpenSupport} />}
       </div>
       {offlineMobileContent ? (
         mobileOfflineScroll ? (
@@ -116,10 +130,7 @@ export function MobileTree({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{offlineMobileContent}</div>
         )
       ) : (
-        <>
-          {fundMyTourBar}
-          {chatPane}
-        </>
+        chatPane
       )}
     </div>
   );

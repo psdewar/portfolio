@@ -1,7 +1,15 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import Image from "next/image";
 import type { PostHog } from "posthog-js";
 import {
@@ -11,11 +19,14 @@ import {
   CornersOutIcon,
   ShareNetworkIcon,
 } from "@phosphor-icons/react";
+import { AdlibChatOverlay } from "../components/AdlibChatOverlay";
 import { AdlibReactions } from "../components/AdlibReactions";
 import type { StayConnectedPurpose } from "../components/StayConnected";
 import type { UsePlayerResult } from "./player";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { HoverTip, useHoverTip } from "./HoverTip";
+
+type FullscreenDocument = Document & { webkitFullscreenElement?: Element | null };
 
 export function chatToggleIcon(mirrored: boolean, dropShadow: boolean) {
   return (
@@ -42,12 +53,11 @@ export function chatToggleIcon(mirrored: boolean, dropShadow: boolean) {
 }
 
 function ShowChatButton({ onShowChat }: { onShowChat: () => void }) {
-  const anchorRef = useRef<HTMLButtonElement>(null);
+  const iconRef = useRef<HTMLSpanElement>(null);
   const { open, bind } = useHoverTip();
   return (
     <>
       <button
-        ref={anchorRef}
         type="button"
         onClick={onShowChat}
         aria-label="Show chat"
@@ -55,9 +65,11 @@ function ShowChatButton({ onShowChat }: { onShowChat: () => void }) {
         className="p-2.5 flex items-center justify-center text-white hover:opacity-70 transition-opacity"
         {...bind}
       >
-        {chatToggleIcon(true, true)}
+        <span ref={iconRef} className="inline-flex">
+          {chatToggleIcon(true, true)}
+        </span>
       </button>
-      <HoverTip open={open} anchorRef={anchorRef} label="Expand" side="left" />
+      <HoverTip open={open} anchorRef={iconRef} label="Expand" side="left" />
     </>
   );
 }
@@ -65,18 +77,15 @@ function ShowChatButton({ onShowChat }: { onShowChat: () => void }) {
 export function useStageVideo({
   isLive,
   isDesktop,
-  usePortraitDesktopLayout,
   isDemo,
   videoRef,
 }: {
   isLive: boolean;
   isDesktop: boolean | null;
-  usePortraitDesktopLayout: boolean;
   isDemo: boolean;
   videoRef: RefObject<HTMLVideoElement>;
 }) {
   const desktopStageSlotRef = useRef<HTMLDivElement | null>(null);
-  const portraitStageSlotRef = useRef<HTMLDivElement | null>(null);
   const mobileStageSlotRef = useRef<HTMLDivElement | null>(null);
   const [videoHome, setVideoHome] = useState<HTMLDivElement | null>(null);
   const [stageVideoSlot, setStageVideoSlot] = useState<HTMLDivElement | null>(null);
@@ -84,7 +93,7 @@ export function useStageVideo({
     let next: HTMLDivElement | null = null;
     if (isLive) {
       if (isDesktop === true) {
-        next = usePortraitDesktopLayout ? portraitStageSlotRef.current : desktopStageSlotRef.current;
+        next = desktopStageSlotRef.current;
       } else if (isDesktop === false) {
         next = mobileStageSlotRef.current;
       }
@@ -105,7 +114,7 @@ export function useStageVideo({
     stageVideoSlot ?? (videoHome as HTMLDivElement),
   );
 
-  return { desktopStageSlotRef, portraitStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo };
+  return { desktopStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo };
 }
 
 export interface StageProps {
@@ -114,16 +123,16 @@ export interface StageProps {
   demoOrientation: "portrait" | "landscape" | null;
   isLive: boolean;
   isDesktop: boolean | null;
-  usePortraitDesktopLayout: boolean;
   mobileLandscape: boolean;
   player: UsePlayerResult;
-  adlib: Pick<UseAdlibSocketResult, "floatingReactions" | "react">;
+  adlib: UseAdlibSocketResult;
   elapsedTime: string;
   isPatron: boolean;
   notifyPurpose: StayConnectedPurpose | null;
   setNotifyPurpose: Dispatch<SetStateAction<StayConnectedPurpose | null>>;
   chatCollapsed: boolean;
   onShowChat: () => void;
+  onOpenSupport: () => void;
   showToast: (message: string) => void;
   posthog: PostHog | undefined;
   nextStream: string | null;
@@ -139,7 +148,6 @@ export function Stage({
   demoOrientation,
   isLive,
   isDesktop,
-  usePortraitDesktopLayout,
   mobileLandscape,
   player,
   adlib,
@@ -149,6 +157,7 @@ export function Stage({
   setNotifyPurpose,
   chatCollapsed,
   onShowChat,
+  onOpenSupport,
   showToast,
   posthog,
   nextStream,
@@ -158,6 +167,23 @@ export function Stage({
   stageNarrow,
 }: StageProps) {
   const isMobile = !isDesktopStage;
+
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const update = () => {
+      const fsDoc = document as FullscreenDocument;
+      const fsEl = fsDoc.fullscreenElement ?? fsDoc.webkitFullscreenElement ?? null;
+      const stageEl = player.videoRef.current?.parentElement ?? null;
+      setFullscreen(fsEl !== null && fsEl === stageEl);
+    };
+    document.addEventListener("fullscreenchange", update);
+    document.addEventListener("webkitfullscreenchange", update);
+    update();
+    return () => {
+      document.removeEventListener("fullscreenchange", update);
+      document.removeEventListener("webkitfullscreenchange", update);
+    };
+  }, [player.videoRef]);
 
   const handleShare = () => {
     const url = "https://peytspencer.com/live";
@@ -186,7 +212,7 @@ export function Stage({
   };
 
   const renderShowChatButton = (mobile: boolean) =>
-    isLive && !mobile && !usePortraitDesktopLayout && chatCollapsed ? (
+    isLive && !mobile && chatCollapsed ? (
       <ShowChatButton onShowChat={onShowChat} />
     ) : null;
 
@@ -211,16 +237,16 @@ export function Stage({
                   <button
                     onClick={handleShare}
                     aria-label="Share"
-                    className="min-h-11 min-w-11 flex items-center justify-center bg-black/40 text-white rounded-full hover:bg-black/60"
+                    className="min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 transition-opacity"
                   >
-                    <ShareNetworkIcon size={16} weight="fill" />
+                    <ShareNetworkIcon size={24} weight="duotone" className="text-white drop-shadow-lg" />
                   </button>
                   <button
                     onClick={handleFullscreen}
                     aria-label="Fullscreen"
-                    className="min-h-11 min-w-11 flex items-center justify-center bg-black/40 text-white rounded-full hover:bg-black/60"
+                    className="min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 transition-opacity"
                   >
-                    <CornersOutIcon size={16} weight="bold" />
+                    <CornersOutIcon size={24} weight="bold" className="text-white drop-shadow-lg" />
                   </button>
                 </>
               )}
@@ -253,7 +279,7 @@ export function Stage({
                   aria-label="Fullscreen"
                   className="min-h-11 min-w-11 flex items-center justify-center -m-1.5"
                 >
-                  <CornersOutIcon size={32} weight="duotone" className="text-white drop-shadow-lg" />
+                  <CornersOutIcon size={32} weight="bold" className="text-white drop-shadow-lg" />
                 </button>
               </div>
             )}
@@ -401,19 +427,26 @@ export function Stage({
   if (isDemo) {
     return (
       <>
-        <div className="absolute inset-0 bg-neutral-800" aria-hidden />
+        <div className="absolute inset-0 bg-black" aria-hidden />
+        <svg
+          viewBox={demoOrientation === "portrait" ? "0 0 9 16" : "0 0 16 9"}
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute inset-0 h-full w-full"
+          aria-hidden
+        >
+          <rect width="100%" height="100%" fill="#404040" />
+        </svg>
         <span
-          className="absolute top-3 left-3 z-10 text-xs uppercase tracking-widest text-neutral-500"
+          className="absolute top-3 left-3 z-10 text-xs uppercase tracking-widest text-neutral-400"
           aria-hidden
         >
           {demoOrientation} demo
         </span>
         {renderVideoOverlay(isMobile)}
-        <AdlibReactions
-          floating={adlib.floatingReactions}
-          onReact={adlib.react}
-          hideButtons={isDesktopStage || !mobileLandscape}
-        />
+        <AdlibReactions floating={adlib.floatingReactions} onReact={adlib.react} hideButtons />
+        {isDesktopStage && fullscreen && (
+          <AdlibChatOverlay socket={adlib} onOpenSupport={onOpenSupport} desktopFullscreen />
+        )}
       </>
     );
   }
@@ -422,11 +455,10 @@ export function Stage({
       <>
         <div className="absolute inset-0 z-[5]" />
         {renderVideoOverlay(isMobile)}
-        <AdlibReactions
-          floating={adlib.floatingReactions}
-          onReact={adlib.react}
-          hideButtons={isDesktopStage || !mobileLandscape}
-        />
+        <AdlibReactions floating={adlib.floatingReactions} onReact={adlib.react} hideButtons />
+        {isDesktopStage && fullscreen && (
+          <AdlibChatOverlay socket={adlib} onOpenSupport={onOpenSupport} desktopFullscreen />
+        )}
       </>
     );
   }
