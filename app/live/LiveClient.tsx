@@ -150,7 +150,7 @@ export default function LiveClient({
     mobilePanelChat,
   } = useLiveLayout({ isOgMode, isLive, stageAspect });
 
-  const { desktopStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo } = useStageVideo({
+  const { desktopStageSlotRef, mobileStageSlotRef, setVideoHome } = useStageVideo({
     isLive,
     isDesktop,
     isDemo,
@@ -401,7 +401,6 @@ export default function LiveClient({
       />
 
       <div ref={setVideoHome} style={{ display: "none" }} aria-hidden />
-      {stageVideo}
 
       <SupportModal
         open={supportModalOpen}

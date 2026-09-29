@@ -97,3 +97,12 @@ const NAME_COLORS = [
 export function nameColorClass(sub: string): string {
   return NAME_COLORS[fnv1a(sub) % NAME_COLORS.length];
 }
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+export function resolveAdlibUrl(configured: string): string {
+  if (typeof window === "undefined") return configured;
+  const pageHost = window.location.hostname;
+  if (!LOOPBACK_HOSTS.has(new URL(configured).hostname) || LOOPBACK_HOSTS.has(pageHost)) return configured;
+  return window.location.origin;
+}

@@ -1,12 +1,12 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import {
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type Dispatch,
+  type MutableRefObject,
   type RefObject,
   type SetStateAction,
 } from "react";
@@ -15,6 +15,7 @@ import type { PostHog } from "posthog-js";
 import {
   BellIcon,
   SpeakerSlashIcon,
+  SpeakerHighIcon,
   PlayIcon,
   CornersOutIcon,
   ShareNetworkIcon,
@@ -74,6 +75,9 @@ function ShowChatButton({ onShowChat }: { onShowChat: () => void }) {
   );
 }
 
+const DEMO_VIDEO_CLASS = "absolute inset-0 h-full w-full opacity-0 pointer-events-none";
+const LIVE_VIDEO_CLASS = "absolute inset-0 h-full w-full object-contain bg-neutral-900";
+
 export function useStageVideo({
   isLive,
   isDesktop,
@@ -88,33 +92,82 @@ export function useStageVideo({
   const desktopStageSlotRef = useRef<HTMLDivElement | null>(null);
   const mobileStageSlotRef = useRef<HTMLDivElement | null>(null);
   const [videoHome, setVideoHome] = useState<HTMLDivElement | null>(null);
-  const [stageVideoSlot, setStageVideoSlot] = useState<HTMLDivElement | null>(null);
+
   useLayoutEffect(() => {
-    let next: HTMLDivElement | null = null;
+    let slot: HTMLDivElement | null = null;
     if (isLive) {
-      if (isDesktop === true) {
-        next = desktopStageSlotRef.current;
-      } else if (isDesktop === false) {
-        next = mobileStageSlotRef.current;
-      }
+      if (isDesktop === true) slot = desktopStageSlotRef.current;
+      else if (isDesktop === false) slot = mobileStageSlotRef.current;
     }
-    setStageVideoSlot((prev) => (prev === next ? prev : next));
+    const target = slot ?? videoHome;
+    if (!target) return;
+    const mutableRef = videoRef as MutableRefObject<HTMLVideoElement | null>;
+    let video = mutableRef.current;
+    if (!video) {
+      video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      mutableRef.current = video;
+    }
+    video.className = isDemo ? DEMO_VIDEO_CLASS : LIVE_VIDEO_CLASS;
+    if (isDemo) video.setAttribute("aria-hidden", "true");
+    else video.removeAttribute("aria-hidden");
+    if (video.parentNode !== target) target.appendChild(video);
   });
-  const stageVideo = (videoHome || stageVideoSlot) && createPortal(
-    <video
-      ref={videoRef}
-      className={
-        isDemo
-          ? "absolute inset-0 h-full w-full opacity-0 pointer-events-none"
-          : "absolute inset-0 h-full w-full object-contain bg-neutral-900"
-      }
-      playsInline
-      aria-hidden={isDemo || undefined}
-    />,
-    stageVideoSlot ?? (videoHome as HTMLDivElement),
+
+  useLayoutEffect(
+    () => () => {
+      videoRef.current?.remove();
+    },
+    [videoRef],
   );
 
-  return { desktopStageSlotRef, mobileStageSlotRef, setVideoHome, stageVideo };
+  return { desktopStageSlotRef, mobileStageSlotRef, setVideoHome };
+}
+
+const CONTROLS_TOUCH_MS = 3000;
+const CONTROLS_POINTER_MS = 2500;
+const MUTE_LABEL_MS = 4000;
+
+function useControlsAutoHide(host: HTMLElement | null, active: boolean) {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    if (!host || !active) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clear = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+    };
+    const show = (ms: number) => {
+      clear();
+      setShown(true);
+      timer = setTimeout(() => setShown(false), ms);
+    };
+    const onDown = (e: PointerEvent) =>
+      show(e.pointerType === "touch" ? CONTROLS_TOUCH_MS : CONTROLS_POINTER_MS);
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") show(CONTROLS_POINTER_MS);
+    };
+    const onLeave = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      clear();
+      setShown(false);
+    };
+    show(CONTROLS_TOUCH_MS);
+    host.addEventListener("pointerdown", onDown);
+    host.addEventListener("pointermove", onMove);
+    host.addEventListener("pointerenter", onMove);
+    host.addEventListener("pointerleave", onLeave);
+    return () => {
+      clear();
+      host.removeEventListener("pointerdown", onDown);
+      host.removeEventListener("pointermove", onMove);
+      host.removeEventListener("pointerenter", onMove);
+      host.removeEventListener("pointerleave", onLeave);
+    };
+  }, [host, active]);
+  return !active || shown;
 }
 
 export interface StageProps {
@@ -167,6 +220,11 @@ export function Stage({
   stageNarrow,
 }: StageProps) {
   const isMobile = !isDesktopStage;
+  const [overlayEl, setOverlayEl] = useState<HTMLDivElement | null>(null);
+  const controlsVisible = useControlsAutoHide(
+    overlayEl?.parentElement ?? null,
+    !player.needsPlayButton && !player.needsResume,
+  );
 
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -211,40 +269,85 @@ export function Stage({
     nativeVideo.webkitEnterFullscreen?.();
   };
 
+  const fadeCls = `transition-opacity duration-200 motion-reduce:transition-none focus-visible:opacity-100 has-[:focus-visible]:opacity-100 ${
+    controlsVisible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none focus-visible:pointer-events-auto has-[:focus-visible]:pointer-events-auto"
+  }`;
+
+  const pillMode = player.isMuted && !player.needsPlayButton;
+  const [pillLabelOpen, setPillLabelOpen] = useState(true);
+  useEffect(() => {
+    if (!pillMode) return;
+    setPillLabelOpen(true);
+    const timer = setTimeout(() => setPillLabelOpen(false), MUTE_LABEL_MS);
+    return () => clearTimeout(timer);
+  }, [pillMode]);
+
+  const renderVolumePill = (mobile: boolean) =>
+    isLive && !player.needsPlayButton ? (
+      <button
+        onClick={pillMode ? player.handleUnmute : player.handleToggleMute}
+        aria-label={pillMode ? "Unmute" : "Mute"}
+        data-testid="volume-pill"
+        className={`relative flex min-h-7 items-center ${mobile ? "py-[3px]" : "py-0.5"} text-sm text-white ${
+          pillMode ? "pointer-events-auto" : fadeCls
+        }`}
+      >
+        <span aria-hidden className="absolute -inset-2" />
+        {pillMode ? (
+          <SpeakerSlashIcon size={mobile ? 22 : 24} weight="duotone" className="shrink-0 drop-shadow-lg" />
+        ) : (
+          <SpeakerHighIcon size={mobile ? 22 : 24} weight="duotone" className="shrink-0 drop-shadow-lg" />
+        )}
+        {pillMode && (
+          <span
+            className={`overflow-hidden transition-[max-width] duration-200 motion-reduce:transition-none ${
+              pillLabelOpen ? "max-w-40" : "max-w-0"
+            }`}
+          >
+            <span className="block whitespace-nowrap pl-1 [text-shadow:0_0_2px_rgb(0_0_0/0.9),0_1px_4px_rgb(0_0_0/0.7)]">Tap to unmute</span>
+          </span>
+        )}
+      </button>
+    ) : null;
+
   const renderShowChatButton = (mobile: boolean) =>
     isLive && !mobile && chatCollapsed ? (
-      <ShowChatButton onShowChat={onShowChat} />
+      <span className={`inline-flex ${fadeCls}`}>
+        <ShowChatButton onShowChat={onShowChat} />
+      </span>
     ) : null;
 
   const renderVideoOverlay = (mobile: boolean) => (
     <>
-      <div className={`absolute top-0 inset-x-0 z-30 ${mobile ? "p-3" : "p-4"}`}>
+      <div ref={setOverlayEl} className={`pointer-events-none absolute top-0 inset-x-0 z-30 ${mobile ? "p-3" : "p-4"}`}>
         <div className="flex items-start justify-between">
-          {elapsedTime && (
-            <div className="bg-black/40 px-2.5 py-1 rounded-full text-sm text-white tabular-nums">
-              {elapsedTime}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 px-1.5 py-1 rounded-[1px] text-sm font-bold bg-red-500 text-white">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              LIVE
             </div>
-          )}
-          {!elapsedTime && <div />}
-          <div className="flex flex-col items-end gap-4">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-bold bg-red-500 text-white">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                LIVE
+            {elapsedTime && (
+              <div className="py-1 text-sm text-white tabular-nums [text-shadow:0_0_2px_rgb(0_0_0/0.9),0_1px_4px_rgb(0_0_0/0.7)]">
+                {elapsedTime}
               </div>
+            )}
+            {renderVolumePill(mobile)}
+          </div>
+          <div className="-mt-2 flex flex-col items-end gap-4">
+            <div className={mobile ? "hidden" : "flex items-center gap-2"}>
               {!mobile && (
                 <>
                   <button
                     onClick={handleShare}
                     aria-label="Share"
-                    className="min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 transition-opacity"
+                    className={`min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 ${fadeCls}`}
                   >
                     <ShareNetworkIcon size={24} weight="duotone" className="text-white drop-shadow-lg" />
                   </button>
                   <button
                     onClick={handleFullscreen}
                     aria-label="Fullscreen"
-                    className="min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 transition-opacity"
+                    className={`min-h-11 min-w-11 flex items-center justify-center hover:opacity-70 ${fadeCls}`}
                   >
                     <CornersOutIcon size={24} weight="bold" className="text-white drop-shadow-lg" />
                   </button>
@@ -253,15 +356,15 @@ export function Stage({
               {renderShowChatButton(mobile)}
             </div>
             {mobile && (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-0">
                 {!isPatron && (
                   <button
                     onClick={() => setNotifyPurpose((p) => (p ? null : "notify"))}
                     aria-label="Notify me by email"
-                    className="min-h-11 min-w-11 flex items-center justify-center -m-1.5"
+                    className={`min-h-11 min-w-11 flex items-center justify-center ${fadeCls}`}
                   >
                     <BellIcon
-                      size={32}
+                      size={22}
                       weight="duotone"
                       className={`drop-shadow-lg ${notifyPurpose ? "text-blue-400" : "text-white"}`}
                     />
@@ -270,16 +373,16 @@ export function Stage({
                 <button
                   onClick={handleShare}
                   aria-label="Share"
-                  className="min-h-11 min-w-11 flex items-center justify-center -m-1.5"
+                  className={`min-h-11 min-w-11 flex items-center justify-center ${fadeCls}`}
                 >
-                  <ShareNetworkIcon size={32} weight="duotone" className="text-white drop-shadow-lg" />
+                  <ShareNetworkIcon size={22} weight="duotone" className="text-white drop-shadow-lg" />
                 </button>
                 <button
                   onClick={handleFullscreen}
                   aria-label="Fullscreen"
-                  className="min-h-11 min-w-11 flex items-center justify-center -m-1.5"
+                  className={`min-h-11 min-w-11 flex items-center justify-center ${fadeCls}`}
                 >
-                  <CornersOutIcon size={32} weight="bold" className="text-white drop-shadow-lg" />
+                  <CornersOutIcon size={22} weight="bold" className="text-white drop-shadow-lg" />
                 </button>
               </div>
             )}
@@ -292,11 +395,8 @@ export function Stage({
           onClick={player.handleUnmute}
           className="absolute inset-0 z-20"
           data-testid="unmute-overlay"
-        >
-          <div className="absolute top-14 left-3 p-2 rounded-full bg-black/50 backdrop-blur">
-            <SpeakerSlashIcon size={20} weight="fill" className="text-white" />
-          </div>
-        </button>
+          aria-label="Unmute"
+        />
       )}
 
       {player.needsPlayButton && (

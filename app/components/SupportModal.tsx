@@ -247,14 +247,14 @@ export function MonthlySupporter({
             <button
               type="button"
               onClick={onToggleDetails}
-              className="flex w-full items-center justify-between gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white"
+              className="-mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] px-[var(--tp-x,1.5rem)] py-2 -my-2 flex items-center justify-between gap-3 text-left transition-colors hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 active:bg-neutral-200/50 dark:active:bg-neutral-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white"
             >
               <span className="flex flex-col">
                 <span className="font-bebas text-neutral-900 dark:text-white text-3xl">
                   Be my monthly supporter
                 </span>
                 {!og && (
-                  <span className="mt-0.5 text-sm font-sans font-normal text-neutral-500 dark:text-neutral-400">
+                  <span className="mt-0.5 text-base font-normal text-neutral-500 dark:text-neutral-400">
                     Find out more
                   </span>
                 )}
@@ -281,13 +281,14 @@ export function MonthlySupporter({
           panelClassName={`relative ${panelBleed} bg-neutral-100 dark:bg-neutral-900 overflow-hidden px-[var(--tp-x)] pb-6`}
         />
       )}
-      {onSignIn && (
+      {onSignIn && isExpanded && (
         <button
           type="button"
           onClick={onSignIn}
-          className="min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex items-center px-[var(--tp-x,1.5rem)] py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] mt-1 text-left text-base text-neutral-500 dark:text-neutral-400"
+          className="min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex items-center px-[var(--tp-x,1.5rem)] py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] mt-1 text-left text-base text-neutral-500 dark:text-neutral-400 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white"
         >
-          Already a supporter? Sign in
+          Already a supporter?&nbsp;
+          <span className="underline underline-offset-4 text-neutral-900 dark:text-white">Sign in</span>
         </button>
       )}
     </div>
@@ -570,7 +571,7 @@ export function TierPicker({
               type="button"
               onClick={togglePreview}
               aria-label={previewPlaying ? "Pause preview" : "Play preview"}
-              className={`min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex px-[var(--tp-x,1.5rem)] items-center gap-3 text-left py-3`}
+              className={`min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex px-[var(--tp-x,1.5rem)] items-center gap-3 text-left py-3 transition-colors hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 active:bg-neutral-200/50 dark:active:bg-neutral-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white`}
             >
               <span aria-hidden className="w-6 shrink-0 flex justify-center">
                 <span
@@ -654,7 +655,13 @@ export function TierPicker({
                   tabIndex={isSelected ? 0 : -1}
                   onClick={() => selectTier(index)}
                   onKeyDown={(e) => handleRowKeyDown(e, index)}
-                  className={`relative z-10 w-full flex px-[var(--tp-x,1.5rem)] items-center min-h-11 gap-4 py-4 cursor-pointer transition-colors duration-300 motion-reduce:transition-none ${isSelected ? "bg-neutral-200/50 dark:bg-neutral-800/40" : `hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 ${previewPlaying ? "bg-neutral-100/45 dark:bg-neutral-900/45" : "bg-neutral-100/80 dark:bg-neutral-900/80"}`}`}
+                  className={`relative z-10 w-full flex px-[var(--tp-x,1.5rem)] items-center min-h-11 gap-4 py-4 cursor-pointer transition-colors duration-300 motion-reduce:transition-none ${
+                    isSelected
+                      ? previewPlaying
+                        ? "bg-neutral-100/45 dark:bg-neutral-900/45"
+                        : "bg-neutral-200/50 dark:bg-neutral-800/40"
+                      : `hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 ${previewPlaying ? "bg-neutral-100/45 dark:bg-neutral-900/45" : "bg-neutral-100/80 dark:bg-neutral-900/80"}`
+                  }`}
                 >
                   <p className="flex-1 min-w-0 flex items-center gap-x-1 leading-snug text-neutral-600 dark:text-neutral-300 flex-wrap text-base">
                     <span

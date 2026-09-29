@@ -36,6 +36,7 @@ export interface UsePlayerResult {
   videoAspect: number | null;
   handleManualPlay: () => void;
   handleUnmute: () => void;
+  handleToggleMute: () => void;
   handleResume: () => void;
   setMuted: (muted: boolean) => void;
 }
@@ -66,8 +67,18 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
 
   const setMuted = (muted: boolean) => {
     const video = videoRef.current;
-    if (video) video.muted = muted;
-    setIsMutedState(muted);
+    if (!video) {
+      setIsMutedState(muted);
+      return;
+    }
+    video.muted = muted;
+    if (!muted) {
+      video.volume = 1;
+      if (video.paused) {
+        video.play().catch(() => setNeedsResume(true));
+      }
+    }
+    setIsMutedState(video.muted);
   };
 
   useEffect(() => {
@@ -472,15 +483,12 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
           video.currentTime = video.duration;
         }
       })
-      .catch(() => {});
+      .catch(() => setNeedsPlayButton(true));
   };
 
-  const handleUnmute = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = false;
-    setIsMutedState(false);
-  };
+  const handleUnmute = () => setMuted(false);
+
+  const handleToggleMute = () => setMuted(!(videoRef.current?.muted ?? isMuted));
 
   const handleResume = () => {
     const video = videoRef.current;
@@ -488,7 +496,7 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
     video
       .play()
       .then(() => setNeedsResume(false))
-      .catch(() => {});
+      .catch(() => setNeedsResume(true));
   };
 
   return {
@@ -499,6 +507,7 @@ export function usePlayer({ isLive, isDemo, path, whepUrl, hlsUrl, posthog }: Us
     videoAspect,
     handleManualPlay,
     handleUnmute,
+    handleToggleMute,
     handleResume,
     setMuted,
   };

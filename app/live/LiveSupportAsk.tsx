@@ -11,6 +11,13 @@ export interface LiveSupportAskCore {
   place?: string | null;
 }
 
+const FUND_PAD = "py-[5.25px] sm:py-[4.63px]";
+
+export const fundButtonClass = (tone: "dark" | "auto" = "auto") =>
+  `w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide ${
+    tone === "dark" ? "bg-white text-neutral-900" : "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+  }`;
+
 export function LiveSupportAsk({
   upcomingShows,
   pastShows = [],
@@ -78,11 +85,11 @@ export function LiveSupportAsk({
           <ShowRow key={`floor-${event.id}`} event={event} tone="dark" />
         ))}
       </div>
-      <div className="px-4 pb-3 pt-2">
+      <div className={`px-2 ${FUND_PAD}`}>
         <button
           type="button"
           tabIndex={-1}
-          className="w-full min-h-[52px] rounded-xl font-bebas text-[26px] tracking-wide"
+          className="w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide"
         >
           Fund My Tour
         </button>
@@ -107,11 +114,11 @@ export function LiveSupportAsk({
           <ShowRow key={`measure-${event.id}`} event={event} tone="dark" />
         ))}
       </div>
-      <div className="-mt-6 px-4 pb-3 pt-6">
+      <div className={`px-2 ${FUND_PAD}`}>
         <button
           type="button"
           tabIndex={-1}
-          className="w-full min-h-[52px] rounded-xl font-bebas text-[26px] tracking-wide"
+          className="w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide"
         >
           Fund My Tour
         </button>
@@ -126,9 +133,9 @@ export function LiveSupportAsk({
     <button
       type="button"
       onClick={onOpenSupport}
-      className={`w-full min-h-[52px] rounded-xl font-bebas text-[26px] tracking-wide transition-[opacity,box-shadow] hover:opacity-90 active:opacity-80 ${
-        tone === "dark" ? "bg-white text-neutral-900" : "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-      } ${stuck ? "shadow-lg shadow-black/30 dark:shadow-black/60" : ""}`}
+      className={`${fundButtonClass(tone)} transition-[opacity,box-shadow] hover:opacity-90 active:opacity-80 ${
+        stuck ? "shadow-lg shadow-black/30 dark:shadow-black/60" : ""
+      }`}
     >
       Fund My Tour
     </button>
@@ -148,16 +155,14 @@ export function LiveSupportAsk({
               <ShowRow key={event.id} event={event} tone={tone} />
             ))}
           </div>
-          <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+          <div ref={sentinelRef} aria-hidden className="h-px w-full -mb-px" />
           <div
-            className={`sticky z-10 px-4 py-2 transition-[top] duration-300 ${
-              tone === "dark" ? "bg-neutral-900" : "bg-neutral-100 dark:bg-neutral-900"
-            }`}
+            className={`sticky z-10 px-2 ${FUND_PAD} transition-[top] duration-300 ${surfaceToneClass}`}
             style={{ top: "var(--header-offset, var(--header-h, 0px))", bottom: 0 }}
           >
             {fundButton}
           </div>
-          <div className="px-4 pb-3 mt-1 flex flex-col">
+          <div className="px-4 pb-3 flex flex-col">
             {pastShows.map((event) => (
               <ShowRow key={event.id} event={event} tone={tone} />
             ))}
@@ -189,12 +194,12 @@ export function LiveSupportAsk({
             ))}
           </div>
         )}
-        <div ref={sentinelRef} aria-hidden className="h-px w-full shrink-0" />
-        <div className="sticky top-0 bottom-0 z-10 shrink-0 px-4 py-2 bg-neutral-100 dark:bg-neutral-900">
+        <div ref={sentinelRef} aria-hidden className="h-px w-full shrink-0 -mb-px" />
+        <div className={`sticky top-0 bottom-0 z-10 shrink-0 px-2 ${FUND_PAD} ${surfaceToneClass}`}>
           {fundButton}
         </div>
         {pastShows.length > 0 && (
-          <div className="px-4 pb-3 mt-1 flex flex-col shrink-0">
+          <div className="px-4 pb-3 flex flex-col shrink-0">
             {pastShows.map((event) => (
               <ShowRow key={event.id} event={event} tone={tone} />
             ))}

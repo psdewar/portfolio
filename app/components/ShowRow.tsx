@@ -60,9 +60,11 @@ export function DateStack({
 export function ShowRow({
   event,
   tone = "auto",
+  bleed = "-mx-4 px-4",
 }: {
   event: TimelineEvent;
   tone?: "auto" | "dark";
+  bleed?: string;
 }) {
   const dateInfo = formatEventDate(event.date);
   const isRsvp = !!event.url && event.urlLabel === "RSVP";
@@ -94,15 +96,15 @@ export function ShowRow({
   const pendingBg = tone === "dark" ? "bg-white/15" : "bg-black/10 dark:bg-white/15";
   const focusRing =
     tone === "dark"
-      ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-      : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black";
+      ? "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white/60"
+      : "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-400";
 
   return (
     <RowTag
       {...(isRsvp ? { href: event.url } : {})}
       className={`group relative flex items-center gap-3 min-w-0 min-h-12 sm:min-h-14 ${
         isRsvp
-          ? `-mx-2 px-2 rounded-lg transition-colors ${isPendingSelf ? pendingBg : hoverBg} ${activeBg} ${focusRing} ${
+          ? `${bleed} transition-colors ${isPendingSelf ? pendingBg : hoverBg} ${activeBg} ${focusRing} ${
               isPendingOther ? "pointer-events-none opacity-50" : ""
             }`
           : ""

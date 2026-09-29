@@ -6,7 +6,7 @@ import { AdlibChatOverlay } from "../components/AdlibChatOverlay";
 import { AdlibReactionButtons } from "../components/AdlibReactions";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { LiveClips, type EnergyClipHandlers } from "./LiveClips";
-import { LiveSupportAsk, type LiveSupportAskCore } from "./LiveSupportAsk";
+import { LiveSupportAsk, fundButtonClass, type LiveSupportAskCore } from "./LiveSupportAsk";
 import { Stage, type StageProps } from "./Stage";
 import { StoryColumn } from "./ChatRail";
 import { PHOTO_NAT_W, PHOTO_NAT_H, CLIP_WRAPPER_MIN_PX } from "./useLiveLayout";
@@ -48,13 +48,11 @@ export function MobileTree({
   const { onOpenSupport } = supportAsk;
   const overlayChat = !mobilePanelChat && (mobileLandscape || stageAspect < 1);
   const fundMyTourButton = (
-    <button
-      type="button"
-      onClick={onOpenSupport}
-      className="shrink-0 w-full min-h-12 font-bebas text-2xl tracking-wide bg-white text-neutral-900"
-    >
-      Fund My Tour
-    </button>
+    <div className="-mx-1 shrink-0 px-2 pb-0.5 pt-1">
+      <button type="button" onClick={onOpenSupport} className={fundButtonClass()}>
+        Fund My Tour
+      </button>
+    </div>
   );
   const mobileAdlibChat = (
     <AdlibChat

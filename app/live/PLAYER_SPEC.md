@@ -65,7 +65,7 @@ reflow, so it must survive layout changes without a visible reload.
 - [ ] Render exactly one `<video>` element per active stream session, from one call site, keyed
       so React never unmounts and remounts it as a side effect of a different branch becoming
       true (a mobile/desktop layout swap, a breakpoint media query flip, `isDemo` toggling). If
-      the video must visually move between layouts, move it with CSS/portal, not by having two
+      the video must visually move between layouts, move the one node with `appendChild`, not by having two
       JSX branches each render their own `<video ref>`.
 - [ ] Attach `srcObject` only via a ref/DOM call (`videoEl.srcObject = stream`), never as a JSX
       prop. Resolve the target video node at the moment the track actually arrives (`ontrack`),
@@ -82,8 +82,8 @@ reflow, so it must survive layout changes without a visible reload.
       the WHEP session, destroy the HLS instance if any, then clear `srcObject`/`src` and call
       `video.load()`.
 - [ ] Attach the `loadedmetadata`/`resize` aspect listeners inside the same `start()` lifecycle that
-      mounts the video, not a separate effect keyed on `[isLive, isDemo]`: the `<video>` mounts
-      through a portal after the online flip, so a separate effect reads `videoRef.current` as `null`
+      mounts the video, not a separate effect keyed on `[isLive, isDemo]`: the `<video>` is created
+      and attached by `useStageVideo` after the online flip, so a separate effect reads `videoRef.current` as `null`
       at effect-time and never re-runs. Render at 16:9 while the aspect is unknown, and treat the
       stream as portrait only once real metadata reports it.
 
@@ -145,7 +145,7 @@ reflow, so it must survive layout changes without a visible reload.
    desktop) and each branch renders its own `<video ref={videoRef}>`, gated by
    `isDesktop === isDesktopStage`. When `isDesktop` flips (breakpoint crossed, orientation
    change), the mounted video unmounts from one call site and a fresh node mounts at the other.
-   Render the stage video from a single call site (or portal it into whichever layout is active)
+   Render the stage video from a single call site (`useStageVideo` creates one imperative element and appends it into whichever layout slot is active)
    so it never remounts on a layout flip.
 2. `app/live/LiveClient.tsx:477,572` — the WHEP/HLS effect depends on `isDesktop`, so the flip in
    gap 1 also tears down and rebuilds the entire player (closes the WHEP session, destroys HLS,
@@ -226,3 +226,5 @@ reflow, so it must survive layout changes without a visible reload.
 - [Apple Developer — webkitEnterFullscreen](https://developer.apple.com/documentation/webkitjs/htmlvideoelement/1633500-webkitenterfullscreen)
 - [Apple Developer — webkitSupportsPresentationMode / PiP](https://developer.apple.com/documentation/webkitjs/htmlvideoelement/1629816-webkitsupportspresentationmode)
 - [Apple Developer Forums — Low Power Mode blocking video autoplay](https://developer.apple.com/forums/thread/709821)
+
+- [ ] Stage controls (mute, share, fullscreen, bell, show-chat) auto-hide: shown 3s after first play or a touch tap, 2.5s after the last mouse move, hidden immediately on pointerleave, always shown while keyboard focus is inside, `needsPlayButton` or `needsResume`; hidden means `opacity-0 pointer-events-none` (still in the DOM). LIVE and the elapsed chip never hide.

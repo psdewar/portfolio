@@ -1,3 +1,4 @@
+import { resolveAdlibUrl } from "./adlib";
 import type { StreamPath } from "./live";
 
 export interface LiveStatusValue {
@@ -13,6 +14,7 @@ export interface Snapshot {
 
 const ADLIB_URL = process.env.NEXT_PUBLIC_ADLIB_URL || "ws://localhost:8787";
 const POLL_MS = 5000;
+const CONFIRM_POLL_MS = 15000;
 const MAX_BACKOFF_MS = 15000;
 const OFFLINE: LiveStatusValue = { live: false, since: null, endedAt: null };
 
@@ -32,6 +34,8 @@ interface PathState {
   socketToken: string | null;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   pollTimer: ReturnType<typeof setInterval> | null;
+  confirmTimer: ReturnType<typeof setInterval> | null;
+  lastSocketStatusAt: number;
   attempts: number;
   authIntent: AuthIntent | null;
   reconcileScheduled: boolean;
@@ -53,6 +57,8 @@ function getStore(path: StreamPath): PathState {
       socketToken: null,
       reconnectTimer: null,
       pollTimer: null,
+      confirmTimer: null,
+      lastSocketStatusAt: 0,
       attempts: 0,
       authIntent: null,
       reconcileScheduled: false,
@@ -87,6 +93,18 @@ function stopPolling(path: StreamPath) {
   }
 }
 
+function stopConfirmPolling(path: StreamPath) {
+  const store = getStore(path);
+  if (store.confirmTimer) {
+    clearInterval(store.confirmTimer);
+    store.confirmTimer = null;
+  }
+}
+
+function usesSocket(path: StreamPath) {
+  return path === "live" || getStore(path).wireListeners.size > 0;
+}
+
 function closeSocket(path: StreamPath) {
   const store = getStore(path);
   if (store.reconnectTimer) {
@@ -105,18 +123,38 @@ function closeSocket(path: StreamPath) {
 
 function poll(path: StreamPath) {
   const store = getStore(path);
+  const startedAt = Date.now();
   fetch(`/api/live/status?path=${path}`, { cache: "no-store" })
     .then((res) => res.json())
     .then((data: LiveStatusValue) => {
+      if (startedAt < store.lastSocketStatusAt) return;
       store.current = data;
       store.received = true;
-      store.connected = true;
+      if (!usesSocket(path)) store.connected = true;
       notify(path);
+      if (usesSocket(path)) syncSocketPolling(path);
     })
     .catch(() => {
+      if (usesSocket(path)) return;
       store.connected = false;
       notify(path);
     });
+}
+
+function syncSocketPolling(path: StreamPath) {
+  const store = getStore(path);
+  if (store.listeners.size === 0 && store.wireListeners.size === 0) return;
+  if (!store.connected) {
+    stopConfirmPolling(path);
+    ensurePolling(path);
+    return;
+  }
+  stopPolling(path);
+  if (!store.current.live) {
+    stopConfirmPolling(path);
+    return;
+  }
+  if (!store.confirmTimer) store.confirmTimer = setInterval(() => poll(path), CONFIRM_POLL_MS);
 }
 
 function ensurePolling(path: StreamPath) {
@@ -129,7 +167,7 @@ function ensurePolling(path: StreamPath) {
 function openSocket(path: StreamPath, token: string | null) {
   const store = getStore(path);
   store.wireLog = [];
-  const url = new URL("/adlib/ws", ADLIB_URL.replace(/^http/, "ws"));
+  const url = new URL("/adlib/ws", resolveAdlibUrl(ADLIB_URL).replace(/^http/, "ws"));
   url.searchParams.set("room", path);
   if (token) url.searchParams.set("token", token);
   const ws = new WebSocket(url.toString());
@@ -140,6 +178,7 @@ function openSocket(path: StreamPath, token: string | null) {
     store.attempts = 0;
     store.connected = true;
     notify(path);
+    syncSocketPolling(path);
   };
 
   ws.onmessage = (event) => {
@@ -154,7 +193,9 @@ function openSocket(path: StreamPath, token: string | null) {
     if (status) {
       store.current = status;
       store.received = true;
+      store.lastSocketStatusAt = Date.now();
       notify(path);
+      syncSocketPolling(path);
     }
     store.wireLog.push(data);
     store.wireListeners.forEach((listener) => listener(data));
@@ -167,6 +208,7 @@ function openSocket(path: StreamPath, token: string | null) {
     store.connected = false;
     notify(path);
     if (store.listeners.size === 0 && store.wireListeners.size === 0) return;
+    syncSocketPolling(path);
     store.reconnectTimer = setTimeout(() => {
       store.reconnectTimer = null;
       reconcile(path);
@@ -194,26 +236,46 @@ function reconcile(path: StreamPath) {
   if (!wantsRealtime) {
     closeSocket(path);
     stopPolling(path);
+    stopConfirmPolling(path);
     return;
   }
 
-  const usesSocket = path === "live" || store.wireListeners.size > 0;
-  if (!usesSocket) {
+  if (!usesSocket(path)) {
     closeSocket(path);
+    stopConfirmPolling(path);
     ensurePolling(path);
     return;
   }
-  stopPolling(path);
 
   if (store.authIntent?.pending) {
     closeSocket(path);
+    syncSocketPolling(path);
     return;
   }
 
   const desiredToken = store.authIntent ? store.authIntent.token : null;
-  if (store.socket && store.socketToken === desiredToken) return;
+  if (store.socket && store.socketToken === desiredToken) {
+    syncSocketPolling(path);
+    return;
+  }
   closeSocket(path);
   openSocket(path, desiredToken);
+  syncSocketPolling(path);
+}
+
+function recheckAll() {
+  stores.forEach((store, path) => {
+    if (store.listeners.size === 0 && store.wireListeners.size === 0) return;
+    poll(path);
+    if (usesSocket(path) && (!store.socket || store.socket.readyState !== WebSocket.OPEN)) reconcile(path);
+  });
+}
+
+if (typeof window !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") recheckAll();
+  });
+  window.addEventListener("online", recheckAll);
 }
 
 export function seedLiveStatus(status: LiveStatusValue, path: StreamPath = "live") {

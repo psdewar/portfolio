@@ -62,9 +62,12 @@ chat rail open and `bandFloorPx` measured), then `min(width-driven, colHeightPx 
 button. Collapsing the chat rail disables the floor and the stage takes the freed width.
 
 `DesktopChatRail` renders for both schemes (A, S) whenever `desktopChatRailVisible` (live and chat
-not collapsed). `OfflineStoryRail` renders instead for scheme A/S when `!isLive`. Chat rail width is
-`clamp(280px, 24%, 400px)` (`RAIL_WIDTH_CSS`) in both schemes, offline story rail included, placed
-after the single left column (trailing edge).
+not collapsed). `OfflineStoryRail` renders instead for scheme A/S when `!isLive`. The online chat
+rail width is `clamp(280px, 24%, 400px)` (`RAIL_WIDTH_CSS`) in both schemes, placed after the single
+left column (trailing edge). The offline story rail is `flex-1 min-w-0` with a `CHAT_RAIL_MIN_PX`
+(280px) floor, so it fills all space right of the band instead of leaving a void; `StoryColumn` is a
+`container-type: inline-size` box, paragraphs cap at `max-w-[68ch]` and step from `text-base` to
+`text-lg` at a 520px container (arbitrary `[@container(min-width:520px)]` variant, no plugin).
 
 **Mobile** (`isDesktop === false`): a single column (`MobileTree`), stage on top sized by
 `mobileStageHeightPx`/`stageAspect`, then either the offline schedule sheet
@@ -136,6 +139,22 @@ overlay, even though `mobileLandscape` is true.
   the remainder spread evenly over columns 2..N with larger chunks first. Chronological order is
   preserved throughout (`getShowHistory()` already returns most-recent-first, column-major fill,
   no reversal needed).
+- Fund My Tour row: pill (`rounded-full`), no gray wrapper (wrapper is the plain surface color),
+  spanning exactly the RSVP row's hover/active background, which is `-mx-2 px-2` inside the rows'
+  `px-4` container: both edges sit 8px inside the panel, on desktop and mobile. The wrapper is
+  `px-2` plus `FUND_PAD` (`py-[5.25px] sm:py-[4.63px]`), half the visible row-to-row gap (10.5px
+  base, 9.25px sm, measured between the inner content of consecutive `ShowRow`s), so the gap from
+  the last row to the button and from the button to the next content both equal the row-to-row gap.
+  This holds because the sentinel is `h-px -mb-px` (zero layout height) and the past-shows group has
+  no `mt-1`. The hidden measurement clones use the same `px-2 ${FUND_PAD}` and `rounded-full`, no
+  other vertical padding, so their heights equal the real geometry through the button and its
+  bottom padding: heading + rows + Fund wrapper for the first-screen clone, rows + Fund wrapper
+  for the band-floor clone. Change `FUND_PAD` and the clones follow.
+- Mobile live chat panel (`MobileTree.tsx`): the Fund My Tour button uses the shared `fundButtonClass()`
+  exported from `LiveSupportAsk.tsx` (pill, `min-h-[52px]`, `text-[26px]`, same tone colors), in a
+  `-mx-1 px-2 pt-1 pb-0.5` wrapper: 8px inset from the panel like desktop, and 10px from the
+  reaction emojis above and from the composer below (measured at 390x844 and 430x932).
+  `AdlibChatOverlay`'s Fund button is a separate inline pill beside the reactions and is left as is.
 - `LiveSupportAsk` panel variant: the Fund My Tour wrapper is `sticky top-0 bottom-0` in every
   mode, no JS involved. While live (scheme A passes `flow`), the panel root has no overflow of
   its own and the enclosing schedule/band wrapper divs don't scroll either, so the sticky resolves
