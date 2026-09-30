@@ -1,137 +1,150 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AdminState } from "../../lib/livestream";
+import DefaultsRow from "./DefaultsRow";
+import Destinations from "./Destinations";
+import GroupHeader from "./GroupHeader";
+import NextStreamForm from "./NextStreamForm";
+import {
+  Notice,
+  columnsClass,
+  defaultsRowClass,
+  groupBodyClass,
+  groupHeaderClass,
+  leadColumnClass,
+  padX,
+  padY,
+  stackGap,
+  liveGroupClass,
+  practiceGroupClass,
+  trailColumnClass,
+  type Message,
+} from "./ui";
 
 export default function LivestreamPage() {
-  const [nextStream, setNextStream] = useState("");
-  const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
+  const [state, setState] = useState<AdminState | null>(null);
+  const [schedule, setSchedule] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
 
-  useEffect(() => {
-    fetch("/api/livestream")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.nextStream) {
-          setCurrentSchedule(data.nextStream);
-          // Convert ISO to datetime-local format
-          const date = new Date(data.nextStream);
-          const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-            .toISOString()
-            .slice(0, 16);
-          setNextStream(local);
-        }
-      })
-      .catch(() => setMessage({ type: "error", text: "Failed to load current schedule" }))
-      .finally(() => setLoading(false));
+  const requestId = useRef(0);
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    const res = await fetch("/api/admin/livestream");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    if (id !== requestId.current) return;
+    setState(data);
+    setNow(Date.now());
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("youtube_error");
+    const connected = params.get("connected");
+    if (error) setMessage({ type: "error", text: `YouTube connect failed: ${error}` });
+    else if (connected) setMessage({ type: "success", text: "YouTube connected" });
 
-    try {
-      const res = await fetch("/api/livestream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nextStream: new Date(nextStream).toISOString() }),
-      });
+    Promise.all([
+      load(),
+      fetch("/api/livestream")
+        .then((res) => res.json())
+        .then((data) => setSchedule(data.nextStream ?? null)),
+    ])
+      .catch(() => setMessage({ type: "error", text: "Failed to load current schedule" }))
+      .finally(() => setLoading(false));
 
-      if (!res.ok) throw new Error("Failed to save");
+    const timer = setInterval(() => load().catch(() => undefined), 15000);
+    return () => clearInterval(timer);
+  }, [load]);
 
-      const data = await res.json();
-      setCurrentSchedule(data.nextStream || new Date(nextStream).toISOString());
-      setMessage({ type: "success", text: "Schedule updated!" });
-    } catch {
-      setMessage({ type: "error", text: "Failed to save schedule" });
-    } finally {
-      setSaving(false);
-    }
+  const refresh = () => {
+    load().catch((error) =>
+      setMessage({ type: "error", text: `Failed to refresh: ${error.message}` }),
+    );
   };
 
-  const formatDisplay = (iso: string) => {
-    const date = new Date(iso);
-    return date.toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: "short",
-    });
-  };
+  const skeletonBar = "animate-pulse rounded bg-neutral-200 dark:bg-neutral-800";
+  const skeletonColumn = (className: string, titled = true) => (
+    <div className={`${padX} ${padY} ${stackGap} ${className}`}>
+      {titled && <div className={`h-5 w-28 ${skeletonBar}`} />}
+      <div className={`h-40 ${skeletonBar}`} />
+      <div className={`h-24 ${skeletonBar}`} />
+    </div>
+  );
+  const skeletonHeader = (
+    <div className={groupHeaderClass}>
+      <div className={`h-5 w-56 ${skeletonBar}`} />
+    </div>
+  );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="max-w-md">
-      <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
-        Livestream Schedule
-      </h1>
-      <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-        Set your next scheduled livestream.
-      </p>
-
-      {loading ? (
-        <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-sm">
-          <div className="animate-pulse h-10 bg-neutral-200 dark:bg-neutral-700 rounded" />
-        </div>
-      ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-sm space-y-4"
-        >
-          {currentSchedule && (
-            <div className="p-3 bg-neutral-100 dark:bg-neutral-700 rounded-lg">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-1">
-                Currently Scheduled
-              </p>
-              <p className="text-neutral-900 dark:text-white font-medium">
-                {formatDisplay(currentSchedule)}
-              </p>
-            </div>
-          )}
-
-          <div>
-            <label
-              htmlFor="nextStream"
-              className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1"
-            >
-              Next Stream Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              id="nextStream"
-              value={nextStream}
-              onChange={(e) => setNextStream(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+    <div className="[@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:h-[calc(100dvh-var(--admin-header-h))] [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:flex [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:flex-col [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:overflow-hidden">
+      {loading || !state ? (
+        <>
+          <div className={defaultsRowClass}>
+            <div className={`h-5 w-72 ${skeletonBar}`} />
           </div>
-
+          <div className={columnsClass}>
+            <div className={liveGroupClass}>
+              {skeletonHeader}
+              <div className={groupBodyClass}>
+                {skeletonColumn(leadColumnClass)}
+                {skeletonColumn(trailColumnClass, false)}
+              </div>
+            </div>
+            <div className={practiceGroupClass}>
+              {skeletonHeader}
+              <div className={groupBodyClass}>{skeletonColumn(trailColumnClass, false)}</div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
           {message && (
-            <div
-              className={`p-3 rounded-lg text-sm ${
-                message.type === "success"
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-              }`}
-            >
-              {message.text}
+            <div className="shrink-0 px-4 pt-4 [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:px-6 [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:pt-3">
+              <Notice message={message} />
             </div>
           )}
-
-          <button
-            type="submit"
-            disabled={saving || !nextStream}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-          >
-            {saving ? "Saving..." : "Update Schedule"}
-          </button>
-        </form>
+          <DefaultsRow settings={state.settings} onSaved={refresh} />
+          <div className={columnsClass}>
+            <div className={liveGroupClass}>
+              <GroupHeader name="Live" {...state.status.live} />
+              <div className={groupBodyClass}>
+                <div className={leadColumnClass}>
+                  <NextStreamForm settings={state.settings} schedule={schedule} onSaved={refresh} />
+                </div>
+                <div className={trailColumnClass}>
+                  <Destinations
+                    account="main"
+                    kind="public"
+                    state={state}
+                    now={now}
+                    onSaved={refresh}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className={practiceGroupClass}>
+              <GroupHeader name="Rehearsal" {...state.status.rehearsal} />
+              <div className={groupBodyClass}>
+                <div className={trailColumnClass}>
+                  <Destinations
+                    account="practice"
+                    kind="practice"
+                    state={state}
+                    now={now}
+                    onSaved={refresh}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
-      </div>
     </div>
   );
 }

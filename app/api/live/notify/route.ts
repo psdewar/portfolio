@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../lib/supabase-admin";
-import {
-  sendGoLiveEmail,
-  sendGoLiveEmailBatch,
-} from "../../../../lib/sendgrid";
+import { sendGoLiveEmail } from "../../../../lib/sendgrid";
+import { notifySubscribers } from "../../../lib/notify";
 
 const NOTIFY_SECRET = process.env.LIVE_NOTIFY_SECRET;
 const TEST_EMAIL = process.env.LIVE_NOTIFY_TEST_EMAIL;
@@ -33,33 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { data: subscribers, error } = await supabaseAdmin
-      .from("stay-connected")
-      .select("email, name")
-      .not("email", "like", "_keepalive_%");
-
-    if (error) {
-      console.error("[Notify] Database error:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch subscribers" },
-        { status: 500 },
-      );
-    }
-
-    if (!subscribers || subscribers.length === 0) {
-      return NextResponse.json({ sent: 0, message: "No subscribers" });
-    }
-
-    const recipients = subscribers.map((row) => ({
-      to: row.email,
-      firstName: row.name?.split(" ")[0] || "there",
-    }));
-
-    const { sent, failed } = await sendGoLiveEmailBatch(recipients);
-    const totalFailed = failed;
-
-    console.log(`[Notify] Sent ${sent} emails, ${totalFailed} failed`);
-    return NextResponse.json({ sent, failed: totalFailed });
+    return NextResponse.json(await notifySubscribers());
   } catch (error) {
     console.error("[Notify] Error:", error);
     return NextResponse.json(

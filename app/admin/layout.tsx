@@ -57,9 +57,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const visiblePages = role ? adminPages.filter((p) => canAccess(role, p.href)) : [];
 
   return (
-    <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950">
+    <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950 [--admin-header-h:53px]">
       <div className="border-b border-neutral-200 dark:border-neutral-800 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[calc(var(--admin-header-h)-1px)] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-500">
               Admin

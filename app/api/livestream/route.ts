@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { roleForToken } from "../shared/admin-auth";
 
 const SCHEDULE_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 const SCHEDULE_TOKEN = process.env.SCHEDULE_API_TOKEN;
@@ -23,6 +24,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const role = await roleForToken(request.cookies.get("admin-auth")?.value);
+  if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (role !== "owner") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   if (!SCHEDULE_TOKEN) {
     console.error("[schedule] SCHEDULE_API_TOKEN not configured");
     return NextResponse.json({ error: "Not configured" }, { status: 500 });

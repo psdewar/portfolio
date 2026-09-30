@@ -25,7 +25,7 @@ import { type EnergyClipHandlers } from "./LiveClips";
 import { type LiveSupportAskCore } from "./LiveSupportAsk";
 
 const WHEP_URL = process.env.NEXT_PUBLIC_WHEP_URL || "/live/whep";
-const HLS_URL = process.env.NEXT_PUBLIC_HLS_URL || "http://localhost:8888/live_aac/index.m3u8";
+const HLS_URL = process.env.NEXT_PUBLIC_HLS_URL || "https://stream.peytspencer.com/live_aac/index.m3u8";
 
 export default function LiveClient({
   pastShows,
