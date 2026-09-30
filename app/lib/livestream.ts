@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../../lib/supabase-admin";
-import { getStreamStatus, type StreamPath } from "./live";
+import { ADLIB_URL, getStreamStatus, type StreamPath } from "./live";
 import { notifySubscribers } from "./notify";
 import {
   accessToken,
@@ -8,6 +8,7 @@ import {
   getBroadcast,
   insertBroadcast,
   isBroadcastOpen,
+  listChatMessages,
   setThumbnail,
   updateBroadcast,
   YOUTUBE_ACCOUNTS,
@@ -182,11 +183,66 @@ async function youtubeLine(path: StreamPath): Promise<string | null> {
   const account: YouTubeAccount = path === "live" ? "main" : "practice";
   const row = await getAccount(account);
   if (!row?.live_stream_id || !row.ingest_url || !row.stream_name) return null;
-  const broadcastId = await syncBroadcast(account);
-  if (path === "live") {
-    await notifyOnce(broadcastId).catch((e) => logRelayError("notify", e));
+  try {
+    const broadcastId = await syncBroadcast(account);
+    if (path === "live") {
+      await notifyOnce(broadcastId).catch((e) => logRelayError("notify", e));
+    }
+  } catch (e) {
+    logRelayError(`youtube broadcast ${path}`, e);
   }
   return `${row.ingest_url}/${row.stream_name}`;
+}
+
+const CHAT_GONE = /liveChatEnded|liveChatNotFound|liveChatDisabled/;
+
+async function saveChatId(account: YouTubeAccount, liveChatId: string | null, broadcastId: string | null) {
+  const { error } = await supabaseAdmin
+    .from("youtube_accounts")
+    .update({ live_chat_id: liveChatId, chat_broadcast_id: broadcastId })
+    .eq("account", account);
+  if (error) throw error;
+}
+
+export async function syncYouTubeChat(path: StreamPath): Promise<number> {
+  const account = path === "live" ? "main" : "practice";
+  const { data, error } = await supabaseAdmin
+    .from("youtube_accounts")
+    .select("current_broadcast_id, live_chat_id, chat_broadcast_id")
+    .eq("account", account)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.current_broadcast_id) return 0;
+  const token = await accessToken(await getRefreshToken());
+  let liveChatId = data.chat_broadcast_id === data.current_broadcast_id ? data.live_chat_id : null;
+  if (!liveChatId) {
+    const broadcast = await getBroadcast(token, data.current_broadcast_id);
+    liveChatId = broadcast?.snippet.liveChatId ?? null;
+    if (!isBroadcastOpen(broadcast) || !liveChatId) return 0;
+    await saveChatId(account, liveChatId, data.current_broadcast_id);
+  }
+  let messages;
+  try {
+    messages = await listChatMessages(token, liveChatId);
+  } catch (e) {
+    if (e instanceof Error && CHAT_GONE.test(e.message)) {
+      await saveChatId(account, null, null);
+      return 0;
+    }
+    throw e;
+  }
+  if (messages.length === 0) return 0;
+  const res = await fetch(`${ADLIB_URL}/adlib/ingest?room=${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.ADLIB_HOOK_SECRET}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ source: "youtube", messages }),
+  });
+  if (!res.ok) throw new Error(`adlib ingest ${res.status}`);
+  const body = await res.json();
+  return body.inserted ?? 0;
 }
 
 async function getInstagram(kind: InstagramKind) {
@@ -205,14 +261,17 @@ async function instagramLine(path: StreamPath): Promise<string | null> {
   return `${row.stream_url}${row.stream_key}`;
 }
 
-function logRelayError(label: string, error: unknown) {
+export function logRelayError(label: string, error: unknown) {
   const text = error instanceof Error ? error.message : String(error);
   console.error(`[relay] ${label}:`, text.replace(/rtmps?:\/\/\S*/g, "[rtmp]"));
 }
 
 export async function relayLines(path: StreamPath): Promise<string[]> {
   const labels = [`youtube ${path}`, `instagram ${path}`];
-  const results = await Promise.allSettled([youtubeLine(path), instagramLine(path)]);
+  const results = await Promise.allSettled([
+    youtubeLine(path),
+    instagramLine(path),
+  ]);
   return results.flatMap((result, i) => {
     if (result.status === "rejected") {
       logRelayError(labels[i], result.reason);
@@ -248,8 +307,8 @@ export async function getAdminState() {
   ) as Record<InstagramKind, string | null>;
 
   const plan = (account: YouTubeAccount, kind: InstagramKind) => [
-    ...(channels[account] ? [`YouTube ${account === "main" ? "main" : "rehearsal"}: ${channels[account]}`] : []),
-    ...(saved[kind] && isInstagramFresh(saved[kind]) ? [`Instagram ${kind}`] : []),
+    ...(channels[account] ? ["YouTube"] : []),
+    ...(saved[kind] && isInstagramFresh(saved[kind]) ? ["Instagram"] : []),
   ];
 
   let thumbnailUrl: string | null = null;

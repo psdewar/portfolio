@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isStreamPath } from "../../../lib/live";
+import { logRelayError, syncYouTubeChat } from "../../../lib/livestream";
 import { isRelayAuthorized } from "../../../lib/relay-auth";
-import { relayLines } from "../../../lib/livestream";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 15;
 
 export async function GET(request: NextRequest) {
   if (!isRelayAuthorized(request.headers.get("authorization"))) {
@@ -14,8 +14,10 @@ export async function GET(request: NextRequest) {
   if (!path || !isStreamPath(path)) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
-  const lines = await relayLines(path);
-  return new Response(lines.length ? `${lines.join("\n")}\n` : "", {
-    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
-  });
+  try {
+    return NextResponse.json({ inserted: await syncYouTubeChat(path) });
+  } catch (e) {
+    logRelayError(`youtube chat ${path}`, e);
+    return NextResponse.json({ error: "Chat sync failed" }, { status: 500 });
+  }
 }

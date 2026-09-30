@@ -6,7 +6,7 @@ export function isStreamPath(value: string): value is StreamPath {
   return value === "live" || value === "rehearsal";
 }
 
-const ADLIB_URL = process.env.NEXT_PUBLIC_ADLIB_URL || "http://localhost:8787";
+export const ADLIB_URL = process.env.NEXT_PUBLIC_ADLIB_URL || "http://localhost:8787";
 const SCHEDULE_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 const OFFLINE: LiveStatusValue = { live: false, since: null, endedAt: null };
 

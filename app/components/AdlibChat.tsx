@@ -52,6 +52,11 @@ export function displayName(message: AdlibMessage): string {
   return message.role === "host" ? HOST_DISPLAY_NAME : message.name;
 }
 
+export function SourceLabel({ sub }: { sub: string }) {
+  if (!sub.startsWith("youtube:")) return null;
+  return <span className="ml-1 text-[11px] font-normal opacity-75">YouTube</span>;
+}
+
 export function AdlibChat({
   socket,
   textClassName = "text-sm",
@@ -325,6 +330,7 @@ function ChatRow({
           </span>
         )}
         <span className={`chat-row-name font-semibold ${nameColorClass(message.sub)}`}>{displayName(message)}</span>
+        <SourceLabel sub={message.sub} />
         <span className="text-neutral-500 dark:text-neutral-400">: </span>
         <span className="text-neutral-900 dark:text-neutral-100">{message.text}</span>
       </span>

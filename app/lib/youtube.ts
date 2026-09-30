@@ -146,7 +146,7 @@ export type BroadcastSpec = {
 
 export type Broadcast = {
   id: string;
-  snippet: { scheduledStartTime: string };
+  snippet: { scheduledStartTime: string; liveChatId?: string };
   status: { lifeCycleStatus: string };
   contentDetails: { boundStreamId?: string } & Record<string, unknown>;
 };
@@ -154,6 +154,30 @@ export type Broadcast = {
 export async function getBroadcast(token: string, id: string): Promise<Broadcast | undefined> {
   const data = await yt(token, `/liveBroadcasts?part=id,snippet,status,contentDetails&id=${id}`);
   return data.items?.[0];
+}
+
+export type ChatMessage = { id: string; ts: number; author: string; name: string; text: string };
+
+export async function listChatMessages(token: string, liveChatId: string): Promise<ChatMessage[]> {
+  const data = await yt(
+    token,
+    `/liveChat/messages?liveChatId=${encodeURIComponent(liveChatId)}&part=snippet,authorDetails&maxResults=200`,
+  );
+  return (data.items ?? [])
+    .filter((item: { snippet: { type: string } }) => item.snippet.type === "textMessageEvent")
+    .map(
+      (item: {
+        id: string;
+        snippet: { publishedAt: string; displayMessage: string };
+        authorDetails: { channelId: string; displayName: string };
+      }) => ({
+        id: item.id,
+        ts: Date.parse(item.snippet.publishedAt),
+        author: item.authorDetails.channelId,
+        name: item.authorDetails.displayName,
+        text: item.snippet.displayMessage,
+      }),
+    );
 }
 
 export function isBroadcastOpen(broadcast: Broadcast | undefined): broadcast is Broadcast {

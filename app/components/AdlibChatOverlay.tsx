@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { PaperPlaneRightIcon } from "@phosphor-icons/react";
-import { nameColorClass, displayName } from "./AdlibChat";
+import { nameColorClass, displayName, SourceLabel } from "./AdlibChat";
 import { AdlibReactionButtons } from "./AdlibReactions";
 import { ADLIB_MESSAGE_MAX_LENGTH, adlibErrorText } from "../lib/adlib";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
@@ -39,7 +39,8 @@ export function AdlibChatOverlay({
             key={message.id}
             className="line-clamp-2 max-w-[75%] break-words text-[15px] leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.9),0_0_6px_rgba(0,0,0,.6)]"
           >
-            <span className={`font-semibold ${nameColorClass(message.sub)}`}>{displayName(message)}</span>{" "}
+            <span className={`font-semibold ${nameColorClass(message.sub)}`}>{displayName(message)}</span>
+            <SourceLabel sub={message.sub} />{" "}
             {message.text}
           </li>
         ))}
