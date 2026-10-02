@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/rsvp", priority: 0.8 },
     { path: "/hire", priority: 0.6 },
     { path: "/resume", priority: 0.6 },
+    { path: "/privacy", priority: 0.3 },
   ];
 
   const trackSlugs = (singles as string[]).map((slug) => ({
