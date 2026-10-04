@@ -100,6 +100,10 @@ export function formatTimeAgo(iso: string): string {
   return `${months} month${months === 1 ? "" : "s"} ago`;
 }
 
+export function todayIn(timeZone: string): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone });
+}
+
 export function isDatePast(iso: string): boolean {
   return new Date(iso + "T23:59:59") <= new Date();
 }

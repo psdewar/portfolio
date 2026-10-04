@@ -1,4 +1,4 @@
-import { TRACK_DATA } from "./tracks";
+import { TRACK_DATA, type TrackData } from "./tracks";
 
 export const PATRON_CONFIG = {
   earlyAccess: {
@@ -46,4 +46,14 @@ export function tierForMonthlyNet(net: number): PatronTierName {
   if (net < 35) return "Flow";
   if (net < 75) return "Mind";
   return "Soul";
+}
+
+export function latestPublicTrack(): TrackData | null {
+  const candidates = TRACK_DATA.filter(
+    (t) => (t.source ?? "hosted") === "hosted" && !!t.releaseDate && !PATRON_EXCLUSIVE_TRACKS.has(t.id),
+  );
+  return candidates.reduce<TrackData | null>(
+    (latest, t) => (!latest || t.releaseDate! > latest.releaseDate! ? t : latest),
+    null,
+  );
 }

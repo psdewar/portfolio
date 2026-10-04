@@ -35,10 +35,12 @@ export async function upsertRsvp({
 export async function markAttended({
   email,
   name,
+  phone,
   slug,
 }: {
   email: string;
   name?: string;
+  phone?: string;
   slug: string;
 }): Promise<{ number: number; rsvpd: boolean }> {
   const emailLower = email.trim().toLowerCase();
@@ -60,6 +62,7 @@ export async function markAttended({
   await upsertIdentity({
     email: emailLower,
     name,
+    phone,
     overwrite: false,
     captureEvent: false,
     source: "checkin",

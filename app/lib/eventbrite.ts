@@ -1,5 +1,6 @@
 import { Show } from "./shows";
 import { parseDoorTime } from "./dates";
+import { getCityZone } from "./city-zone";
 
 const API = "https://www.eventbriteapi.com/v3";
 const TOKEN = process.env.EVENTBRITE_TOKEN;
@@ -9,30 +10,6 @@ const ORG_ID = process.env.EVENTBRITE_ORG_ID || "2580670542961";
 // Same env the show/sponsor routes use (SHOWS_API/SHOWS_TOKEN there) — not new vars.
 const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
-
-const REGION_TZ: Record<string, string> = {
-  // Pacific
-  WA: "America/Los_Angeles", OR: "America/Los_Angeles", CA: "America/Los_Angeles", NV: "America/Los_Angeles",
-  BC: "America/Vancouver",
-  // Mountain
-  CO: "America/Denver", NM: "America/Denver", UT: "America/Denver", WY: "America/Denver", MT: "America/Denver", ID: "America/Denver",
-  AZ: "America/Phoenix", AB: "America/Edmonton",
-  // Central
-  TX: "America/Chicago", IL: "America/Chicago", WI: "America/Chicago", MN: "America/Chicago", IA: "America/Chicago",
-  MO: "America/Chicago", AR: "America/Chicago", LA: "America/Chicago", MS: "America/Chicago", AL: "America/Chicago",
-  TN: "America/Chicago", OK: "America/Chicago", KS: "America/Chicago", NE: "America/Chicago", SD: "America/Chicago",
-  ND: "America/Chicago", MB: "America/Winnipeg",
-  // Eastern
-  NY: "America/New_York", NJ: "America/New_York", PA: "America/New_York", CT: "America/New_York", MA: "America/New_York",
-  RI: "America/New_York", NH: "America/New_York", VT: "America/New_York", ME: "America/New_York", MD: "America/New_York",
-  DC: "America/New_York", DE: "America/New_York", VA: "America/New_York", WV: "America/New_York", NC: "America/New_York",
-  SC: "America/New_York", GA: "America/New_York", FL: "America/New_York", OH: "America/New_York", MI: "America/New_York",
-  IN: "America/New_York", KY: "America/New_York", ON: "America/Toronto", QC: "America/Toronto",
-};
-
-function timezoneForRegion(region?: string): string {
-  return REGION_TZ[(region || "").toUpperCase()] || "America/Los_Angeles";
-}
 
 function tzOffsetMs(timeZone: string, at: Date): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
@@ -222,7 +199,8 @@ export async function cloneEventForShow(show: Show): Promise<string> {
 
   const tpl = await getTemplate();
   const venueId = await createVenue(show);
-  const timezone = timezoneForRegion(show.region);
+  const timezone = await getCityZone(show.city, show.region, show.country || undefined);
+  if (!timezone) throw new Error(`Could not resolve time zone for ${show.city}, ${show.region}`);
   const { h, m } = parseDoorTime(show.doorTime);
   const startUtc = wallTimeToUtcIso(show.date, h, m, timezone);
 

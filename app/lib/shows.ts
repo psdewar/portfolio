@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { doorTimeMinutes, isDatePast } from "./dates";
+import { doorTimeMinutes, isDatePast, todayIn } from "./dates";
 import { getJourneyEvents, type TimelineEvent } from "../data/timeline";
 
 export interface Show {
@@ -44,11 +44,19 @@ const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com"
 
 const LEG_ALIASES: Record<string, string> = { carolinas: "south-carolina" };
 
+const plainBahai = <T extends string | null | undefined>(text: T): T =>
+  (text?.replace(/Bah[áa][’'ʼ][íi]/g, "Baha'i") ?? text) as T;
+
 export const getShows = cache(async (): Promise<Show[]> => {
   const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
   if (!res.ok) return [];
   const shows: Show[] = await res.json();
-  return shows.map((s) => (s.leg && LEG_ALIASES[s.leg] ? { ...s, leg: LEG_ALIASES[s.leg] } : s));
+  return shows.map((s) => ({
+    ...s,
+    leg: s.leg && LEG_ALIASES[s.leg] ? LEG_ALIASES[s.leg] : s.leg,
+    venue: plainBahai(s.venue),
+    venueLabel: plainBahai(s.venueLabel),
+  }));
 });
 
 const LEG_SHORT_NAMES: Record<string, string> = {
@@ -136,29 +144,13 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   return shows.find((s) => s.slug === slug) || null;
 }
 
-const CHECKIN_TZ: Record<string, string> = {
-  WA: "America/Los_Angeles",
-  OR: "America/Los_Angeles",
-  CA: "America/Los_Angeles",
-  BC: "America/Vancouver",
-  NY: "America/New_York",
-  NJ: "America/New_York",
-  PA: "America/New_York",
-  MA: "America/New_York",
-  MD: "America/New_York",
-  FL: "America/New_York",
-  ON: "America/Toronto",
-  QC: "America/Toronto",
-};
-
 export function isCheckinLive(
-  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "unlisted" | "region">,
+  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "unlisted">,
 ): boolean {
   if (show.status === "cancelled" || !isShowListed(show) || show.visibility === "private") {
     return false;
   }
-  const tz = CHECKIN_TZ[show.region] ?? "America/New_York";
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz }) === show.date;
+  return show.date === todayIn("America/New_York") || show.date === todayIn("Pacific/Honolulu");
 }
 
 export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue">): string | null {
@@ -227,9 +219,15 @@ export function showToTimelineEvent(show: Show, sameDayIndex = 0): TimelineEvent
   return {
     id: Number(show.date.replace(/-/g, "") + "5" + sameDayIndex),
     date: show.date,
-    title: show.name === "From The Ground Up" ? "From The Ground Up Live Concert" : show.name,
+    title:
+      show.eventName ||
+      (show.name === "From The Ground Up" ? "From The Ground Up Live Concert" : show.name),
     location: `${show.city}, ${show.region}`,
-    description: isResidence(show) ? "House concert" : getVenueLabel(show) ?? undefined,
+    description: isResidence(show)
+      ? show.venueLabel || "House concert"
+      : (upcoming && show.visibility === "private" && show.privateNote) ||
+        getVenueLabel(show) ||
+        undefined,
     type: "show",
     ...(upcoming && show.visibility !== "private"
       ? { url: `/rsvp/${show.slug}`, urlLabel: "RSVP" }

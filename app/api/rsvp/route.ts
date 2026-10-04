@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows, isShowUpcoming } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
+import { upsertIdentity } from "../../lib/identity";
 import { sendMetaLead } from "../../lib/meta-capi";
 
 export async function GET(request: Request) {
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { name, email, phone, guests, eventId } = body;
+    const isMaybe = body.intent === "maybe";
 
     console.log("[RSVP API] Received:", { name, email, phone, guests, eventId });
 
@@ -75,9 +77,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid event" }, { status: 400 });
     }
 
+    if (isMaybe && !name?.trim()) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
     const guestCount = Math.max(1, Math.min(10, parseInt(guests, 10) || 1));
     try {
-      await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount });
+      if (isMaybe) {
+        await upsertIdentity({ email, name, phone, source: `rsvp-maybe:${eventId.trim()}` });
+      } else {
+        await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount });
+      }
     } catch (saveError) {
       console.error("[RSVP] Save error:", saveError);
       return NextResponse.json(
@@ -104,19 +114,21 @@ export async function POST(request: Request) {
       year: "numeric",
     });
 
-    try {
-      await sendRsvpConfirmation({
-        to: email.trim(),
-        name: name?.trim() || "",
-        guests: guestCount,
-        eventName: show.name,
-        eventDate,
-        eventTime: `Doors open at ${show.doorTime}`,
-        eventLocation: show.venue || show.address || `${show.city}, ${show.region}`,
-      });
-      console.log("[RSVP API] Confirmation email sent to", email.trim());
-    } catch (emailError) {
-      console.error("[RSVP API] Confirmation email failed for", email.trim(), emailError);
+    if (!isMaybe) {
+      try {
+        await sendRsvpConfirmation({
+          to: email.trim(),
+          name: name?.trim() || "",
+          guests: guestCount,
+          eventName: show.name,
+          eventDate,
+          eventTime: `Doors open at ${show.doorTime}`,
+          eventLocation: show.venue || show.address || `${show.city}, ${show.region}`,
+        });
+        console.log("[RSVP API] Confirmation email sent to", email.trim());
+      } catch (emailError) {
+        console.error("[RSVP API] Confirmation email failed for", email.trim(), emailError);
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUpcomingShows } from "../lib/shows";
 import { withPosterLines } from "../fund/legs";
+import { toRsvpShow } from "../lib/rsvp-show";
 import RSVPShell from "./RSVPShell";
 
 export default async function RSVPPage({
@@ -21,5 +22,5 @@ export default async function RSVPPage({
     redirect(`/rsvp/${rsvpable[0].slug}`);
   }
 
-  return <RSVPShell shows={shows} slug={params.submitted} />;
+  return <RSVPShell shows={shows.map(toRsvpShow)} slug={params.submitted} />;
 }

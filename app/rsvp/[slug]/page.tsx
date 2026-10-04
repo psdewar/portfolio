@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUpcomingShows } from "../../lib/shows";
 import { withPosterLines } from "../../fund/legs";
+import { toRsvpShow } from "../../lib/rsvp-show";
 import RSVPShell from "../RSVPShell";
 
 interface Props {
@@ -18,5 +19,5 @@ export default async function ShowRSVPPage({ params }: Props) {
     redirect(target.startsWith("/fund/") ? `${target}?nudge=private` : target);
   }
 
-  return <RSVPShell shows={shows} initialSlug={slug} />;
+  return <RSVPShell shows={shows.map(toRsvpShow)} initialSlug={slug} />;
 }

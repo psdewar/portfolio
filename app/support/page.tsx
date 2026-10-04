@@ -11,19 +11,7 @@ import {
   listableShows,
 } from "../lib/shows";
 import { confirmPath } from "../lib/confirm";
-
-const REGION_TZ: Record<string, string> = {
-  BC: "America/Vancouver",
-  AB: "America/Edmonton",
-  SK: "America/Regina",
-  MB: "America/Winnipeg",
-  ON: "America/Toronto",
-  QC: "America/Toronto",
-  NB: "America/Halifax",
-  NS: "America/Halifax",
-  PE: "America/Halifax",
-  NL: "America/St_Johns",
-};
+import { getCityZone } from "../lib/city-zone";
 
 function getTodayInTz(tz: string): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: tz });
@@ -49,12 +37,17 @@ export default async function SupportPage({
   const nextStop = nextShow
     ? `${nextShow.city}, ${nextShow.region}`
     : undefined;
-  const todayShow = liveShows.find((s) => {
-    if (s.country !== "CA") return false;
-    if (params.now) return params.now === s.date;
-    const tz = REGION_TZ[s.region] ?? "America/Vancouver";
-    return getTodayInTz(tz) === s.date;
-  });
+  const caShows = await Promise.all(
+    liveShows
+      .filter((s) => s.country === "CA")
+      .map(async (s) => ({
+        show: s,
+        tz: (await getCityZone(s.city, s.region, s.country)) ?? "America/Vancouver",
+      })),
+  );
+  const todayShow = caShows.find(({ show, tz }) =>
+    params.now ? params.now === show.date : getTodayInTz(tz) === show.date,
+  )?.show;
 
   return (
     <div className="bg-neutral-50 dark:bg-neutral-950">

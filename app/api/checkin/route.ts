@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { slug, email, name, website } = await request.json();
+    const { slug, email, name, phone, website } = await request.json();
 
     // Honeypot: a hidden field only bots fill, so bail without touching the DB.
     if (website) {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Check-in isn't open for this show." }, { status: 400 });
     }
 
-    const { number, rsvpd } = await markAttended({ email, name, slug: slug.trim() });
+    const { number, rsvpd } = await markAttended({ email, name, phone, slug: slug.trim() });
 
     const posthog = PostHogClient();
     posthog.capture({

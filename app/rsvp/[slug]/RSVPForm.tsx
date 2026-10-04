@@ -1,21 +1,88 @@
 "use client";
 
+import Link from "next/link";
 import { isResidence } from "../../lib/shows";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAudio } from "../../contexts/AudioContext";
+import { latestPublicTrack } from "../../data/patron-config";
 import posthog from "posthog-js";
-import { UsersIcon, MinusIcon, PlusIcon, ArrowLeftIcon, MapPinIcon } from "@phosphor-icons/react";
-import FormInput from "../../components/FormInput";
-import Poster from "../../components/Poster";
+import {
+  MinusIcon,
+  PlusIcon,
+  ArrowLeftIcon,
+  MapPinIcon,
+  CalendarBlankIcon, CalendarPlusIcon,
+  CheckSquareIcon,
+  SquareIcon,
+} from "@phosphor-icons/react";
+import ZoneGrain from "../ZoneGrain";
+import { SPLIT_QUERY, prefersReducedMotion } from "../flip";
+import ShowPoster from "../ShowPoster";
+import PosterSlot from "../PosterSlot";
+import SplitFlapText from "../../components/SplitFlapText";
 import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
 import { formatEventDateShort } from "../../lib/dates";
+import { buildIcs, downloadIcs } from "../../lib/ics";
+import { routeFormError } from "../../lib/form-errors";
 import { calculateStripeFee } from "../../api/shared/products";
-import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
-import { posterAspect } from "../../lib/poster-formats";
+
+const TYPE = {
+  display: "clamp(2.5rem, 10cqi, 6rem)",
+  lead: "clamp(1.25rem, 0.6vw + 1.1rem, 1.625rem)",
+  body: "clamp(1rem, 0.4vw + 0.9rem, 1.25rem)",
+  label: "clamp(0.8125rem, 0.3vw + 0.75rem, 1rem)",
+  value: "clamp(1.75rem, 1.5vw + 1.25rem, 2.75rem)",
+  button: "clamp(1.25rem, 0.8vw + 1rem, 1.75rem)",
+};
+
+const parseSupportDollars = (draft: string) =>
+  Math.min(10000, Math.round((parseInt(draft, 10) || 0) / 5) * 5);
+
+const ROW_CLASS =
+  "flex items-center justify-between gap-3 w-full min-w-0 py-3 border-b border-[color:var(--z-bd)] hover:border-[color:var(--z-fg)] transition-colors";
+
+function ActionRow({
+  label,
+  pill,
+  href,
+  onClick,
+}: {
+  label: string;
+  pill: string;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <span className="min-w-0 text-[color:var(--z-fg)] text-left" style={{ fontSize: TYPE.body }}>
+        {label}
+      </span>
+      <span
+        className="shrink-0 rounded-full border border-[color:var(--z-bd)] px-4 py-1.5 font-medium text-[color:var(--z-fg)]"
+        style={{ fontSize: TYPE.body }}
+      >
+        {pill}
+      </span>
+    </>
+  );
+  return href ? (
+    <Link href={href} className={ROW_CLASS}>
+      {content}
+    </Link>
+  ) : (
+    <button onClick={onClick} className={ROW_CLASS}>
+      {content}
+    </button>
+  );
+}
+
+const ADDRESS_HIDDEN_COPY = "Address on request";
 
 interface RSVPFormProps {
   eventId: string;
   date: string;
+  isPast: boolean;
   city: string;
   region: string;
   doorTime?: string | null;
@@ -30,21 +97,28 @@ interface RSVPFormProps {
   posterImg?: string | null;
   bgImg?: string | null;
   onBack?: () => void;
+  enter?: "morph" | "flap" | "none";
 }
 
 interface FormData {
   name: string;
   email: string;
+  phone: string;
   guests: number;
 }
 
 interface FormErrors {
+  name?: string;
   email?: string;
+  form?: string;
 }
+
+type RsvpStatus = "going" | "maybe";
 
 export default function RSVPForm({
   eventId,
   date,
+  isPast,
   city,
   region,
   doorTime,
@@ -59,22 +133,45 @@ export default function RSVPForm({
   posterImg,
   bgImg,
   onBack,
+  enter = "none",
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const emailInputRef = useRef<HTMLInputElement>(null);
+  const supportLabelId = useId();
+  const guestsLabelId = useId();
+  const { loadTrack } = useAudio();
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
+    phone: "",
     guests: 1,
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [mode, setMode] = useState<RsvpStatus>("going");
+  const [submittedStatus, setSubmittedStatus] = useState<RsvpStatus>("going");
+  const isMaybe = mode === "maybe";
+  const nameFieldRef = useRef<HTMLDivElement>(null);
+  const successRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef<"name" | "success" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(
     searchParams.get("test") === "success" || !!searchParams.get("session_id"),
   );
+  useEffect(() => {
+    const target = pendingScrollRef.current;
+    if (!target) return;
+    pendingScrollRef.current = null;
+    if (window.matchMedia(SPLIT_QUERY).matches) return;
+    (target === "name" ? nameFieldRef : successRef).current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [mode, submitted]);
   const defaultSupportCents = (fundDefault ?? 0) * 100;
-  const [supportCents, setSupportCents] = useState(defaultSupportCents);
+  const [committedCents, setSupportCents] = useState(defaultSupportCents);
+  const [supportDraft, setSupportDraft] = useState<string | null>(null);
+  const supportCents = supportDraft === null ? committedCents : parseSupportDollars(supportDraft) * 100;
   const [showPay, setShowPay] = useState(false);
   const [payError, setPayError] = useState("");
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
@@ -94,7 +191,7 @@ export default function RSVPForm({
   useEffect(() => {
     const isDesktop = window.matchMedia("(pointer: fine)").matches;
     if (isDesktop) {
-      emailInputRef.current?.focus();
+      nameInputRef.current?.focus({ preventScroll: true });
     }
   }, []);
 
@@ -109,6 +206,7 @@ export default function RSVPForm({
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+    if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -118,8 +216,12 @@ export default function RSVPForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    submit(mode);
+  };
+
+  const submit = async (status: RsvpStatus) => {
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -130,9 +232,11 @@ export default function RSVPForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          guests: formData.guests,
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim() || undefined,
+          guests: status === "maybe" ? 1 : formData.guests,
+          intent: status === "maybe" ? "maybe" : undefined,
           eventId,
           fbclid: searchParams.get("fbclid") || sessionStorage.getItem("fbclid") || undefined,
         }),
@@ -140,7 +244,7 @@ export default function RSVPForm({
 
       if (!res.ok) {
         const data = await res.json();
-        setErrors({ email: data.error || "Something went wrong" });
+        setErrors(routeFormError(res.status, data.error));
         return;
       }
 
@@ -151,15 +255,18 @@ export default function RSVPForm({
 
       posthog.capture("rsvp_submitted", {
         event_id: eventId,
-        guests: formData.guests,
-        paid: supportCents > 0,
-        amount_cents: supportCents,
+        guests: status === "maybe" ? 1 : formData.guests,
+        status,
+        paid: status === "going" && supportCents > 0,
+        amount_cents: status === "going" ? supportCents : 0,
       });
 
+      setSubmittedStatus(status);
+      pendingScrollRef.current = "success";
       setSubmitted(true);
-      if (supportCents > 0) setShowPay(true);
+      if (status === "going" && supportCents > 0) setShowPay(true);
     } catch {
-      setErrors({ email: "Failed to submit. Please try again." });
+      setErrors({ form: "Failed to submit. Please try again." });
     } finally {
       setIsLoading(false);
     }
@@ -234,146 +341,324 @@ export default function RSVPForm({
   });
 
   const dateLabel = formatEventDateShort(date);
-  const showAddress = Boolean(address) && !isResidence({ venue: venue ?? null, address: address ?? null });
+  const residence = isResidence({ venue: venue ?? null, address: address ?? null });
+  const showAddress = Boolean(address) && !residence;
+  const publicVenue = residence ? venueLabel || null : venueLabel || venue || null;
   const addressLine = showAddress ? `${address}, ${city}, ${region}` : null;
-  const mapsHref = addressLine
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
-    : null;
-  const navLabel = [eventName, venueLabel || venue].filter(Boolean).join(", ") || address || null;
   const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);
+  const addToCalendar = () =>
+    downloadIcs(
+      `${eventId}.ics`,
+      buildIcs({
+        uid: `${eventId}@peytspencer.com`,
+        title: `${eventName || "From The Ground Up"}, ${city}`,
+        date,
+        doorTime,
+        location: [publicVenue, addressLine].filter(Boolean).join(", ") || `${city}, ${region}`,
+        url: `https://peytspencer.com/rsvp/${eventId}`,
+      }),
+    );
   const poster = (
-    <Poster
-      date={date}
-      city={city}
-      region={region}
-      doorTime={doorTime ?? undefined}
-      doorLabel={doorLabel}
-      venue={venue}
-      venueLabel={venueLabel}
-      address={address}
-      tags={tags ?? PAY_WHAT_YOU_WANT_TAG}
-      posterLine={posterLine}
-      posterImg={posterImg ?? undefined}
-      bgImg={bgImg ?? undefined}
+    <ShowPoster
+      fill
+      show={{ date, city, region, doorTime, doorLabel, venue: residence ? null : venue, venueLabel, address: residence ? null : address, tags, posterLine, posterImg, bgImg }}
     />
   );
 
+  const pillText = { fontSize: TYPE.body };
+  const parkinsans = { fontFamily: '"Parkinsans", sans-serif' };
+  const gutter = "mx-auto w-[calc(100%-2*var(--g))] max-w-md split:mx-0 split:w-full split:max-w-none split:pr-[clamp(1.5rem,3vw,3rem)]";
+
   const backButton = onBack && (
-    <button
-      onClick={onBack}
-      className="inline-flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white -mt-6 pt-6 pb-6 -ml-3 pl-3 pr-4 text-sm lg:text-lg"
-    >
-      <ArrowLeftIcon size={20} weight="bold" />
-      All shows
-    </button>
+    <div className="relative z-[1] order-1 hidden split:block split:pt-6 split:w-full split:pr-[clamp(1.5rem,3vw,3rem)]">
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--z-pill)] hover:bg-[var(--z-pill-h)] ring-1 ring-inset ring-[color:var(--z-pillbd)] transition-colors px-4 py-1.5 font-semibold text-[color:var(--z-pillfg)]"
+        style={pillText}
+      >
+        <ArrowLeftIcon size="1.1em" weight="bold" />
+        All shows
+      </button>
+    </div>
   );
 
   function submitLabel(): string {
     if (isLoading) return "Reserving...";
-    return "I'll Be There";
+    return isMaybe ? "Keep me posted" : "I'll Be There";
   }
 
-  const adjustSupport = (deltaCents: number) => setSupportCents((c) => Math.max(0, c + deltaCents));
+  const adjustSupport = (deltaCents: number) => {
+    setSupportCents(Math.max(0, supportCents + deltaCents));
+    setSupportDraft(null);
+  };
+  const commitSupportDraft = () => {
+    if (supportDraft === null) return;
+    setSupportCents(supportCents);
+    setSupportDraft(null);
+  };
 
-  const supportSection = (
-    <>
-      <div>
-        <label className="block text-neutral-600 dark:text-neutral-300 text-sm lg:text-lg mb-2">
-          Fund my tour across North America
-        </label>
-        <div className="flex items-stretch h-14 lg:h-[4.5rem]">
-          <button
-            type="button"
-            {...repeatProps(() => adjustSupport(-500))}
-            disabled={supportCents <= 0}
-            className="flex-[2] rounded-l-lg lg:rounded-l-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
-            aria-label="Decrease support by $5"
+  const labelClass =
+    "block text-neutral-500 dark:text-neutral-400";
+  const labelStyle = {
+    fontSize: TYPE.body,
+    lineHeight: 1.5,
+    marginBottom: `max(0px, calc(clamp(0.375rem, 0.5vw, 0.625rem) + round(down, 1.5 * ${TYPE.label}, 1px) - 1.5 * ${TYPE.body}))`,
+  };
+  const fieldClass =
+    "w-full bg-transparent border-b border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-neutral-900 dark:focus:border-white pb-2 text-neutral-900 dark:text-white";
+
+  const stepBtn =
+    "flex-1 min-w-0 self-stretch flex items-center px-2 touch-manipulation text-neutral-700 dark:text-neutral-200 [@media(hover:hover)]:hover:text-neutral-900 dark:[@media(hover:hover)]:hover:text-white active:bg-neutral-900/5 dark:active:bg-white/10 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:active:bg-transparent disabled:cursor-not-allowed transition-colors select-none";
+
+  const renderStepper = ({
+    value,
+    center,
+    onMinus,
+    onPlus,
+    minusDisabled,
+    plusDisabled,
+    minusLabel,
+    plusLabel,
+  }: {
+    value: string | number;
+    center?: React.ReactNode;
+    onMinus: () => void;
+    onPlus: () => void;
+    minusDisabled?: boolean;
+    plusDisabled?: boolean;
+    minusLabel: string;
+    plusLabel: string;
+  }) => (
+    <div className="[container-type:inline-size] border-b border-neutral-300 dark:border-neutral-700 focus-within:border-neutral-900 dark:focus-within:border-white transition-colors">
+    <div className="flex items-stretch h-[clamp(3.5rem,2.5vw+2.5rem,4.25rem)]">
+      <button
+        type="button"
+        {...repeatProps(onMinus)}
+        disabled={minusDisabled}
+        className={`${stepBtn} justify-start`}
+        aria-label={minusLabel}
+      >
+        <MinusIcon size="1.5rem" weight="bold" />
+      </button>
+      {center ?? (
+        <div className="shrink-0 flex items-center justify-center px-2 pointer-events-none select-none">
+          <span
+            className="text-neutral-900 dark:text-white tabular-nums font-bold"
+            style={{ fontSize: TYPE.value }}
           >
-            <MinusIcon className="w-5 h-5 lg:w-6 lg:h-6" weight="bold" />
-          </button>
-          <div className="flex-[4] flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
-            <span className="font-bebas text-2xl lg:text-4xl text-neutral-900 dark:text-white tabular-nums">
-              {formatCents(supportCents)}
-            </span>
-          </div>
-          <button
-            type="button"
-            {...repeatProps(() => adjustSupport(500))}
-            className="flex-[2] rounded-r-lg lg:rounded-r-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors select-none"
-            aria-label="Increase support by $5"
-          >
-            <PlusIcon className="w-5 h-5 lg:w-6 lg:h-6" weight="bold" />
-          </button>
+            {value}
+          </span>
         </div>
-        <p
-          className="mt-1.5 text-xs lg:text-sm text-neutral-500 dark:text-neutral-400 tabular-nums"
-          style={{ fontFamily: '"Space Mono", monospace' }}
-        >
-          {supportCents > 0 ? "no fees with Venmo or Zelle" : "no charges"}
-        </p>
-      </div>
-      <div className="flex items-center gap-3 text-xs lg:text-sm uppercase tracking-wider text-neutral-400 dark:text-neutral-500 select-none">
-        <span className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
-        <span style={{ fontFamily: '"Space Mono", monospace' }}>or</span>
-        <span className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
-      </div>
-      <label className="flex items-center gap-2 w-full px-3 py-3 rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors text-sm lg:text-lg text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={supportCents === 0}
-          onChange={(e) => setSupportCents(e.target.checked ? 0 : defaultSupportCents || 2000)}
-          className="w-4 h-4 lg:w-5 lg:h-5 rounded accent-[#d4a553]"
-        />
-        <span>Walk in for free</span>
-      </label>
-    </>
+      )}
+      <button
+        type="button"
+        {...repeatProps(onPlus)}
+        disabled={plusDisabled}
+        className={`${stepBtn} justify-end`}
+        aria-label={plusLabel}
+      >
+        <PlusIcon size="1.5rem" weight="bold" />
+      </button>
+    </div>
+    </div>
+  );
+
+  const walkInFree = supportCents === 0;
+  const supportGroup = (
+    <div role="group" aria-labelledby={supportLabelId} className="min-w-0">
+      <span id={supportLabelId} className={labelClass} style={labelStyle}>
+        Fund my tour across North America
+      </span>
+      {renderStepper({
+        value: formatCents(supportCents),
+        center: (
+          <div
+            className="shrink-0 inline-flex items-center justify-center gap-0 px-2 text-neutral-900 dark:text-white font-bold"
+            style={{ fontSize: TYPE.value }}
+          >
+            <span aria-hidden="true">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label="Support amount in dollars"
+              value={supportDraft ?? String(Math.round(supportCents / 100))}
+              onChange={(e) => setSupportDraft(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              onFocus={(e) => e.target.select()}
+              onBlur={commitSupportDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitSupportDraft();
+                }
+              }}
+              className="bg-transparent p-0 text-left tabular-nums font-bold focus:outline-none"
+              style={{ fontSize: "inherit", width: `${Math.max(1, (supportDraft ?? String(Math.round(supportCents / 100))).length) * 1.12}ch` }}
+            />
+          </div>
+        ),
+        onMinus: () => adjustSupport(-500),
+        onPlus: () => adjustSupport(500),
+        minusDisabled: supportCents <= 0,
+        minusLabel: "Decrease support by $5",
+        plusLabel: "Increase support by $5",
+      })}
+      <p className="mt-2 text-neutral-500 dark:text-neutral-400 tabular-nums" style={pillText}>
+        {supportCents > 0 ? "no fees with Venmo or Zelle" : "no charges"}
+      </p>
+    </div>
+  );
+  const walkInButton = (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={walkInFree}
+      onClick={() => setSupportCents(walkInFree ? defaultSupportCents || 2000 : 0)}
+      className="relative before:absolute before:inset-x-0 before:-inset-y-1 w-full flex items-center gap-3 py-1.5 text-left text-neutral-700 dark:text-neutral-300 select-none"
+      style={pillText}
+    >
+      {walkInFree ? (
+        <CheckSquareIcon size="1.5em" weight="fill" className="shrink-0 text-neutral-900 dark:text-white" />
+      ) : (
+        <SquareIcon size="1.5em" className="shrink-0 text-neutral-400" />
+      )}
+      <span>Walk in for free</span>
+    </button>
   );
 
   const rsvpLink = `peytspencer.com/rsvp/${eventId}`;
   const [linkCopied, setLinkCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const copyRsvpLink = () =>
-    navigator.clipboard.writeText(rsvpLink).then(() => {
-      setLinkCopied(true);
-      clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
-    });
+  const [showLinkInput, setShowLinkInput] = useState(false);
 
-  const successContent = (size: "sm" | "lg") => (
-    <div className={size === "lg" ? "space-y-8" : "space-y-6"}>
+  const markCopied = () => {
+    setLinkCopied(true);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const copyRsvpLink = async () => {
+    try {
+      await navigator.clipboard.writeText(rsvpLink);
+      markCopied();
+    } catch {
+      if (typeof navigator.share === "function") {
+        navigator.share({ url: `https://${rsvpLink}` }).catch(() => {});
+      } else {
+        setShowLinkInput(true);
+      }
+    }
+  };
+
+  const calendarButton = (
+    <button
+      type="button"
+      onClick={addToCalendar}
+      className="inline-flex items-center gap-1.5 rounded-full bg-[var(--z-pill)] hover:bg-[var(--z-pill-h)] ring-1 ring-inset ring-[color:var(--z-pillbd)] transition-colors px-4 py-1.5 font-semibold text-[color:var(--z-pillfg)]"
+      style={pillText}
+    >
+      <CalendarPlusIcon size="1.1em" weight="bold" aria-hidden="true" />
+      Add to calendar
+    </button>
+  );
+
+  const shareLink = (
+    <>
+      <ActionRow label="Share this RSVP with a friend" pill={linkCopied ? "Copied" : "Copy link"} onClick={copyRsvpLink} />
+      {showLinkInput && (
+        <input
+          readOnly
+          aria-label="RSVP link"
+          value={rsvpLink}
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          className={`${fieldClass} mt-3`}
+          style={pillText}
+        />
+      )}
+    </>
+  );
+
+  const playLatestTrack = () => {
+    const t = latestPublicTrack();
+    if (!t) {
+      router.push("/listen");
+      return;
+    }
+    loadTrack(
+      { id: t.id, title: t.title, artist: t.artist, src: t.audioUrl, thumbnail: t.thumbnail, duration: t.duration },
+      true,
+    );
+    router.push(`/listen?play=${t.id}`);
+  };
+
+  const listenLink = <ActionRow label={`Hear my songs before ${city}`} pill="Listen" onClick={playLatestTrack} />;
+
+  const goingSuccess = (
+    <div ref={successRef} className="scroll-mt-4 space-y-6">
       <div>
         <h2
-          className={`font-extrabold uppercase leading-none ${size === "lg" ? "text-4xl" : "text-2xl"} text-neutral-900 dark:text-white`}
-          style={{ fontFamily: '"Parkinsans", sans-serif' }}
+          className="font-extrabold uppercase leading-none text-[color:var(--z-fg)]"
+          style={{ ...parkinsans, fontSize: "clamp(2rem, 6cqi, 3rem)" }}
         >
           YOU'RE LOCKED IN
         </h2>
-        <p
-          className={`text-neutral-500 dark:text-neutral-400 uppercase tracking-wider ${size === "lg" ? "text-sm mt-3" : "text-xs mt-2"}`}
-          style={{ fontFamily: '"Space Mono", monospace' }}
-        >
+        <p className="text-[color:var(--z-fg3)] mt-3 leading-snug" style={{ fontSize: TYPE.body }}>
           I sent my 2025 Singles & 16s Pack to your inbox as a thank you.
         </p>
       </div>
-      <button
-        onClick={copyRsvpLink}
-        className={`flex items-center justify-between w-full ${size === "lg" ? "px-6 py-5" : "px-5 py-4"} rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#d4a553] dark:hover:border-[#e0b860] transition-colors`}
-      >
-        <span
-          className={`${size === "lg" ? "text-lg" : "text-base"} font-medium text-neutral-900 dark:text-white`}
-        >
-          Share this RSVP with a friend
-        </span>
-        <span className="text-sm font-medium" style={{ color: "#d4a553" }}>
-          {linkCopied ? "Copied" : "Copy link"}
-        </span>
-      </button>
+      {calendarButton}
+      <div>
+        {listenLink}
+        {shareLink}
+      </div>
     </div>
   );
 
+  const maybeSuccess = (
+    <div ref={successRef} className="scroll-mt-4 space-y-6">
+      <div>
+        <h2
+          className="font-extrabold uppercase leading-none text-[color:var(--z-fg)]"
+          style={{ ...parkinsans, fontSize: "clamp(2rem, 6cqi, 3rem)" }}
+        >
+          You're in.
+        </h2>
+        <p className="text-[color:var(--z-fg3)] mt-3 leading-snug" style={{ fontSize: TYPE.body }}>
+          You'll hear from me before {city}.
+        </p>
+      </div>
+      {calendarButton}
+      {shareLink}
+    </div>
+  );
+
+  const successContent = submittedStatus === "maybe" ? maybeSuccess : goingSuccess;
+
+  const buildClass = enter === "morph" ? "rsvp-build" : "";
+  const buildStyle = (i: number) => (enter === "morph" ? ({ "--i": i } as React.CSSProperties) : undefined);
+  const infoPrimary = "block font-semibold text-[color:var(--z-fg)] break-words leading-snug";
+  const infoPrimaryStyle = { fontSize: TYPE.lead };
+  const infoSecondaryStyle = { fontSize: TYPE.body };
+  const infoRow = "flex items-start gap-3 min-w-0";
+  const iconBox = "shrink-0 flex items-center h-[1lh] leading-snug text-[color:var(--z-ico)]";
+  const iconSize = "1.35em";
+  const dateRowText = (
+    <>
+      <span className={infoPrimary} style={infoPrimaryStyle}>
+        {dateLabel}
+      </span>
+      {doorDisplayLabel && (
+        <span className="block text-[color:var(--z-fg3)]" style={infoSecondaryStyle}>
+          {doorDisplayLabel}
+        </span>
+      )}
+    </>
+  );
+
   return (
-    <div className="fixed inset-x-0 top-14 bottom-0 bg-white dark:bg-neutral-950 overflow-hidden">
+    <div className="rsvp-root fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible">
       {showPay && (
         <PaymentModal
           venmoUrl={venmoPayUrl(supportCents / 100, `Concert support ${city}`)}
@@ -385,259 +670,199 @@ export default function RSVPForm({
           onClose={() => setShowPay(false)}
         />
       )}
-      {/* Mobile layout */}
-      <div className="lg:hidden flex flex-col h-full overflow-y-auto touch-pan-y">
-        <div className="px-4 sm:px-6 py-8">
-          {backButton}
 
-          {submitted ? (
-            successContent("sm")
-          ) : (
-            <>
-              <div className="mb-6">
-                <h1
-                  className="mb-2 font-extrabold uppercase leading-none"
-                  style={{ fontFamily: '"Parkinsans", sans-serif' }}
-                >
-                  <span
-                    className="block text-base md:text-lg font-semibold tracking-widest"
-                    style={{ color: "#d4a553" }}
-                  >
-                    See you in
-                  </span>
-                  <span
-                    className="block text-4xl text-neutral-900 dark:text-white"
-                    style={{ animation: "rsvp-rise 0.6s cubic-bezier(0.32, 0.72, 0, 1) both" }}
-                  >
-                    {city}
-                  </span>
-                </h1>
-                <div className="space-y-1.5">
-                  <p
-                    className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                    style={{ fontFamily: '"Space Mono", monospace' }}
-                  >
-                    {dateLabel}
-                    {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
-                  </p>
-                  {navLabel && (
-                    <p
-                      className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                      style={{ fontFamily: '"Space Mono", monospace' }}
-                    >
-                      {navLabel}
-                    </p>
-                  )}
-                  {addressLine && mapsHref && (
-                    <a
-                      href={mapsHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                      style={{ fontFamily: '"Space Mono", monospace' }}
-                    >
-                      <MapPinIcon size={16} weight="bold" aria-hidden="true" />
-                      {addressLine}
-                    </a>
-                  )}
-                </div>
-              </div>
+      <ZoneGrain />
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <FormInput
-                  ref={emailInputRef}
-                  type="email"
-                  placeholder="Email address *"
-                  value={formData.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  error={errors.email}
-                  variant="gold"
-                  enterKeyHint="next"
-                  autoComplete="email"
-                />
-                <FormInput
-                  type="text"
-                  placeholder="Name"
-                  value={formData.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  variant="gold"
-                  enterKeyHint="done"
-                  autoComplete="name"
-                />
-
-                <div>
-                  <label className="block text-neutral-600 dark:text-neutral-300 text-sm mb-2">
-                    How many people? *
-                  </label>
-                  <div className="flex items-stretch h-14">
-                    <button
-                      type="button"
-                      {...repeatProps(() => adjustGuests(-1))}
-                      disabled={formData.guests <= 1}
-                      className="flex-[2] rounded-l-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
-                    >
-                      <MinusIcon className="w-5 h-5" weight="bold" />
-                    </button>
-                    <div className="flex-[4] flex items-center justify-center gap-2 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
-                      <UsersIcon className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />
-                      <span className="font-bebas text-2xl text-neutral-900 dark:text-white tabular-nums">
-                        {formData.guests}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      {...repeatProps(() => adjustGuests(1))}
-                      disabled={formData.guests >= 10}
-                      className="flex-[2] rounded-r-lg border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
-                    >
-                      <PlusIcon className="w-5 h-5" weight="bold" />
-                    </button>
-                  </div>
-                </div>
-
-                {supportSection}
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-4 text-[#0a0a0a] font-medium text-lg rounded-lg tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] dark:shadow-[4px_4px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] dark:hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a] dark:disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
-                  style={{ background: "#d4a553" }}
-                >
-                  {submitLabel()}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-        <div className="flex-shrink-0 touch-pan-y">{poster}</div>
-      </div>
-
-      {/* Desktop layout */}
-      <div className="hidden lg:flex absolute inset-0 right-4 gap-8">
-        <div className="h-full flex-shrink-0" style={{ aspectRatio: posterAspect() }}>{poster}</div>
+      <div className="relative h-full overflow-y-auto touch-pan-y flex flex-col split:flex-row-reverse split:h-auto split:min-h-[calc(100dvh-var(--header-h,65px))] split:overflow-visible [--g:clamp(1rem,4vw,1.5rem)] split:mx-auto split:max-w-7xl split:px-8">
         <div
-          className="flex-1 min-w-0 flex flex-col px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto @container"
-          style={{ paddingBottom: "max(2rem, var(--player-h, 0px))" }}
+          data-detail-poster className={`relative z-[1] hidden split:block split:sticky split:top-[var(--header-h,65px)] split:self-start split:h-[calc(100dvh-var(--header-h,65px))] split:flex-1 split:min-w-0 overflow-hidden ${enter === "morph" ? "split:rsvp-build" : ""}`}
+          style={buildStyle(0)}
         >
+          {poster}
+        </div>
+        <PosterSlot className="order-3 mt-auto" />
+
+        <div className="contents split:relative split:flex split:flex-col split:flex-[0_1_calc(28rem+clamp(1.5rem,3vw,3rem))] split:min-w-0">
           {backButton}
 
-          {submitted ? (
-            successContent("lg")
-          ) : (
-            <>
-              <div className="mb-6">
-                <h1
-                  className="mb-2 font-extrabold uppercase leading-none"
-                  style={{ fontFamily: '"Parkinsans", sans-serif' }}
-                >
-                  <span
-                    className="block text-xl font-semibold tracking-widest"
-                    style={{ color: "#d4a553" }}
-                  >
-                    See you in
-                  </span>
-                  <span
-                    className="block text-6xl text-neutral-900 dark:text-white"
-                    style={{ animation: "rsvp-rise 0.6s cubic-bezier(0.32, 0.72, 0, 1) both" }}
-                  >
-                    {city}
-                  </span>
-                </h1>
-                <div className="space-y-1.5">
-                  <p
-                    className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                    style={{ fontFamily: '"Space Mono", monospace' }}
-                  >
-                    {dateLabel}
-                    {doorDisplayLabel ? ` · ${doorDisplayLabel}` : ""}
-                  </p>
-                  {navLabel && (
-                    <p
-                      className="text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                      style={{ fontFamily: '"Space Mono", monospace' }}
+          <div
+            className={`relative z-[1] order-1 split:order-3 [container-type:inline-size] pt-6 split:pt-4 min-w-0 ${gutter} ${submitted ? "pb-8 split:pb-[max(2rem,var(--player-h,0px))]" : ""}`}
+          >
+            {submitted ? (
+              successContent
+            ) : (
+              <div className="space-y-[clamp(1.25rem,2vw,2rem)] split:pb-6">
+                <div className="relative">
+                  <h1 className="font-extrabold leading-none">
+                    <span
+                      className={`block font-normal mb-1 text-[color:var(--z-fg2)] `}
+                      style={{ fontSize: TYPE.lead }}
                     >
-                      {navLabel}
-                    </p>
-                  )}
-                  {addressLine && mapsHref && (
-                    <a
-                      href={mapsHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-neutral-900 dark:text-white text-xs md:text-sm uppercase tracking-wider"
-                      style={{ fontFamily: '"Space Mono", monospace' }}
+                      {isPast ? "Thank you," : "See you in"}
+                    </span>
+                    <span className="block break-words leading-[0.95]">
+                      <span
+                        data-flip-city
+                        className="inline-block text-[color:var(--z-fg)] split:![font-size:clamp(2.5rem,12.3cqi,3.45rem)]"
+                        style={{ ...parkinsans, fontSize: TYPE.display }}
+                      >
+                        <SplitFlapText text={city} active={enter === "flap"} />
+                      </span>
+                    </span>
+                    <span aria-hidden="true" className="rsvp-hair mt-3 h-px w-full max-w-[9rem]" />
+                  </h1>
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="split:hidden absolute right-0 h-9 before:absolute before:-inset-x-1.5 before:-inset-y-1 inline-flex items-center gap-1.5 rounded-full bg-[var(--z-pill)] hover:bg-[var(--z-pill-h)] ring-1 ring-inset ring-[color:var(--z-pillbd)] transition-colors px-4 py-1.5 font-semibold text-[color:var(--z-pillfg)]"
+                      style={{ top: `calc((${TYPE.lead} - 2.25rem) / 2)`, fontSize: TYPE.body }}
                     >
-                      <MapPinIcon size={16} weight="bold" aria-hidden="true" />
-                      {addressLine}
-                    </a>
+                      <ArrowLeftIcon size="1.1em" weight="bold" aria-hidden="true" />
+                      All shows
+                    </button>
                   )}
                 </div>
+
+                <ul className="space-y-[clamp(0.875rem,1.5vw,1.25rem)]">
+                  <li className={`${infoRow} ${buildClass}`} style={buildStyle(1)}>
+                    <span className={iconBox} style={infoPrimaryStyle}><CalendarBlankIcon size={iconSize} weight="bold" aria-hidden="true" /></span>
+                    <div className="flex-1 min-w-0 whitespace-nowrap">{dateRowText}</div>
+                  </li>
+                  <li className={`${infoRow} ${buildClass}`} style={buildStyle(2)}>
+                    <span className={iconBox} style={infoPrimaryStyle}><MapPinIcon size={iconSize} weight="bold" aria-hidden="true" /></span>
+                    <span className="flex-1 min-w-0 flex items-center min-h-[1lh] leading-snug" style={infoPrimaryStyle}>
+                      {addressLine ? (
+                        <span className="block font-semibold break-words leading-snug">{addressLine}</span>
+                      ) : (
+                        <span className="block font-semibold text-[color:var(--z-fg3)] leading-snug">
+                          {ADDRESS_HIDDEN_COPY}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                </ul>
               </div>
+            )}
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <FormInput
-                  ref={emailInputRef}
-                  type="email"
-                  placeholder="Email address *"
-                  value={formData.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  error={errors.email}
-                  variant="gold"
-                  enterKeyHint="next"
-                  autoComplete="email"
-                />
-                <FormInput
-                  type="text"
-                  placeholder="Name"
-                  value={formData.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  variant="gold"
-                  enterKeyHint="done"
-                  autoComplete="name"
-                />
-
-                <div>
-                  <label className="block text-neutral-600 dark:text-neutral-300 text-lg mb-2">
-                    How many people? *
-                  </label>
-                  <div className="flex items-stretch h-[4.5rem]">
-                    <button
-                      type="button"
-                      {...repeatProps(() => adjustGuests(-1))}
-                      disabled={formData.guests <= 1}
-                      className="flex-[2] rounded-l-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
+          {!submitted && (
+            <div className={`relative z-[1] order-2 split:order-4 [container-type:inline-size] w-full min-w-0 ${buildClass}`} style={buildStyle(3)}>
+              {isPast ? (
+                <div className="w-full px-[var(--g)] split:pl-0 split:pr-[clamp(1.5rem,3vw,3rem)] pt-[clamp(1.25rem,3cqi,2.5rem)] pb-8 split:pb-[max(2rem,var(--player-h,0px))]">
+                  <div className="mx-auto split:mx-0 w-full max-w-md split:max-w-none">
+                    <Link
+                      href="/moments"
+                      className="flex items-center justify-center w-full h-[clamp(3.5rem,3vw+2.5rem,4.75rem)] text-[#0a0a0a] font-semibold border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] split:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
+                      style={{ ...parkinsans, background: "#d4a553", fontSize: TYPE.button }}
                     >
-                      <MinusIcon className="w-6 h-6" weight="bold" />
-                    </button>
-                    <div className="flex-[4] flex items-center justify-center gap-3 bg-neutral-100 dark:bg-neutral-800 border-y-2 border-neutral-200 dark:border-neutral-700">
-                      <UsersIcon className="w-7 h-7 text-neutral-500 dark:text-neutral-400" />
-                      <span className="font-bebas text-4xl text-neutral-900 dark:text-white tabular-nums">
-                        {formData.guests}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      {...repeatProps(() => adjustGuests(1))}
-                      disabled={formData.guests >= 10}
-                      className="flex-[2] rounded-r-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 disabled:text-neutral-300 dark:disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors select-none"
-                    >
-                      <PlusIcon className="w-6 h-6" weight="bold" />
-                    </button>
+                      See the moments
+                    </Link>
                   </div>
                 </div>
-
-                {supportSection}
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-[4.5rem] text-[#0a0a0a] font-medium text-2xl rounded-xl tabular-nums border-2 border-neutral-900 shadow-[6px_6px_0_#0a0a0a] dark:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0a0a0a] dark:hover:shadow-[3px_3px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[6px_6px_0_#0a0a0a] dark:disabled:hover:shadow-[6px_6px_0_#0a0a0a]"
-                  style={{ background: "#d4a553" }}
+              ) : (
+                <form
+                  id="rsvp-form"
+                  onSubmit={handleSubmit}
+                  noValidate
+                  className="w-full px-[var(--g)] split:pl-0 split:pr-[clamp(1.5rem,3vw,3rem)] pt-[clamp(1.25rem,3cqi,2.5rem)] pb-8 split:pb-[max(2rem,var(--player-h,0px))]"
                 >
-                  {submitLabel()}
-                </button>
-              </form>
-            </>
+                  <div className="mx-auto split:mx-0 w-full max-w-md split:max-w-none space-y-[clamp(1.25rem,2vw,2rem)]">
+                    <div ref={nameFieldRef} className="scroll-mt-4">
+                      <label htmlFor="rsvp-name" className={labelClass} style={labelStyle}>
+                        Name *
+                      </label>
+                      <input
+                        id="rsvp-name"
+                        ref={nameInputRef}
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => updateField("name", e.target.value)}
+                        enterKeyHint="next"
+                        autoComplete="name"
+                        className={`${fieldClass} ${errors.name ? "!border-red-500" : ""}`}
+                        style={pillText}
+                      />
+                      {errors.name && <p className="text-red-500 mt-1" style={{ fontSize: TYPE.body }}>{errors.name}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="rsvp-email" className={labelClass} style={labelStyle}>
+                        Email address *
+                      </label>
+                      <input
+                        id="rsvp-email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => updateField("email", e.target.value)}
+                        enterKeyHint="next"
+                        autoComplete="email"
+                        className={`${fieldClass} ${errors.email ? "!border-red-500" : ""}`}
+                        style={pillText}
+                      />
+                      {errors.email && <p className="text-red-500 mt-1" style={{ fontSize: TYPE.body }}>{errors.email}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="rsvp-phone" className={labelClass} style={labelStyle}>
+                        Phone
+                      </label>
+                      <input
+                        id="rsvp-phone"
+                        type="tel"
+                        inputMode="tel"
+                        value={formData.phone}
+                        onChange={(e) => updateField("phone", e.target.value)}
+                        enterKeyHint="done"
+                        autoComplete="tel"
+                        className={fieldClass}
+                        style={pillText}
+                      />
+                    </div>
+
+                    {!isMaybe && (
+                      <>
+                        <div role="group" aria-labelledby={guestsLabelId} className="min-w-0">
+                          <span id={guestsLabelId} className={labelClass} style={labelStyle}>
+                            How many people? *
+                          </span>
+                          {renderStepper({
+                            value: formData.guests,
+                            onMinus: () => adjustGuests(-1),
+                            onPlus: () => adjustGuests(1),
+                            minusDisabled: formData.guests <= 1,
+                            plusDisabled: formData.guests >= 10,
+                            minusLabel: "Decrease guests",
+                            plusLabel: "Increase guests",
+                          })}
+                        </div>
+                        {supportGroup}
+                        {walkInButton}
+                      </>
+                    )}
+
+                    {errors.form && <p className="text-red-500" style={{ fontSize: TYPE.body }}>{errors.form}</p>}
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full h-[clamp(3.5rem,3vw+2.5rem,4.75rem)] text-[#0a0a0a] font-semibold tabular-nums border-2 border-neutral-900 shadow-[4px_4px_0_#0a0a0a] split:shadow-[6px_6px_0_#0a0a0a] transition-[transform,box-shadow] duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#0a0a0a]"
+                      style={{ ...parkinsans, background: "#d4a553", fontSize: TYPE.button }}
+                    >
+                      {submitLabel()}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pendingScrollRef.current = isMaybe ? null : "name";
+                        setMode(isMaybe ? "going" : "maybe");
+                      }}
+                      className="!mt-3 mx-auto flex w-fit min-h-11 items-center px-3 text-neutral-500 dark:text-neutral-400 [@media(hover:hover)]:hover:text-neutral-900 dark:[@media(hover:hover)]:hover:text-[color:var(--z-fg)] transition-colors"
+                      style={pillText}
+                    >
+                      <span className="underline underline-offset-4">{isMaybe ? "I'll be there" : "Interested, keep me posted"}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           )}
         </div>
       </div>

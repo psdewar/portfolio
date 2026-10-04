@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getShowBySlug, isShowUpcoming } from "../../lib/shows";
+import { getShowBySlug, isResidence, isShowUpcoming } from "../../lib/shows";
 import { musicEventSchema } from "../../lib/schema";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
 
@@ -51,7 +51,7 @@ export default async function ShowRSVPLayout({ params, children }: Props) {
     name: `${show.name} - A Concert by Peyt Spencer`,
     date: show.date,
     doorTime: show.doorTime,
-    venueName: show.venue || `${show.city}, ${show.region}`,
+    venueName: (isResidence(show) || show.visibility === "private" ? show.venueLabel : show.venue || show.venueLabel) || `${show.city}, ${show.region}`,
     city: show.city,
     region: show.region,
     country: show.country,
