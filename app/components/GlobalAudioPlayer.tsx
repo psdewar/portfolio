@@ -8,8 +8,8 @@ import {
   PauseIcon,
   ArrowRightIcon,
   CaretUpIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
+  SkipBackIcon,
+  SkipForwardIcon,
   CopyrightIcon,
 } from "@phosphor-icons/react";
 import { TRACK_DATA } from "../data/tracks";
@@ -251,7 +251,7 @@ export const GlobalAudioPlayer: React.FC = () => {
               aria-label="Previous track"
               className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
             >
-              <CaretLeftIcon size={20} weight="bold" />
+              <SkipBackIcon size={20} weight="fill" />
             </button>
             <button
               type="button"
@@ -259,7 +259,7 @@ export const GlobalAudioPlayer: React.FC = () => {
               aria-label="Next track"
               className={`w-12 flex items-center justify-center text-neutral-900 dark:text-white ${ROW_BTN}`}
             >
-              <CaretRightIcon size={20} weight="bold" />
+              <SkipForwardIcon size={20} weight="fill" />
             </button>
           </div>
 

@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
-import { getShows, isShowUpcoming } from "../../lib/shows";
+import { getShows, isShowUpcoming, publicVenueName } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
 import { upsertIdentity } from "../../lib/identity";
@@ -119,6 +119,12 @@ export async function POST(request: Request) {
       year: "numeric",
     });
 
+    const cityRegion = `${show.city}, ${show.region}`;
+    const venueName = publicVenueName(show);
+    const eventLocation = show.address
+      ? [venueName, `${show.address}, ${cityRegion}`].filter(Boolean).join(", ")
+      : venueName || cityRegion;
+
     if (!isMaybe) {
       try {
         await sendRsvpConfirmation({
@@ -128,7 +134,7 @@ export async function POST(request: Request) {
           eventName: show.name,
           eventDate,
           eventTime: `Doors open at ${show.doorTime}`,
-          eventLocation: show.venue || show.address || `${show.city}, ${show.region}`,
+          eventLocation,
         });
         console.log("[RSVP API] Confirmation email sent to", email.trim());
       } catch (emailError) {

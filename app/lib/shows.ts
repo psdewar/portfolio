@@ -162,6 +162,10 @@ export function isResidence(show: Pick<Show, "venue" | "address">): boolean {
   return !!num && (show.address ?? "").trim().startsWith(num);
 }
 
+export function publicVenueName(show: Pick<Show, "venue" | "address"> & { venueLabel?: string | null }): string | null {
+  return isResidence(show) ? show.venueLabel || null : show.venueLabel || show.venue || null;
+}
+
 export function needsHostLocation(show: { city?: string | null; region?: string | null }): boolean {
   return !show.city?.trim() || !show.region?.trim();
 }

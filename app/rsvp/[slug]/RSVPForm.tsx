@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { isResidence } from "../../lib/shows";
+import { isResidence, publicVenueName } from "../../lib/shows";
 import { useState, useEffect, useRef, useCallback, useId } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAudio } from "../../contexts/AudioContext";
-import { latestPublicTrack } from "../../data/patron-config";
+import { TRACK_DATA } from "../../data/tracks";
 import posthog from "posthog-js";
 import {
   MinusIcon,
   PlusIcon,
   ArrowLeftIcon,
   MapPinIcon,
-  CalendarBlankIcon, CalendarPlusIcon,
+  CalendarBlankIcon,
   CheckSquareIcon,
   SquareIcon,
 } from "@phosphor-icons/react";
@@ -40,29 +40,38 @@ const parseSupportDollars = (draft: string) =>
   Math.min(10000, Math.round((parseInt(draft, 10) || 0) / 5) * 5);
 
 const ROW_CLASS =
-  "flex items-center justify-between gap-3 w-full min-w-0 py-3 border-b border-[color:var(--z-bd)] hover:border-[color:var(--z-fg)] transition-colors";
+  "group flex items-center justify-between gap-3 w-full min-w-0";
 
 function ActionRow({
   label,
   pill,
+  pillAlt,
   href,
   onClick,
 }: {
-  label: string;
+  label: React.ReactNode;
   pill: string;
+  pillAlt?: string;
   href?: string;
   onClick?: () => void;
 }) {
   const content = (
     <>
-      <span className="min-w-0 text-[color:var(--z-fg)] text-left" style={{ fontSize: TYPE.body }}>
+      <span className="min-w-0 text-[color:var(--z-fg)] text-left [text-wrap:pretty]" style={{ fontSize: TYPE.body }}>
         {label}
       </span>
       <span
-        className="shrink-0 rounded-full border border-[color:var(--z-bd)] px-4 py-1.5 font-medium text-[color:var(--z-fg)]"
+        className={`shrink-0 rounded-full border border-[color:var(--z-bd)] px-4 py-1.5 font-medium text-[color:var(--z-fg)] transition-colors group-active:!bg-[var(--rsvp-row-press)] group-active:!text-[color:var(--rsvp-row-press-text)]${pillAlt ? " inline-grid" : ""}`}
         style={{ fontSize: TYPE.body }}
       >
-        {pill}
+        {pillAlt ? (
+          <>
+            <span className="[grid-area:1/1]">{pill}</span>
+            <span className="invisible [grid-area:1/1]" aria-hidden>{pillAlt}</span>
+          </>
+        ) : (
+          pill
+        )}
       </span>
     </>
   );
@@ -77,7 +86,7 @@ function ActionRow({
   );
 }
 
-const ADDRESS_HIDDEN_COPY = "Address on request";
+const ADDRESS_HIDDEN_COPY = "RSVP to get address";
 
 interface RSVPFormProps {
   eventId: string;
@@ -136,10 +145,9 @@ export default function RSVPForm({
   enter = "none",
 }: RSVPFormProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const supportLabelId = useId();
   const guestsLabelId = useId();
-  const { loadTrack } = useAudio();
+  const { loadTrack, toggle, currentTrack, isPlaying } = useAudio();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -343,8 +351,10 @@ export default function RSVPForm({
   const dateLabel = formatEventDateShort(date);
   const residence = isResidence({ venue: venue ?? null, address: address ?? null });
   const showAddress = Boolean(address) && !residence;
-  const publicVenue = residence ? venueLabel || null : venueLabel || venue || null;
+  const publicVenue = publicVenueName({ venue: venue ?? null, address: address ?? null, venueLabel });
   const addressLine = showAddress ? `${address}, ${city}, ${region}` : null;
+  const addressHiddenLine = isPast ? null : ADDRESS_HIDDEN_COPY;
+  const venueLine2 = addressLine || addressHiddenLine;
   const doorDisplayLabel = doorLabel || (doorTime ? `Doors open at ${doorTime}` : null);
   const addToCalendar = () =>
     downloadIcs(
@@ -551,21 +561,9 @@ export default function RSVPForm({
     }
   };
 
-  const calendarButton = (
-    <button
-      type="button"
-      onClick={addToCalendar}
-      className="inline-flex items-center gap-1.5 rounded-full bg-[var(--z-pill)] hover:bg-[var(--z-pill-h)] ring-1 ring-inset ring-[color:var(--z-pillbd)] transition-colors px-4 py-1.5 font-semibold text-[color:var(--z-pillfg)]"
-      style={pillText}
-    >
-      <CalendarPlusIcon size="1.1em" weight="bold" aria-hidden="true" />
-      Add to calendar
-    </button>
-  );
-
   const shareLink = (
     <>
-      <ActionRow label="Share this RSVP with a friend" pill={linkCopied ? "Copied" : "Copy link"} onClick={copyRsvpLink} />
+      <ActionRow label="Invite a friend to come with you" pill={linkCopied ? "Copied" : "Copy link"} onClick={copyRsvpLink} />
       {showLinkInput && (
         <input
           readOnly
@@ -580,20 +578,21 @@ export default function RSVPForm({
     </>
   );
 
-  const playLatestTrack = () => {
-    const t = latestPublicTrack();
-    if (!t) {
-      router.push("/listen");
+  const patience = TRACK_DATA.find((t) => t.id === "patience")!;
+  const patiencePlaying = currentTrack?.id === patience.id && isPlaying;
+
+  const playPatience = () => {
+    if (currentTrack?.id === patience.id) {
+      toggle();
       return;
     }
     loadTrack(
-      { id: t.id, title: t.title, artist: t.artist, src: t.audioUrl, thumbnail: t.thumbnail, duration: t.duration },
+      { id: patience.id, title: patience.title, artist: patience.artist, src: patience.audioUrl, thumbnail: patience.thumbnail, duration: patience.duration },
       true,
     );
-    router.push(`/listen?play=${t.id}`);
   };
 
-  const listenLink = <ActionRow label={`Hear my songs before ${city}`} pill="Listen" onClick={playLatestTrack} />;
+  const calendarRow = <ActionRow label="Add the concert to your calendar" pill="Add" onClick={addToCalendar} />;
 
   const goingSuccess = (
     <div ref={successRef} className="scroll-mt-4 space-y-6">
@@ -602,16 +601,16 @@ export default function RSVPForm({
           className="font-extrabold uppercase leading-none text-[color:var(--z-fg)]"
           style={{ ...parkinsans, fontSize: "clamp(2rem, 6cqi, 3rem)" }}
         >
-          YOU'RE LOCKED IN
+          YOU'RE CONFIRMED
         </h2>
         <p className="text-[color:var(--z-fg3)] mt-3 leading-snug" style={{ fontSize: TYPE.body }}>
           I sent my 2025 Singles & 16s Pack to your inbox as a thank you.
         </p>
       </div>
-      {calendarButton}
-      <div>
-        {listenLink}
-        {shareLink}
+      <div className="space-y-3">
+        <ActionRow label={<>Learn my song “Patience” before <span className="whitespace-nowrap">{city}</span></>} pill={patiencePlaying ? "Pause" : "Play"} pillAlt={patiencePlaying ? "Play" : "Pause"} onClick={playPatience} />
+        {calendarRow}
+        {formData.guests === 1 && shareLink}
       </div>
     </div>
   );
@@ -629,8 +628,10 @@ export default function RSVPForm({
           You'll hear from me before {city}.
         </p>
       </div>
-      {calendarButton}
-      {shareLink}
+      <div className="space-y-3">
+        {calendarRow}
+        {shareLink}
+      </div>
     </div>
   );
 
@@ -640,7 +641,6 @@ export default function RSVPForm({
   const buildStyle = (i: number) => (enter === "morph" ? ({ "--i": i } as React.CSSProperties) : undefined);
   const infoPrimary = "block font-semibold text-[color:var(--z-fg)] break-words leading-snug";
   const infoPrimaryStyle = { fontSize: TYPE.lead };
-  const infoSecondaryStyle = { fontSize: TYPE.body };
   const infoRow = "flex items-start gap-3 min-w-0";
   const iconBox = "shrink-0 flex items-center h-[1lh] leading-snug text-[color:var(--z-ico)]";
   const iconSize = "1.35em";
@@ -650,7 +650,7 @@ export default function RSVPForm({
         {dateLabel}
       </span>
       {doorDisplayLabel && (
-        <span className="block text-[color:var(--z-fg3)]" style={infoSecondaryStyle}>
+        <span className="block text-[color:var(--z-fg3)]" style={infoPrimaryStyle}>
           {doorDisplayLabel}
         </span>
       )}
@@ -731,15 +731,24 @@ export default function RSVPForm({
                   </li>
                   <li className={`${infoRow} ${buildClass}`} style={buildStyle(2)}>
                     <span className={iconBox} style={infoPrimaryStyle}><MapPinIcon size={iconSize} weight="bold" aria-hidden="true" /></span>
-                    <span className="flex-1 min-w-0 flex items-center min-h-[1lh] leading-snug" style={infoPrimaryStyle}>
-                      {addressLine ? (
-                        <span className="block font-semibold break-words leading-snug">{addressLine}</span>
-                      ) : (
-                        <span className="block font-semibold text-[color:var(--z-fg3)] leading-snug">
-                          {ADDRESS_HIDDEN_COPY}
-                        </span>
-                      )}
-                    </span>
+                    {publicVenue ? (
+                      <span className="flex-1 min-w-0 flex flex-col justify-center min-h-[1lh] leading-snug" style={infoPrimaryStyle}>
+                        <span className="block font-semibold text-[color:var(--z-fg)] break-words leading-snug">{publicVenue}</span>
+                        {venueLine2 && (
+                          <span className="block break-words leading-snug text-[color:var(--z-fg3)]">{venueLine2}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="flex-1 min-w-0 flex items-center min-h-[1lh] leading-snug" style={infoPrimaryStyle}>
+                        {addressLine ? (
+                          <span className="block font-semibold text-[color:var(--z-fg)] break-words leading-snug">{addressLine}</span>
+                        ) : (
+                          <span className="block font-semibold text-[color:var(--z-fg3)] leading-snug">
+                            {isPast ? `${city}, ${region}` : venueLine2}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </li>
                 </ul>
               </div>
