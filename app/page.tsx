@@ -193,7 +193,7 @@ export default function Page() {
                 onClick={handleSupportClick}
                 className="group flex items-stretch text-white font-medium text-sm md:text-lg whitespace-nowrap h-10 md:h-12"
               >
-                <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-full">
+                <span className="w-10 md:w-12 h-full shrink-0 overflow-hidden rounded-l-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="https://upload.wikimedia.org/wikipedia/commons/c/cf/Flag_of_Canada.svg"
@@ -209,7 +209,7 @@ export default function Page() {
                 <span className="support-cta-bg flex-1 flex items-center justify-center px-4 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white/20">
                   Support my tour across North America
                 </span>
-                <span className="aspect-square h-full shrink-0 overflow-hidden rounded-r-full">
+                <span className="w-10 md:w-12 h-full shrink-0 overflow-hidden rounded-r-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
