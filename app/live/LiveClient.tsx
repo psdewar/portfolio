@@ -118,37 +118,31 @@ export default function LiveClient({
 
   const {
     isDesktop,
-    isShortViewport,
     fullBleedDesktop,
     vvHeight,
     mobileOfflineScroll,
     railRowCount,
+    liveStripColumns,
+    liveStripRowPx,
     railNavRef,
     railCompact,
     railMotionStyle,
     desktopRowRef,
-    handleDesktopScheduleMeasured,
-    handleBandFloorMeasured,
     chatCollapsed,
     setChatCollapsed,
     mobileColRef,
     handleMobileScheduleMeasured,
-    railNavExpanded,
-    useSchemeS,
     desktopStageHeightPx,
     desktopStageWidthPx,
     desktopChatRailVisible,
     desktopLeftColWidthPx,
     desktopPhotoFit,
-    stageNarrow,
-    schemeSStripHeightPx,
-    naturalClipsWidth,
     mobileLandscape,
     mobileStageHeightPx,
     mobileStageConstrained,
     mobilePhotoFit,
     mobilePanelChat,
-  } = useLiveLayout({ isOgMode, isLive, stageAspect });
+  } = useLiveLayout({ isOgMode, isLive, stageAspect, liveStripShowCount: upcomingShows.length });
 
   const { desktopStageSlotRef, mobileStageSlotRef, setVideoHome } = useStageVideo({
     isLive,
@@ -289,7 +283,6 @@ export default function LiveClient({
     demoOrientation,
     isLive,
     isDesktop,
-    mobileLandscape,
     player,
     adlib,
     elapsedTime,
@@ -305,21 +298,23 @@ export default function LiveClient({
     desktopPhotoFit,
     mobilePhotoFit,
     mobileStageConstrained,
-    stageNarrow,
   };
 
   const clearsHeader = !isOgMode && !fullBleedDesktop;
+  const desktopDocScroll = isDesktop === true && !isLive && !isOgMode;
   return (
     <div
       className={
-        mobileOfflineScroll
+        mobileOfflineScroll || desktopDocScroll
           ? "relative bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white"
           : `fixed inset-x-0 bottom-0 bg-neutral-50 dark:bg-black text-neutral-900 dark:text-white overflow-hidden ${
               clearsHeader ? "" : "top-0"
             }`
       }
       style={
-        mobileOfflineScroll
+        desktopDocScroll
+          ? { minHeight: "100dvh" }
+          : mobileOfflineScroll
           ? {
               minHeight:
                 vvHeight != null
@@ -357,28 +352,25 @@ export default function LiveClient({
 
       <DesktopTree
         desktopRowRef={desktopRowRef}
-        railNavExpanded={railNavExpanded}
         railRowCount={railRowCount}
+        liveStripColumns={liveStripColumns}
+        liveStripRowPx={liveStripRowPx}
         railNavRef={railNavRef}
         railCompact={railCompact}
         isLive={isLive}
         supportAsk={supportAsk}
         isDesktop={isDesktop}
         energyClip={energyClip}
-        useSchemeS={useSchemeS}
+        docScroll={desktopDocScroll}
         desktopLeftColWidthPx={desktopLeftColWidthPx}
         desktopStageHeightPx={desktopStageHeightPx}
         desktopStageWidthPx={desktopStageWidthPx}
-        isShortViewport={isShortViewport}
-        handleDesktopScheduleMeasured={handleDesktopScheduleMeasured}
-        handleBandFloorMeasured={handleBandFloorMeasured}
-        schemeSStripHeightPx={schemeSStripHeightPx}
-        naturalClipsWidth={naturalClipsWidth}
         railMotionStyle={railMotionStyle}
         desktopStageSlotRef={desktopStageSlotRef}
         desktopChatRailVisible={desktopChatRailVisible}
         adlib={adlib}
         onHideChat={() => setChatCollapsed(true)}
+        onOpenSupport={supportAsk.onOpenSupport}
         stageProps={stageProps}
       />
 

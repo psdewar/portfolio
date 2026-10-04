@@ -7,6 +7,7 @@ import {
   useState,
   type Dispatch,
   type MutableRefObject,
+  type ReactNode,
   type RefObject,
   type SetStateAction,
 } from "react";
@@ -22,6 +23,7 @@ import {
 } from "@phosphor-icons/react";
 import { AdlibChatOverlay } from "../components/AdlibChatOverlay";
 import { AdlibReactions } from "../components/AdlibReactions";
+import { NAV_ICON } from "../Navbar";
 import type { StayConnectedPurpose } from "../components/StayConnected";
 import type { UsePlayerResult } from "./player";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
@@ -172,11 +174,11 @@ function useControlsAutoHide(host: HTMLElement | null, active: boolean) {
 
 export interface StageProps {
   isDesktopStage: boolean;
+  menuBlock?: ReactNode;
   isDemo: boolean;
   demoOrientation: "portrait" | "landscape" | null;
   isLive: boolean;
   isDesktop: boolean | null;
-  mobileLandscape: boolean;
   player: UsePlayerResult;
   adlib: UseAdlibSocketResult;
   elapsedTime: string;
@@ -192,16 +194,18 @@ export interface StageProps {
   desktopPhotoFit: number;
   mobilePhotoFit: number;
   mobileStageConstrained: boolean;
-  stageNarrow: boolean;
 }
+
+const MARQUEE_MIN_HALF_PX = 2700;
+const MARQUEE_SPEED_PX_S = 10;
 
 export function Stage({
   isDesktopStage,
+  menuBlock,
   isDemo,
   demoOrientation,
   isLive,
   isDesktop,
-  mobileLandscape,
   player,
   adlib,
   elapsedTime,
@@ -217,7 +221,6 @@ export function Stage({
   desktopPhotoFit,
   mobilePhotoFit,
   mobileStageConstrained,
-  stageNarrow,
 }: StageProps) {
   const isMobile = !isDesktopStage;
   const [overlayEl, setOverlayEl] = useState<HTMLDivElement | null>(null);
@@ -282,6 +285,21 @@ export function Stage({
     return () => clearTimeout(timer);
   }, [pillMode]);
 
+  const renderNotifyButton = (mobile: boolean) =>
+    isLive && !isPatron ? (
+      <button
+        onClick={() => setNotifyPurpose((p) => (p ? null : "notify"))}
+        aria-label="Notify me by email"
+        className="pointer-events-auto min-h-11 min-w-11 flex items-center justify-center hover:opacity-70"
+      >
+        <BellIcon
+          size={mobile ? 22 : 24}
+          weight="duotone"
+          className={`drop-shadow-lg ${notifyPurpose ? "text-blue-400" : "text-white"}`}
+        />
+      </button>
+    ) : null;
+
   const renderVolumePill = (mobile: boolean) =>
     isLive && !player.needsPlayButton ? (
       <button
@@ -319,10 +337,14 @@ export function Stage({
 
   const renderVideoOverlay = (mobile: boolean) => (
     <>
-      <div ref={setOverlayEl} className={`pointer-events-none absolute top-0 inset-x-0 z-30 ${mobile ? "p-3" : "p-4"}`}>
+      <div
+        ref={setOverlayEl}
+        className={`pointer-events-none absolute top-0 inset-x-0 z-30 ${mobile ? "p-3" : "p-4"}`}
+      >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 px-1.5 py-1 rounded-[1px] text-sm font-bold bg-red-500 text-white">
+            {!mobile && menuBlock && <div className={`pointer-events-auto mr-1 ${fadeCls}`}>{menuBlock}</div>}
+            <div className="flex items-center gap-1 px-1.5 py-1 rounded-[1px] font-bebas text-base tracking-wide bg-red-500 text-white">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
               LIVE
             </div>
@@ -337,6 +359,7 @@ export function Stage({
             <div className={mobile ? "hidden" : "flex items-center gap-2"}>
               {!mobile && (
                 <>
+                  {renderNotifyButton(false)}
                   <button
                     onClick={handleShare}
                     aria-label="Share"
@@ -357,19 +380,7 @@ export function Stage({
             </div>
             {mobile && (
               <div className="flex flex-col gap-0">
-                {!isPatron && (
-                  <button
-                    onClick={() => setNotifyPurpose((p) => (p ? null : "notify"))}
-                    aria-label="Notify me by email"
-                    className={`min-h-11 min-w-11 flex items-center justify-center ${fadeCls}`}
-                  >
-                    <BellIcon
-                      size={22}
-                      weight="duotone"
-                      className={`drop-shadow-lg ${notifyPurpose ? "text-blue-400" : "text-white"}`}
-                    />
-                  </button>
-                )}
+                {renderNotifyButton(true)}
                 <button
                   onClick={handleShare}
                   aria-label="Share"
@@ -435,18 +446,21 @@ export function Stage({
           : ""
       }`
     : "I AM OFFLINE";
+  const marqueeCopyPx = marqueeText.length * 7.6 + 50;
+  const marqueeCopies = Math.max(10, Math.ceil(MARQUEE_MIN_HALF_PX / marqueeCopyPx));
+  const marqueeDurationS = Math.round((marqueeCopies * marqueeCopyPx) / MARQUEE_SPEED_PX_S);
   const marqueeRow = (
     <div
       key={"marquee-row"}
-      className="flex h-9 items-center will-change-transform"
-      style={{ animation: "marquee 60s linear infinite" }}
+      className="flex h-9 w-max items-center will-change-transform"
+      style={{ animation: `marquee ${marqueeDurationS}s linear infinite` }}
     >
       {[...Array(2)].map((_, j) => (
         <div key={j} className="flex h-9 shrink-0 items-center">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(marqueeCopies)].map((_, i) => (
             <span
               key={i}
-              className="text-black font-bold text-sm tracking-wider whitespace-nowrap leading-none"
+              className="translate-y-px font-bebas text-black text-xl tracking-wide whitespace-nowrap leading-none"
             >
               {marqueeText}
               <span aria-hidden className="inline-block w-[2.5em]" />
@@ -459,25 +473,25 @@ export function Stage({
 
   const renderOfflineState = (mobile: boolean) => {
     const notifyPill = !isPatron && (
-      !mobile && stageNarrow ? (
-        <button
-          onClick={() => setNotifyPurpose("notify")}
-          aria-label="Notify me by email"
-          className="h-11 w-11 flex items-center justify-center rounded-full bg-white text-neutral-900 shadow-lg hover:bg-neutral-100 transition-colors"
-        >
-          <BellIcon size={18} weight="bold" />
-        </button>
-      ) : (
-        <button
-          onClick={() => setNotifyPurpose("notify")}
-          className={`min-h-11 flex items-center gap-2 rounded-full bg-white text-neutral-900 shadow-lg hover:bg-neutral-100 transition-colors whitespace-nowrap font-medium ${
-            mobile ? "px-3 py-2 text-xs" : "px-5 py-2.5 text-sm"
-          }`}
-        >
-          <BellIcon size={16} weight="bold" />
-          Notify me by email
-        </button>
-      )
+      <button
+        onClick={() => setNotifyPurpose("notify")}
+        aria-label="Notify me by email"
+        className="min-h-[52px] flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-neutral-900 shadow-lg whitespace-nowrap transition-colors hover:bg-neutral-100"
+      >
+        <BellIcon size={22} weight="bold" />
+        Notify me
+      </button>
+    );
+    const FundIcon = NAV_ICON["/support"];
+    const fundPill = !isPatron && (
+      <button
+        onClick={onOpenSupport}
+        aria-label="Fund My Tour"
+        className="min-h-[52px] flex w-full items-center justify-center gap-2 rounded-full bg-black/40 px-5 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-white backdrop-blur whitespace-nowrap transition-colors hover:bg-black/55"
+      >
+        <FundIcon size={22} weight="bold" />
+        Fund My Tour
+      </button>
     );
     const photo = mobile ? (
       mobileStageConstrained ? (
@@ -512,13 +526,21 @@ export function Stage({
       <>
         {photo}
         <div
-          className="absolute top-0 inset-x-0 h-9 z-10 flex items-center overflow-hidden"
+          className="absolute inset-x-0 top-0 h-9 z-10 flex"
           style={{ backgroundImage: "linear-gradient(#facc15, #facc15)" }}
         >
-          {marqueeRow}
+          {!mobile && menuBlock}
+          <div className="flex min-w-0 flex-1 items-center overflow-hidden">{marqueeRow}</div>
         </div>
-        <div className="absolute inset-x-0 top-9 z-10 flex justify-end gap-2 px-4 pt-3">
-          {notifyPill}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30%] bg-gradient-to-t from-black/50 to-transparent"
+        />
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5">
+          <div className="grid w-fit max-w-full grid-cols-2 gap-2 [@media(max-width:400px)]:w-full">
+            {fundPill}
+            {notifyPill}
+          </div>
         </div>
       </>
     );

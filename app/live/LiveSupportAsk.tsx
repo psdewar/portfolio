@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { PendingRsvpProvider, ShowRow } from "../components/ShowRow";
 import type { TimelineEvent } from "../data/timeline";
+import { LIVE_STRIP_ROW_PX } from "./useLiveLayout";
+
+const STRIP_ROW_LG_PX = 72;
+const STRIP_ROW_MAX_PX = 120;
 
 export interface LiveSupportAskCore {
   upcomingShows: TimelineEvent[];
@@ -11,48 +15,24 @@ export interface LiveSupportAskCore {
   place?: string | null;
 }
 
-const FUND_PAD = "py-[5.25px] sm:py-[4.63px]";
-
-export const fundButtonClass = (tone: "dark" | "auto" = "auto") =>
-  `w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide ${
-    tone === "dark" ? "bg-white text-neutral-900" : "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-  }`;
-
 export function LiveSupportAsk({
   upcomingShows,
   pastShows = [],
-  onOpenSupport,
   place,
   tone = "auto",
-  variant = "panel",
-  flow = false,
+  variant = "sheet",
+  stripColumns = 2,
+  stripRowPx = null,
   onFirstScreenMeasured,
-  onBandFloorMeasured,
   children,
 }: LiveSupportAskCore & {
   tone?: "auto" | "dark";
-  variant?: "panel" | "sheet";
-  flow?: boolean;
+  variant?: "sheet" | "strip" | "side";
+  stripColumns?: number;
+  stripRowPx?: number | null;
   onFirstScreenMeasured?: (px: number) => void;
-  onBandFloorMeasured?: (px: number) => void;
   children?: ReactNode;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const [stuck, setStuck] = useState(false);
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    const scrollsSelf = variant === "panel" && !flow;
-    if (scrollsSelf && !scrollRef.current) return;
-    const observer = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), {
-      root: scrollsSelf ? scrollRef.current : null,
-      threshold: 0,
-    });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [variant, flow]);
-
   const firstScreenRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!onFirstScreenMeasured) return;
@@ -65,37 +45,11 @@ export function LiveSupportAsk({
     return () => ro.disconnect();
   }, [onFirstScreenMeasured, place, upcomingShows]);
 
-  const bandFloorRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    if (!onBandFloorMeasured) return;
-    const el = bandFloorRef.current;
-    if (!el) return;
-    const update = () => onBandFloorMeasured(el.getBoundingClientRect().height);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [onBandFloorMeasured, upcomingShows]);
-
-  const firstTwo = upcomingShows.slice(0, 2);
-  const bandFloorClone = (
-    <div ref={bandFloorRef} aria-hidden className="absolute inset-x-0 top-0 -z-10 flex flex-col opacity-0 pointer-events-none">
-      <div className="px-4 flex flex-col">
-        {firstTwo.map((event) => (
-          <ShowRow key={`floor-${event.id}`} event={event} tone="dark" />
-        ))}
-      </div>
-      <div className={`px-2 ${FUND_PAD}`}>
-        <button
-          type="button"
-          tabIndex={-1}
-          className="w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide"
-        >
-          Fund My Tour
-        </button>
-      </div>
-    </div>
-  );
+  const hasHeading = !!place;
+  const cityHeadingClass = "font-semibold leading-[0.95]";
+  const mobileHeadingSize = { fontSize: "clamp(1.75rem, 7vw, 2.25rem)" };
+  const headingRowClass = `mt-3 mb-2 px-4 w-fit shrink-0 ${cityHeadingClass}`;
+  const headingText = place ? `Pull up in ${place}` : null;
 
   const firstFour = upcomingShows.slice(0, 4);
   const firstScreenClone = (
@@ -104,24 +58,15 @@ export function LiveSupportAsk({
       aria-hidden
       className="absolute inset-x-0 top-0 -z-10 flex flex-col opacity-0 pointer-events-none"
     >
-      {place && (
-        <h3 className="pt-3 pb-2 px-4 w-fit text-lg font-semibold leading-tight text-white">
-          I’ll be in {place}
-        </h3>
+      {hasHeading && (
+        <div aria-hidden className={`${headingRowClass} text-white`} style={mobileHeadingSize}>
+          {headingText}
+        </div>
       )}
       <div className="px-4 flex flex-col">
         {firstFour.map((event) => (
-          <ShowRow key={`measure-${event.id}`} event={event} tone="dark" />
+          <ShowRow key={`measure-${event.id}`} event={event} tone="dark" quietRsvp />
         ))}
-      </div>
-      <div className={`px-2 ${FUND_PAD}`}>
-        <button
-          type="button"
-          tabIndex={-1}
-          className="w-full min-h-[52px] rounded-full font-bebas text-[26px] tracking-wide"
-        >
-          Fund My Tour
-        </button>
       </div>
     </div>
   );
@@ -129,46 +74,70 @@ export function LiveSupportAsk({
   const headingToneClass = tone === "dark" ? "text-white" : "text-neutral-900 dark:text-white";
   const surfaceToneClass = tone === "dark" ? "bg-black" : "bg-neutral-50 dark:bg-black";
 
-  const fundButton = (
-    <button
-      type="button"
-      onClick={onOpenSupport}
-      className={`${fundButtonClass(tone)} transition-[opacity,box-shadow] hover:opacity-90 active:opacity-80 ${
-        stuck ? "shadow-lg shadow-black/30 dark:shadow-black/60" : ""
+  const pastTextClass = tone === "dark" ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400";
+  const pastShowsLink =
+    pastShows.length > 0 ? (
+      <p className={`shrink-0 px-4 py-3 text-sm ${pastTextClass}`}>{pastShows.length} shows since March</p>
+    ) : null;
+
+  const sideHeading = variant === "side";
+  const scheduleHeadingRow = (
+    <div
+      className={`flex shrink-0 gap-4 px-4 ${
+        sideHeading ? "mt-4 mb-3 items-baseline" : "mt-3 mb-1 h-10 items-baseline"
       }`}
     >
-      Fund My Tour
-    </button>
+      {headingText && (
+        <h3
+          className={`min-w-0 -mb-[0.2em] pb-[0.2em] ${cityHeadingClass} ${headingToneClass} truncate whitespace-nowrap`}
+          style={{ fontSize: sideHeading ? "2.5rem" : "2rem" }}
+        >
+          {headingText}
+        </h3>
+      )}
+      {pastShows.length > 0 && (
+        <span className={`ml-auto shrink-0 text-sm font-normal ${pastTextClass}`}>
+          {pastShows.length} shows since March
+        </span>
+      )}
+    </div>
   );
 
-  if (variant === "sheet") {
+  if (variant === "side") {
     return (
       <PendingRsvpProvider>
-        <div className={`relative ${surfaceToneClass}`}>
-          {place && (
-            <h3 className={`pt-3 pb-2 px-4 w-fit text-lg font-semibold leading-tight ${headingToneClass}`}>
-              I’ll be in {place}
-            </h3>
+        <div className={`flex flex-col ${surfaceToneClass}`}>
+          {scheduleHeadingRow}
+          {firstFour.length > 0 && (
+            <div className="flex shrink-0 flex-col px-4">
+              {firstFour.map((event) => (
+                <ShowRow key={event.id} event={event} tone={tone} quietRsvp size="lg" />
+              ))}
+            </div>
           )}
-          <div className="px-4 flex flex-col">
-            {upcomingShows.map((event) => (
-              <ShowRow key={event.id} event={event} tone={tone} />
-            ))}
-          </div>
-          <div ref={sentinelRef} aria-hidden className="h-px w-full -mb-px" />
-          <div
-            className={`sticky z-10 px-2 ${FUND_PAD} transition-[top] duration-300 ${surfaceToneClass}`}
-            style={{ top: "var(--header-offset, var(--header-h, 0px))", bottom: 0 }}
-          >
-            {fundButton}
-          </div>
-          <div className="px-4 pb-3 flex flex-col">
-            {pastShows.map((event) => (
-              <ShowRow key={event.id} event={event} tone={tone} />
-            ))}
-          </div>
-          {children}
-          {firstScreenClone}
+        </div>
+      </PendingRsvpProvider>
+    );
+  }
+
+  if (variant === "strip") {
+    const stretch = stripRowPx != null && stripRowPx >= LIVE_STRIP_ROW_PX;
+    const rowPx = stretch ? Math.min(stripRowPx, STRIP_ROW_MAX_PX) : null;
+    const stripSize = stretch && stripRowPx >= STRIP_ROW_LG_PX ? "lg" : "md";
+    return (
+      <PendingRsvpProvider>
+        <div className={`scrollbar-hide flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden ${surfaceToneClass}`}>
+          {scheduleHeadingRow}
+          {firstFour.length > 0 && (
+            <div
+              className={`grid shrink-0 gap-x-4 px-4 ${stripColumns === 4 ? "grid-cols-4" : "grid-cols-2"}`}
+              style={rowPx != null ? { gridAutoRows: `${rowPx}px` } : undefined}
+            >
+              {firstFour.map((event) => (
+                <ShowRow key={event.id} event={event} tone={tone} quietRsvp size={stripSize} />
+              ))}
+            </div>
+          )}
         </div>
       </PendingRsvpProvider>
     );
@@ -176,37 +145,23 @@ export function LiveSupportAsk({
 
   return (
     <PendingRsvpProvider>
-      <div
-        ref={scrollRef}
-        className={`scrollbar-hide relative flex flex-col ${
-          flow ? "" : "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
-        }`}
-      >
+      <div className={`relative ${surfaceToneClass}`}>
         {place && (
-          <h3 className={`mt-3 mb-2 px-4 w-fit text-lg font-semibold leading-tight shrink-0 ${headingToneClass}`}>
-            I’ll be in {place}
+          <h3
+            className={`pt-3 pb-2 px-4 w-fit ${cityHeadingClass} ${headingToneClass}`}
+            style={mobileHeadingSize}
+          >
+            Pull up in {place}
           </h3>
         )}
-        {upcomingShows.length > 0 && (
-          <div className="px-4 flex flex-col shrink-0">
-            {upcomingShows.map((event) => (
-              <ShowRow key={event.id} event={event} tone={tone} />
-            ))}
-          </div>
-        )}
-        <div ref={sentinelRef} aria-hidden className="h-px w-full shrink-0 -mb-px" />
-        <div className={`sticky top-0 bottom-0 z-10 shrink-0 px-2 ${FUND_PAD} ${surfaceToneClass}`}>
-          {fundButton}
+        <div className="px-4 flex flex-col">
+          {upcomingShows.map((event) => (
+            <ShowRow key={event.id} event={event} tone={tone} quietRsvp />
+          ))}
         </div>
-        {pastShows.length > 0 && (
-          <div className="px-4 pb-3 flex flex-col shrink-0">
-            {pastShows.map((event) => (
-              <ShowRow key={event.id} event={event} tone={tone} />
-            ))}
-          </div>
-        )}
+        {pastShowsLink}
+        {children}
         {firstScreenClone}
-        {bandFloorClone}
       </div>
     </PendingRsvpProvider>
   );

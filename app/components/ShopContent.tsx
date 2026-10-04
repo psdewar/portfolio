@@ -158,7 +158,7 @@ export function ShopContent({
               className="flex h-14 items-center justify-center rounded-xl px-4 text-white transition-all lgtall:h-[4.5rem] lgtall:px-5 hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
               style={{ backgroundColor: color.hex }}
             >
-              <span className="text-lg font-semibold lgtall:text-xl">Pay with card</span>
+              <span className="text-lg font-semibold lgtall:text-xl">Pay with your card</span>
             </button>
           </div>
           {!size && (

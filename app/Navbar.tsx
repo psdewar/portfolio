@@ -2,11 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, StarIcon, type Icon } from "@phosphor-icons/react";
 import { ArrowIcon } from "./ArrowIcon";
-import { Social } from "./components/Social";
+import { Social, SOCIAL_LINKS } from "./components/Social";
 import { usePatronStatus, usePatronTier } from "./hooks/usePatronStatus";
 import { PATRON_TIERS } from "./data/patron-tiers";
 import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
+import { isFundPath, isLivePath } from "./lib/route-checks";
 
 export const navItems = [
   { href: "/support", label: "Support" },
@@ -15,6 +17,32 @@ export const navItems = [
   { href: "/live", label: "Live" },
   { href: "/rsvp", label: "From The Ground Up" },
 ];
+
+export const NAV_ICON: Record<string, Icon> = {
+  "/support": HandHeartIcon,
+  "/listen": HeadphonesIcon,
+  "/shop": TShirtIcon,
+  "/live": BroadcastIcon,
+  "/rsvp": TicketIcon,
+};
+
+export const NAV_COLOR: Record<string, string> = {
+  "/support": "#d4a553",
+  "/listen": "#34d399",
+  "/shop": "#a78bfa",
+  "/live": "#ff3b5c",
+  "/rsvp": "#38bdf8",
+};
+
+export const BRAND_SWEEP_STYLE: React.CSSProperties = {
+  WebkitTextFillColor: "transparent",
+  backgroundImage: "linear-gradient(to right, #fb923c 0%, #ec4899 50%, currentColor 50% 100%)",
+  backgroundSize: "200% 100%",
+  transition: "background-position 400ms ease",
+};
+
+const DRAWER_ICON_GUTTER = "pl-[calc(1rem-9px)] sm:pl-[calc(1.5rem-9px)]";
+const DRAWER_SOCIAL_GUTTER = "pl-[calc(1rem-11px)] sm:pl-[calc(1.5rem-11px)]";
 
 export function Navbar() {
   const headerRef = useRef<HTMLElement>(null);
@@ -26,9 +54,9 @@ export function Navbar() {
   const pathname = usePathname() ?? "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
-  const isFundPage = pathname === "/fund" || pathname.startsWith("/fund/");
+  const isFundPage = isFundPath(pathname);
   const isShopPage = pathname === "/shop" || pathname.startsWith("/shop/");
-  const isLivePage = pathname === "/live" || pathname.startsWith("/live/");
+  const isLivePage = isLivePath(pathname);
 
   useEffect(() => {
     if (!isShopPage && !isLivePage) {
@@ -116,9 +144,13 @@ export function Navbar() {
             <div className="flex items-center min-w-0">
               <Link
                 href="/"
-                className="min-h-11 font-bebas text-2xl sm:text-3xl transition-colors tracking-tight leading-none text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 flex items-center -mb-1"
+                className="group min-h-11 font-bebas text-2xl sm:text-3xl tracking-tight leading-none whitespace-nowrap text-gray-900 dark:text-white flex items-center -mb-1"
               >
-                Peyt Spencer
+                <span>Peyt</span>
+                <span aria-hidden>&nbsp;</span>
+                <span className="bg-clip-text bg-[position:100%_0%] group-hover:bg-[position:0%_0%]" style={BRAND_SWEEP_STYLE}>
+                  Spencer
+                </span>
               </Link>
               {isPatron && tierDef && (
                 <Link
@@ -143,17 +175,6 @@ export function Navbar() {
                 </Link>
               )}
             </div>
-            {isMusicPage && (
-              <Link
-                href="https://soundbetter.com/profiles/630479-peyt-spencer"
-                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 bg-soundbetter text-white text-sm font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Feature me
-                <ArrowIcon />
-              </Link>
-            )}
             {isHirePage && (
               <div className="hidden lg:flex items-center gap-2">
                 <Link
@@ -194,6 +215,17 @@ export function Navbar() {
                   </Link>
                 );
               })}
+              {isMusicPage && (
+                <Link
+                  href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-11 flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  Feature me
+                  <ArrowIcon />
+                </Link>
+              )}
             </div>
           </nav>
 
@@ -202,17 +234,6 @@ export function Navbar() {
               <Social isHorizontal />
             </div>
 
-            {isMusicPage && (
-              <Link
-                href="https://soundbetter.com/profiles/630479-peyt-spencer"
-                className="md:hidden min-h-11 inline-flex items-center gap-1 px-2.5 py-1.5 bg-soundbetter text-white text-xs font-medium rounded-full hover:bg-soundbetter/90 transition-colors whitespace-nowrap"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Feature me
-                <ArrowIcon />
-              </Link>
-            )}
             {isHirePage && (
               <div className="md:hidden flex items-center gap-1.5">
                 <Link
@@ -268,26 +289,62 @@ export function Navbar() {
           menuOpen ? "max-h-screen" : "max-h-0"
         }`}
       >
-        <div className="px-4 sm:px-6 lg:px-8 py-3 pb-6 space-y-1 backdrop-blur-md bg-white/95 dark:bg-gray-900/95">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
+        <div className="backdrop-blur-md bg-white/95 dark:bg-gray-900/95">
+          <nav className="flex flex-col">
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              const Icon = NAV_ICON[item.href] ?? BroadcastIcon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={active ? "page" : undefined}
+                  style={{ "--row": NAV_COLOR[item.href] ?? "#737373" } as React.CSSProperties}
+                  className={`group flex h-14 items-center gap-2 pr-4 sm:pr-6 ${DRAWER_ICON_GUTTER} text-[17px] font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)] ${
+                    active
+                      ? "bg-gray-100 dark:bg-gray-800 text-[var(--row)]"
+                      : "text-gray-600 dark:text-gray-400 hover:text-[var(--row)] hover:bg-gray-100 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800/60"
+                  }`}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center">
+                    <Icon size={22} weight={active ? "fill" : "regular"} />
+                  </span>
+                  <span className="min-w-0 truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+            {isMusicPage && (
+              <a
+                href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => setMenuOpen(false)}
-                className={`block px-3 py-3 text-base font-medium rounded-lg transition-colors ${
-                  active
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-                }`}
+                style={{ "--row": "#737373" } as React.CSSProperties}
+                className={`group flex h-14 items-center gap-2 pr-4 sm:pr-6 ${DRAWER_ICON_GUTTER} text-[17px] font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)] text-gray-600 dark:text-gray-400 hover:text-[var(--row)] hover:bg-gray-100 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800/60`}
               >
-                {item.label}
-              </Link>
-            );
-          })}
-          <div className="px-3 pt-4">
-            <Social isHorizontal />
+                <span className="grid h-10 w-10 shrink-0 place-items-center">
+                  <StarIcon size={22} />
+                </span>
+                <span className="min-w-0 truncate">Feature me</span>
+                <ArrowIcon />
+              </a>
+            )}
+          </nav>
+          <div className={`flex items-center border-t border-gray-200 dark:border-gray-800 pr-4 sm:pr-6 ${DRAWER_SOCIAL_GUTTER}`}>
+            {SOCIAL_LINKS.map(({ href, label, icon: Icon, color }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                style={{ "--row": color } as React.CSSProperties}
+                className="grid h-11 w-11 shrink-0 place-items-center text-gray-600 dark:text-gray-400 hover:text-[var(--row)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)]"
+              >
+                <Icon size={22} />
+              </a>
+            ))}
           </div>
         </div>
       </div>

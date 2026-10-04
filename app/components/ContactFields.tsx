@@ -29,7 +29,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
       errors,
       variant = "neutral",
       scale,
-      namePlaceholder = "Name",
+      namePlaceholder = "Name *",
       hidePhone,
     },
     ref,
@@ -38,17 +38,6 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
       <>
         <FormInput
           ref={ref}
-          type="email"
-          placeholder="Email address *"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-          error={errors?.email}
-          variant={variant}
-          scale={scale}
-          enterKeyHint="next"
-          autoComplete="email"
-        />
-        <FormInput
           type="text"
           placeholder={namePlaceholder}
           value={name}
@@ -59,10 +48,21 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
           enterKeyHint="next"
           autoComplete="name"
         />
+        <FormInput
+          type="email"
+          placeholder="Email address *"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          error={errors?.email}
+          variant={variant}
+          scale={scale}
+          enterKeyHint="next"
+          autoComplete="email"
+        />
         {!hidePhone && (
           <FormInput
             type="tel"
-            placeholder="Phone number"
+            placeholder="Phone"
             value={phone}
             onChange={(e) => onPhoneChange(e.target.value)}
             variant={variant}

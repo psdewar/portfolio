@@ -30,6 +30,7 @@ export function LiveClips({
       videoIds={ENERGY_VIDEO_IDS}
       fitHeight={fitHeight}
       flush={flush}
+      expandOnPlay
       className={className}
       onLoudPlay={onLoudStart}
       onLoudEnd={onLoudEnd}

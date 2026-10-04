@@ -6,9 +6,9 @@ import { AdlibChatOverlay } from "../components/AdlibChatOverlay";
 import { AdlibReactionButtons } from "../components/AdlibReactions";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { LiveClips, type EnergyClipHandlers } from "./LiveClips";
-import { LiveSupportAsk, fundButtonClass, type LiveSupportAskCore } from "./LiveSupportAsk";
+import { FundPill } from "../components/FundPill";
+import { LiveSupportAsk, type LiveSupportAskCore } from "./LiveSupportAsk";
 import { Stage, type StageProps } from "./Stage";
-import { StoryColumn } from "./ChatRail";
 import { PHOTO_NAT_W, PHOTO_NAT_H, CLIP_WRAPPER_MIN_PX } from "./useLiveLayout";
 import { LIVE_DESKTOP_HIDDEN } from "./live-breakpoint";
 
@@ -47,21 +47,15 @@ export function MobileTree({
 }) {
   const { onOpenSupport } = supportAsk;
   const overlayChat = !mobilePanelChat && (mobileLandscape || stageAspect < 1);
-  const fundMyTourButton = (
-    <div className="-mx-1 shrink-0 px-2 pb-0.5 pt-1">
-      <button type="button" onClick={onOpenSupport} className={fundButtonClass()}>
-        Fund My Tour
-      </button>
-    </div>
-  );
   const mobileAdlibChat = (
     <AdlibChat
       socket={adlib}
       reactionsBar={
-        <>
-          <AdlibReactionButtons onReact={adlib.react} variant="panel" />
-          {fundMyTourButton}
-        </>
+        <AdlibReactionButtons
+          onReact={adlib.react}
+          variant="panel"
+          action={<FundPill onClick={onOpenSupport} />}
+        />
       }
     />
   );
@@ -84,9 +78,6 @@ export function MobileTree({
             fitHeight
             className="h-full w-full"
           />
-        </div>
-        <div>
-          <StoryColumn />
         </div>
       </LiveSupportAsk>
     </div>

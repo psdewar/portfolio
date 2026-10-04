@@ -223,7 +223,7 @@ export function AdlibChat({
         </button>
       )}
 
-      {reactionsBar && <div className="shrink-0 px-1 pt-1">{reactionsBar}</div>}
+      {reactionsBar && <div className="shrink-0 px-2 pt-1">{reactionsBar}</div>}
 
       <div
         className={`shrink-0 p-2 ${reactionsBar ? "" : "border-t border-neutral-200 dark:border-neutral-800"}`}

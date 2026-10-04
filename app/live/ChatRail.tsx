@@ -1,41 +1,22 @@
 "use client";
 
 import { useRef } from "react";
-import { STORY } from "../data/story";
 import { AdlibChat } from "../components/AdlibChat";
+import { FundPill } from "../components/FundPill";
 import { AdlibReactionButtons } from "../components/AdlibReactions";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { chatToggleIcon } from "./Stage";
-import { CHAT_RAIL_MIN_PX, RAIL_WIDTH_CSS } from "./useLiveLayout";
+import { RAIL_WIDTH_CSS } from "./useLiveLayout";
 import { HoverTip, useHoverTip } from "./HoverTip";
-
-export function StoryColumn({
-  className = "",
-  tone = "auto",
-}: {
-  className?: string;
-  tone?: "auto" | "dark";
-}) {
-  const headingClass = tone === "dark" ? "text-white" : "text-neutral-900 dark:text-white";
-  const bodyClass = tone === "dark" ? "text-neutral-400" : "text-neutral-600 dark:text-neutral-400";
-  return (
-    <div className={`p-4 space-y-3 [container-type:inline-size] ${className}`}>
-      <h3 className={`text-lg font-semibold leading-tight ${headingClass}`}>My story</h3>
-      {STORY.map((paragraph, i) => (
-        <p key={i} className={`max-w-[68ch] text-base leading-relaxed [@container(min-width:520px)]:text-lg ${bodyClass}`}>
-          {paragraph}
-        </p>
-      ))}
-    </div>
-  );
-}
 
 export function DesktopChatRail({
   adlib,
   onHideChat,
+  onOpenSupport,
 }: {
   adlib: UseAdlibSocketResult;
   onHideChat: () => void;
+  onOpenSupport: () => void;
 }) {
   const hideChatIconRef = useRef<HTMLSpanElement>(null);
   const { open: hideChatOpen, bind: hideChatBind } = useHoverTip();
@@ -64,20 +45,14 @@ export function DesktopChatRail({
         socket={adlib}
         textClassName="text-[15px] leading-[1.5]"
         rowClassName="py-1"
-        reactionsBar={<AdlibReactionButtons onReact={adlib.react} variant="panel" />}
+        reactionsBar={
+          <AdlibReactionButtons
+            onReact={adlib.react}
+            variant="panel"
+            action={<FundPill onClick={onOpenSupport} />}
+          />
+        }
       />
-    </div>
-  );
-}
-
-export function OfflineStoryRail() {
-  return (
-    <div
-      data-live-rail
-      className="relative z-10 h-full flex-1 min-w-0 bg-neutral-50 dark:bg-black overflow-y-auto"
-      style={{ minWidth: CHAT_RAIL_MIN_PX }}
-    >
-      <StoryColumn />
     </div>
   );
 }

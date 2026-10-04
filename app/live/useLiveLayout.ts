@@ -4,8 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useVisualViewportHeight } from "../hooks/useVisualViewportHeight";
 import { CLIP_MIN_H } from "../components/EnergyVideos";
 import { navItems } from "../Navbar";
-import { SOCIAL_LINKS } from "../components/Social";
-import { ENERGY_VIDEO_IDS } from "../lib/videos.config";
 import { LIVE_DESKTOP_MEDIA_QUERY } from "./live-breakpoint";
 
 export const PHOTO_NAT_W = 3953;
@@ -21,10 +19,16 @@ function computePhotoFit(boxW: number, boxH: number) {
 
 const RAIL_ROW_COMPACT_PX = 52;
 export const RAIL_ROW_COMPACT_HEIGHT_PX = 44;
-const RAIL_NAV_WIDTH_PX = 72;
-const RAIL_NAV_WIDTH_EXPANDED_PX = 220;
-const DESKTOP_STAGE_MIN_PX = 390;
-export const CHAT_RAIL_MIN_PX = 280;
+export const MENU_PANEL_WIDTH_PX = 288;
+export const MENU_HEADER_PX = 44;
+const LIVE_STRIP_HEADING_PX = 56;
+export const LIVE_STRIP_ROW_PX = 56;
+const LIVE_STRIP_PAD_PX = 12;
+const LIVE_STRIP_WIDE_PX = 960;
+const LIVE_STRIP_MAX_SHOWS = 4;
+export const MENU_SOCIAL_PX = 64;
+export const MENU_NAV_ITEMS = navItems.filter((item) => item.href !== "/live");
+const CHAT_RAIL_MIN_PX = 280;
 const RAIL_MAX_PX = 400;
 const RAIL_PCT = 0.24;
 export const RAIL_WIDTH_CSS = `clamp(${CHAT_RAIL_MIN_PX}px, ${RAIL_PCT * 100}%, ${RAIL_MAX_PX}px)`;
@@ -32,8 +36,9 @@ function clampRailWidth(rowWidthPx: number) {
   return Math.min(RAIL_MAX_PX, Math.max(CHAT_RAIL_MIN_PX, rowWidthPx * RAIL_PCT));
 }
 const CHAT_RAIL_COLLAPSED_KEY = "liveChatRailCollapsed";
-export const SUPPORT_OVERLAY_PX = 340;
 export const DESKTOP_STAGE_ASPECT = 16 / 9;
+export const OFFLINE_STAGE_ASPECT = 4 / 5;
+const OFFLINE_SECONDARY_MIN_PX = 420;
 export const CLIP_WRAPPER_MIN_PX = CLIP_MIN_H + 24;
 const MOBILE_STAGE_MIN_PX = 44;
 const MOBILE_CHAT_PANEL_MIN_PX = 240;
@@ -45,18 +50,19 @@ export function useLiveLayout({
   isOgMode,
   isLive,
   stageAspect,
+  liveStripShowCount,
 }: {
   isOgMode: boolean;
   isLive: boolean;
   stageAspect: number;
+  liveStripShowCount: number;
 }) {
   const [isDesktop, setIsDesktop] = useState<boolean | null>(isOgMode ? true : null);
-  const [isShortViewport, setIsShortViewport] = useState(false);
   const vvHeight = useVisualViewportHeight();
 
   const fullBleedDesktop = isDesktop === true;
 
-  const railRowCount = 1 + navItems.length + SOCIAL_LINKS.length;
+  const railRowCount = MENU_NAV_ITEMS.length;
   const railNavRef = useRef<HTMLElement>(null);
   const [railCompact, setRailCompact] = useState(false);
   useLayoutEffect(() => {
@@ -102,12 +108,6 @@ export function useLiveLayout({
     ro.observe(el);
     return () => ro.disconnect();
   }, [fullBleedDesktop]);
-
-  const [desktopScheduleIdealPx, setDesktopScheduleIdealPx] = useState<number | null>(null);
-  const handleDesktopScheduleMeasured = useCallback((px: number) => {
-    const rounded = Math.round(px);
-    setDesktopScheduleIdealPx((prev) => (prev === rounded ? prev : rounded));
-  }, []);
 
   const [chatCollapsed, setChatCollapsedState] = useState(false);
   useLayoutEffect(() => {
@@ -162,20 +162,9 @@ export function useLiveLayout({
     return () => mediaQuery.removeEventListener("change", handler);
   }, [isOgMode]);
 
-  useLayoutEffect(() => {
-    if (isOgMode) return;
-    const mediaQuery = window.matchMedia("(max-height: 599px)");
-    setIsShortViewport(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setIsShortViewport(e.matches);
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, [isOgMode]);
-
   const colHeightPx = desktopRowRect ? desktopRowRect.height : null;
   const rowWidthPx = desktopRowRect ? desktopRowRect.width : null;
-  const railNavExpanded = !isLive && !railCompact;
-  const railNavWidthPx = railNavExpanded ? RAIL_NAV_WIDTH_EXPANDED_PX : RAIL_NAV_WIDTH_PX;
-  const availableColWidthPx = desktopRowRect ? Math.max(0, desktopRowRect.width - railNavWidthPx) : null;
+  const availableColWidthPx = rowWidthPx;
   const railWidthPx = rowWidthPx != null ? clampRailWidth(rowWidthPx) : null;
   const desktopChatRailVisible = isLive && !chatCollapsed;
   const desktopRightColVisible = !isLive || !chatCollapsed;
@@ -184,92 +173,59 @@ export function useLiveLayout({
       ? Math.max(0, availableColWidthPx - (desktopRightColVisible ? railWidthPx : 0))
       : null;
 
-  const supportAreaHeight = Math.max(CLIP_WRAPPER_MIN_PX, desktopScheduleIdealPx ?? CLIP_WRAPPER_MIN_PX);
+  const liveStripShows = Math.min(liveStripShowCount, LIVE_STRIP_MAX_SHOWS);
+  const liveStripHeightFor = (columns: number) =>
+    LIVE_STRIP_HEADING_PX + Math.ceil(liveStripShows / columns) * LIVE_STRIP_ROW_PX + LIVE_STRIP_PAD_PX;
+  const liveStripMinPx = liveStripHeightFor(4);
 
-  const [bandFloorPx, setBandFloorPx] = useState<number | null>(null);
-  const handleBandFloorMeasured = useCallback((px: number) => {
-    const rounded = Math.round(px);
-    setBandFloorPx((prev) => (prev === rounded ? prev : rounded));
-  }, []);
-
-  const schemeAHeightOffline =
-    stageAvailableWidthPx != null && colHeightPx != null
-      ? Math.min(stageAvailableWidthPx / DESKTOP_STAGE_ASPECT, colHeightPx - supportAreaHeight)
-      : null;
-  const schemeAWidthOffline =
-    schemeAHeightOffline != null ? schemeAHeightOffline * DESKTOP_STAGE_ASPECT : null;
-  const useSchemeS =
-    !isLive && schemeAHeightOffline != null && schemeAWidthOffline != null && availableColWidthPx != null
-      ? schemeAHeightOffline < DESKTOP_STAGE_MIN_PX || schemeAWidthOffline < availableColWidthPx / 2
-      : false;
-
-  const bandFloorActive = isLive && desktopChatRailVisible && bandFloorPx != null;
   const onlineStageHeightPx =
     stageAvailableWidthPx != null && colHeightPx != null
-      ? bandFloorActive
-        ? Math.min(stageAvailableWidthPx / DESKTOP_STAGE_ASPECT, Math.max(0, colHeightPx - bandFloorPx))
-        : stageAvailableWidthPx / DESKTOP_STAGE_ASPECT
+      ? Math.min(stageAvailableWidthPx / DESKTOP_STAGE_ASPECT, colHeightPx - liveStripMinPx)
+      : null;
+  const onlineStageBoxHeightPx = onlineStageHeightPx != null ? Math.ceil(onlineStageHeightPx) : null;
+  const liveStripLeftoverPx =
+    colHeightPx != null && onlineStageBoxHeightPx != null ? colHeightPx - onlineStageBoxHeightPx : null;
+  const liveStripColumns =
+    liveStripLeftoverPx != null && liveStripLeftoverPx >= liveStripHeightFor(2)
+      ? 2
+      : stageAvailableWidthPx != null && stageAvailableWidthPx >= LIVE_STRIP_WIDE_PX
+        ? 4
+        : 2;
+  const liveStripRowPx =
+    liveStripLeftoverPx != null
+      ? (liveStripLeftoverPx - LIVE_STRIP_HEADING_PX - LIVE_STRIP_PAD_PX) /
+        Math.max(1, Math.ceil(liveStripShows / liveStripColumns))
       : null;
 
-  const schemeSMaxStageWidthPx =
-    stageAvailableWidthPx != null ? Math.max(0, stageAvailableWidthPx - SUPPORT_OVERLAY_PX - 12) : null;
-  const schemeSStageHeightPx =
-    colHeightPx != null && schemeSMaxStageWidthPx != null
-      ? Math.max(0, Math.min(colHeightPx - CLIP_WRAPPER_MIN_PX, schemeSMaxStageWidthPx / DESKTOP_STAGE_ASPECT))
-      : null;
-  const schemeSStripHeightPx =
-    colHeightPx != null && schemeSStageHeightPx != null
-      ? Math.max(CLIP_WRAPPER_MIN_PX, colHeightPx - schemeSStageHeightPx)
-      : CLIP_WRAPPER_MIN_PX;
+  const [viewportHeightPx, setViewportHeightPx] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!fullBleedDesktop) return;
+    const update = () => setViewportHeightPx(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [fullBleedDesktop]);
 
-  const offlineSchemeABandHeightPx =
-    colHeightPx != null ? Math.max(supportAreaHeight, colHeightPx * 0.45) : supportAreaHeight;
-  const schemeABandHeightPx = !isLive ? offlineSchemeABandHeightPx : supportAreaHeight;
-  const offlineSchemeAStageHeightPx =
-    colHeightPx != null && stageAvailableWidthPx != null
-      ? Math.max(
-          DESKTOP_STAGE_MIN_PX,
-          Math.min(stageAvailableWidthPx / DESKTOP_STAGE_ASPECT, colHeightPx - schemeABandHeightPx),
-        )
+  const offlineStageHeightPx =
+    viewportHeightPx != null && rowWidthPx != null
+      ? Math.max(0, Math.min(viewportHeightPx, (rowWidthPx - OFFLINE_SECONDARY_MIN_PX) / OFFLINE_STAGE_ASPECT))
       : null;
-
-  const desktopStageHeightPxRaw = useSchemeS
-    ? schemeSStageHeightPx
-    : !isLive
-      ? offlineSchemeAStageHeightPx
-      : onlineStageHeightPx;
-  const desktopStageHeightPx = desktopStageHeightPxRaw != null ? Math.ceil(desktopStageHeightPxRaw) : null;
+  const desktopStageHeightPx = isLive
+    ? onlineStageBoxHeightPx
+    : offlineStageHeightPx != null
+      ? Math.ceil(offlineStageHeightPx)
+      : null;
   const desktopStageWidthPx =
-    desktopStageHeightPx != null ? Math.ceil(desktopStageHeightPx * DESKTOP_STAGE_ASPECT) : null;
+    desktopStageHeightPx != null
+      ? Math.ceil(desktopStageHeightPx * (isLive ? DESKTOP_STAGE_ASPECT : OFFLINE_STAGE_ASPECT))
+      : null;
 
-  const desktopNaturalColWidthPx =
-    desktopStageWidthPx == null
-      ? null
-      : useSchemeS
-        ? SUPPORT_OVERLAY_PX + 12 + desktopStageWidthPx
-        : desktopStageWidthPx;
-  const desktopLeftColMaxPx =
-    availableColWidthPx != null && railWidthPx != null ? Math.max(0, availableColWidthPx - railWidthPx) : null;
-  const desktopLeftColNaturalPx = isLive ? stageAvailableWidthPx : desktopNaturalColWidthPx;
-  const desktopLeftColWidthPx = !desktopRightColVisible
-    ? availableColWidthPx
-    : desktopLeftColNaturalPx != null && desktopLeftColMaxPx != null
-      ? Math.min(desktopLeftColNaturalPx, desktopLeftColMaxPx)
-      : desktopLeftColNaturalPx;
+  const desktopLeftColWidthPx = isLive ? stageAvailableWidthPx : null;
 
   const desktopPhotoFit =
     desktopStageWidthPx != null && desktopStageHeightPx != null
       ? computePhotoFit(desktopStageWidthPx, desktopStageHeightPx)
       : 0;
-  const stageNarrow = fullBleedDesktop && desktopStageWidthPx != null && desktopStageWidthPx < 600;
-
-  const naturalClipsWidthFor = (stripHeightPx: number) =>
-    Math.max(0, stripHeightPx - 24) * (9 / 16) * ENERGY_VIDEO_IDS.length + 12 * (ENERGY_VIDEO_IDS.length - 1);
-  const schemeABandActualHeightPx =
-    !useSchemeS && colHeightPx != null && desktopStageHeightPx != null
-      ? Math.max(0, colHeightPx - desktopStageHeightPx)
-      : schemeABandHeightPx;
-  const naturalClipsWidth = naturalClipsWidthFor(useSchemeS ? schemeSStripHeightPx : schemeABandActualHeightPx);
 
   const mobileOfflineScroll = isDesktop === false && !isLive && !isOgMode;
   const mobileViewportHeightPx = mobileOfflineScroll
@@ -307,32 +263,25 @@ export function useLiveLayout({
 
   return {
     isDesktop,
-    isShortViewport,
     fullBleedDesktop,
     vvHeight,
     mobileOfflineScroll,
     railRowCount,
+    liveStripColumns,
+    liveStripRowPx,
     railNavRef,
     railCompact,
     railMotionStyle,
     desktopRowRef,
-    handleDesktopScheduleMeasured,
-    handleBandFloorMeasured,
-    bandFloorPx,
     chatCollapsed,
     setChatCollapsed,
     mobileColRef,
     handleMobileScheduleMeasured,
-    railNavExpanded,
-    useSchemeS,
     desktopStageHeightPx,
     desktopStageWidthPx,
     desktopChatRailVisible,
     desktopLeftColWidthPx,
     desktopPhotoFit,
-    stageNarrow,
-    schemeSStripHeightPx,
-    naturalClipsWidth,
     mobileLandscape,
     mobileStageHeightPx,
     mobileStageConstrained,

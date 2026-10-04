@@ -27,7 +27,6 @@ export default {
       },
       colors: {
         lyrist: "#007AFF",
-        soundbetter: "#49B8BA",
         venmo: "#008CFF",
       },
       backgroundImage: {

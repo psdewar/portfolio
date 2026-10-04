@@ -1,35 +1,23 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ADLIB_REACTIONS, type AdlibFloatingReaction } from "../lib/adlib";
 
 export function AdlibReactionButtons({
   onReact,
-  onSupport,
   variant = "overlay",
+  action,
 }: {
   onReact: (emoji: string) => void;
-  onSupport?: () => void;
   variant?: "overlay" | "panel";
+  action?: ReactNode;
 }) {
-  const pill =
-    variant === "panel"
-      ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-300 dark:hover:bg-neutral-700"
-      : "bg-black/40 text-white backdrop-blur hover:bg-black/60";
   const emojiClass =
     variant === "overlay"
       ? "h-10 w-10 flex items-center justify-center text-[22px] leading-none transition-transform hover:scale-110 active:scale-90 drop-shadow-lg"
-      : "h-10 w-10 flex items-center justify-center text-[22px] leading-none transition-transform hover:scale-110 active:scale-90";
+      : "h-10 w-9 flex items-center justify-center text-[22px] leading-none transition-transform hover:scale-110 active:scale-90";
   return (
-    <div className="flex items-center gap-0.5">
-      {onSupport && (
-        <button
-          type="button"
-          onClick={onSupport}
-          className={`flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition-colors active:scale-95 ${pill}`}
-        >
-          Support
-        </button>
-      )}
+    <div className={`flex items-center gap-0.5 ${action ? "w-full" : ""}`}>
       {ADLIB_REACTIONS.map((emoji) => (
         <button
           key={emoji}
@@ -41,6 +29,7 @@ export function AdlibReactionButtons({
           {emoji}
         </button>
       ))}
+      {action && <div className="ml-auto pl-2">{action}</div>}
     </div>
   );
 }
@@ -48,11 +37,10 @@ export function AdlibReactionButtons({
 interface Props {
   floating: AdlibFloatingReaction[];
   onReact: (emoji: string) => void;
-  onSupport?: () => void;
   hideButtons?: boolean;
 }
 
-export function AdlibReactions({ floating, onReact, onSupport, hideButtons = false }: Props) {
+export function AdlibReactions({ floating, onReact, hideButtons = false }: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
       <div className="absolute bottom-16 right-4 flex flex-col items-center">
@@ -69,7 +57,7 @@ export function AdlibReactions({ floating, onReact, onSupport, hideButtons = fal
 
       {!hideButtons && (
         <div className="pointer-events-auto absolute bottom-3 right-3">
-          <AdlibReactionButtons onReact={onReact} onSupport={onSupport} />
+          <AdlibReactionButtons onReact={onReact} />
         </div>
       )}
     </div>

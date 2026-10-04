@@ -396,6 +396,7 @@ export function SupporterSection({
                     <div className="px-4 sm:px-6 lg:px-8 split:px-0">
                       <ShowRow
                         event={event}
+                        quietRsvp
                         bleed="-mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 split:mx-0 split:px-0"
                       />
                     </div>

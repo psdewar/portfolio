@@ -7,6 +7,7 @@ import { ClientLayout } from "./ClientLayout";
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.woff2",
   variable: "--font-epunda",
+  weight: "300 900",
 });
 
 const bebasNeue = Bebas_Neue({

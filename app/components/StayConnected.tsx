@@ -5,6 +5,7 @@ import { ContactFormData } from "../actions";
 import FormInput from "./FormInput";
 import ContactFields from "./ContactFields";
 import { notifySessionChange } from "../hooks/useSession";
+import { serverFieldError } from "../lib/form-errors";
 
 interface SelectedTier {
   name: string;
@@ -24,6 +25,7 @@ interface StayConnectedProps {
 }
 
 interface FormErrors {
+  name?: string;
   email?: string;
   otp?: string;
 }
@@ -71,7 +73,7 @@ export default function StayConnected({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const emailRef = useRef<HTMLInputElement | null>(null);
+  const focusRef = useRef<HTMLInputElement | null>(null);
   const otpRef = useRef<HTMLInputElement | null>(null);
 
   const [mode, setMode] = useState<Mode>("signup");
@@ -96,7 +98,7 @@ export default function StayConnected({
       if (step === "code") {
         otpRef.current?.focus();
       } else {
-        emailRef.current?.focus();
+        focusRef.current?.focus();
       }
     }, 0);
     return () => clearTimeout(id);
@@ -165,7 +167,7 @@ export default function StayConnected({
       const data = await res.json();
 
       if (!res.ok) {
-        setErrors({ email: data.error || "Failed to send code" });
+        setErrors(serverFieldError(res.status, data.error, "Failed to send code"));
         setIsLoading(false);
         return;
       }
@@ -238,7 +240,7 @@ export default function StayConnected({
     ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
     : "bg-white dark:bg-neutral-800 p-4 sm:p-6 w-full h-full flex flex-col";
 
-  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-lg`;
+  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-xl`;
   const formLayoutClass = isModal
     ? ""
     : " md:grid md:grid-cols-[1fr_2fr] xl:grid-cols-2 md:gap-x-6 xl:p-4 3xl:flex";
@@ -252,6 +254,10 @@ export default function StayConnected({
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+
+    if (!contactFormData.name.trim()) {
+      newErrors.name = "Name is required";
+    }
 
     if (!contactFormData.email.trim()) {
       newErrors.email = "Email is required";
@@ -457,7 +463,7 @@ export default function StayConnected({
       ) : mode === "signup" ? (
         <form onSubmit={handleSubmit} className={fieldsClass}>
           <ContactFields
-            ref={emailRef}
+            ref={focusRef}
             email={contactFormData.email}
             name={contactFormData.name}
             phone={contactFormData.phone}
@@ -466,7 +472,7 @@ export default function StayConnected({
             onPhoneChange={(v) => handleInputChange("phone", v)}
             errors={errors}
             scale={isModal ? "compact" : "tile"}
-            namePlaceholder={purpose === "chat" || purpose === "notify" ? "First name" : undefined}
+            namePlaceholder={purpose === "chat" || purpose === "notify" ? "First name *" : undefined}
             hidePhone={purpose === "chat" || purpose === "notify"}
           />
           <button
@@ -489,7 +495,7 @@ export default function StayConnected({
       ) : (
         <div className={fieldsClass}>
           <FormInput
-            ref={emailRef}
+            ref={focusRef}
             type="email"
             placeholder="Email address"
             value={signInEmail}

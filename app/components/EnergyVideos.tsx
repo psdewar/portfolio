@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { PlayIcon } from "@phosphor-icons/react";
 import { getVideoMetadata } from "../lib/videos.config";
+import { ClipViewer } from "./ClipViewer";
 
 export interface EnergyVideosHandle {
   silence: () => void;
@@ -17,6 +18,7 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
 }
 
 const GAP = 12;
+const VIEWER_ID = "__viewer";
 export const CLIP_MIN_H = 280;
 function stepOf(el: HTMLElement) {
   const first = el.firstElementChild as HTMLElement | null;
@@ -35,6 +37,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
   className?: string;
   fitHeight?: boolean;
   flush?: boolean;
+  expandOnPlay?: boolean;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
 }>(function EnergyVideos(
@@ -44,6 +47,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
     className,
     fitHeight = false,
     flush = false,
+    expandOnPlay = false,
     onLoudPlay,
     onLoudEnd,
   },
@@ -66,11 +70,18 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
   const [playing, setPlaying] = useState<string | null>(null);
   const [ready, setReady] = useState<Set<string>>(new Set());
   const loudClipRef = useRef<string | null>(null);
+  const [viewer, setViewer] = useState<{ index: number; time: number } | null>(null);
+  const viewerVideoRef = useRef<HTMLVideoElement>(null);
+  const viewerTrigger = useRef<HTMLElement | null>(null);
 
   useImperativeHandle(outerRef, () => ({
     silence: () => {
       const id = loudClipRef.current;
       if (!id) return;
+      if (id === VIEWER_ID) {
+        if (viewerVideoRef.current) viewerVideoRef.current.muted = true;
+        return;
+      }
       const el = players.current.get(id);
       if (el) el.muted = true;
     },
@@ -155,6 +166,29 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
     if (!el) return;
     el.muted = true;
     playIgnoringAbort(el);
+  };
+  const setViewerLoud = useCallback(
+    (on: boolean) => {
+      if (on) {
+        if (loudClipRef.current === VIEWER_ID) return;
+        loudClipRef.current = VIEWER_ID;
+        onLoudPlay?.();
+      } else if (loudClipRef.current === VIEWER_ID) {
+        loudClipRef.current = null;
+        onLoudEnd?.();
+      }
+    },
+    [onLoudPlay, onLoudEnd],
+  );
+  const openViewer = (index: number, trigger: HTMLElement) => {
+    const el = players.current.get(clips[index].id);
+    viewerTrigger.current = trigger;
+    setViewer({ index, time: el?.currentTime ?? 0 });
+  };
+  const closeViewer = () => {
+    setViewerLoud(false);
+    setViewer(null);
+    viewerTrigger.current?.focus();
   };
   const playWithSound = (id: string) => {
     const el = players.current.get(id);
@@ -298,7 +332,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
               {playing !== clip.id && (
                 <button
                   type="button"
-                  onClick={() => playWithSound(clip.id)}
+                  onClick={(e) => (expandOnPlay ? openViewer(i, e.currentTarget) : playWithSound(clip.id))}
                   aria-label={clip.title ? `Play ${clip.title}` : "Play clip"}
                   className="absolute inset-0"
                 >
@@ -331,6 +365,16 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
           </button>
         )}
       </div>
+      {viewer && (
+        <ClipViewer
+          clips={clips}
+          startIndex={viewer.index}
+          startTime={viewer.time}
+          videoRef={viewerVideoRef}
+          onLoud={setViewerLoud}
+          onClose={closeViewer}
+        />
+      )}
     </div>
   );
 });
