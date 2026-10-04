@@ -134,6 +134,16 @@ export function SupporterSection({
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("manage") !== "1") return;
+    params.delete("manage");
+    const query = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (query ? `?${query}` : "") + window.location.hash);
+    setVerifyRedirectToPortal(true);
+    setShowVerifyForm(true);
+  }, []);
+
+  useEffect(() => {
     if (!isModal) {
       posthog.capture("patron_page_viewed", { is_patron: isPatron });
     }
@@ -584,17 +594,7 @@ export function SupporterSection({
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">
                 <button
                   type="button"
-                  onClick={() => {
-                    const email = localStorage.getItem("patronEmail");
-                    if (email) {
-                      window.location.assign(
-                        `/api/stripe-portal?email=${encodeURIComponent(email)}`,
-                      );
-                    } else {
-                      setVerifyRedirectToPortal(true);
-                      setShowVerifyForm(true);
-                    }
-                  }}
+                  onClick={() => window.location.assign("/api/stripe-portal")}
                   className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   Manage my subscription
@@ -656,12 +656,10 @@ export function SupporterSection({
             </h2>
             <PatronSignInForm
               onCancel={closeVerifyForm}
-              onVerified={(email) => {
+              onVerified={() => {
                 closeVerifyForm();
                 if (verifyRedirectToPortal) {
-                  window.location.assign(
-                    `/api/stripe-portal?email=${encodeURIComponent(email)}`,
-                  );
+                  window.location.assign("/api/stripe-portal");
                 }
               }}
             />

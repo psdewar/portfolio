@@ -7,8 +7,13 @@ import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
 import { upsertIdentity } from "../../lib/identity";
 import { sendMetaLead } from "../../lib/meta-capi";
+import { isAdminAuthorized } from "../shared/admin-auth";
 
 export async function GET(request: Request) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const detail = searchParams.get("detail");
 

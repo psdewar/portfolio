@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { doorTimeMinutes, isDatePast, todayIn } from "./dates";
 import { getJourneyEvents, type TimelineEvent } from "../data/timeline";
+import { chorusFetch } from "./chorus";
 
 export interface Show {
   slug: string;
@@ -40,7 +41,6 @@ export interface Show {
   leg?: string | null;
 }
 
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 const LEG_ALIASES: Record<string, string> = { carolinas: "south-carolina" };
 
@@ -48,7 +48,7 @@ const plainBahai = <T extends string | null | undefined>(text: T): T =>
   (text?.replace(/Bah[áa][’'ʼ][íi]/g, "Baha'i") ?? text) as T;
 
 export const getShows = cache(async (): Promise<Show[]> => {
-  const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
+  const res = await chorusFetch("shows", { cache: "no-store" });
   if (!res.ok) return [];
   const shows: Show[] = await res.json();
   return shows.map((s) => ({

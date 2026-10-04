@@ -15,7 +15,7 @@ import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
 import { PATRON_CONFIG, PATRON_EXCLUSIVE_TRACKS } from "../data/patron-config";
 import { usePatronStatus } from "../hooks/usePatronStatus";
-import { claimPatronSession, claimPatronLink, onPatronStatusChange } from "../lib/patron";
+import { claimPatronSession, claimPatronLink } from "../lib/patron";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import SupportModal from "app/components/SupportModal";
 import { useToast } from "../contexts/ToastContext";
@@ -98,16 +98,9 @@ export default function Page() {
   const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
   const [patronWelcome, setPatronWelcome] = useState(false);
   const [welcomeFromCheckout, setWelcomeFromCheckout] = useState(false);
-  const [patronEmail, setPatronEmail] = useState<string | null>(null);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const toast = useToast();
-
-  useEffect(() => {
-    const read = () => setPatronEmail(localStorage.getItem("patronEmail"));
-    read();
-    return onPatronStatusChange(read);
-  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -206,33 +199,14 @@ export default function Page() {
                   </p>
                 )}
               </div>
-              {patronEmail ? (
-                <a
-                  href={`/api/stripe-portal?email=${encodeURIComponent(patronEmail)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
-                >
-                  Manage subscription
-                </a>
-              ) : (
-                <button
-                  onClick={() => {
-                    const email = prompt("Enter the email you used to subscribe:");
-                    if (!email) return;
-                    localStorage.setItem("patronEmail", email);
-                    setPatronEmail(email);
-                    window.open(
-                      `/api/stripe-portal?email=${encodeURIComponent(email)}`,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  }}
-                  className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
-                >
-                  Manage subscription
-                </button>
-              )}
+              <a
+                href="/api/stripe-portal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neutral-400 hover:text-white text-sm underline underline-offset-2 transition-colors"
+              >
+                Manage subscription
+              </a>
             </div>
             <a
               href="/api/download/pack?file=singles-16s-2025"

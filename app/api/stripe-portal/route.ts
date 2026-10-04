@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "../shared/stripe-utils";
+import { readSession } from "../../../lib/session";
+import { verifySlug } from "../../lib/confirm";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get email from query param (passed from client)
-    const email = request.nextUrl.searchParams.get("email");
+    const queryEmail = request.nextUrl.searchParams.get("email")?.trim().toLowerCase();
+    const sig = request.nextUrl.searchParams.get("sig") || undefined;
+    const signedEmail = queryEmail && verifySlug(queryEmail, sig) ? queryEmail : null;
+    const email = readSession(request)?.email.trim().toLowerCase() ?? signedEmail;
 
     if (!email) {
-      return NextResponse.redirect(new URL("/support?error=no-email", request.url));
+      return NextResponse.redirect(new URL("/support?manage=1", request.url));
     }
 
-    // Look up customer by email
     const customers = await stripe.customers.list({
       email,
       limit: 1,
@@ -22,7 +25,6 @@ export async function GET(request: NextRequest) {
 
     const customer = customers.data[0];
 
-    // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customer.id,
       return_url: `${request.nextUrl.origin}/support`,

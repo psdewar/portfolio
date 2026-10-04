@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publishEventbrite, cancelEventbrite } from "../../lib/eventbrite";
+import { isAdminAuthorized } from "../shared/admin-auth";
+import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
 import { isShowListed, getShowBySlug } from "../../lib/shows";
 
 export const maxDuration = 30;
 
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
+export async function GET(request: NextRequest) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-export async function GET() {
   try {
-    const res = await fetch(`${SHOWS_API}/chorus/shows`, { cache: "no-store" });
+    const res = await chorusFetch("shows", { cache: "no-store" });
 
     if (!res.ok) {
       const text = await res.text();
@@ -29,18 +32,21 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!SHOWS_TOKEN) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
   try {
     const body = await request.json();
 
-    const res = await fetch(`${SHOWS_API}/chorus/shows`, {
+    const res = await chorusFetch("shows", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SHOWS_TOKEN}`,
       },
       body: JSON.stringify(body),
     });
@@ -79,7 +85,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!SHOWS_TOKEN) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
@@ -97,11 +107,10 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    const res = await fetch(`${SHOWS_API}/chorus/shows`, {
+    const res = await chorusFetch("shows", {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SHOWS_TOKEN}`,
       },
       body: JSON.stringify(forward),
     });
@@ -121,7 +130,11 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!SHOWS_TOKEN) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) {
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
@@ -141,11 +154,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const res = await fetch(`${SHOWS_API}/chorus/shows`, {
+    const res = await chorusFetch("shows", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SHOWS_TOKEN}`,
       },
       body: JSON.stringify(forward),
     });

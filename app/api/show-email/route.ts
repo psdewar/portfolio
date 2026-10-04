@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendShowBlast } from "../../../lib/sendgrid";
 import { namesByEmail } from "../../lib/rsvp";
+import { isAdminAuthorized } from "../shared/admin-auth";
 
 const SELF_EMAIL = "psd@lyrist.app";
 
 export async function POST(request: Request) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { slug, subject, body, sendAt, test } = await request.json();
 
   if (!slug || !subject || !body) {

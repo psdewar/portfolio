@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const API_BASE = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const API_TOKEN = process.env.SCHEDULE_API_TOKEN;
+import { isAdminAuthorized } from "./admin-auth";
+import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
 
 type Method = "POST" | "PATCH" | "DELETE";
 
 export function makeChorusProxy(resource: string) {
-  const url = `${API_BASE}/chorus/${resource}`;
   const tag = `[${resource}]`;
 
-  async function GET() {
+  async function GET(request: NextRequest) {
+    if (!(await isAdminAuthorized(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await chorusFetch(resource, { cache: "no-store" });
       if (!res.ok) {
         console.error(`${tag} GET failed:`, res.status, await res.text());
         return NextResponse.json({ error: "upstream unavailable" }, { status: 502 });
@@ -24,12 +25,15 @@ export function makeChorusProxy(resource: string) {
   }
 
   async function mutate(request: NextRequest, method: Method) {
-    if (!API_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+    if (!(await isAdminAuthorized(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!CHORUS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
     try {
       const body = await request.json();
-      const res = await fetch(url, {
+      const res = await chorusFetch(resource, {
         method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_TOKEN}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const text = await res.text();

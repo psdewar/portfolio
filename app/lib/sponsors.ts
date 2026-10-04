@@ -1,4 +1,4 @@
-const SPONSORS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
+import { chorusFetch } from "./chorus";
 
 export interface Sponsor {
   showSlug?: string;
@@ -19,7 +19,7 @@ export interface Sponsor {
 
 export async function getSponsors(): Promise<Sponsor[]> {
   try {
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, { cache: "no-store" });
+    const res = await chorusFetch("sponsors", { cache: "no-store" });
     if (!res.ok) {
       console.error("[sponsors] fetch failed:", res.status);
       return [];

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminAuthorized } from "../shared/admin-auth";
+import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
 
-const SPONSORS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
+export async function GET(request: NextRequest) {
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-export async function GET() {
   try {
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, { cache: "no-store" });
+    const res = await chorusFetch("sponsors", { cache: "no-store" });
     if (!res.ok) {
       console.error("[sponsors] GET failed:", res.status, await res.text());
       return NextResponse.json([], { status: 200 });
@@ -18,13 +21,17 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
     const body = await request.json();
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, {
+    const res = await chorusFetch("sponsors", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -47,13 +54,17 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
     const body = await request.json();
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, {
+    const res = await chorusFetch("sponsors", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -79,13 +90,17 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  if (!(await isAdminAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!CHORUS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
     const body = await request.json();
-    const res = await fetch(`${SPONSORS_API}/chorus/sponsors`, {
+    const res = await chorusFetch("sponsors", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 

@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { roleForToken } from "../shared/admin-auth";
+import { isAdminAuthorized, roleForToken } from "../shared/admin-auth";
+import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
 
-const SCHEDULE_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const SCHEDULE_TOKEN = process.env.SCHEDULE_API_TOKEN;
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const res = await fetch(`${SCHEDULE_API}/chorus/schedule`, {
-      cache: "no-store",
-    });
+    const res = await chorusFetch("schedule", { cache: "no-store" });
 
     if (!res.ok) {
       console.error("[schedule] GET failed:", res.status, await res.text());
@@ -16,6 +12,9 @@ export async function GET() {
     }
 
     const data = await res.json();
+    if (!(await isAdminAuthorized(request))) {
+      return NextResponse.json({ nextStream: data.nextStream ?? null });
+    }
     return NextResponse.json(data);
   } catch (error) {
     console.error("[schedule] GET error:", error);
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (role !== "owner") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  if (!SCHEDULE_TOKEN) {
+  if (!CHORUS_TOKEN) {
     console.error("[schedule] SCHEDULE_API_TOKEN not configured");
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
@@ -36,11 +35,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const res = await fetch(`${SCHEDULE_API}/chorus/schedule`, {
+    const res = await chorusFetch("schedule", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SCHEDULE_TOKEN}`,
       },
       body: JSON.stringify(body),
     });

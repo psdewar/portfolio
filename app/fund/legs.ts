@@ -1,4 +1,5 @@
 import { getUpcomingShows } from "../lib/shows";
+import { chorusFetch } from "../lib/chorus";
 
 export type FundLine = {
   key: string;
@@ -79,8 +80,6 @@ export type Leg = {
 // Flat view consumed by TripFund: the fund facet plus the leg slug.
 export type FundLeg = FundFacet & { slug: string };
 
-const SHOWS_API =
-  process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
 // The five prime budget lines a new fund leg starts from. norcal is the
 // canonical template; the artist edits these per trip and can drop any a trip
@@ -171,7 +170,7 @@ export async function withPosterLines<T extends PosterLineShow>(
 
 export async function getLegs(): Promise<Leg[]> {
   try {
-    const res = await fetch(`${SHOWS_API}/chorus/legs`, { cache: "no-store" });
+    const res = await chorusFetch("legs", { cache: "no-store" });
     if (!res.ok) return Object.values(SEED_LEGS);
     const data = (await res.json()) as Leg[];
     const bySlug = new Map<string, Leg>(Object.entries(SEED_LEGS));

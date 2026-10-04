@@ -1,15 +1,12 @@
 import { Show } from "./shows";
 import { parseDoorTime } from "./dates";
 import { getCityZone } from "./city-zone";
+import { chorusFetch } from "./chorus";
 
 const API = "https://www.eventbriteapi.com/v3";
 const TOKEN = process.env.EVENTBRITE_TOKEN;
 const TEMPLATE_EVENT_ID = process.env.EVENTBRITE_TEMPLATE_EVENT_ID || "1988986651617";
 const ORG_ID = process.env.EVENTBRITE_ORG_ID || "2580670542961";
-
-// Same env the show/sponsor routes use (SHOWS_API/SHOWS_TOKEN there) — not new vars.
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
 
 function tzOffsetMs(timeZone: string, at: Date): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
@@ -245,9 +242,9 @@ export async function publishEventbrite(
   if (show.eventbriteId || !show.slug || !show.date) return {};
   try {
     const eventbriteId = await cloneEventForShow(show);
-    await fetch(`${SHOWS_API}/chorus/shows`, {
+    await chorusFetch("shows", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: show.slug, eventbriteId }),
     });
     return { eventbriteId };

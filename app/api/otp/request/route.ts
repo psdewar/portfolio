@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import { createOtpToken, generateOtpCode } from "../../../../lib/otp-token";
 import { sendOtpEmail } from "../../../../lib/sendgrid";
+import { findActivePatron } from "../../shared/patron-lookup";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
 const OTP_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes
@@ -46,7 +47,10 @@ export async function POST(request: Request) {
     }
 
     // Find user in stay-connected table
-    const user = await findUserByEmail(email);
+    let user = await findUserByEmail(email);
+    if (!user && (await findActivePatron(email))) {
+      user = { name: null, email: email.toLowerCase(), phone: null };
+    }
     if (!user) {
       return NextResponse.json(
         { error: "Email not found. Please sign up first." },

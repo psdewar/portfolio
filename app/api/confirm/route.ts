@@ -11,13 +11,9 @@ import { verifySlug } from "../../lib/confirm";
 import { isEmailValid } from "../../lib/email";
 import { locationError } from "../../lib/location";
 import { isAdminAuthorized } from "../shared/admin-auth";
+import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
 
 export const maxDuration = 30;
-
-const SHOWS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
-const SHOWS_TOKEN = process.env.SCHEDULE_API_TOKEN;
-
-const authJson = { "Content-Type": "application/json", Authorization: `Bearer ${SHOWS_TOKEN}` };
 
 interface Sponsor {
   showSlug?: string;
@@ -39,7 +35,7 @@ async function upsertHost(
 ) {
   let host: Sponsor | undefined;
   try {
-    const res = await fetch(`${SHOWS_API}/chorus/sponsors`, { cache: "no-store" });
+    const res = await chorusFetch("sponsors", { cache: "no-store" });
     if (res.ok) {
       const sponsors: Sponsor[] = await res.json();
       host = sponsors.find((s) => s.showSlug === slug && s.role === "host");
@@ -51,9 +47,9 @@ async function upsertHost(
   const nextItems = items ?? host?.items ?? [];
 
   if (host?.submittedAt) {
-    await fetch(`${SHOWS_API}/chorus/sponsors`, {
+    await chorusFetch("sponsors", {
       method: "PATCH",
-      headers: authJson,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         showSlug: slug,
         submittedAt: host.submittedAt,
@@ -66,9 +62,9 @@ async function upsertHost(
     return;
   }
 
-  await fetch(`${SHOWS_API}/chorus/sponsors`, {
+  await chorusFetch("sponsors", {
     method: "POST",
-    headers: authJson,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       showSlug: slug,
       role: "host",
@@ -84,25 +80,25 @@ async function upsertHost(
 }
 
 async function retireDraft(slug: string) {
-  const res = await fetch(`${SHOWS_API}/chorus/sponsors`, { cache: "no-store" });
+  const res = await chorusFetch("sponsors", { cache: "no-store" });
   const sponsors: Sponsor[] = res.ok ? await res.json() : [];
   for (const s of sponsors) {
     if (s.showSlug !== slug || !s.submittedAt) continue;
-    await fetch(`${SHOWS_API}/chorus/sponsors`, {
+    await chorusFetch("sponsors", {
       method: "DELETE",
-      headers: authJson,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ showSlug: slug, submittedAt: s.submittedAt }),
     });
   }
-  await fetch(`${SHOWS_API}/chorus/shows`, {
+  await chorusFetch("shows", {
     method: "DELETE",
-    headers: authJson,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ slug }),
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!SHOWS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
+  if (!CHORUS_TOKEN) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 
   try {
     const {
@@ -178,9 +174,9 @@ export async function POST(request: NextRequest) {
       delete createBody.slug;
       delete createBody.id;
 
-      const created = await fetch(`${SHOWS_API}/chorus/shows`, {
+      const created = await chorusFetch("shows", {
         method: "POST",
-        headers: authJson,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(createBody),
       });
       if (!created.ok) {
@@ -210,9 +206,9 @@ export async function POST(request: NextRequest) {
     // Publish: advance the lifecycle to booked. Keep access (private stays private);
     // a legacy "draft" visibility becomes public.
     const visibility = show.visibility === "draft" ? "public" : show.visibility;
-    const patch = await fetch(`${SHOWS_API}/chorus/shows`, {
+    const patch = await chorusFetch("shows", {
       method: "PATCH",
-      headers: authJson,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug, stage: "booked", visibility, date: nextDate, doorTime: nextDoorTime }),
     });
     if (!patch.ok) {

@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { findActivePatron, setPatronCookie } from "../shared/patron-lookup";
+import { readSession } from "../../../lib/session";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const session = readSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  }
+
   try {
-    const { email } = await request.json();
-
-    if (!email) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
-
-    const patron = await findActivePatron(email);
+    const patron = await findActivePatron(session.email);
 
     if (!patron) {
       return NextResponse.json({ error: "No active subscription" }, { status: 404 });
