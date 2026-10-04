@@ -16,6 +16,8 @@ import { TRACK_DATA } from "./data/tracks";
 import { isPatronTrack } from "./data/patron-config";
 import { usePatronStatus } from "./hooks/usePatronStatus";
 import SingleOverlay from "./components/SingleOverlay";
+import { isFundPath, isLivePath } from "./lib/route-checks";
+import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
 
 const RELOAD_KEY = "chunk-reloaded";
 function withChunkRecovery<T>(load: () => Promise<T>): () => Promise<T> {
@@ -35,9 +37,20 @@ function withChunkRecovery<T>(load: () => Promise<T>): () => Promise<T> {
     );
 }
 
+function NavbarPlaceholder() {
+  const pathname = usePathname() ?? "/";
+  if (isFundPath(pathname)) return null;
+  return (
+    <div
+      aria-hidden
+      className={`w-full h-[65px] shrink-0 ${isLivePath(pathname) ? LIVE_DESKTOP_HIDDEN : ""}`}
+    />
+  );
+}
+
 const Navbar = dynamic(
   withChunkRecovery(() => import("./Navbar").then((mod) => mod.Navbar)),
-  { ssr: false },
+  { ssr: false, loading: () => <NavbarPlaceholder /> },
 );
 const GlobalAudioPlayer = dynamic(
   withChunkRecovery(() =>

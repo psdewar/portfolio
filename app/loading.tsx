@@ -2,7 +2,7 @@ import { MusicNoteIcon } from "@phosphor-icons/react/dist/ssr";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+    <div className="h-full flex-auto flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <MusicNoteIcon
           size={48}
