@@ -983,6 +983,7 @@ function pamphletForLeg(legs: Leg[], slug: string): Pamphlet | null {
     showDoors: pf.showDoors,
     showQr: pf.showQr,
     pinTopRsvp: pf.pinTopRsvp,
+    rsvpLabel: pf.rsvpLabel,
     tags: pf.tags,
     venueImg: pf.venueImg,
     venueImgWidth: pf.venueImgWidth,
@@ -1349,6 +1350,7 @@ function PosterEditor({
     matchedPamphlet?.showDoors ?? false,
   );
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
+  const [rsvpLabel, setRsvpLabel] = useState(matchedPamphlet?.rsvpLabel ?? "");
   const [pinTopRsvp, setPinTopRsvp] = useState(
     matchedPamphlet?.pinTopRsvp ?? true,
   );
@@ -1425,7 +1427,7 @@ function PosterEditor({
     ),
   );
   const [included, setIncluded] = useState<Record<string, boolean>>(() => {
-    if (matchedPamphlet) {
+    if (matchedPamphlet?.shows.length) {
       const savedSlugs = new Set(matchedPamphlet.shows.map((s) => s.slug));
       return Object.fromEntries(
         group.map((g) => [g.show!.slug, savedSlugs.has(g.show!.slug)]),
@@ -1542,6 +1544,7 @@ function PosterEditor({
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
       if (!pinTopRsvp) params.set("pinTopRsvp", "0");
+      params.set("rsvpLabel", rsvpLabel.trim());
       params.set("centerLogo", centerLogo ? "1" : "0");
       if (tags.trim()) params.set("tags", tags);
       if (tagline.trim()) params.set("label", tagline.trim());
@@ -1558,8 +1561,12 @@ function PosterEditor({
       appendPlaceholders(params);
       return `/api/pamphlet?${params.toString()}`;
     }
-    const slugsParam = activeGroup.map((g) => g.show!.slug).join(",");
-    const params = new URLSearchParams({ slugs: slugsParam, format });
+    const params = new URLSearchParams({ format });
+    if (activeGroup.length) {
+      params.set("slugs", activeGroup.map((g) => g.show!.slug).join(","));
+    } else {
+      params.set("blank", "true");
+    }
     applyExtras(params);
     for (const g of activeGroup) {
       const s = g.show!;
@@ -1584,6 +1591,7 @@ function PosterEditor({
       showDoors,
       showQr,
       pinTopRsvp,
+      rsvpLabel: rsvpLabel.trim(),
       tags: tags.trim() || undefined,
       venueImg: venueImg.trim() || undefined,
       venueImgWidth: Number(venueImgWidth) || undefined,
@@ -1718,6 +1726,7 @@ function PosterEditor({
       showDoors: matchedPamphlet?.showDoors,
       showQr: matchedPamphlet?.showQr,
       pinTopRsvp: matchedPamphlet?.pinTopRsvp,
+      rsvpLabel: matchedPamphlet?.rsvpLabel,
       tags: matchedPamphlet?.tags,
       venueImg: matchedPamphlet?.venueImg,
       venueImgWidth: matchedPamphlet?.venueImgWidth,
@@ -1761,8 +1770,13 @@ function PosterEditor({
     );
 
   // forceSlugs so the download reflects current edits without a save.
-  const fetchFormat = (fmt: PosterFormat) =>
-    fetch(isSingle ? buildPosterHref(fmt) : buildPamphletHref(fmt, true));
+  const fetchFormat = async (fmt: PosterFormat) => {
+    const res = await fetch(
+      isSingle ? buildPosterHref(fmt) : buildPamphletHref(fmt, true),
+    );
+    if (!res.ok) throw new Error(await res.text());
+    return res;
+  };
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -1797,6 +1811,7 @@ function PosterEditor({
   const handleReset = () => {
     setTags(PAY_WHAT_YOU_WANT_TAG);
     setTagline("");
+    setRsvpLabel("");
     setTaglineAlign("left");
     setVenueImg("");
     setVenueImgWidth("");
@@ -1831,6 +1846,7 @@ function PosterEditor({
       setShowDoors(false);
       setShowQr(false);
       setPinTopRsvp(true);
+      setRsvpLabel("");
       setPlaceholders([]);
     }
   };
@@ -1882,6 +1898,7 @@ function PosterEditor({
     showDoors,
     showQr,
     pinTopRsvp,
+    rsvpLabel,
     legId,
     venueLabels,
     eventNames,
@@ -1914,7 +1931,6 @@ function PosterEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSnapshot]);
 
-  const total = activeGroup.length + placeholders.filter((p) => p.date).length;
   const inputCls =
     "w-full px-2 py-1.5 text-sm rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";
   const tagsCls =
@@ -2160,6 +2176,13 @@ function PosterEditor({
                         />
                         <span>Pin RSVP link to top</span>
                       </label>
+                      <input
+                        type="text"
+                        value={rsvpLabel}
+                        onChange={(e) => setRsvpLabel(e.target.value)}
+                        placeholder="RSVP label"
+                        className={`${inputCls} mb-4`}
+                      />
                       <ScaleSlider
                         label="Schedule size"
                         value={scale}
@@ -2337,28 +2360,22 @@ function PosterEditor({
                 {saveError && (
                   <div className="text-sm text-red-500 mb-2">{saveError}</div>
                 )}
-                {!isSingle && total === 0 ? (
-                  <div className="text-center text-sm px-3 py-3 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400">
-                    Select at least one show
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleReset}
-                      disabled={downloading}
-                      className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      onClick={handleDownload}
-                      disabled={downloading}
-                      className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
-                    >
-                      {downloading ? "Downloading…" : "Download"}
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReset}
+                    disabled={downloading}
+                    className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    {downloading ? "Downloading…" : "Download"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2446,6 +2463,7 @@ function PosterEditor({
                   showDoors={showDoors}
                   showQr={showQr}
                   pinTopRsvp={pinTopRsvp}
+                  rsvpLabel={rsvpLabel}
                   scale={scale}
                   debug
                   centerLogo={centerLogo}

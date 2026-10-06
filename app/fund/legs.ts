@@ -54,6 +54,7 @@ export type PamphletFacet = {
   showDoors?: boolean;
   showQr?: boolean;
   pinTopRsvp?: boolean;
+  rsvpLabel?: string;
   tags?: string;
   venueImg?: string;
   venueImgWidth?: number;

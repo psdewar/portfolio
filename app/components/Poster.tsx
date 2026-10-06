@@ -50,6 +50,7 @@ interface PosterProps {
   debug?: boolean;
   centerLogo?: boolean;
   pinTopRsvp?: boolean;
+  rsvpLabel?: string;
   // Hide the bottom details block (date/location/doors/QR) — used for private concerts.
   hideDetails?: boolean;
   // Press-kit invite: no date to announce, so the poster asks for one instead.
@@ -86,6 +87,7 @@ function Poster({
   debug = false,
   centerLogo = false,
   pinTopRsvp = true,
+  rsvpLabel = "",
   hideDetails = false,
   invite = false,
   format = "pdf",
@@ -107,7 +109,10 @@ function Poster({
   const [qrLabelW, setQrLabelW] = useState(0);
   useEffect(() => {
     const el = qrLabelRef.current;
-    if (!el) return;
+    if (!el) {
+      setQrLabelW(0);
+      return;
+    }
     const measure = () => {
       const ls = parseFloat(getComputedStyle(el).letterSpacing) || 0;
       setQrLabelW(el.getBoundingClientRect().width - ls);
@@ -116,7 +121,7 @@ function Poster({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [rsvpLabel]);
   useEffect(() => {
     if (!debug && !centerLogo) return;
     const measure = () => {
@@ -672,9 +677,11 @@ function Poster({
                   className="qr-section"
                   style={!pinTopRsvp ? { justifyContent: "flex-end" } : undefined}
                 >
-                  <div className="qr-label" ref={qrLabelRef}>
-                    peytspencer.com/rsvp
-                  </div>
+                  {rsvpLabel && (
+                    <div className="qr-label" ref={qrLabelRef}>
+                      {rsvpLabel}
+                    </div>
+                  )}
                   {showQr && (
                     <img
                       src={`/api/qr?d=${encodeURIComponent("/rsvp")}`}

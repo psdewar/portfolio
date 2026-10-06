@@ -39,6 +39,7 @@ function pamphletHtml(
   doorsOpenOverride = "",
   scale = 1,
   venueImgOffsetY = 0,
+  rsvpLabel = "",
 ): string {
   const { W, H } = POSTER_DIMS[format];
   const qrPath = "/rsvp";
@@ -181,7 +182,7 @@ ${taglineDivs}
         <div class="pamphlet-rows">
           <div class="pamphlet-shows">${showsHtml}</div>
           <div class="qr-section">
-            <a class="qr-label" href="https://peytspencer.com${qrPath}">peytspencer.com/rsvp</a>
+            ${rsvpLabel ? `<a class="qr-label" href="https://peytspencer.com${qrPath}">${rsvpLabel.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")}</a>` : ""}
             ${showQr ? `<img src="${qrDataUrl(qrPath)}" alt="QR Code" class="qr-code" />` : ""}
           </div>
         </div>
@@ -280,6 +281,7 @@ export async function GET(request: NextRequest) {
   let pamphletShowDoors = false;
   let pamphletShowQr = false;
   let pamphletPinTopRsvp = true;
+  let pamphletRsvpLabel = "";
   let pamphletTags = "";
   let pamphletVenueImg = "";
   let pamphletVenueImgWidth = 0;
@@ -303,6 +305,7 @@ export async function GET(request: NextRequest) {
       pamphletShowDoors = pf.showDoors ?? false;
       pamphletShowQr = pf.showQr ?? false;
       pamphletPinTopRsvp = pf.pinTopRsvp ?? true;
+      pamphletRsvpLabel = pf.rsvpLabel ?? "";
       pamphletTags = pf.tags ?? "";
       pamphletVenueImg = pf.venueImg ?? "";
       pamphletVenueImgWidth = pf.venueImgWidth ?? 0;
@@ -378,6 +381,7 @@ export async function GET(request: NextRequest) {
     doorsOpenOverride,
     scale,
     venueImgOffsetY,
+    (searchParams.get("rsvpLabel") ?? pamphletRsvpLabel).trim(),
   );
   // Raw HTML for in-app previews — skips Puppeteer entirely.
   if (searchParams.get("html") === "true") {
