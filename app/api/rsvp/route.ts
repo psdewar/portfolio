@@ -4,7 +4,7 @@ import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { getShows, isShowUpcoming, publicVenueName } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
-import { upsertRsvp, namesByEmail } from "../../lib/rsvp";
+import { upsertRsvp, getRsvpCounts } from "../../lib/rsvp";
 import { upsertIdentity } from "../../lib/identity";
 import { sendMetaLead } from "../../lib/meta-capi";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -14,36 +14,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const detail = searchParams.get("detail");
-
-  const { data, error } = await supabaseAdmin
-    .from("rsvps")
-    .select("show_slug, email, guests");
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  if (detail === "emails") {
-    const names = await namesByEmail([...new Set((data || []).map((r) => r.email))]);
-    const grouped: Record<string, { name: string; email: string; guests: number }[]> = {};
-    for (const row of data || []) {
-      if (!grouped[row.show_slug]) grouped[row.show_slug] = [];
-      grouped[row.show_slug].push({
-        name: names.get(row.email) || "",
-        email: row.email,
-        guests: row.guests ?? 1,
-      });
-    }
-    return NextResponse.json(grouped);
+  try {
+    return NextResponse.json(await getRsvpCounts());
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
-
-  const counts: Record<string, { responses: number; attending: number }> = {};
-  for (const row of data || []) {
-    if (!counts[row.show_slug]) counts[row.show_slug] = { responses: 0, attending: 0 };
-    counts[row.show_slug].responses += 1;
-    counts[row.show_slug].attending += row.guests ?? 1;
-  }
-  return NextResponse.json(counts);
 }
 
 export async function POST(request: Request) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { type Leg } from "../fund/legs";
+import { type Leg } from "../fund/legs-shared";
 
 const input =
   "w-full px-2 lg:px-3 py-1.5 text-sm lg:text-base rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-600";

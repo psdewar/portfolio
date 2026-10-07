@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { isResidence, publicVenueName } from "../../lib/shows";
+import { isResidence, publicVenueName } from "../../lib/shows-shared";
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAudio } from "../../contexts/AudioContext";

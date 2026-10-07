@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDevTools } from "../contexts/DevToolsContext";
-import { isShowUpcoming } from "../lib/shows";
+import { isShowUpcoming } from "../lib/shows-shared";
 
 export function DevToolsPanel() {
   const [simulatedNow, setSimulatedNow] = useState("");

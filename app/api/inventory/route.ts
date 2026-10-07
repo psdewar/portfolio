@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { publicCache } from "../../lib/http";
 
 // Use anon key - inventory is public read
 const supabase = createClient(
@@ -27,7 +28,7 @@ export async function GET() {
 
     return NextResponse.json(inventory, {
       headers: {
-        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+        "Cache-Control": publicCache(30, 60),
       },
     });
   } catch (error) {

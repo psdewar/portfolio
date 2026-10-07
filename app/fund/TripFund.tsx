@@ -28,7 +28,7 @@ import {
   type FundBooked,
   type FundRegion,
   type FundNote,
-} from "./legs";
+} from "./legs-shared";
 import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";

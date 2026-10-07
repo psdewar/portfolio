@@ -13,7 +13,7 @@ import { usePlayer } from "./player";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { type TimelineEvent } from "../data/timeline";
 import { usePatronStatus } from "../hooks/usePatronStatus";
-import { getLegDisplayName } from "../lib/shows";
+import { getLegDisplayName } from "../lib/shows-shared";
 import SupportModal from "../components/SupportModal";
 import { type EnergyVideosHandle } from "../components/EnergyVideos";
 import { EARLY_ACCESS_PREVIEW } from "../data/patron-config";

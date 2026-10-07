@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../lib/supabase-admin";
+import { supabaseAdmin, selectAll } from "../../../../lib/supabase-admin";
 import { isAdminAuthorized } from "../../shared/admin-auth";
 import { isEmailValid } from "../../../lib/email";
 import { namesByEmail } from "../../../lib/rsvp";
@@ -9,19 +9,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [attRes, rsvpRes] = await Promise.all([
-    supabaseAdmin.from("attendances").select("show_slug, email"),
-    supabaseAdmin.from("rsvps").select("show_slug, email"),
-  ]);
-  const error = attRes.error || rsvpRes.error;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  type Row = { show_slug: string; email: string };
+  let attRows: Row[];
+  let rsvpRows: Row[];
+  try {
+    [attRows, rsvpRows] = await Promise.all([
+      selectAll<Row>((from, to) =>
+        supabaseAdmin.from("attendances").select("show_slug, email").order("id").range(from, to),
+      ),
+      selectAll<Row>((from, to) =>
+        supabaseAdmin.from("rsvps").select("show_slug, email").order("id").range(from, to),
+      ),
+    ]);
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 
   const allEmails = [
     ...new Set([
-      ...(attRes.data || []).map((r) => r.email),
-      ...(rsvpRes.data || []).map((r) => r.email),
+      ...attRows.map((r) => r.email),
+      ...rsvpRows.map((r) => r.email),
     ]),
   ];
   const names = await namesByEmail(allEmails);
@@ -42,8 +49,8 @@ export async function GET(request: Request) {
     }
   }
 
-  for (const row of rsvpRes.data || []) add(row.show_slug, row.email);
-  for (const row of attRes.data || []) add(row.show_slug, row.email);
+  for (const row of rsvpRows) add(row.show_slug, row.email);
+  for (const row of attRows) add(row.show_slug, row.email);
 
   return NextResponse.json(grouped);
 }

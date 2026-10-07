@@ -1,7 +1,7 @@
 "use client";
 
-import { type Leg, type FundFacet, type FundLine, primeLines } from "../fund/legs";
-import { type Show } from "../lib/shows";
+import { type Leg, type FundFacet, type FundLine, primeLines } from "../fund/legs-shared";
+import { type Show } from "../lib/shows-shared";
 import { formatMonthDay } from "../lib/dates";
 
 const emptyFund = (): FundFacet => ({ destination: "", shortName: "", nights: 0, lines: [] });

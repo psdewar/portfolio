@@ -1,0 +1,187 @@
+"use client";
+
+import { useState, useEffect, useRef, ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { CheckCircleIcon, CircleNotchIcon } from "@phosphor-icons/react";
+import { canAccess, type AdminRole } from "../lib/admin-roles";
+
+const adminPages = [
+  { segment: "hosts", title: "Hosts", href: "/admin/hosts" },
+  { segment: "livestream", title: "Livestream", href: "/admin/livestream" },
+  { segment: "audience", title: "Stay connected", href: "/admin/audience" },
+  { segment: "moments", title: "Moments", href: "/admin/moments" },
+  { segment: "ledger", title: "Ledger", href: "/admin/ledger" },
+  { segment: "printouts", title: "Printouts", href: "/admin/printouts" },
+  { segment: "sync", title: "Sync lyrics", href: "/admin/sync" },
+];
+
+export default function AdminShell({
+  children,
+  initialRole,
+}: {
+  children: ReactNode;
+  initialRole: AdminRole | null;
+}) {
+  const [role, setRole] = useState<AdminRole | null>(initialRole);
+  const [prevInitialRole, setPrevInitialRole] = useState(initialRole);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showSignedIn, setShowSignedIn] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const router = useRouter();
+  const isAuthenticated = role !== null;
+
+  if (prevInitialRole !== initialRole) {
+    setPrevInitialRole(initialRole);
+    setRole(initialRole);
+  }
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const close = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [dropdownOpen]);
+
+  useEffect(() => {
+    if (!showSignedIn) return;
+    const t = setTimeout(() => setShowSignedIn(false), 2500);
+    return () => clearTimeout(t);
+  }, [showSignedIn]);
+
+  const segment = pathname.replace(/^\/admin\/?/, "").split("/")[0];
+  const current = adminPages.find((p) => p.segment === segment);
+  const isPrintouts = segment === "printouts";
+  const visiblePages = role ? adminPages.filter((p) => canAccess(role, p.href)) : [];
+
+  return (
+    <div className="min-h-screen print:min-h-0 bg-white dark:bg-neutral-950 [--admin-header-h:53px]">
+      <div className="border-b border-neutral-200 dark:border-neutral-800 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[calc(var(--admin-header-h)-1px)] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-500">
+              Admin
+            </span>
+            {isAuthenticated && current && (
+              <div className="relative flex items-center gap-3" ref={dropdownRef}>
+                <span className="text-sm font-light text-neutral-300 dark:text-neutral-700 select-none">
+                  /
+                </span>
+                <button
+                  onClick={() => setDropdownOpen((o) => !o)}
+                  className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-900 dark:text-white hover:text-[#d4a553] transition-colors"
+                >
+                  {current.title}
+                </button>
+                {dropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 py-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl min-w-[160px] z-50">
+                    {visiblePages.map((page) => (
+                      <Link
+                        key={page.href}
+                        href={page.href}
+                        onClick={() => setDropdownOpen(false)}
+                        className={`block px-4 py-2 text-sm transition-colors ${
+                          page.segment === segment
+                            ? "text-[#d4a553]"
+                            : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {page.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {isPrintouts && (
+            <span className="text-xs text-neutral-400 dark:text-neutral-600">
+              Print with Chrome, set margins to Default
+            </span>
+          )}
+          {isAuthenticated ? (
+            <button
+              onClick={async () => {
+                setRole(null);
+                setPassword("");
+                await fetch("/api/admin-login", { method: "DELETE" });
+                router.refresh();
+              }}
+              className="text-sm text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+            >
+              Logout
+            </button>
+          ) : !isPrintouts ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSigningIn(true);
+                try {
+                  const res = await fetch("/api/admin-login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password }),
+                  });
+                  if (res.ok) {
+                    const { role: r } = await res.json();
+                    setRole(r);
+                    setError("");
+                    setShowSignedIn(true);
+                    router.refresh();
+                  } else {
+                    setError("Incorrect password");
+                    setPassword("");
+                  }
+                } finally {
+                  setSigningIn(false);
+                }
+              }}
+            >
+              <div className="relative">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  disabled={signingIn}
+                  placeholder={signingIn ? "Signing in..." : error || "Password"}
+                  className={`w-40 px-3 py-1.5 text-sm rounded-lg border bg-neutral-100 dark:bg-neutral-900/50 text-neutral-900 dark:text-white focus:outline-none transition-colors disabled:opacity-70 ${
+                    error
+                      ? "border-red-300 dark:border-red-800 placeholder-red-400/70"
+                      : "border-neutral-300 dark:border-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-600 focus:border-neutral-400 dark:focus:border-neutral-600"
+                  }`}
+                  autoFocus
+                />
+                {signingIn && (
+                  <CircleNotchIcon
+                    size={16}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-neutral-400"
+                  />
+                )}
+              </div>
+            </form>
+          ) : null}
+        </div>
+      </div>
+
+      {showSignedIn && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium shadow-lg print:hidden">
+          <CheckCircleIcon size={16} weight="fill" />
+          Signed in
+        </div>
+      )}
+
+      {(isAuthenticated || isPrintouts) && children}
+    </div>
+  );
+}

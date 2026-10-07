@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthorized } from "../shared/admin-auth";
-import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
+import { CHORUS_TOKEN, chorusFetch, chorusList } from "../../lib/chorus";
 
 export async function GET(request: NextRequest) {
   if (!(await isAdminAuthorized(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const res = await chorusFetch("sponsors", { cache: "no-store" });
-    if (!res.ok) {
-      console.error("[sponsors] GET failed:", res.status, await res.text());
-      return NextResponse.json([], { status: 200 });
-    }
-    return NextResponse.json(await res.json());
-  } catch (error) {
-    console.error("[sponsors] GET error:", error);
-    return NextResponse.json([], { status: 200 });
-  }
+  return NextResponse.json(await chorusList("sponsors"));
 }
 
 export async function POST(request: NextRequest) {

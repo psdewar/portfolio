@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import type { AdminState } from "../../lib/livestream";
 import DefaultsRow from "./DefaultsRow";
 import Destinations from "./Destinations";
@@ -50,16 +51,17 @@ export default function LivestreamPage() {
 
     Promise.all([
       load(),
-      fetch("/api/livestream")
+      fetch("/api/livestream?scope=admin")
         .then((res) => res.json())
         .then((data) => setSchedule(data.nextStream ?? null)),
     ])
       .catch(() => setMessage({ type: "error", text: "Failed to load current schedule" }))
       .finally(() => setLoading(false));
-
-    const timer = setInterval(() => load().catch(() => undefined), 15000);
-    return () => clearInterval(timer);
   }, [load]);
+
+  useVisibleInterval(() => {
+    load().catch(() => undefined);
+  }, 15000);
 
   const refresh = () => {
     load().catch((error) =>

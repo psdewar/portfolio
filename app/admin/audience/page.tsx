@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Show, completedShows } from "../../lib/shows";
+import { type Show, completedShows } from "../../lib/shows-shared";
 import { formatMonthDay } from "../../lib/dates";
 import { AudienceEmailer } from "./AudienceEmailer";
 

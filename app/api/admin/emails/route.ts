@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../lib/supabase-admin";
+import { supabaseAdmin, selectAll } from "../../../../lib/supabase-admin";
 import { sendShowBlast } from "../../../../lib/sendgrid";
 import { namesByEmail } from "../../../lib/rsvp";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
@@ -15,16 +15,18 @@ const TEST_FALLBACK = "psd@lyrist.app";
 async function fetchRecipientsForSlugs(
   slugs: string[],
 ): Promise<Array<{ email: string; name: string }>> {
-  const [attRes, rsvpRes] = await Promise.all([
-    supabaseAdmin.from("attendances").select("email").in("show_slug", slugs),
-    supabaseAdmin.from("rsvps").select("email").in("show_slug", slugs),
+  const [attRows, rsvpRows] = await Promise.all([
+    selectAll<{ email: string }>((from, to) =>
+      supabaseAdmin.from("attendances").select("email").in("show_slug", slugs).order("id").range(from, to),
+    ),
+    selectAll<{ email: string }>((from, to) =>
+      supabaseAdmin.from("rsvps").select("email").in("show_slug", slugs).order("id").range(from, to),
+    ),
   ]);
-  if (attRes.error) throw new Error(attRes.error.message);
-  if (rsvpRes.error) throw new Error(rsvpRes.error.message);
 
   const emails = new Set<string>();
-  for (const row of attRes.data || []) emails.add(row.email);
-  for (const row of rsvpRes.data || []) emails.add(row.email);
+  for (const row of attRows) emails.add(row.email);
+  for (const row of rsvpRows) emails.add(row.email);
   if (emails.size === 0) return [];
 
   const names = await namesByEmail([...emails]);

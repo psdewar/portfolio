@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Show } from "../lib/shows";
+import type { Show } from "../lib/shows-shared";
 
 export type SaveState = "idle" | "saving" | "saved";
 

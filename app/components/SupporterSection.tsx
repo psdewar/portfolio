@@ -22,7 +22,7 @@ import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW } from "../data/patron-config
 import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
-import { type Show, showsToTimelineEvents } from "../lib/shows";
+import { type Show, showsToTimelineEvents } from "../lib/shows-shared";
 import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
 import { DateStack, PendingRsvpProvider, ShowRow } from "./ShowRow";
 

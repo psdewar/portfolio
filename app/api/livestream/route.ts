@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthorized, roleForToken } from "../shared/admin-auth";
-import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
+import { CHORUS_TOKEN, chorusFetch, chorusRead } from "../../lib/chorus";
+import { publicCache } from "../../lib/http";
 
 export async function GET(request: NextRequest) {
   try {
-    const res = await chorusFetch("schedule", { cache: "no-store" });
+    const isAdmin = await isAdminAuthorized(request);
+    const cacheable = !isAdmin && !request.nextUrl.searchParams.has("scope");
+    const res = cacheable
+      ? await chorusRead("schedule")
+      : await chorusFetch("schedule", { cache: "no-store" });
 
     if (!res.ok) {
       console.error("[schedule] GET failed:", res.status, await res.text());
@@ -12,10 +17,17 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    if (!(await isAdminAuthorized(request))) {
-      return NextResponse.json({ nextStream: data.nextStream ?? null });
+    if (!isAdmin) {
+      return NextResponse.json(
+        { nextStream: data.nextStream ?? null },
+        {
+          headers: {
+            "Cache-Control": cacheable ? publicCache(60, 300) : "private, no-store",
+          },
+        },
+      );
     }
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[schedule] GET error:", error);
     return NextResponse.json({ nextStream: null }, { status: 200 });

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { supabaseAdmin, selectAll } from "../../lib/supabase-admin";
 import { upsertIdentity } from "./identity";
 
 export async function upsertRsvp({
@@ -73,10 +73,28 @@ export async function markAttended({
 
 export async function namesByEmail(emails: string[]): Promise<Map<string, string>> {
   if (emails.length === 0) return new Map();
-  const { data } = await supabaseAdmin
-    .from("stay-connected")
-    .select("email, name")
-    .in("email", emails);
-  return new Map((data || []).map((c) => [c.email, c.name || ""]));
+  const chunks: string[][] = [];
+  for (let i = 0; i < emails.length; i += 200) chunks.push(emails.slice(i, i + 200));
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabaseAdmin.from("stay-connected").select("email, name").in("email", chunk),
+    ),
+  );
+  return new Map(
+    results.flatMap(({ data }) => (data || []).map((c) => [c.email, c.name || ""] as const)),
+  );
 }
 
+
+export async function getRsvpCounts(): Promise<Record<string, { responses: number; attending: number }>> {
+  const data = await selectAll<{ show_slug: string; guests: number | null }>((from, to) =>
+    supabaseAdmin.from("rsvps").select("show_slug, guests").order("id").range(from, to),
+  );
+  const counts: Record<string, { responses: number; attending: number }> = {};
+  for (const row of data || []) {
+    if (!counts[row.show_slug]) counts[row.show_slug] = { responses: 0, attending: 0 };
+    counts[row.show_slug].responses += 1;
+    counts[row.show_slug].attending += row.guests ?? 1;
+  }
+  return counts;
+}

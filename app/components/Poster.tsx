@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
-import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/shows";
+import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/shows-shared";
 import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
 import { posterAspect, type PosterFormat } from "../lib/poster-formats";

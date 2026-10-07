@@ -1,5 +1,5 @@
 import type { LiveStatusValue } from "./live-status";
-import { chorusFetch } from "./chorus";
+import { chorusRead } from "./chorus";
 
 export type StreamPath = "live" | "rehearsal";
 
@@ -29,8 +29,7 @@ export async function getStreamStatus(path: StreamPath = "live"): Promise<LiveSt
 }
 
 export async function getNextStream(): Promise<string | null> {
-  const res = await chorusFetch("schedule", {
-    cache: "no-store",
+  const res = await chorusRead("schedule", 60, {
     signal: AbortSignal.timeout(2000),
   }).catch(() => null);
   if (!res?.ok) return null;
