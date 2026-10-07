@@ -8,7 +8,7 @@ import { verifySlug } from "../../lib/confirm";
 import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../components/ArtistIntro";
-import ScrollToConfirm from "./ScrollToConfirm";
+import ScrollToTarget from "../../components/ScrollToTarget";
 import PosterScrollOverlay from "./PosterScrollOverlay";
 import HostAvatar from "../HostAvatar";
 import { posterAspect } from "../../lib/poster-formats";
@@ -174,7 +174,7 @@ export default async function ConfirmPage({
           <ArtistIntro />
         </div>
       </div>
-      <ScrollToConfirm />
+      <ScrollToTarget targetId="confirm-form" label="Scroll up to confirm" direction="up" spacer />
     </div>
   );
 }

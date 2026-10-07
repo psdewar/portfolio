@@ -548,22 +548,22 @@ export default function RSVPForm({
     copyTimerRef.current = setTimeout(() => setLinkCopied(false), 2000);
   };
 
-  const copyRsvpLink = async () => {
+  const shareRsvpLink = async () => {
+    if (typeof navigator.share === "function") {
+      navigator.share({ url: `https://${rsvpLink}` }).catch(() => {});
+      return;
+    }
     try {
       await navigator.clipboard.writeText(rsvpLink);
       markCopied();
     } catch {
-      if (typeof navigator.share === "function") {
-        navigator.share({ url: `https://${rsvpLink}` }).catch(() => {});
-      } else {
-        setShowLinkInput(true);
-      }
+      setShowLinkInput(true);
     }
   };
 
   const shareLink = (
     <>
-      <ActionRow label="Invite a friend to come with you" pill={linkCopied ? "Copied" : "Copy link"} onClick={copyRsvpLink} />
+      <ActionRow label="Invite your friends" pill={linkCopied ? "Copied" : "Share"} onClick={shareRsvpLink} />
       {showLinkInput && (
         <input
           readOnly
@@ -592,7 +592,7 @@ export default function RSVPForm({
     );
   };
 
-  const calendarRow = <ActionRow label="Add the concert to your calendar" pill="Add" onClick={addToCalendar} />;
+  const calendarRow = <ActionRow label="Add to your calendar" pill="Add" onClick={addToCalendar} />;
 
   const goingSuccess = (
     <div ref={successRef} className="scroll-mt-4 space-y-6">
@@ -608,9 +608,9 @@ export default function RSVPForm({
         </p>
       </div>
       <div className="space-y-3">
-        <ActionRow label={<>Learn my song “Patience” before <span className="whitespace-nowrap">{city}</span></>} pill={patiencePlaying ? "Pause" : "Play"} pillAlt={patiencePlaying ? "Play" : "Pause"} onClick={playPatience} />
+        <ActionRow label={<>Learn “Patience” before <span className="whitespace-nowrap">{city}</span></>} pill={patiencePlaying ? "Pause" : "Play"} pillAlt={patiencePlaying ? "Play" : "Pause"} onClick={playPatience} />
         {calendarRow}
-        {formData.guests === 1 && shareLink}
+        {shareLink}
       </div>
     </div>
   );

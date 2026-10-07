@@ -6,37 +6,11 @@ import Link from "next/link";
 import posthog from "posthog-js";
 import { useDocumentReady } from "../../hooks/useDocumentReady";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import TicketStub, { TICKET_PAPER, TICKET_INK, TICKET_MUSTARD, STAMP_TEXTURE, ticketDisplay as display, ticketMono as mono } from "../../components/TicketStub";
 
-const PAPER = "#eef0f3";
-const INK = "#262b3f";
-const EDGE = "#d4a553";
-const MUSTARD = "#d4a553";
+const PAPER = TICKET_PAPER;
+const INK = TICKET_INK;
 const STAMP = "#c0392b";
-const SHINE_GOLD =
-  "linear-gradient(150deg, #b07f33 0%, #e8c878 26%, #f8ecb6 48%, #d4a553 64%, #a8772f 100%)";
-const STAMP_TEXTURE =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='110'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.16 0.22' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.1 1.32'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E\")";
-
-function Star({ size = "0.66em" }: { size?: string }) {
-  return (
-    <svg viewBox="0 0 10 10" fill={MUSTARD} aria-hidden style={{ width: size, height: size, flexShrink: 0 }}>
-      <path d="M5 0L6.4 3.6L10 5L6.4 6.4L5 10L3.6 6.4L0 5L3.6 3.6Z" />
-    </svg>
-  );
-}
-
-function seededBarWidths(value: string): number[] {
-  let seed = 2166136261 >>> 0;
-  for (let i = 0; i < value.length; i++) {
-    seed = Math.imul(seed ^ value.charCodeAt(i), 16777619) >>> 0;
-  }
-  const out: number[] = [];
-  for (let i = 0; i < 64; i++) {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
-    out.push(((seed >>> 16) % 3) + 1);
-  }
-  return out;
-}
 
 interface Props {
   slug: string;
@@ -63,6 +37,7 @@ export default function CheckInClient({
 }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [error, setError] = useState("");
@@ -78,7 +53,6 @@ export default function CheckInClient({
   const [ticketBlob, setTicketBlob] = useState<{ url: string; blob: Blob } | null>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
   const restingScale = useRef(1);
-  const cityRef = useRef<HTMLParagraphElement>(null);
   const prefetched = useRef(false);
   const restored = useRef(false);
 
@@ -91,6 +65,7 @@ export default function CheckInClient({
         const t = JSON.parse(raw);
         if (t.name) setName(t.name);
         if (t.email) setEmail(t.email);
+        if (t.phone) setPhone(t.phone);
         if (typeof t.ticketNo === "number") setTicketNo(t.ticketNo);
         if (t.rsvpd) setRsvpd(true);
         restored.current = true;
@@ -140,43 +115,7 @@ export default function CheckInClient({
 
   useScrollLock();
 
-  useEffect(() => {
-    const el = cityRef.current;
-    if (!el) return;
-    const fit = () => {
-      let fs = 2.5;
-      el.style.fontSize = `${fs}rem`;
-      while (el.scrollWidth > el.clientWidth + 1 && fs > 1.2) {
-        fs -= 0.05;
-        el.style.fontSize = `${fs}rem`;
-      }
-    };
-    fit();
-    document.fonts?.ready.then(fit);
-  }, [city, region]);
-
   const valid = !!name.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const venueName = venueLabel ? venueLabel.split(",")[0].trim() : null;
-  const d = new Date(date + "T12:00:00");
-  const ticketDate = d
-    .toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-    .toUpperCase();
-  const serial = date.replace(/-/g, "");
-  const seq = ticketNo != null ? String(ticketNo).padStart(4, "0") : "----";
-  const ticketLabel = `${serial}${seq}`;
-  const barWidths = seededBarWidths(ticketLabel);
-  const display = { fontFamily: "var(--font-parkinsans), sans-serif" } as const;
-  const mono = { fontFamily: "var(--font-space-mono), monospace" } as const;
-  const dashRow = (y: string) =>
-    `radial-gradient(3px 1.5px at 6px ${y}, #0000 92%, #000) 0 0/12px 100% repeat-x`;
-  const bodyMask =
-    "radial-gradient(13px at left bottom, #0000 98%, #000)," +
-    "radial-gradient(13px at right bottom, #0000 98%, #000)," +
-    dashRow("100%");
-  const stubMask =
-    "radial-gradient(13px at left top, #0000 98%, #000)," +
-    "radial-gradient(13px at right top, #0000 98%, #000)," +
-    dashRow("0%");
 
   const checkIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,7 +125,7 @@ export default function CheckInClient({
     if (preview) {
       localStorage.setItem(
         `ticket:${slug}`,
-        JSON.stringify({ name: name.trim(), email: email.trim(), ticketNo, rsvpd }),
+        JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), ticketNo, rsvpd }),
       );
       setStatus("done");
       return;
@@ -195,7 +134,7 @@ export default function CheckInClient({
       const res = await fetch("/api/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, email: email.trim(), name: name.trim(), website }),
+        body: JSON.stringify({ slug, email: email.trim(), name: name.trim(), phone: phone.trim(), website }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -210,7 +149,7 @@ export default function CheckInClient({
       localStorage.setItem("attendeeEmail", emailLower);
       localStorage.setItem(
         `ticket:${slug}`,
-        JSON.stringify({ name: name.trim(), email: emailLower, ticketNo: no, rsvpd: !!data.rsvpd }),
+        JSON.stringify({ name: name.trim(), email: emailLower, phone: phone.trim(), ticketNo: no, rsvpd: !!data.rsvpd }),
       );
       posthog.identify(emailLower);
       setStatus("done");
@@ -306,7 +245,7 @@ export default function CheckInClient({
     <div
       className={`fixed inset-0 z-[60] ${keyboardOpen ? "overflow-y-auto" : "overflow-hidden"}`}
       style={{
-        background: `radial-gradient(130% 85% at 50% -15%, #e3bd72, ${EDGE})`,
+        background: `radial-gradient(130% 85% at 50% -15%, #e3bd72, ${TICKET_MUSTARD})`,
         touchAction: keyboardOpen ? "pan-y" : "none",
         overscrollBehavior: "none",
       }}
@@ -346,280 +285,173 @@ export default function CheckInClient({
       )}
       <div className="flex h-full items-center justify-center p-4">
         <div style={{ transform: `scale(${scale})`, transition: "transform 0.18s ease-out" }}>
-          <div
-            ref={ticketRef}
-            className={`relative w-[300px] ${ready ? "ticket-enter" : ""}`}
-            style={ready ? undefined : { opacity: 0 }}
+          <TicketStub
+            ticketRef={ticketRef}
+            city={city}
+            region={region}
+            date={date}
+            venueLabel={venueLabel}
+            ticketNo={ticketNo}
+            rsvpd={rsvpd}
+            ready={ready}
+            snapped={snapped}
           >
-            {rsvpd && (
-              <div
-                className="absolute left-0 top-0 z-30 overflow-hidden"
-                style={{ width: 84, height: 84, pointerEvents: "none" }}
-                aria-label="RSVP honored, thanks for showing up"
-              >
-                <div
-                  style={{
-                    ...mono,
-                    position: "absolute",
-                    width: 118,
-                    left: -29,
-                    top: 19,
-                    padding: "3px 0",
-                    textAlign: "center",
-                    background: SHINE_GOLD,
-                    color: INK,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    transform: "rotate(-45deg)",
-                  }}
-                >
-                  RSVP&apos;D
-                </div>
-              </div>
-            )}
-            <div
-              className="relative z-10 ticket-shadow"
-              style={{
-                background: PAPER,
-                borderRadius: "3px 3px 0 0",
-                WebkitMask: bodyMask,
-                mask: bodyMask,
-                WebkitMaskComposite: "source-in",
-                maskComposite: "intersect",
-              }}
-            >
-              <div className="px-6 pb-5 pt-7">
-                <div className="text-center" style={{ color: INK }}>
-                  <div
-                    className="flex items-center justify-center gap-3 text-[10px] uppercase"
-                    style={{ ...mono, letterSpacing: "0.35em" }}
-                  >
-                    <Star />
-                    <span>Admit One</span>
-                    <Star />
-                  </div>
-
-                  <h1
-                    className="mt-3 whitespace-nowrap font-extrabold uppercase leading-[0.86]"
-                    style={{ ...display, fontSize: "2.5rem", color: INK }}
-                  >
-                    From The
-                    <br />
-                    Ground Up
-                  </h1>
-
-                  <span className="mt-4 flex items-center gap-2" aria-hidden>
-                    <span className="h-px flex-1" style={{ background: `${INK}55` }} />
-                    <Star />
-                    <span className="h-px flex-1" style={{ background: `${INK}55` }} />
-                  </span>
-
-                  <p
-                    ref={cityRef}
-                    className="mt-2 whitespace-nowrap font-extrabold uppercase leading-none"
-                    style={{ ...display, fontSize: "2.5rem", color: INK }}
-                  >
-                    {region ? `${city}, ${region}` : city}
-                  </p>
-                  <p className="mt-2 text-[10px] uppercase" style={{ ...mono, letterSpacing: "0.18em" }}>
-                    {ticketDate}
-                  </p>
-                  {venueName && (
-                    <p
-                      className="mt-2 text-[10px] uppercase"
-                      style={{ ...mono, letterSpacing: "0.2em", color: `${INK}99` }}
+            <form onSubmit={checkIn} className="mt-6">
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+              />
+              <div className="relative">
+                {status === "done" && (
+                  <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                    <span
+                      className="stamp-down font-extrabold uppercase leading-none"
+                      style={{
+                        ...display,
+                        fontSize: "2.5rem",
+                        letterSpacing: "0.02em",
+                        color: STAMP,
+                        border: `5px double ${STAMP}`,
+                        padding: "0.12em 0.34em",
+                        borderRadius: 8,
+                        transform: "rotate(-13deg)",
+                        WebkitMaskImage: STAMP_TEXTURE,
+                        maskImage: STAMP_TEXTURE,
+                        WebkitMaskSize: "100% 100%",
+                        maskSize: "100% 100%",
+                      }}
                     >
-                      {venueName}
-                    </p>
-                  )}
-                </div>
-
-                <form onSubmit={checkIn} className="mt-6">
+                      Admitted
+                    </span>
+                  </div>
+                )}
+                <label
+                  className="block text-[10px] uppercase"
+                  style={{ ...mono, color: `${INK}99`, letterSpacing: "0.2em" }}
+                >
+                  This ticket admits
+                </label>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  enterKeyHint="next"
+                  placeholder="your name"
+                  value={name}
+                  disabled={status === "done"}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full bg-transparent pb-1.5 text-left text-base outline-none placeholder:opacity-40"
+                  style={fieldStyle}
+                />
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  enterKeyHint="next"
+                  placeholder="your email"
+                  value={email}
+                  disabled={status === "done"}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-3 w-full bg-transparent pb-1.5 text-left text-base outline-none placeholder:opacity-40"
+                  style={fieldStyle}
+                />
+                {!(capture && !phone.trim()) && (
                   <input
-                    type="text"
-                    name="website"
-                    tabIndex={-1}
-                    autoComplete="off"
-                    aria-hidden="true"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    enterKeyHint="done"
+                    placeholder="your phone"
+                    value={phone}
+                    disabled={status === "done"}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="mt-3 w-full bg-transparent pb-1.5 text-left text-base outline-none placeholder:opacity-40"
+                    style={fieldStyle}
                   />
-                  <div className="relative">
-                    {status === "done" && (
-                      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-                        <span
-                          className="stamp-down font-extrabold uppercase leading-none"
-                          style={{
-                            ...display,
-                            fontSize: "2.5rem",
-                            letterSpacing: "0.02em",
-                            color: STAMP,
-                            border: `5px double ${STAMP}`,
-                            padding: "0.12em 0.34em",
-                            borderRadius: 8,
-                            transform: "rotate(-13deg)",
-                            WebkitMaskImage: STAMP_TEXTURE,
-                            maskImage: STAMP_TEXTURE,
-                            WebkitMaskSize: "100% 100%",
-                            maskSize: "100% 100%",
-                          }}
-                        >
-                          Admitted
-                        </span>
+                )}
+              </div>
+              {error && (
+                <p className="mt-2 text-center text-xs" style={{ ...mono, color: INK }}>
+                  {error}
+                </p>
+              )}
+              {status === "done" ? (
+                revealButton ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={saveTicket}
+                      disabled={!ticketBlob || saveAttempted}
+                      className={`${ticketBlob && !saveAttempted ? "keep-btn " : ""}mt-6 w-full py-3.5 text-sm uppercase tracking-[0.25em]`}
+                      style={{
+                        ...mono,
+                        background: ticketBlob && !saveAttempted ? TICKET_MUSTARD : "#cbced5",
+                        color: ticketBlob && !saveAttempted ? INK : "#7e838f",
+                        border: `2px solid ${ticketBlob && !saveAttempted ? INK : "#b1b6bf"}`,
+                        borderRadius: 2,
+                      }}
+                    >
+                      {ticketBlob ? "Keep Your Ticket" : "Preparing…"}
+                    </button>
+                    {saveAttempted && (
+                      <div className="-mx-6 -mb-5 mt-4 flex">
+                        {[
+                          {
+                            path: "/support",
+                            label: "Fund the Tour",
+                            src: "/images/covers/exhibit-psd-live-cover.jpg",
+                            position: "center 30%",
+                          },
+                          {
+                            path: "/shop",
+                            label: "Patience Tee",
+                            src: "/images/merch/patience-navy.jpeg",
+                            position: "center 43%",
+                          },
+                        ].map((cta) => (
+                          <Link key={cta.path} href={cta.path} className="relative block w-1/2 min-w-0">
+                            <Image
+                              src={cta.src}
+                              alt={cta.label}
+                              width={300}
+                              height={200}
+                              className="h-24 w-full object-cover"
+                              style={{ objectPosition: cta.position }}
+                              unoptimized
+                            />
+                            <span
+                              className="absolute inset-x-0 bottom-0 pb-1.5 pt-4 text-center text-[9px] uppercase tracking-[0.18em]"
+                              style={{
+                                ...mono,
+                                color: PAPER,
+                                background: `linear-gradient(180deg, transparent, ${INK}cc)`,
+                              }}
+                            >
+                              {cta.label}
+                            </span>
+                          </Link>
+                        ))}
                       </div>
                     )}
-                    <label
-                      className="block text-[10px] uppercase"
-                      style={{ ...mono, color: `${INK}99`, letterSpacing: "0.2em" }}
-                    >
-                      This ticket admits
-                    </label>
-                    <input
-                      type="text"
-                      autoComplete="name"
-                      enterKeyHint="next"
-                      placeholder="your name"
-                      value={name}
-                      disabled={status === "done"}
-                      onChange={(e) => setName(e.target.value)}
-                      className="mt-1 w-full bg-transparent pb-1.5 text-left text-base outline-none placeholder:opacity-40"
-                      style={fieldStyle}
-                    />
-                    <input
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      enterKeyHint="done"
-                      placeholder="your email"
-                      value={email}
-                      disabled={status === "done"}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="mt-3 w-full bg-transparent pb-1.5 text-left text-base outline-none placeholder:opacity-40"
-                      style={fieldStyle}
-                    />
-                  </div>
-                  {error && (
-                    <p className="mt-2 text-center text-xs" style={{ ...mono, color: INK }}>
-                      {error}
-                    </p>
-                  )}
-                  {status === "done" ? (
-                    revealButton ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={saveTicket}
-                          disabled={!ticketBlob || saveAttempted}
-                          className={`${ticketBlob && !saveAttempted ? "keep-btn " : ""}mt-6 w-full py-3.5 text-sm uppercase tracking-[0.25em]`}
-                          style={{
-                            ...mono,
-                            background: ticketBlob && !saveAttempted ? MUSTARD : "#cbced5",
-                            color: ticketBlob && !saveAttempted ? INK : "#7e838f",
-                            border: `2px solid ${ticketBlob && !saveAttempted ? INK : "#b1b6bf"}`,
-                            borderRadius: 2,
-                          }}
-                        >
-                          {ticketBlob ? "Keep Your Ticket" : "Preparing…"}
-                        </button>
-                        {saveAttempted && (
-                          <div className="-mx-6 -mb-5 mt-4 flex">
-                            {[
-                              {
-                                path: "/support",
-                                label: "Fund the Tour",
-                                src: "/images/covers/exhibit-psd-live-cover.jpg",
-                                position: "center 30%",
-                              },
-                              {
-                                path: "/shop",
-                                label: "Patience Tee",
-                                src: "/images/merch/patience-navy.jpeg",
-                                position: "center 43%",
-                              },
-                            ].map((cta) => (
-                              <Link key={cta.path} href={cta.path} className="relative block w-1/2 min-w-0">
-                                <Image
-                                  src={cta.src}
-                                  alt={cta.label}
-                                  width={300}
-                                  height={200}
-                                  className="h-24 w-full object-cover"
-                                  style={{ objectPosition: cta.position }}
-                                  unoptimized
-                                />
-                                <span
-                                  className="absolute inset-x-0 bottom-0 pb-1.5 pt-4 text-center text-[9px] uppercase tracking-[0.18em]"
-                                  style={{
-                                    ...mono,
-                                    color: PAPER,
-                                    background: `linear-gradient(180deg, transparent, ${INK}cc)`,
-                                  }}
-                                >
-                                  {cta.label}
-                                </span>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    ) : null
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!valid || status === "loading"}
-                      className="mt-6 w-full py-3.5 text-sm uppercase tracking-[0.25em] transition-transform active:scale-[0.99] disabled:opacity-40"
-                      style={{ ...mono, background: INK, color: PAPER, borderRadius: 2 }}
-                    >
-                      {status === "loading" ? "Admitting…" : "I'm Here"}
-                    </button>
-                  )}
-                </form>
-              </div>
-            </div>
-
-            <div className={snapped ? "stub-rip" : ""} style={{ marginTop: "-1px" }}>
-              <div
-                className="relative ticket-shadow"
-                style={{
-                  background: PAPER,
-                  borderRadius: "0 0 3px 3px",
-                  WebkitMask: stubMask,
-                  mask: stubMask,
-                  WebkitMaskComposite: "source-in",
-                  maskComposite: "intersect",
-                }}
-              >
-                <div className="px-6 pb-3 pt-5">
-                  <div className="flex h-8 items-stretch justify-center overflow-hidden" aria-hidden>
-                    {barWidths.map((w, i) => (
-                      <span key={i} style={{ width: `${w * 2}px`, background: i % 2 === 0 ? INK : "transparent" }} />
-                    ))}
-                  </div>
-                  <div
-                    className="mt-2 flex items-center justify-between text-[10px] uppercase"
-                    style={{ ...mono, color: INK, letterSpacing: "0.16em" }}
-                  >
-                    <span>№ {ticketLabel}</span>
-                    <span>Lyrist Records</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {ready && (
-              <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
-                <div className="ticket-sheen absolute inset-0" />
-              </div>
-            )}
-            {snapped && (
-              <div
-                className="photo-flash pointer-events-none absolute inset-0 z-30"
-                style={{ background: "#fff" }}
-                aria-hidden
-              />
-            )}
-          </div>
+                  </>
+                ) : null
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!valid || status === "loading"}
+                  className="mt-6 w-full py-3.5 text-sm uppercase tracking-[0.25em] transition-transform active:scale-[0.99] disabled:opacity-40"
+                  style={{ ...mono, background: INK, color: PAPER, borderRadius: 2 }}
+                >
+                  {status === "loading" ? "Admitting…" : "I'm Here"}
+                </button>
+              )}
+            </form>
+          </TicketStub>
         </div>
       </div>
     </div>

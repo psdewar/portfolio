@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { chromium as playwright, type Browser } from "playwright-core";
+import { chromium as playwright, type Browser, type Page } from "playwright-core";
 
 const BASE_URL = process.env.OG_BASE_URL || "https://peytspencer.com";
 const IS_LOCAL = process.env.NODE_ENV === "development" || !process.env.VERCEL;
@@ -39,6 +39,15 @@ export async function launchBrowser(): Promise<Browser> {
   });
 }
 
+const FIRA = '500 1em "Fira Sans"';
+
+async function fontsReady(page: Page) {
+  await page.evaluate(async (f: string) => {
+    await document.fonts.load(f).catch(() => {});
+    await document.fonts.ready;
+  }, FIRA);
+}
+
 export async function takePdf({
   htmlContent,
   viewport,
@@ -56,6 +65,7 @@ export async function takePdf({
     );
     await page.setContent(htmlContent, { waitUntil: "domcontentloaded", timeout: 12000 });
     await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+    await fontsReady(page);
     await page.waitForTimeout(1500);
 
     // "match" or undefined → custom PDF page size matching the design's exact dimensions.
@@ -140,6 +150,8 @@ export async function takeScreenshot({
         if (main) main.style.paddingBottom = "0";
       });
     }
+
+    await fontsReady(page);
 
     if (selector) {
       await page.waitForSelector(selector, { state: "visible", timeout: 10000 });
