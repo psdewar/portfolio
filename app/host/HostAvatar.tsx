@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { PlayIcon, PauseIcon, XIcon } from "@phosphor-icons/react";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useIntroAutoOpen } from "../hooks/useIntroAutoOpen";
 
 function IntroVideoModal({ onClose }: { onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -84,19 +84,14 @@ function IntroVideoModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function HostAvatar() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const autoOpen = searchParams.get("intro") === "1";
+  const { autoOpen, clearIntro } = useIntroAutoOpen();
   const [playing, setPlaying] = useState(autoOpen);
 
   const handlePlay = () => setPlaying(true);
 
   const handleClose = () => {
     setPlaying(false);
-    if (searchParams.get("intro") === "1") {
-      router.replace(pathname);
-    }
+    clearIntro();
   };
 
   return (

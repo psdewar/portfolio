@@ -7,6 +7,7 @@ import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, getRsvpCounts } from "../../lib/rsvp";
 import { upsertIdentity } from "../../lib/identity";
 import { sendMetaLead } from "../../lib/meta-capi";
+import { sanitizeUtm } from "../../lib/utm";
 import { isAdminAuthorized } from "../shared/admin-auth";
 
 export async function GET(request: Request) {
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       if (isMaybe) {
         await upsertIdentity({ email, name, phone, source: `rsvp-maybe:${eventId.trim()}` });
       } else {
-        await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount });
+        await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount, utm: sanitizeUtm(body.utm) });
       }
     } catch (saveError) {
       console.error("[RSVP] Save error:", saveError);

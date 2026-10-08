@@ -1,5 +1,6 @@
 import { supabaseAdmin, selectAll } from "../../lib/supabase-admin";
 import { upsertIdentity } from "./identity";
+import type { Utm } from "./utm";
 
 export async function upsertRsvp({
   email,
@@ -7,12 +8,14 @@ export async function upsertRsvp({
   phone,
   slug,
   guests,
+  utm = {},
 }: {
   email: string;
   name?: string;
   phone?: string;
   slug: string;
   guests: number;
+  utm?: Utm;
 }): Promise<void> {
   const guestCount = Math.max(1, Math.min(10, guests || 1));
   const emailLower = email.trim().toLowerCase();
@@ -26,9 +29,15 @@ export async function upsertRsvp({
     source: "rsvp",
   });
 
-  const { error: rsvpError } = await supabaseAdmin
-    .from("rsvps")
-    .upsert({ show_slug: slug, email: emailLower, guests: guestCount }, { onConflict: "show_slug,email" });
+  const row = { show_slug: slug, email: emailLower, guests: guestCount };
+  const upsert = (r: object) =>
+    supabaseAdmin.from("rsvps").upsert(r, { onConflict: "show_slug,email" });
+  // Only send UTM keys that exist so a re-RSVP without tags doesn't wipe the original source.
+  let { error: rsvpError } = await upsert({ ...row, ...utm });
+  // Migration 008 not applied yet: save the RSVP without the tags rather than failing it.
+  if (rsvpError && Object.keys(utm).length && /utm_/.test(rsvpError.message)) {
+    ({ error: rsvpError } = await upsert(row));
+  }
   if (rsvpError) throw new Error(rsvpError.message);
 }
 

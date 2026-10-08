@@ -23,6 +23,7 @@ import PosterSlot from "../PosterSlot";
 import SplitFlapText from "../../components/SplitFlapText";
 import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
 import { formatEventDateShort } from "../../lib/dates";
+import { captureUtm } from "../../lib/utm";
 import { buildIcs, downloadIcs } from "../../lib/ics";
 import { routeFormError } from "../../lib/form-errors";
 import { calculateStripeFee } from "../../api/shared/products";
@@ -246,6 +247,7 @@ export default function RSVPForm({
           guests: status === "maybe" ? 1 : formData.guests,
           intent: status === "maybe" ? "maybe" : undefined,
           eventId,
+          utm: captureUtm(),
           fbclid: searchParams.get("fbclid") || sessionStorage.getItem("fbclid") || undefined,
         }),
       });

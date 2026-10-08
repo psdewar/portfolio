@@ -9,6 +9,9 @@ import {
 import { createPortal, flushSync } from "react-dom";
 import type { RsvpShow } from "../lib/rsvp-show";
 import CityList from "./CityList";
+import { IntroInline, IntroModal } from "./IntroVideo";
+import { useIntroAutoOpen } from "../hooks/useIntroAutoOpen";
+import { captureUtm } from "../lib/utm";
 import {
   SPLIT_QUERY,
   crossfadePoster,
@@ -48,6 +51,13 @@ export default function RSVPShell({
   const [enter, setEnter] = useState<"morph" | "flap" | "none">(
     initial ? "flap" : "none",
   );
+  const { autoOpen, clearIntro } = useIntroAutoOpen();
+  // Intro video, only for ?intro=1 links (email/text landings); nothing renders without it.
+  const [intro, setIntro] = useState(autoOpen && !initialSlug);
+  const closeIntro = () => {
+    setIntro(false);
+    clearIntro();
+  };
   const [noIntro, setNoIntro] = useState(false);
   const [extBack, setExtBack] = useState<{ href: string } | null>(null);
 
@@ -66,6 +76,10 @@ export default function RSVPShell({
     host?.isConnected && host.offsetParent
       ? host.getBoundingClientRect()
       : null;
+
+  useEffect(() => {
+    captureUtm();
+  }, []);
 
   useEffect(() => {
     [
@@ -106,6 +120,7 @@ export default function RSVPShell({
       : null;
     window.history.pushState(null, "", `/rsvp/${show.slug}`);
     flushSync(() => {
+      setIntro(false);
       setFromList(true);
       setEnter(reduce ? "none" : "morph");
       setSelected(show);
@@ -189,6 +204,7 @@ export default function RSVPShell({
   return (
     <PosterHostContext.Provider value={host}>
       {mobilePoster}
+      {intro && !isSplit && <IntroModal onClose={closeIntro} />}
       <div className="rsvp-root fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible">
         <ZoneGrain />
         {toast}
@@ -199,6 +215,7 @@ export default function RSVPShell({
               className="hidden split:block split:sticky split:top-[var(--header-h,65px)] split:self-start h-full split:h-[calc(100dvh-var(--header-h,65px))] flex-1 min-w-0 overflow-hidden"
             >
               <ShowPoster key={posterShow.slug} show={posterShow} fill />
+              {isSplit && intro && <IntroInline onClose={closeIntro} />}
             </div>
           )}
           <div className="flex-1 split:flex-none split:w-[calc(28rem+clamp(1.5rem,3vw,3rem))] min-w-0 h-full overflow-y-auto split:h-auto split:overflow-visible [container-type:inline-size]">

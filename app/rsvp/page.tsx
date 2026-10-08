@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getUpcomingShows } from "../lib/shows";
 import { withPosterLines } from "../fund/legs";
 import { toRsvpShow } from "../lib/rsvp-show";
+import { readUtmFrom } from "../lib/utm";
 import RSVPShell from "./RSVPShell";
 
 export default async function RSVPPage({
@@ -19,7 +20,8 @@ export default async function RSVPPage({
   const rsvpable = shows.filter((s) => s.visibility !== "private");
 
   if (!params.submitted && rsvpable.length === 1) {
-    redirect(`/rsvp/${rsvpable[0].slug}`);
+    const qs = new URLSearchParams(readUtmFrom(new URLSearchParams(params as Record<string, string>)) as Record<string, string>).toString();
+    redirect(`/rsvp/${rsvpable[0].slug}${qs ? `?${qs}` : ""}`);
   }
 
   return <RSVPShell shows={shows.map(toRsvpShow)} slug={params.submitted} />;
