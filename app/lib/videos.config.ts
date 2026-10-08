@@ -75,4 +75,5 @@ export const RSVP_INTRO = {
   poster: "https://assets.peytspencer.com/videos/rsvp-intro-first-v2.jpg", // first video frame, shown before playback so there's no black flash
   captions: undefined as string | undefined, // optional .vtt URL (current cut has burned-in captions)
   aspect: "9 / 16",
+  ogSocal: "https://assets.peytspencer.com/videos/rsvp-intro-og-socal.jpg", // link-preview frame for ?intro=1&utm_campaign=socal texts (1080x1920)
 };
