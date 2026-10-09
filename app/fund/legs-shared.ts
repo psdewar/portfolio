@@ -137,12 +137,14 @@ export type PosterLineShow = {
   slug: string;
   leg?: string | null;
   posterLine?: string | null;
+  hideHost?: boolean | null;
 };
 
 export function posterLineFor(
   legs: Leg[],
   show: PosterLineShow,
 ): string | null {
+  if (show.hideHost) return null;
   return (
     legs.find((l) => l.slug === show.leg)?.pamphlet?.shows?.[show.slug]
       ?.venueLabel ??

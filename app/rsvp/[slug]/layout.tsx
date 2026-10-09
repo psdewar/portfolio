@@ -51,7 +51,7 @@ export default async function ShowRSVPLayout({ params, children }: Props) {
     name: `${show.name} - A Concert by Peyt Spencer`,
     date: show.date,
     doorTime: show.doorTime,
-    venueName: (isResidence(show) || show.visibility === "private" ? show.venueLabel : show.venue || show.venueLabel) || `${show.city}, ${show.region}`,
+    venueName: (show.hideHost ? null : isResidence(show) || show.visibility === "private" ? show.venueLabel : show.venue || show.venueLabel) || `${show.city}, ${show.region}`,
     city: show.city,
     region: show.region,
     country: show.country,

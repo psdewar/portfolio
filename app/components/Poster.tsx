@@ -22,6 +22,7 @@ export interface PamphletShowItem {
 }
 
 interface PosterProps {
+  hideHost?: boolean | null;
   date?: string;
   city?: string;
   region?: string;
@@ -71,6 +72,7 @@ function Poster({
   doorLabel,
   venue,
   venueLabel,
+  hideHost,
   posterLine,
   address,
   taglineSuffix,
@@ -141,7 +143,7 @@ function Poster({
     .filter(Boolean)
     .slice(0, 3);
 
-  const loc = getPosterLocation({ venueLabel, venue, address, city, region }, posterLine);
+  const loc = getPosterLocation({ venueLabel, venue, address, city, region, hideHost }, posterLine);
   const hasLocation = !!(loc.label || loc.prefix || loc.cityRegion);
   const dateText = date ? formatEventDate(date) : "";
   // Long weekday + month combos ("Saturday, September 12, 2026") wrap at full size.

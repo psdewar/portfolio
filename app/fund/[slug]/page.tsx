@@ -167,9 +167,11 @@ export default async function Page({
           doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
       );
     const toBooked = (s: (typeof shows)[number]): FundBooked => {
-      const venue = isResidence(s)
-        ? s.venueLabel || `${s.city}, ${s.region}`
-        : (getVenueLabel(s) ?? s.venue ?? s.city);
+      const venue = s.hideHost
+        ? `${s.city}, ${s.region}`
+        : isResidence(s)
+          ? s.venueLabel || `${s.city}, ${s.region}`
+          : (getVenueLabel(s) ?? s.venue ?? s.city);
       return {
         slug: s.slug,
         venue: displayVenue(venue, s.city, s.region),

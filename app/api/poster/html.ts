@@ -112,6 +112,7 @@ export function posterHtml(
     date?: string;
     venue?: string | null;
     venueLabel?: string | null;
+    hideHost?: boolean | null;
     doorLabel?: string | null;
     address?: string | null;
     city?: string | null;

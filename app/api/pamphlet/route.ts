@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
         const ov = getOverride(slug, show);
         return {
           ...show,
-          venueLabel: ov.venueLabel ?? defaultLoc(show),
+          venueLabel: (show.hideHost ? null : ov.venueLabel) ?? defaultLoc(show),
           dateLabel: ov.dateLabel ?? formatEventDateShort(show.date),
           doorsOpen: ov.doorsOpen ?? defaultDoors(show),
         };

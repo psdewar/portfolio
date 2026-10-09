@@ -2934,6 +2934,12 @@ function ManageModal({
                     </span>
                   </div>
                 )}
+                <ToggleRow
+                  label="Show venue name publicly"
+                  checked={!show.hideHost}
+                  onChange={(v) => patchShow({ hideHost: !v })}
+                  className="flex items-center justify-between gap-3 w-full text-sm text-left text-neutral-700 dark:text-neutral-300"
+                />
                 {(show.visibility === "private" || show.unlisted) && (
                   <>
                     <input

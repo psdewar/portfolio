@@ -36,12 +36,14 @@ function emailWrapper(content: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+  <style>a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}</style>
 </head>
 <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
     ${content}
-    <div style="text-align:center;padding:32px 0 0;">
-      <a href="${SITE_URL}" style="color:#c0c0bb;font-size:12px;text-decoration:none;">peytspencer.com</a>
+    <div style="padding:32px 0 0;">
+      <a href="${SITE_URL}" style="color:#1a1a1a;font-size:16px;text-decoration:none;">peytspencer.com</a>
     </div>
   </div>
 </body>
@@ -49,14 +51,14 @@ function emailWrapper(content: string): string {
 }
 
 function goldHeading(text: string, subtitle?: string): string {
-  return `<div style="border-left:3px solid #d4a553;padding-left:16px;margin-bottom:28px;">
+  return `<div style="margin-bottom:28px;">
   <div style="font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:4px;">${text}</div>
   ${subtitle ? `<div style="color:#7a7a75;font-size:14px;">${subtitle}</div>` : ""}
 </div>`;
 }
 
 function ctaButton(text: string, href: string): string {
-  return `<a href="${href}" style="display:block;text-align:center;background:#1a1a1a;color:#ffffff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:600;font-size:15px;">${text}</a>`;
+  return `<a href="${href}" style="display:block;text-align:center;background:#d4a553;color:#1a1a1a;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:600;font-size:16px;">${text}</a>`;
 }
 
 function signOff(): string {
@@ -133,60 +135,55 @@ export async function sendGoLiveEmailBatch(
 
 export async function sendRsvpConfirmation(params: {
   to: string;
-  name: string;
-  guests: number;
-  eventName: string;
-  eventDate: string;
-  eventTime: string;
-  eventLocation?: string;
+  title: string;
+  dateLabel: string;
+  shortDate: string;
+  city: string;
+  region: string;
+  doorLabel: string;
+  venueName?: string;
+  address?: string;
+  ics: { filename: string; content: string };
+  maybe?: boolean;
 }): Promise<boolean> {
-  const { to, name, guests, eventName, eventDate, eventTime, eventLocation } =
+  const { to, title, dateLabel, shortDate, city, region, doorLabel, venueName, address, ics, maybe } =
     params;
-  const greeting = name ? `${name}, see` : "See";
-  const guestLine = guests > 1 ? `${guests} spots reserved.` : "";
-  const locationLine = eventLocation ? `\n${eventLocation}` : "";
   const downloadUrl = `${SITE_URL}/2025/singles-and-16s`;
+  const subject = maybe
+    ? `Hope to see you ${shortDate} in ${city}`
+    : `You're in: ${shortDate} in ${city}`;
+  const mapsUrl = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : "";
+  const placeHtml = address
+    ? `<a href="${mapsUrl}" style="color:inherit;text-decoration:none;">${address}</a>`
+    : `${city}, ${region}`;
+  const venueHtml = venueName ? `${venueName}<br>` : "";
+  const venueText = venueName ? `${venueName}\n` : "";
 
   return trySend(
     {
       to,
       from: FROM,
-      subject: `${eventName} - You're confirmed`,
-      text: `${greeting} you soon!${guestLine ? ` ${guestLine}` : ""}\n\n${eventDate}\n${eventTime}${locationLine}\n\nThanks for RSVPing. I sent you my 2025 Singles & 16s Pack (6 songs + lyricbook): ${downloadUrl}\n\nPeyt`,
+      subject,
+      text: `Thanks for RSVPing to my rap concert for all ages,\n\n${title}\n\n${dateLabel}\n${doorLabel}\n${venueText}${address ?? `${city}, ${region}`}\n\nI sent you my 2025 Singles & 16s Pack: 6 songs and a lyricbook!\nDownload my music: ${downloadUrl}\n\npeytspencer.com`,
       html: emailWrapper(`
-      ${goldHeading(`${greeting} you soon!`, guestLine || undefined)}
-
-      <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
-            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Event</div>
-            <div style="color:#1a1a1a;font-size:16px;font-weight:600;">${eventName}</div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
-            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">When</div>
-            <div style="color:#1a1a1a;font-size:15px;">${eventDate}</div>
-            <div style="color:#7a7a75;font-size:14px;">${eventTime}</div>
-          </td>
-        </tr>
-        ${
-          eventLocation
-            ? `<tr>
-          <td style="padding:12px 0;border-bottom:1px solid #ebebeb;">
-            <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Where</div>
-            <div style="color:#1a1a1a;font-size:15px;">${eventLocation}</div>
-          </td>
-        </tr>`
-            : ""
-        }
-      </table>
-
-      <div style="color:#7a7a75;font-size:14px;margin-bottom:12px;">Thanks for RSVPing. I sent you my 2025 Singles & 16s Pack. 6 songs and a lyricbook.</div>
-      <div style="margin-bottom:8px;">${ctaButton("Download my music", downloadUrl)}</div>
-
-      ${signOff()}
+      <div style="font-size:16px;line-height:1.55;color:#1a1a1a;">
+        <p style="margin:0 0 6px;">Thanks for RSVPing to my rap concert for all ages,</p>
+        <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.3;margin-top:4px;margin-bottom:20px;">${title}</div>
+        <p style="margin:0 0 24px;"><b>${dateLabel}</b><br>${doorLabel}<br>${venueHtml}${placeHtml}</p>
+        <p style="margin:0 0 16px;">I sent you my 2025 Singles &amp; 16s Pack: 6 songs and a lyricbook!</p>
+        ${ctaButton("Download my music", downloadUrl)}
+      </div>
     `),
+      attachments: [
+        {
+          content: Buffer.from(ics.content).toString("base64"),
+          filename: ics.filename,
+          type: "text/calendar",
+          disposition: "attachment",
+        },
+      ],
     },
     "RSVP",
   );

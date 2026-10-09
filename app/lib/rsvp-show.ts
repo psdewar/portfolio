@@ -21,7 +21,7 @@ export type RsvpShow = Pick<
 > & { posterLine?: string | null; isPast: boolean };
 
 export function toRsvpShow(show: Show & { posterLine?: string | null }): RsvpShow {
-  const hideStreet = show.visibility === "private" || isResidence(show);
+  const hideStreet = show.visibility === "private" || isResidence(show) || !!show.hideHost;
   return {
     slug: show.slug,
     date: show.date,
@@ -30,7 +30,7 @@ export function toRsvpShow(show: Show & { posterLine?: string | null }): RsvpSho
     doorTime: show.doorTime,
     doorLabel: show.doorLabel,
     venue: hideStreet ? null : show.venue,
-    venueLabel: show.venueLabel,
+    venueLabel: show.hideHost ? null : show.venueLabel,
     eventName: show.eventName,
     address: hideStreet ? null : show.address,
     tags: show.tags,
@@ -38,7 +38,7 @@ export function toRsvpShow(show: Show & { posterLine?: string | null }): RsvpSho
     posterImg: show.posterImg,
     bgImg: show.bgImg,
     visibility: show.visibility,
-    posterLine: show.posterLine,
+    posterLine: show.hideHost ? null : show.posterLine,
     isPast: show.date < todayIn("Pacific/Honolulu"),
   };
 }

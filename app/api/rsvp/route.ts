@@ -2,7 +2,8 @@ import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
-import { getShows, isShowUpcoming, publicVenueName } from "../../lib/shows";
+import { getDoorLabel, getShows, isShowUpcoming, publicVenueName } from "../../lib/shows";
+import { buildIcs } from "../../lib/ics";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, getRsvpCounts } from "../../lib/rsvp";
 import { upsertIdentity } from "../../lib/identity";
@@ -88,34 +89,52 @@ export async function POST(request: Request) {
       }),
     );
 
-    const eventDate = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
+    const dateLabel = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
       day: "numeric",
-      year: "numeric",
+    });
+    const shortDate = new Date(show.date + "T00:00:00").toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
     });
 
-    const cityRegion = `${show.city}, ${show.region}`;
-    const venueName = publicVenueName(show);
-    const eventLocation = show.address
-      ? [venueName, `${show.address}, ${cityRegion}`].filter(Boolean).join(", ")
-      : venueName || cityRegion;
+    // The confirmation email is where a hidden host is revealed.
+    const venueName = publicVenueName({ ...show, hideHost: false });
+    const addressHasCity = show.address?.toLowerCase().includes(show.city.toLowerCase());
+    const address = show.address
+      ? addressHasCity
+        ? show.address
+        : `${show.address}, ${show.city}, ${show.region}`
+      : undefined;
+    const ics = buildIcs({
+      uid: `${show.slug}@peytspencer.com`,
+      title: `${show.eventName || show.name}, ${show.city}`,
+      date: show.date,
+      doorTime: show.doorTime,
+      location:
+        [venueName, address].filter(Boolean).join(", ") || `${show.city}, ${show.region}`,
+      url: `https://peytspencer.com/rsvp/${show.slug}`,
+    });
 
-    if (!isMaybe) {
-      try {
-        await sendRsvpConfirmation({
-          to: email.trim(),
-          name: name?.trim() || "",
-          guests: guestCount,
-          eventName: show.name,
-          eventDate,
-          eventTime: `Doors open at ${show.doorTime}`,
-          eventLocation,
-        });
-        console.log("[RSVP API] Confirmation email sent to", email.trim());
-      } catch (emailError) {
-        console.error("[RSVP API] Confirmation email failed for", email.trim(), emailError);
-      }
+    try {
+      await sendRsvpConfirmation({
+        to: email.trim(),
+        title: show.eventName || `${show.name}: My Path of Growth and the Principles that Connect Us`,
+        dateLabel,
+        shortDate,
+        city: show.city,
+        region: show.region,
+        doorLabel: getDoorLabel(show),
+        venueName: venueName || undefined,
+        address,
+        ics: { filename: `${show.slug}.ics`, content: ics },
+        maybe: isMaybe,
+      });
+      console.log("[RSVP API] Confirmation email sent to", email.trim());
+    } catch (emailError) {
+      console.error("[RSVP API] Confirmation email failed for", email.trim(), emailError);
     }
 
     return NextResponse.json({ success: true });

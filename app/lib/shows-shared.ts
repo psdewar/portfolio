@@ -27,6 +27,7 @@ export interface Show {
   bgImg?: string | null;
   privateNote?: string | null;
   hidePrivateNote?: boolean | null;
+  hideHost?: boolean | null;
   privateRedirect?: string | null;
   taglineAlign?: string | null;
   locationScale?: number | null;
@@ -117,7 +118,8 @@ export function isCheckinLive(
   return show.date === todayIn("America/New_York") || show.date === todayIn("Pacific/Honolulu");
 }
 
-export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue">): string | null {
+export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue" | "hideHost">): string | null {
+  if (show.hideHost) return null;
   return show.venueLabel || show.venue || null;
 }
 
@@ -126,7 +128,10 @@ export function isResidence(show: Pick<Show, "venue" | "address">): boolean {
   return !!num && (show.address ?? "").trim().startsWith(num);
 }
 
-export function publicVenueName(show: Pick<Show, "venue" | "address"> & { venueLabel?: string | null }): string | null {
+export function publicVenueName(
+  show: Pick<Show, "venue" | "address" | "hideHost"> & { venueLabel?: string | null },
+): string | null {
+  if (show.hideHost) return null;
   return isResidence(show) ? show.venueLabel || null : show.venueLabel || show.venue || null;
 }
 
@@ -145,6 +150,7 @@ export function getPosterLocation(
     address?: string | null;
     city?: string | null;
     region?: string | null;
+    hideHost?: boolean | null;
   },
   posterLine?: string | null,
 ): { label: string | null; prefix: string; cityRegion: string } {
@@ -152,6 +158,7 @@ export function getPosterLocation(
     .map((p) => p?.trim())
     .filter(Boolean)
     .join(", ");
+  if (show.hideHost) return { label: cityRegion || null, prefix: "", cityRegion };
   const lead = (show.venue || show.address || "").trim();
   const prefix = lead && cityRegion ? `${lead}, ` : lead;
   const override = posterLine?.trim();
@@ -192,7 +199,7 @@ export function showToTimelineEvent(show: Show, sameDayIndex = 0): TimelineEvent
       (show.name === "From The Ground Up" ? "From The Ground Up Live Concert" : show.name),
     location: `${show.city}, ${show.region}`,
     description: isResidence(show)
-      ? show.venueLabel || "House concert"
+      ? publicVenueName(show) || "House concert"
       : (upcoming && show.visibility === "private" && show.privateNote) ||
         getVenueLabel(show) ||
         undefined,

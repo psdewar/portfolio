@@ -300,7 +300,7 @@ export default async function FtguPage({
               selected.map((show) => {
                 const d = parseLocalDate(show.date);
                 const cityLine = `${show.city}, ${show.region}`;
-                const venue = isResidence(show) ? null : show.venue;
+                const venue = isResidence(show) || show.hideHost ? null : show.venue;
                 const place = venue ? (sameCity ? venue : `${venue}, ${cityLine}`) : cityLine;
                 return (
                   <div key={show.slug} className="ftgu-row">

@@ -65,6 +65,7 @@ export default async function ConfirmPage({
       region={show.region}
       venue={show.venue}
       venueLabel={show.venueLabel}
+      hideHost={show.hideHost}
       posterLine={posterLine}
       doorTime={show.doorTime}
       doorLabel={show.doorLabel}

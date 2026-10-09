@@ -24,21 +24,30 @@ export async function GET(request: NextRequest) {
     case "rsvp":
       await sendRsvpConfirmation({
         to,
-        name: "Peyt",
-        guests: 2,
-        eventName: "From The Ground Up",
-        eventDate: "Friday, February 20, 2026",
-        eventTime: "Doors at 5pm",
+        title: "From The Ground Up: My Path of Growth and the Principles that Connect Us",
+        dateLabel: "Sunday, October 25",
+        shortDate: "Sunday, Oct 25",
+        city: "Springfield",
+        region: "CA",
+        doorLabel: "Doors open at 11:00AM",
+        venueName: "The Sample Residence",
+        address: "123 Example St, Springfield, CA 90000",
+        ics: { filename: "sample.ics", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR" },
       });
       break;
     case "rsvp-music":
       await sendRsvpConfirmation({
         to,
-        name: "Peyt",
-        guests: 1,
-        eventName: "From The Ground Up",
-        eventDate: "Friday, February 20, 2026",
-        eventTime: "Doors at 5pm",
+        title: "From The Ground Up: My Path of Growth and the Principles that Connect Us",
+        dateLabel: "Sunday, October 25",
+        shortDate: "Sunday, Oct 25",
+        city: "Springfield",
+        region: "CA",
+        doorLabel: "Doors open at 11:00AM",
+        venueName: "The Sample Residence",
+        address: "123 Example St, Springfield, CA 90000",
+        ics: { filename: "sample.ics", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR" },
+        maybe: true,
       });
       break;
     case "download":
