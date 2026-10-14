@@ -52,10 +52,12 @@ export async function takePdf({
   htmlContent,
   viewport,
   pageFormat,
+  pageSize,
 }: {
   htmlContent: string;
   viewport: { width: number; height: number };
   pageFormat?: "Letter" | "A4" | "Legal" | "match";
+  pageSize?: { widthIn: number; heightIn: number };
 }): Promise<ArrayBuffer> {
   const browser = await launchBrowser();
   try {
@@ -72,7 +74,15 @@ export async function takePdf({
     // This preserves any aspect ratio (square, 4:5, etc.) without letterboxing or cropping,
     // and emits vector text at the design's native pixel scale.
     const useMatch = !pageFormat || pageFormat === "match";
-    const pdf = useMatch
+    const pdf = pageSize
+      ? await page.pdf({
+          width: `${pageSize.widthIn}in`,
+          height: `${pageSize.heightIn}in`,
+          printBackground: true,
+          margin: { top: "0", right: "0", bottom: "0", left: "0" },
+          preferCSSPageSize: false,
+        })
+      : useMatch
       ? await page.pdf({
           width: `${viewport.width}px`,
           height: `${viewport.height}px`,

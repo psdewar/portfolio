@@ -29,6 +29,7 @@ import {
   isShowOnTrip,
   needsHostLocation,
   getPosterLocationText,
+  collapseLines,
 } from "../../lib/shows-shared";
 import { orderItems } from "../../lib/sponsor";
 import { type Pamphlet, type PamphletShow } from "../../lib/pamphlets";
@@ -1469,7 +1470,7 @@ function PosterEditor({
       label: p.label ?? "",
     })),
   );
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<"one" | "all" | null>(null);
   const [dateFocus, setDateFocus] = useState<string | null>(null);
   const [autoState, setAutoState] = useState<"idle" | "saving" | "saved">(
     "idle",
@@ -1787,6 +1788,10 @@ function PosterEditor({
     return true;
   };
 
+  const formats = isSingle
+    ? POSTER_FORMATS
+    : POSTER_FORMATS.filter((f) => f !== "print");
+
   const downloadName = (fmt: PosterFormat) =>
     posterFileName(
       isSingle
@@ -1805,10 +1810,10 @@ function PosterEditor({
   };
 
   const handleDownload = async () => {
-    setDownloading(true);
+    setDownloading("all");
     try {
       const entries = await Promise.all(
-        POSTER_FORMATS.map(async (fmt) => ({
+        formats.map(async (fmt) => ({
           name: downloadName(fmt),
           data: new Uint8Array(await (await fetchFormat(fmt)).arrayBuffer()),
         })),
@@ -1820,16 +1825,16 @@ function PosterEditor({
           : `pamphlet-${legId.trim() || first.date}.zip`,
       );
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
   const downloadOne = async (fmt: PosterFormat) => {
-    setDownloading(true);
+    setDownloading("one");
     try {
       downloadBlob(await (await fetchFormat(fmt)).blob(), downloadName(fmt));
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
@@ -2143,8 +2148,8 @@ function PosterEditor({
                         placeholder="Event name (optional)"
                         className={`${inputCls} mb-2`}
                       />
-                      <input
-                        type="text"
+                      <textarea
+                        rows={2}
                         value={posterLines[soloSlug] ?? ""}
                         onChange={(e) =>
                           setPosterLines((prev) => ({
@@ -2153,7 +2158,7 @@ function PosterEditor({
                           }))
                         }
                         placeholder="Poster line (optional, print only)"
-                        className={`${inputCls} mb-2`}
+                        className={`${inputCls} mb-2 resize-y`}
                       />
                       <input
                         type="text"
@@ -2286,7 +2291,7 @@ function PosterEditor({
                               )}
                               <input
                                 type="text"
-                                value={venueLabels[slug] ?? ""}
+                                value={collapseLines(venueLabels[slug] ?? "")}
                                 onChange={(e) =>
                                   setVenueLabels((prev) => ({
                                     ...prev,
@@ -2389,17 +2394,10 @@ function PosterEditor({
                 <div className="flex gap-3">
                   <button
                     onClick={handleReset}
-                    disabled={downloading}
+                    disabled={downloading !== null}
                     className="shrink-0 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg border-2 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:border-neutral-500 dark:hover:border-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors disabled:opacity-50"
                   >
                     Reset
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="flex-1 text-center text-base font-semibold tracking-tight px-4 py-3.5 rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 active:bg-indigo-700 transition-colors disabled:opacity-50"
-                  >
-                    {downloading ? "Downloading…" : "Download"}
                   </button>
                 </div>
               </div>
@@ -2410,7 +2408,7 @@ function PosterEditor({
           <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
             <div className="flex items-center gap-3 px-3 py-2 border-b border-neutral-800 bg-black/40 shrink-0">
               <div className="flex min-w-0 overflow-x-auto rounded-lg bg-neutral-800/60 p-0.5">
-                {POSTER_FORMATS.map((f) => (
+                {formats.map((f) => (
                   <button
                     key={f}
                     onClick={() => setPreviewFormat(f)}
@@ -2430,12 +2428,21 @@ function PosterEditor({
               <div className="ml-auto flex shrink-0 items-center gap-2">
                 <button
                   onClick={() => downloadOne(previewFormat)}
-                  disabled={downloading}
+                  disabled={downloading !== null}
                   title={`Download ${previewFormat.toUpperCase()}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 hover:bg-white/5 transition-colors disabled:opacity-50"
                 >
                   <DownloadSimpleIcon size={14} />
-                  {downloading ? "Downloading…" : "Download"}
+                  {downloading === "one" ? "Downloading…" : "Download"}
+                </button>
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading !== null}
+                  title="Download every format as a .zip"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 hover:bg-white/5 transition-colors disabled:opacity-50"
+                >
+                  <DownloadSimpleIcon size={14} />
+                  {downloading === "all" ? "Downloading…" : "All (.zip)"}
                 </button>
                 {readOnly && (
                   <button

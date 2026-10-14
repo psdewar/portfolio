@@ -143,6 +143,14 @@ export function getDoorLabel(show: { doorLabel?: string | null; doorTime?: strin
   return show.doorLabel || `Doors open at ${show.doorTime || "7PM"}`;
 }
 
+export function collapseLines(s: string): string {
+  return s.replace(/\s*\n+\s*/g, ", ");
+}
+
+export function locationExtraLines(label: string | null): number {
+  return label ? label.split("\n").length - 1 : 0;
+}
+
 export function getPosterLocation(
   show: {
     venueLabel?: string | null;

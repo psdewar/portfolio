@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { type Show, getShows, getPosterLocationText } from "../../lib/shows";
+import { type Show, getShows, getPosterLocationText, collapseLines } from "../../lib/shows";
 import { getLegs, type PamphletFacet } from "../../fund/legs";
 import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
@@ -56,7 +56,8 @@ function pamphletHtml(
     .filter(Boolean)
     .join(";");
   const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
-  const locationLabelFor = (s: (typeof shows)[number]) => s.venueLabel ?? getPosterLocationText(s);
+  const locationLabelFor = (s: (typeof shows)[number]) =>
+    s.venueLabel ? collapseLines(s.venueLabel) : getPosterLocationText(s);
   const dateFor = (s: (typeof shows)[number]) => s.dateLabel ?? formatEventDateShort(s.date);
   const doorsFor = (s: (typeof shows)[number]) =>
     s.doorsOpen ?? (s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : ""));
@@ -351,7 +352,8 @@ export async function GET(request: NextRequest) {
   }
 
   const rawFormat = searchParams.get("format") ?? "pdf";
-  const format: PamphletFormat = rawFormat in POSTER_DIMS ? (rawFormat as PamphletFormat) : "pdf";
+  const format: PamphletFormat =
+    rawFormat in POSTER_DIMS && rawFormat !== "print" ? (rawFormat as PamphletFormat) : "pdf";
   const { W, H } = POSTER_DIMS[format];
   const flag = (key: string, fallback: boolean) => {
     const v = searchParams.get(key);

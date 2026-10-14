@@ -3,7 +3,13 @@
 import Image from "next/image";
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatEventDate, formatEventDateShort, formatCombinedDates } from "../lib/dates";
-import { getDoorLabel, getPosterLocation, getPosterLocationText } from "../lib/shows-shared";
+import {
+  collapseLines,
+  getDoorLabel,
+  getPosterLocation,
+  getPosterLocationText,
+  locationExtraLines,
+} from "../lib/shows-shared";
 import { resolveImgSrc } from "../lib/venue-img";
 import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../lib/poster-defaults";
 import { posterAspect, type PosterFormat } from "../lib/poster-formats";
@@ -150,7 +156,8 @@ function Poster({
   const longDate = dateText.length >= 25;
 
   const computedLoc = (s: PamphletShowItem) => getPosterLocationText(s);
-  const resolveLoc = (s: PamphletShowItem) => s.venueLabel ?? computedLoc(s);
+  const resolveLoc = (s: PamphletShowItem) =>
+    s.venueLabel ? collapseLines(s.venueLabel) : computedLoc(s);
   const resolveDate = (s: PamphletShowItem) => s.dateLabel ?? formatEventDateShort(s.date);
   const resolveDoors = (s: PamphletShowItem) =>
     s.doorsOpen ?? (s.doorLabel || (s.doorTime ? `Doors open at ${s.doorTime}` : ""));
@@ -366,6 +373,8 @@ function Poster({
         }
         .bottom-left .detail-value.location {
           font-size: calc(2.917cqw * var(--detail-scale, 1));
+          line-height: 1.4;
+          white-space: pre-line;
         }
 
         .fill-in {
@@ -404,8 +413,8 @@ function Poster({
           gap: 1.667cqw;
         }
         .qr-code {
-          width: 19.167cqw;
-          height: 19.167cqw;
+          width: calc(19.167cqw + var(--loc-extra, 0) * 2.917cqw * var(--detail-scale, 1) * 1.4);
+          height: calc(19.167cqw + var(--loc-extra, 0) * 2.917cqw * var(--detail-scale, 1) * 1.4);
         }
         .qr-label {
           font-family: var(--font-space-mono), monospace;
@@ -698,7 +707,10 @@ function Poster({
             </div>
           ) : date ? (
             <div className="details">
-              <div className="bottom-row">
+              <div
+                className="bottom-row"
+                style={{ "--loc-extra": locationExtraLines(loc.label) } as CSSProperties}
+              >
                 <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
                   {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
                   <div className={`detail-value date${longDate ? " long" : ""}`}>{dateText}</div>

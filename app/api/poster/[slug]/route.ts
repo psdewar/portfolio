@@ -3,7 +3,7 @@ import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
 import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
-import { posterFileName, POSTER_SCALE } from "../../../lib/poster-formats";
+import { posterFileName, POSTER_SCALE, PRINT_PAGE, PRINT_ZOOM } from "../../../lib/poster-formats";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
     const fileName = posterFileName(`poster-${slug}`, format);
 
-    if (format !== "pdf") {
+    if (format !== "pdf" && format !== "print") {
       const screenshot = await takeScreenshot({
         path: "about:blank",
         selector: ".poster",
@@ -67,10 +67,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
+    const isPrint = format === "print";
     const pdf = await takePdf({
       htmlContent: html,
-      viewport: { width: W, height: H },
-      pageFormat: "Letter",
+      viewport: isPrint
+        ? { width: Math.round(W * PRINT_ZOOM), height: Math.round(H * PRINT_ZOOM) }
+        : { width: W, height: H },
+      ...(isPrint ? { pageSize: PRINT_PAGE } : { pageFormat: "Letter" as const }),
     });
     return new Response(pdf, {
       headers: {
