@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
 import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
-import { posterHtml, inlineVenueImg, POSTER_DIMS, type PosterFormat } from "../html";
+import { posterHtml, inlineVenueImg, printBgSrc, POSTER_DIMS, type PosterFormat } from "../html";
 import { posterFileName, POSTER_SCALE, PRINT_PAGE, PRINT_ZOOM } from "../../../lib/poster-formats";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...show,
       doorLabel: doorLabelParam !== null ? doorLabelParam : show.doorLabel,
     };
+    const customBg = await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? "");
     const html = posterHtml(effShow, {
       format,
       label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       doorsOpenOverride: sp.get("doorsOpen") ?? "",
       posterLine: venueLabelParam !== null ? venueLabelParam : posterLabel,
       posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),
-      bgImgSrc: await inlineVenueImg(sp.get("bgImg") ?? show.bgImg ?? ""),
+      bgImgSrc: customBg || (format === "print" ? await printBgSrc() : ""),
       venueImgSrc: await inlineVenueImg(sp.get("venueImg") ?? show.venueImg ?? ""),
       venueImgWidth: Number(sp.get("venueImgW")) || show.venueImgWidth || undefined,
       venueImgOffsetY: Number(sp.get("venueImgOffsetY")) || show.venueImgOffsetY || undefined,
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         : { width: W, height: H },
       ...(isPrint ? { pageSize: PRINT_PAGE } : { pageFormat: "Letter" as const }),
     });
-    return new Response(pdf, {
+    return new Response(new Blob([pdf]).stream(), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${fileName}"`,

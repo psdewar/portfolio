@@ -6,6 +6,17 @@ import { DEFAULT_TAGLINE, INVITE_HEADLINE } from "../../lib/poster-defaults";
 import { normalizeVenueImg, allowedVenueImgUrl } from "../../lib/venue-img";
 import { qrDataUrl } from "../../lib/qr";
 import { LOCKUP_CSS, lockupHtml } from "../../lib/lockup";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3, s3Bucket } from "../shared/s3";
+
+const PRINT_BG_KEY = "drops/c62f704c4f682e233c049171fb76d0220339c4900fcb666ae7a2cc522f2594b0.jpg";
+
+export async function printBgSrc(): Promise<string> {
+  if (!s3) throw new Error("S3 not configured");
+  const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: PRINT_BG_KEY }));
+  const bytes = await res.Body!.transformToByteArray();
+  return `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`;
+}
 
 const MAX_VENUE_IMG_BYTES = 5 * 1024 * 1024;
 
@@ -179,17 +190,12 @@ export function posterHtml(
     .filter(Boolean)
     .join(";");
   const venueImgStyle = venueImgRules ? ` style="${venueImgRules}"` : "";
-  const printBg = "print/Jan23OpenMicNight-08_Original.jpg";
   const bgSrc =
     bgImgSrc ||
-    (isWideBanner
-      ? inlineAsset("Jan23OpenMicNight-07_Original.JPEG", "image/jpeg")
-      : inlineAsset(
-          isPrint && fs.existsSync(nodePath.join(process.cwd(), "public", printBg))
-            ? printBg
-            : "Jan23OpenMicNight-08_Original.jpg",
-          "image/jpeg",
-        ));
+    inlineAsset(
+      isWideBanner ? "Jan23OpenMicNight-07_Original.JPEG" : "Jan23OpenMicNight-08_Original.jpg",
+      "image/jpeg",
+    );
   const lockupSrc = inlineAsset("lyrist-trademark-white.png", "image/png");
   const loc = getPosterLocation(show, posterLine);
   const location =
