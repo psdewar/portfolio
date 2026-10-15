@@ -3,6 +3,8 @@ import { supabaseAdmin } from "../../../../lib/supabase-admin";
 import {
   getAdminState,
   syncBroadcast,
+  syncFacebookVideos,
+  logRelayError,
   THUMBNAIL_MAX_BYTES,
   THUMBNAIL_PATH,
 } from "../../../lib/livestream";
@@ -47,6 +49,8 @@ export function POST(request: Request) {
       })
       .eq("id", 1);
     if (error) throw error;
+
+    await syncFacebookVideos().catch((e) => logRelayError("update facebook videos", e));
 
     const connected = await supabaseAdmin
       .from("youtube_accounts")

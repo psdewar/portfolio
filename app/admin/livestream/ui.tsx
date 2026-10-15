@@ -72,6 +72,18 @@ export function YouTubeMark() {
   );
 }
 
+export function FacebookMark() {
+  return (
+    <svg viewBox="0 0 24 24" className={brandIconClass} role="img" aria-label="Facebook">
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
+      <path
+        fill="#FFFFFF"
+        d="M13.4 21v-7.2h2.4l.4-2.8h-2.8V9.2c0-.8.3-1.4 1.4-1.4h1.5V5.3c-.3 0-1.1-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8V11H8v2.800h2.400V21Z"
+      />
+    </svg>
+  );
+}
+
 export function InstagramMark() {
   const id = useId();
   const gradient = `ig-${id}`;

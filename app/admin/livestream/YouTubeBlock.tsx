@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import type { AdminState } from "../../lib/livestream";
+import { MANUAL_STEPS, createdAs } from "./steps";
 import {
   Notice,
   YouTubeMark,
   audienceSlotClass,
   destRowClass,
   inputClass,
+  helperClass,
   secondaryButtonClass,
   sendJson,
   textBody,
@@ -76,6 +78,9 @@ export default function YouTubeBlock({
           </a>
         )}
       </div>
+      <p className={helperClass}>
+        {account === "main" ? createdAs(privacy) : MANUAL_STEPS.youtube.practice}
+      </p>
       {message && <Notice message={message} />}
     </div>
   );

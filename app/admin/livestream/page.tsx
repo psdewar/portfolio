@@ -55,7 +55,7 @@ export default function LivestreamPage() {
         .then((res) => res.json())
         .then((data) => setSchedule(data.nextStream ?? null)),
     ])
-      .catch(() => setMessage({ type: "error", text: "Failed to load current schedule" }))
+      .catch((error) => setMessage({ type: "error", text: `Failed to load: ${error.message}` }))
       .finally(() => setLoading(false));
   }, [load]);
 
@@ -82,6 +82,12 @@ export default function LivestreamPage() {
       <div className={`h-5 w-56 ${skeletonBar}`} />
     </div>
   );
+
+  if (!loading && !state) {
+    return (
+      <div className={`${padX} ${padY}`}>{message && <Notice message={message} />}</div>
+    );
+  }
 
   return (
     <div className="[@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:h-[calc(100dvh-var(--admin-header-h))] [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:flex [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:flex-col [@media(orientation:landscape)_and_(min-width:1280px)_and_(min-height:500px)]:overflow-hidden">

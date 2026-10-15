@@ -1,6 +1,22 @@
 import { supabaseAdmin } from "../../lib/supabase-admin";
 import { ADLIB_URL, getStreamStatus, type StreamPath } from "./live";
+import {
+  createLiveVideo,
+  deleteLiveVideo,
+  isLiveVideoOpen,
+  updateLiveVideo,
+  type FacebookPrivacy,
+} from "./facebook";
 import { notifySubscribers } from "./notify";
+import {
+  SOCIAL_KINDS,
+  SOCIAL_LABELS,
+  SOCIAL_PLATFORMS,
+  isSocialFresh,
+  type SocialDestinationState,
+  type SocialKind,
+  type SocialPlatform,
+} from "./social-destinations";
 import {
   accessToken,
   bindBroadcast,
@@ -17,10 +33,6 @@ import {
   type YouTubeAccount,
 } from "./youtube";
 
-export type InstagramKind = "public" | "practice";
-export const INSTAGRAM_KINDS: InstagramKind[] = ["public", "practice"];
-
-const INSTAGRAM_TTL_MS = 5 * 60 * 60 * 1000;
 const THUMBNAIL_BUCKET = "livestream";
 export const THUMBNAIL_PATH = "next-stream";
 export const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
@@ -245,20 +257,130 @@ export async function syncYouTubeChat(path: StreamPath): Promise<number> {
   return body.inserted ?? 0;
 }
 
-async function getInstagram(kind: InstagramKind) {
+async function socialLine(platform: SocialPlatform, path: StreamPath): Promise<string | null> {
   const { data, error } = await supabaseAdmin
-    .from("instagram_destinations")
-    .select("stream_url, stream_key, saved_at")
+    .from("social_destinations")
+    .select("stream_url, stream_key, updated_at")
+    .eq("platform", platform)
+    .eq("kind", path === "live" ? "public" : "practice")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || !isSocialFresh(platform, data.updated_at)) return null;
+  return `${data.stream_url}${data.stream_key}`;
+}
+
+async function getFacebookToken(): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("facebook_account")
+    .select("access_token, expires_at")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || (data.expires_at && new Date(data.expires_at).getTime() <= Date.now())) return null;
+  return data.access_token;
+}
+
+async function getFacebookVideo(kind: SocialKind) {
+  const { data, error } = await supabaseAdmin
+    .from("facebook_live_videos")
+    .select("live_video_id, stream_url")
     .eq("kind", kind)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-async function instagramLine(path: StreamPath): Promise<string | null> {
-  const row = await getInstagram(path === "live" ? "public" : "practice");
-  if (!row || Date.now() - new Date(row.saved_at).getTime() >= INSTAGRAM_TTL_MS) return null;
-  return `${row.stream_url}${row.stream_key}`;
+async function claimFacebookVideo(
+  kind: SocialKind,
+  previous: string | null,
+  next: { id: string; streamUrl: string },
+): Promise<boolean> {
+  const values = {
+    live_video_id: next.id,
+    stream_url: next.streamUrl,
+    updated_at: new Date().toISOString(),
+  };
+  if (!previous) {
+    const { error } = await supabaseAdmin.from("facebook_live_videos").insert({ kind, ...values });
+    if (error?.code === "23505") return false;
+    if (error) throw error;
+    return true;
+  }
+  const { data, error } = await supabaseAdmin
+    .from("facebook_live_videos")
+    .update(values)
+    .eq("kind", kind)
+    .eq("live_video_id", previous)
+    .select("kind");
+  if (error) throw error;
+  return data.length > 0;
+}
+
+async function facebookVideoLine(token: string, kind: SocialKind): Promise<string> {
+  const row = await getFacebookVideo(kind);
+  if (row) {
+    try {
+      if (await isLiveVideoOpen(token, row.live_video_id)) return row.stream_url;
+    } catch (e) {
+      logRelayError("facebook video status", e);
+      return row.stream_url;
+    }
+  }
+
+  const settings = await getSettings();
+  const privacy: FacebookPrivacy = kind === "public" ? "EVERYONE" : "SELF";
+  const video = await createLiveVideo(token, {
+    title: settings.title || "Live",
+    description: kind === "public" ? settings.description : "",
+    privacy,
+  });
+  if (!(await claimFacebookVideo(kind, row?.live_video_id ?? null, video))) {
+    await deleteLiveVideo(token, video.id);
+    const winner = await getFacebookVideo(kind);
+    if (!winner) throw new Error(`Facebook ${kind} video claim failed`);
+    return winner.stream_url;
+  }
+  if (kind === "practice" && row) {
+    await deleteLiveVideo(token, row.live_video_id).catch((e) =>
+      logRelayError("delete previous facebook rehearsal video", e),
+    );
+  }
+  return video.streamUrl;
+}
+
+async function facebookLine(path: StreamPath): Promise<string | null> {
+  const kind: SocialKind = path === "live" ? "public" : "practice";
+  const token = await getFacebookToken();
+  if (!token) return socialLine("facebook", path);
+  try {
+    return await facebookVideoLine(token, kind);
+  } catch (e) {
+    logRelayError(`facebook video ${path}`, e);
+    return socialLine("facebook", path);
+  }
+}
+
+export async function syncFacebookVideos() {
+  const token = await getFacebookToken();
+  if (!token) return;
+  const settings = await getSettings();
+  const { data, error } = await supabaseAdmin
+    .from("facebook_live_videos")
+    .select("kind, live_video_id");
+  if (error) throw error;
+  await Promise.all(
+    data.map(async (row) => {
+      try {
+        if (!(await isLiveVideoOpen(token, row.live_video_id))) return;
+        await updateLiveVideo(token, row.live_video_id, {
+          title: settings.title || "Live",
+          description: row.kind === "public" ? settings.description : "",
+        });
+      } catch (e) {
+        logRelayError(`update facebook ${row.kind} video`, e);
+      }
+    }),
+  );
 }
 
 export function logRelayError(label: string, error: unknown) {
@@ -267,10 +389,12 @@ export function logRelayError(label: string, error: unknown) {
 }
 
 export async function relayLines(path: StreamPath): Promise<string[]> {
-  const labels = [`youtube ${path}`, `instagram ${path}`];
+  const labels = ["youtube", ...SOCIAL_PLATFORMS].map((name) => `${name} ${path}`);
   const results = await Promise.allSettled([
     youtubeLine(path),
-    instagramLine(path),
+    ...SOCIAL_PLATFORMS.map((platform) =>
+      platform === "facebook" ? facebookLine(path) : socialLine(platform, path),
+    ),
   ]);
   return results.flatMap((result, i) => {
     if (result.status === "rejected") {
@@ -281,20 +405,24 @@ export async function relayLines(path: StreamPath): Promise<string[]> {
   });
 }
 
-function isInstagramFresh(savedAt: string): boolean {
-  return Date.now() - new Date(savedAt).getTime() < INSTAGRAM_TTL_MS;
-}
-
 export async function getAdminState() {
-  const [settings, accounts, instagram, live, rehearsal] = await Promise.all([
+  const [settings, accounts, social, facebookAccount, live, rehearsal] = await Promise.all([
     getSettings(),
     supabaseAdmin.from("youtube_accounts").select("account, channel_title"),
-    supabaseAdmin.from("instagram_destinations").select("kind, saved_at"),
+    supabaseAdmin.from("social_destinations").select("platform, kind, stream_key, updated_at"),
+    supabaseAdmin.from("facebook_account").select("user_name, expires_at").eq("id", 1).maybeSingle(),
     getStreamStatus("live"),
     getStreamStatus("rehearsal"),
   ]);
   if (accounts.error) throw accounts.error;
-  if (instagram.error) throw instagram.error;
+  if (social.error) throw social.error;
+  if (facebookAccount.error) throw facebookAccount.error;
+
+  const facebook =
+    facebookAccount.data &&
+    (!facebookAccount.data.expires_at || new Date(facebookAccount.data.expires_at).getTime() > Date.now())
+      ? { userName: facebookAccount.data.user_name, expiresAt: facebookAccount.data.expires_at }
+      : null;
 
   const channels = Object.fromEntries(
     YOUTUBE_ACCOUNTS.map((a) => [
@@ -302,13 +430,27 @@ export async function getAdminState() {
       accounts.data.find((row) => row.account === a)?.channel_title ?? null,
     ]),
   ) as Record<YouTubeAccount, string | null>;
-  const saved = Object.fromEntries(
-    INSTAGRAM_KINDS.map((k) => [k, instagram.data.find((row) => row.kind === k)?.saved_at ?? null]),
-  ) as Record<InstagramKind, string | null>;
+  const destinations = Object.fromEntries(
+    SOCIAL_PLATFORMS.map((platform) => [
+      platform,
+      Object.fromEntries(
+        SOCIAL_KINDS.map((kind) => {
+          const row = social.data.find((r) => r.platform === platform && r.kind === kind);
+          const state: SocialDestinationState | null = row
+            ? { savedAt: row.updated_at, tail: row.stream_key.slice(-4) }
+            : null;
+          return [kind, state];
+        }),
+      ),
+    ]),
+  ) as Record<SocialPlatform, Record<SocialKind, SocialDestinationState | null>>;
 
-  const plan = (account: YouTubeAccount, kind: InstagramKind) => [
+  const plan = (account: YouTubeAccount, kind: SocialKind) => [
     ...(channels[account] ? ["YouTube"] : []),
-    ...(saved[kind] && isInstagramFresh(saved[kind]) ? ["Instagram"] : []),
+    ...SOCIAL_PLATFORMS.filter((platform) => {
+      const saved = destinations[platform][kind];
+      return saved && isSocialFresh(platform, saved.savedAt);
+    }).map((platform) => SOCIAL_LABELS[platform]),
   ];
 
   let thumbnailUrl: string | null = null;
@@ -332,7 +474,8 @@ export async function getAdminState() {
       thumbnailUrl,
     },
     channels,
-    instagram: saved,
+    destinations,
+    facebook,
     status: {
       live: { receiving: live.live, relaysTo: plan("main", "public") },
       rehearsal: { receiving: rehearsal.live, relaysTo: plan("practice", "practice") },
