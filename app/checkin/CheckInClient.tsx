@@ -78,6 +78,8 @@ export default function CheckInClient({
   const [shaking, setShaking] = useState(false);
   const [platform, setPlatform] = useState<Device>("ios");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [ticketReady, setTicketReady] = useState(false);
+  const [fetching, setFetching] = useState(false);
   useEffect(() => {
     let live = true;
     setPlatform(detectDevice());
@@ -94,7 +96,9 @@ export default function CheckInClient({
   const restingScale = useRef(1);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const blob = useRef<Promise<Blob | null> | null>(null);
+  const blobValue = useRef<Blob | null>(null);
   const pendingSave = useRef(false);
+  const focusOnReady = useRef(false);
   const replaying = useRef(false);
   const saving = useRef(false);
   const storedRef = useRef(stored);
@@ -254,7 +258,7 @@ export default function CheckInClient({
         replaying.current = false;
         if (pendingSave.current) {
           pendingSave.current = false;
-          save();
+          resumeSave();
         }
       }
     };
@@ -304,6 +308,7 @@ export default function CheckInClient({
   const fetchBlob = useCallback(() => {
     if (!blob.current) {
       const s = storedRef.current;
+      setFetching(true);
       blob.current = fetch("/api/ticket-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -319,6 +324,9 @@ export default function CheckInClient({
         .catch(() => null)
         .then((b) => {
           if (!b) blob.current = null;
+          blobValue.current = b;
+          setTicketReady(!!b);
+          setFetching(false);
           return b;
         });
     }
@@ -349,16 +357,24 @@ export default function CheckInClient({
 
   const save = useCallback(async () => {
     if (saving.current) return;
+    const ios = platform === "ios";
+    if (ios && !blobValue.current) {
+      fetchBlob().then((r) => {
+        if (!r) setSaveError("Couldn’t make your ticket. Try again.");
+      });
+      return;
+    }
     saving.current = true;
     setSaveError("");
+    let cooldown = true;
     try {
-      const b = await fetchBlob();
+      const b = ios ? blobValue.current : await fetchBlob();
       if (!b) {
         setSaveError("Couldn’t make your ticket. Try again.");
         return;
       }
       const file = new File([b], FILENAME, { type: "image/png" });
-      if (platform === "ios" && navigator.canShare?.({ files: [file] })) {
+      if (ios && navigator.canShare?.({ files: [file] })) {
         setSheetOpen(true);
         try {
           await navigator.share({ files: [file] });
@@ -367,6 +383,8 @@ export default function CheckInClient({
           if (name === "AbortError") return;
           if (name === "NotAllowedError") {
             focusSaveRow();
+            saving.current = false;
+            cooldown = false;
             return;
           }
           download(b);
@@ -378,18 +396,36 @@ export default function CheckInClient({
       }
       markStep("save");
     } finally {
-      setTimeout(() => {
-        saving.current = false;
-      }, SAVE_COOLDOWN_MS);
+      if (cooldown) {
+        setTimeout(() => {
+          saving.current = false;
+        }, SAVE_COOLDOWN_MS);
+      }
     }
   }, [fetchBlob, markStep, platform, focusSaveRow]);
+
+  const resumeSave = useCallback(() => {
+    if (platform !== "ios") {
+      save();
+      return;
+    }
+    if (blobValue.current) focusSaveRow();
+    else focusOnReady.current = true;
+  }, [platform, save, focusSaveRow]);
+
+  useEffect(() => {
+    if (ticketReady && focusOnReady.current) {
+      focusOnReady.current = false;
+      focusSaveRow();
+    }
+  }, [ticketReady, focusSaveRow]);
 
   useEffect(() => {
     if (checkedIn && pendingSave.current && !replaying.current) {
       pendingSave.current = false;
-      save();
+      resumeSave();
     }
-  }, [checkedIn, save]);
+  }, [checkedIn, resumeSave]);
 
   const onSubmit = async (website: string) => {
     setError("");
@@ -536,6 +572,7 @@ export default function CheckInClient({
         onSave={save}
         platform={platform}
         sheetOpen={sheetOpen}
+        rendering={checkedIn && !capture && fetching}
         onNeedCheckin={(formOpen) => {
           pendingSave.current = true;
           setSaveIntent(true);

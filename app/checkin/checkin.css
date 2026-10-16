@@ -86,7 +86,9 @@
 .ci-sheet { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; background: var(--paper); color: var(--ink); transform: translateY(105%); transition: transform 0.55s cubic-bezier(.2,.8,.2,1); visibility: hidden; overscroll-behavior: contain; font-family: var(--epunda); }
 .ci[data-view="road"] .ci-sheet { transform: none; visibility: visible; }
 .ci .sup { padding: calc(22 * var(--u)) 0 calc(24 * var(--u)); max-width: 560px; margin: 0 auto; }
-.ci .thanks { display: grid; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; margin: 0 var(--gut) calc(24 * var(--u)); font-family: var(--park); font-weight: 800; font-size: var(--fs-head); line-height: 1.15; }
+.ci .thanks-row { display: flex; align-items: center; gap: calc(12 * var(--u)); margin: 0 var(--gut) calc(24 * var(--u)); }
+.ci .thanks-row .avatar { flex-shrink: 0; width: calc(2.3 * var(--fs-head)); height: calc(2.3 * var(--fs-head)); border-radius: 50%; object-fit: cover; }
+.ci .thanks { display: grid; flex: 1; min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; margin: 0; font-family: var(--park); font-weight: 800; font-size: var(--fs-head); line-height: 1.15; text-wrap: balance; }
 .ci .thanks span { grid-area: 1 / 1; transition: opacity 0.6s; }
 .ci .thanks .b { opacity: 0; }
 .ci .thanks.all .a { opacity: 0; }
@@ -95,7 +97,7 @@
 .ci .st:last-child { margin-bottom: 0; }
 .ci .st::before, .ci .st::after, .ci .stop::before { content: ""; position: absolute; left: var(--road-x); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st:not(:last-child)::before, .ci .stop::before { top: calc(6 * var(--u) + var(--th) / 2); bottom: calc(-1 * var(--road-skip)); }
-.ci .st:not(.open):not(:last-child):has(> .srow .lead.plain)::before { top: calc(6 * var(--u) + var(--lh) / 2 + 11 * var(--u)); }
+.ci .st:not(.open):not(:last-child):has(> .srow .lead.plain)::before { top: calc(6 * var(--u) + var(--lh) / 2 + 13 * var(--u)); }
 .ci .st.linked::before, .ci .st.linked::after, .ci .stop.linked::before { border-left: 2px solid var(--mustard); }
 .ci .st::after { display: none; }
 .ci .st.open::before { display: block; top: 0; bottom: auto; height: var(--rt, 0px); }
@@ -103,7 +105,7 @@
 .ci .st.open:last-child::after { display: none; }
 .ci .st.open .lead::after { content: ""; position: absolute; left: calc(50% - 1px); top: calc(50% + var(--th) / 2); bottom: calc(-6 * var(--u)); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st.open.linked .lead::after { border-left: 2px solid var(--mustard); }
-.ci .st.open .lead.plain::after { top: calc(var(--lh) / 2 + 11 * var(--u)); }
+.ci .st.open .lead.plain::after { top: calc(var(--lh) / 2 + 13 * var(--u)); }
 .ci .body { position: relative; isolation: isolate; display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--ck-dur) var(--ck-ease), visibility 0s linear var(--ck-dur); }
 .ci :is(.st, .stop).open .body { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--ck-dur) var(--ck-ease), visibility 0s; }
 .ci .body > .inner { opacity: 0; transition: opacity calc(var(--ck-dur) * 0.6) var(--ck-ease); }
@@ -121,7 +123,7 @@
 .ci .lead { position: relative; flex: none; align-self: stretch; width: var(--th); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ci .lead.plain { justify-content: flex-start; }
 .ci .mk { flex: none; width: calc(20 * var(--u)); height: var(--lh); display: flex; align-items: center; justify-content: center; }
-.ci .mk svg { display: block; width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
+.ci .mk svg { display: block; width: calc(18 * var(--u)); height: calc(18 * var(--u)); }
 .ci .lead:not(.plain) > .mk { position: absolute; right: calc(-3 * var(--u)); top: calc(50% + var(--th) / 2 - 15 * var(--u)); width: calc(18 * var(--u)); height: calc(18 * var(--u)); }
 .ci button.srow:active { --ring: var(--press); }
 @media (hover: hover) and (pointer: fine) { .ci button.srow:hover { --ring: var(--press); } }
@@ -136,12 +138,17 @@
 .ci .chev path, .ci .dl path { vector-effect: non-scaling-stroke; stroke-width: 1.75px; }
 .ci .st.open .chev, .ci .stop.open .chev { transform: rotate(90deg); }
 .ci .dl { color: rgba(38,43,63,0.6); }
+.ci .srow.two { transition: opacity 0.25s ease; }
+.ci .srow.two[aria-busy="true"] { opacity: 0.45; position: relative; overflow: hidden; }
+.ci .srow.two[aria-busy="true"]::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.6) 50%, transparent 70%); transform: translateX(-100%); animation: ck-shimmer 1.4s linear infinite; }
+@keyframes ck-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .ci .srow.two[aria-busy="true"]::after { animation: none; display: none; } }
 .ci .stubthumb { container-type: size; position: relative; width: var(--th); height: var(--th); flex: none; overflow: hidden; border-radius: 6px; background: var(--ring); box-shadow: inset 0 0 0 1px rgba(38,43,63,0.12); }
 .ci .stubthumb.wait .tt { visibility: hidden; }
-.ci .tt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.ci .tt { position: absolute; inset: 0; display: flex; align-items: flex-start; padding-top: 12cqw; justify-content: center; }
 .ci .tt-title { font-family: var(--font-parkinsans), sans-serif; font-weight: 800; text-transform: uppercase; white-space: nowrap; line-height: 0.86; font-size: 12.85cqw; color: #262b3f; }
-.ci .tstamp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.ci .tstamp span { font-size: 13.1cqw; border-width: 1.64cqw; border-radius: 2.6cqw; white-space: nowrap; }
+.ci .tstamp { position: absolute; inset: 0; display: flex; align-items: center; padding-top: 14cqw; justify-content: center; pointer-events: none; }
+.ci .tstamp span { font-size: 10.5cqw; padding: 0.12em 0.58em; border-width: 1.3cqw; border-radius: 2.1cqw; white-space: nowrap; }
 .ci .tiptile { width: var(--th); height: var(--th); flex: none; border-radius: 6px; background: var(--tile); display: flex; align-items: center; justify-content: center; }
 .ci .tiptile svg { width: var(--th-glyph); height: var(--th-glyph); display: block; color: rgba(38,43,63,0.6); }
 .ci .tipbody { padding: calc(6 * var(--u)) var(--gut) 0 calc(var(--gut) + var(--th) + var(--gap)); }

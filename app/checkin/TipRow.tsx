@@ -49,7 +49,7 @@ export default function TipRow({ linked }: { linked: boolean }) {
         </Lead>
       }
       title="Filming tonight?"
-      sub="Turn up your video quality first."
+      sub="Turn up your video quality first"
     >
       <div className="tipbody" role="region" aria-label="Filming tips">
         <span className="tfig">

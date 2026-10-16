@@ -4,10 +4,11 @@ import { getShowBySlug } from "../../../lib/shows";
 import {
   CHECKIN_COOKIE,
   isCheckinOpen,
+  isShowToday,
   parseCheckinCookie,
   setCheckinCookie,
 } from "../../../lib/checkin-show";
-import { skipCheckin } from "../../../lib/rsvp";
+import { checkinExists, skipCheckin } from "../../../lib/rsvp";
 import { isCheckinId } from "../../shared/checkin-metadata";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
@@ -38,11 +39,16 @@ export async function POST(request: Request) {
         .find((c) => c.startsWith(`${CHECKIN_COOKIE}=`))
         ?.slice(CHECKIN_COOKIE.length + 1),
     );
-    const requested = isCheckinId(clientId)
+    const existing = isCheckinId(clientId)
       ? clientId
       : own?.slug === show.slug
         ? own.checkinId
-        : randomUUID();
+        : null;
+    const closedToNew = !isShowToday(show);
+    if (closedToNew && (!existing || !(await checkinExists(show.slug, existing)))) {
+      return NextResponse.json({ error: "Check-in isn't open for this show." }, { status: 400 });
+    }
+    const requested = existing ?? randomUUID();
     const { number, checkinId, steps } = await skipCheckin(show.slug, requested);
     const response = NextResponse.json({ success: true, ticketNo: number, checkinId, steps });
     setCheckinCookie(response, show.slug, checkinId);

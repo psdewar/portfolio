@@ -14,7 +14,7 @@ export const PAYMENT_OPTIONS_STYLE = `
   .cc-venmo { background: #008CFF; color: #fff; }
   .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
   .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
-  .cc-venmo, .cc-zelle, .cc-interac { position: relative; }
+  .cc-venmo, .cc-zelle, .cc-interac, .cc-card { position: relative; }
   .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
   .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }
   .cc-zelle .cc-tag { background: rgba(109,30,212,0.12); color: #6D1ED4; }
@@ -33,6 +33,7 @@ export default function PaymentOptions({
   onCard,
   cardTotal,
   cardLoading = false,
+  cardNoFees = false,
   onSelect,
   zelle = true,
   zelleAmount,
@@ -45,6 +46,7 @@ export default function PaymentOptions({
   onCard?: () => void;
   cardTotal?: string;
   cardLoading?: boolean;
+  cardNoFees?: boolean;
   onSelect?: (method: "venmo" | "zelle" | "card") => void;
   zelle?: boolean;
   zelleAmount?: string;
@@ -153,6 +155,7 @@ export default function PaymentOptions({
             onCard();
           }}
         >
+          {cardNoFees && !cardLoading && <span className="cc-tag">no fees</span>}
           {cardLoading ? (
             <>
               <span className="cc-spinner" />

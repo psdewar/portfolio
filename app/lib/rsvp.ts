@@ -126,6 +126,17 @@ export async function getRsvpCounts(): Promise<Record<string, { responses: numbe
   return counts;
 }
 
+export async function checkinExists(slug: string, checkinId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("attendances")
+    .select("id")
+    .eq("show_slug", slug)
+    .eq("public_id", checkinId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
+}
+
 export async function skipCheckin(
   slug: string,
   checkinId: string,

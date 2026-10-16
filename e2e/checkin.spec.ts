@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { checkInFromRoad, mockCheckinApi, skipForNow as skip } from "./checkin-flow";
+import { PNG, checkInFromRoad, mockCheckinApi, skipForNow as skip } from "./checkin-flow";
 
 const URL = "/checkin/fulton-md-0?preview=1&fresh=1";
 
@@ -11,7 +11,7 @@ async function open(page: Page) {
 }
 
 const checkInRow = (page: Page) => page.getByRole("button", { name: "Check in", exact: true });
-const saveRow = (page: Page) => page.getByRole("button", { name: /Keep your ticket Proof you were here/ });
+const saveRow = (page: Page) => page.getByRole("button", { name: /Keep your ticket Proof you attended/ });
 const saveSubmit = (page: Page) => page.getByRole("button", { name: "Keep your ticket", exact: true });
 
 test.describe("Check in", () => {
@@ -72,7 +72,7 @@ test.describe("Check in", () => {
     await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
     await page.getByRole("button", { name: "I’m Here" }).click();
     await expect(page.getByText("Checked in", { exact: true })).toBeVisible();
-    await expect(page.getByText(/^Thank you for being (here|there), Jordan\.$/)).toBeVisible();
+    await expect(page.getByText(/^Thank you for being (here|there), Jordan$/)).toBeVisible();
   });
 
   test("a guest walks the fields with Enter and checks in from the last one", async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe("Check in", () => {
     await support.click();
     await expect(page.getByRole("radio", { name: "Once" })).toBeHidden();
 
-    const tee = page.getByRole("button", { name: /Grab T-shirt/ });
+    const tee = page.getByRole("button", { name: /Grab merch/ });
     for (let i = 0; i < 3; i++) {
       await tee.click();
       await expect(page.getByRole("img", { name: /Patience tee/ })).toBeVisible();
@@ -206,7 +206,7 @@ test.describe("Check in", () => {
   test("a guest buying a tee cannot pay until they pick a size, then can", async ({ page }) => {
     await open(page);
     await skip(page);
-    await page.getByRole("button", { name: /Grab T-shirt/ }).click();
+    await page.getByRole("button", { name: /Grab merch/ }).click();
     const venmo = page.getByRole("link", { name: /Venmo/ });
     const card = page.getByRole("button", { name: "Pay with your card" });
     await expect(venmo).toBeDisabled();
@@ -225,8 +225,8 @@ const SAMSUNG_UA =
   "Mozilla/5.0 (Linux; Android 14; SM-S911U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
 
 for (const [label, userAgent, before, after] of [
-  ["Pixel", PIXEL_UA, "Proof you were here", "Saved in Photos, under Collections"],
-  ["Samsung", SAMSUNG_UA, "Proof you were here", "Saved in Gallery, under Albums"],
+  ["Pixel", PIXEL_UA, "Proof you attended", "Saved in Photos, under Collections"],
+  ["Samsung", SAMSUNG_UA, "Proof you attended", "Saved in Gallery, under Albums"],
 ] as const) {
   test.describe(`Keep your ticket on ${label}`, () => {
     test.use({ userAgent, viewport: { width: 412, height: 915 }, hasTouch: true });
@@ -243,3 +243,60 @@ for (const [label, userAgent, before, after] of [
     });
   });
 }
+
+const IOS_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+
+test.describe("Keep your ticket on iPhone", () => {
+  test.use({ userAgent: IOS_UA, viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  const stubShare = (page: Page) =>
+    page.addInitScript(() => {
+      const w = window as unknown as { shareCalls: number };
+      w.shareCalls = 0;
+      Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
+      Object.defineProperty(navigator, "share", {
+        value: async () => {
+          w.shareCalls += 1;
+        },
+        configurable: true,
+      });
+    });
+  const shareCalls = (page: Page) => page.evaluate(() => (window as unknown as { shareCalls: number }).shareCalls);
+
+  test("a guest who taps Keep your ticket before checking in waits for the ticket, then taps once to share", async ({
+    page,
+  }) => {
+    await stubShare(page);
+    await open(page);
+    await page.route("**/api/ticket-image", async (route) => {
+      await new Promise((r) => setTimeout(r, 6000));
+      await route.fulfill({ status: 200, contentType: "image/png", body: PNG });
+    });
+    await skip(page);
+    await saveRow(page).click();
+    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
+    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
+    await saveSubmit(page).click();
+    const row = page.getByRole("button", { name: /Keep your ticket/ });
+    await expect(row).toHaveAttribute("aria-busy", "true");
+    await row.click();
+    expect(await shareCalls(page)).toBe(0);
+    await expect(row).not.toHaveAttribute("aria-busy", "true", { timeout: 15000 });
+    expect(await shareCalls(page)).toBe(0);
+    await row.click();
+    await expect.poll(() => shareCalls(page)).toBe(1);
+    await expect(page.getByRole("button", { name: /Keep your ticket.*, done$/ })).toBeVisible();
+    expect(await shareCalls(page)).toBe(1);
+  });
+
+  test("a checked-in guest whose ticket is ready shares with one tap", async ({ page }) => {
+    await stubShare(page);
+    await open(page);
+    await skip(page);
+    await checkInFromRoad(page, "Jordan Lee");
+    await page.waitForTimeout(1000);
+    await saveRow(page).click();
+    await expect.poll(() => shareCalls(page)).toBe(1);
+  });
+});

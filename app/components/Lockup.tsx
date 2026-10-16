@@ -1,13 +1,11 @@
-import { useId } from "react";
 import { LOCKUP_CSS } from "../lib/lockup";
+import { LYRIST_MARK_D } from "./lyristMark";
 
 const LOGO_W = 2247 / 762;
 const RECORDS_X = 3.1242;
-const VIEW_W = 5.815;
+const VIEW_W = 5.826;
 
 function TintedLockup({ color, height }: { color: string; height: number }) {
-  const id = useId();
-  const maskId = `lockup-mask-${id}`;
   return (
     <svg
       role="img"
@@ -16,10 +14,7 @@ function TintedLockup({ color, height }: { color: string; height: number }) {
       height={height}
       style={{ display: "inline-block", width: "auto", verticalAlign: "middle", letterSpacing: "normal", textTransform: "none" }}
     >
-      <mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={0} width={LOGO_W} height={1}>
-        <image href="/lyrist-trademark-white.png" x={0} y={0} width={LOGO_W} height={1} />
-      </mask>
-      <rect x={0} y={0} width={LOGO_W} height={1} fill={color} mask={`url(#${maskId})`} />
+      <path d={LYRIST_MARK_D} fill={color} fillRule="evenodd" transform={`scale(${LOGO_W / 2247})`} />
       <text
         x={RECORDS_X}
         y={0.7165}

@@ -224,8 +224,8 @@ export default function TeeStep({
           </span>
         </Lead>
       }
-      title="Grab T-shirt for $45"
-      sub="“All I Need Is Patience”, no fees"
+      title="Grab merch"
+      sub={`“All I Need Is Patience” Tee, $${PRICE}`}
       after={
         paying && (
           <EmbeddedTeeCheckout
@@ -287,6 +287,7 @@ export default function TeeStep({
               blocked={!size}
               onBlocked={nudgeSize}
               onCard={() => setPaying(true)}
+              cardNoFees
               onExternal={onExternal}
             />
           </div>

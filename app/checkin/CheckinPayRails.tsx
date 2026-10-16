@@ -7,6 +7,7 @@ export default function CheckinPayRails({
   blocked = false,
   onBlocked,
   onCard,
+  cardNoFees = false,
   onExternal,
 }: {
   venmoUrl: string;
@@ -15,6 +16,7 @@ export default function CheckinPayRails({
   blocked?: boolean;
   onBlocked?: () => void;
   onCard: () => void;
+  cardNoFees?: boolean;
   onExternal: () => void;
 }) {
   return (
@@ -27,6 +29,7 @@ export default function CheckinPayRails({
         blocked={blocked}
         onBlocked={onBlocked}
         onCard={onCard}
+        cardNoFees={cardNoFees}
         onSelect={(method) => {
           if (method !== "card") onExternal();
         }}

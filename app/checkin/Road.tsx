@@ -17,6 +17,7 @@ import { DoneText, DownloadIcon, Lead, StepShell, PhotosIcon, PlayIcon, UploadIc
 import TeeStep from "./TeeStep";
 import TipRow from "./TipRow";
 import type { CheckinStep } from "./steps";
+import { lineCount, shrinkToFit, useFontFit } from "../components/fitText";
 import { useRoadGaps } from "./useRoadGaps";
 import { isCheckedIn, type Stored } from "./useCheckinState";
 
@@ -28,7 +29,7 @@ type Mode = "once" | "monthly";
 const STEP_OF = { 2: "save", 3: "tee", 4: "support", 5: "upload" } as const;
 const VENMO = "https://venmo.com/u/psdewar";
 
-const SAVE_BEFORE = "Proof you were here";
+const SAVE_BEFORE = "Proof you attended";
 
 const SAVE_DONE: Record<Device, string> = {
   ios: "Saved in your Photos",
@@ -47,6 +48,7 @@ export default function Road({
   onSave,
   platform,
   sheetOpen,
+  rendering,
   onNeedCheckin,
   onPlainCheckin,
   onNudge,
@@ -62,6 +64,7 @@ export default function Road({
   onSave: () => void;
   platform: Device;
   sheetOpen: boolean;
+  rendering: boolean;
   onNeedCheckin: (formOpen: boolean) => void;
   onPlainCheckin: () => void;
   onNudge: () => void;
@@ -76,6 +79,26 @@ export default function Road({
   useBackToClose(cardOpen, () => setCardOpen(false));
   const [upThumb, setUpThumb] = useState<string | null | undefined>(undefined);
   const supRef = useRef<HTMLDivElement>(null);
+  const thanksRef = useRef<HTMLParagraphElement>(null);
+  const fitThanks = useCallback(() => {
+    const el = thanksRef.current;
+    if (!el) return;
+    el.style.fontSize = "";
+    const root = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const base = parseFloat(getComputedStyle(el).fontSize) / root;
+    const spans = Array.from(el.children) as HTMLElement[];
+    const lines = () => Math.max(...spans.map(lineCount));
+    shrinkToFit(el, base, base * 0.75, () => lines() <= 2, 0.02);
+    if (lines() > 3) shrinkToFit(el, base * 0.75, base * 0.5, () => lines() <= 3, 0.02);
+  }, []);
+  useFontFit(fitThanks, [first, past]);
+  useEffect(() => {
+    const row = thanksRef.current?.parentElement;
+    if (!row) return;
+    const ro = new ResizeObserver(fitThanks);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [fitThanks]);
   useRoadGaps(supRef);
   const fileRef = useRef<HTMLInputElement>(null);
   const external = useRef<0 | 3 | 4>(0);
@@ -229,14 +252,17 @@ export default function Road({
   return (
     <div className="ci-sheet" ref={sheetRef}>
       <div className="sup" ref={supRef}>
-        <p className={`thanks${allDone ? " all" : ""}`}>
-          <span className="a" aria-hidden={allDone}>
-            Thank you for being {past ? "there" : "here"}{first ? `, ${first}` : ""}.
-          </span>
-          <span className="b" aria-hidden={!allDone}>
-            Thank you for everything{first ? `, ${first}` : ""}.
-          </span>
-        </p>
+        <div className="thanks-row">
+          <img className="avatar" src="/images/checkin/peyt.webp" alt="Peyt Spencer" width={150} height={150} />
+          <p ref={thanksRef} className={`thanks${allDone ? " all" : ""}`}>
+            <span className="a" aria-hidden={allDone}>
+              Thank you for being {past ? "there" : "here"}{first ? `, ${first}` : ""}
+            </span>
+            <span className="b" aria-hidden={!allDone}>
+              Thank you for everything{first ? `, ${first}` : ""}
+            </span>
+          </p>
+        </div>
 
         {checkedIn ? (
           <div className={`st${linked[0] ? " linked" : ""}`} data-n="1" id="st-1">
@@ -271,12 +297,14 @@ export default function Road({
           <button
             type="button"
             className="srow two"
+            aria-busy={rendering ? "true" : undefined}
             onClick={() => {
               if (!checkedIn) {
                 focusCheckin();
                 onNeedCheckin(open === 1);
                 return;
               }
+              if (rendering && platform === "ios") return;
               onSave();
             }}
           >
@@ -303,8 +331,10 @@ export default function Road({
                       <path d="M5 13v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V13" />
                     </svg>
                   </>
+                ) : done[2] ? (
+                  SAVE_DONE[platform]
                 ) : (
-                  done[2] ? SAVE_DONE[platform] : SAVE_BEFORE
+                  SAVE_BEFORE
                 )}
               </span>
             </span>
