@@ -46,12 +46,14 @@ export async function markAttended({
   name,
   phone,
   slug,
+  claimId,
 }: {
   email: string;
   name?: string;
   phone?: string;
   slug: string;
-}): Promise<{ number: number; rsvpd: boolean }> {
+  claimId?: string | null;
+}): Promise<{ number: number; rsvpd: boolean; checkinId: string | null; steps: Record<string, string> }> {
   const emailLower = email.trim().toLowerCase();
 
   const { data: rsvpRow } = await supabaseAdmin
@@ -62,10 +64,14 @@ export async function markAttended({
     .maybeSingle();
   const rsvpd = !!rsvpRow;
 
-  const { data: assignedNumber, error } = await supabaseAdmin.rpc("attend", {
-    p_slug: slug,
-    p_email: emailLower,
-  });
+  const { data: assignedNumber, error } = claimId
+    ? await supabaseAdmin
+        .rpc("claim_checkin", { p_id: claimId, p_slug: slug, p_email: emailLower })
+        .then(({ data, error: claimError }) => ({
+          data: (data as { number: number }[] | null)?.[0]?.number ?? null,
+          error: claimError,
+        }))
+    : await supabaseAdmin.rpc("attend", { p_slug: slug, p_email: emailLower });
   if (error) throw new Error(error.message);
 
   await upsertIdentity({
@@ -77,7 +83,19 @@ export async function markAttended({
     source: "checkin",
   });
 
-  return { number: assignedNumber as number, rsvpd };
+  const { data: stepRow } = await supabaseAdmin
+    .from("attendances")
+    .select("public_id, steps")
+    .eq("show_slug", slug)
+    .eq("email", emailLower)
+    .maybeSingle();
+
+  return {
+    number: assignedNumber as number,
+    rsvpd,
+    checkinId: (stepRow?.public_id as string | undefined) ?? null,
+    steps: (stepRow?.steps as Record<string, string> | undefined) ?? {},
+  };
 }
 
 export async function namesByEmail(emails: string[]): Promise<Map<string, string>> {
@@ -106,4 +124,14 @@ export async function getRsvpCounts(): Promise<Record<string, { responses: numbe
     counts[row.show_slug].attending += row.guests ?? 1;
   }
   return counts;
+}
+
+export async function skipCheckin(
+  slug: string,
+  checkinId: string,
+): Promise<{ number: number; checkinId: string; steps: Record<string, string> }> {
+  const { data, error } = await supabaseAdmin.rpc("skip_checkin", { p_slug: slug, p_id: checkinId });
+  if (error) throw new Error(error.message);
+  const row = (data as { public_id: string; number: number; steps: Record<string, string> }[])[0];
+  return { number: row.number, checkinId: row.public_id, steps: row.steps ?? {} };
 }

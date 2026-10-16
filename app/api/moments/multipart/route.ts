@@ -9,7 +9,10 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { isAdminAuthorized } from "../../shared/admin-auth";
+import { checkinMetadata } from "../../shared/checkin-metadata";
 import { s3, s3Bucket } from "../../shared/s3";
+import { isUploadAuthorized, checkinIdFromPasscode } from "../../shared/moments-auth";
 import {
   sanitizeFilename,
   contentKey,
@@ -49,10 +52,12 @@ function presignParts(key: string, uploadId: string, partCount: number) {
 
 export async function POST(request: Request) {
   const ip = getClientIP(request);
-  const rate = checkRateLimit(ip, "moments-multipart", {
-    windowMs: 60 * 60 * 1000,
-    maxRequests: 500,
-  });
+  const rate = (await isAdminAuthorized(request))
+    ? { allowed: true, resetIn: 0 }
+    : checkRateLimit(ip, "moments-multipart", {
+        windowMs: 60 * 60 * 1000,
+        maxRequests: 500,
+      });
   if (!rate.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Try again later." },
@@ -68,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  if (body.passcode !== process.env.MOMENTS_PASSCODE) {
+  if (!(await isUploadAuthorized(request, body.passcode))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -110,6 +115,7 @@ export async function POST(request: Request) {
           typeof body.contentType === "string" && body.contentType
             ? body.contentType
             : "application/octet-stream",
+        Metadata: checkinMetadata(checkinIdFromPasscode(body.passcode)),
       }),
     );
     const uploadId = created.UploadId!;

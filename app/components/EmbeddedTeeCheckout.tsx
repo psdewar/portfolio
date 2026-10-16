@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { XIcon } from "@phosphor-icons/react";
 import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
+import CheckoutSheet from "./CheckoutSheet";
 import { useScrollLock } from "../hooks/useScrollLock";
 
 const GOLD = "#d4a553";
@@ -18,6 +19,10 @@ interface Props {
   confirmation?: string;
   crossSellLabel?: string;
   onCrossSell?: () => void;
+  checkinId?: string | null;
+  onComplete?: () => void;
+  sheet?: boolean;
+  backLabel?: string;
 }
 
 export default function EmbeddedTeeCheckout({
@@ -30,6 +35,10 @@ export default function EmbeddedTeeCheckout({
   confirmation = "Your Patience tee ships in 5 to 7 business days. Confirmation is in your inbox.",
   crossSellLabel,
   onCrossSell,
+  checkinId,
+  onComplete,
+  sheet = false,
+  backLabel = "Back to shop",
 }: Props) {
   const [complete, setComplete] = useState(false);
 
@@ -42,23 +51,28 @@ export default function EmbeddedTeeCheckout({
       body: JSON.stringify({
         productId,
         embedded: true,
-        metadata: { color, size },
+        metadata: { color, size, ...(checkinId ? { checkinId } : {}) },
       }),
     });
     const { clientSecret } = await res.json();
     return clientSecret;
-  }, [productId, color, size]);
+  }, [productId, color, size, checkinId]);
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <CheckoutSheet
+      sheet={sheet}
+      zIndex={70}
+      onClose={onClose}
+      label="Checkout"
+      wrapClass="fixed inset-0 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+      cardClass={
+        complete
+          ? "relative my-8 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+          : `${CHECKOUT_CARD} my-8`
+      }
     >
       {complete ? (
-        <div
-          className="relative my-8 w-full max-w-md rounded-2xl bg-white shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <>
           <button
             onClick={onClose}
             aria-label="Close"
@@ -70,9 +84,7 @@ export default function EmbeddedTeeCheckout({
             <h2 className="font-bebas text-5xl" style={{ color: accent }}>
               Order Confirmed
             </h2>
-            <p className="mx-auto mt-3 max-w-xs text-neutral-600">
-              {confirmation}
-            </p>
+            <p className="mx-auto mt-3 max-w-xs text-neutral-600">{confirmation}</p>
             <div className="mx-auto mt-8 flex max-w-xs flex-col gap-3">
               {onCrossSell && crossSellLabel && (
                 <button
@@ -91,20 +103,18 @@ export default function EmbeddedTeeCheckout({
               </Link>
             </div>
           </div>
-        </div>
+        </>
       ) : (
-        <div
-          className={`${CHECKOUT_CARD} my-8`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CheckoutPanel
-            backLabel="Back to shop"
-            onBack={onClose}
-            fetchClientSecret={fetchClientSecret}
-            onComplete={() => setComplete(true)}
-          />
-        </div>
+        <CheckoutPanel
+          backLabel={backLabel}
+          onBack={onClose}
+          fetchClientSecret={fetchClientSecret}
+          onComplete={() => {
+            setComplete(true);
+            onComplete?.();
+          }}
+        />
       )}
-    </div>
+    </CheckoutSheet>
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { launchBrowser } from "../../lib/screenshot";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { ALLOWED_ORIGINS } from "../shared/audio-utils";
+import { isNameTooLong } from "../../lib/name";
 
 // Renders the ticket in a headless browser, clipped to just the ticket (straight, no backdrop); name/email typed into the form, never the URL.
 export async function POST(request: NextRequest) {
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
   const { slug, name, email, ticketNo, rsvpd } = await request.json();
   if (!slug || !name || !email) {
     return NextResponse.json({ error: "Missing slug, name, or email" }, { status: 400 });
+  }
+  if (isNameTooLong(name)) {
+    return NextResponse.json({ error: "Name is too long" }, { status: 400 });
   }
   const noParam = Number.isFinite(ticketNo) ? `&no=${ticketNo}` : "";
   const rsvpdParam = rsvpd ? "&rsvpd=1" : "";
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest) {
         ? route.abort()
         : route.continue(),
     );
-    await page.goto(`${origin}/ticket/${encodeURIComponent(slug)}?preview=1&capture=1${noParam}${rsvpdParam}`, {
+    await page.goto(`${origin}/checkin/${encodeURIComponent(slug)}?preview=1&capture=1${noParam}${rsvpdParam}`, {
       waitUntil: "domcontentloaded",
       timeout: 20000,
     });
@@ -52,12 +56,12 @@ export async function POST(request: NextRequest) {
     await page.fill('input[type="email"]', email);
     await page.click('button[type="submit"]');
 
-    // Keepsake = intact, straight ticket: freeze the rip + flash, drop the tilt.
+    // Keepsake = intact, straight ticket: drop the gold backdrop and the tilt.
     await page.addStyleTag({
       content:
-        ".stub-rip{animation:none!important;transform:none!important}.photo-flash{display:none!important}.ticket-enter{animation:none!important;transform:none!important}",
+        ".ci::before{display:none!important}.ticket-enter{animation:none!important;transform:none!important}",
     });
-    await page.waitForTimeout(900); // let the admit stamp settle
+    await page.waitForTimeout(1500); // let the admit stamp settle
 
     await page
       .evaluate(() => {

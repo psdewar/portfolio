@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { s3, s3Bucket } from "../../shared/s3";
-import {
-  getFeatured,
-  setFeatured,
-  deleteMomentArtifacts,
-} from "../../shared/moments";
+import { isMomentsAuthorized, canDeleteMoment } from "../../shared/moments-auth";
+import { deleteMoment } from "../../shared/moments";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
 
 export async function POST(request: Request) {
@@ -29,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  if (body.passcode !== process.env.MOMENTS_PASSCODE) {
+  if (!(await isMomentsAuthorized(body.passcode))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const key = typeof body.key === "string" ? body.key : "";
@@ -37,13 +33,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid key." }, { status: 400 });
   }
 
-  await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
-  await deleteMomentArtifacts(key);
-
-  const featured = await getFeatured();
-  if (featured.includes(key)) {
-    await setFeatured(featured.filter((k) => k !== key));
+  if (!(await canDeleteMoment(body.passcode, key))) {
+    return NextResponse.json({ error: "You can only remove your own uploads." }, { status: 403 });
   }
+
+  await deleteMoment(key);
 
   return NextResponse.json({ ok: true });
 }

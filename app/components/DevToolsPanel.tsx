@@ -43,6 +43,16 @@ export function DevToolsPanel() {
     setIsOpen(false);
   };
 
+  const resetCheckin = () => {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("checkin:") || k.startsWith("ticket:"))
+        .forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem("attendeeEmail");
+    } catch {}
+    window.location.reload();
+  };
+
   // Only render in development
   if (!isDevMode) return null;
 
@@ -240,6 +250,13 @@ export function DevToolsPanel() {
                 Support (CA)
               </button>
             </div>
+
+            <button
+              onClick={resetCheckin}
+              className="w-full py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Reset check-in
+            </button>
 
             <button
               onClick={() => window.location.reload()}

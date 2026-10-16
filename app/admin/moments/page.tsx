@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { uploadFile } from "../../moments/upload";
 
 interface MomentItem {
   key: string;
@@ -13,12 +14,7 @@ interface MomentItem {
   city?: string;
   visit?: string;
   leg?: string;
-}
-
-interface PendingItem {
-  key: string;
-  lastModified: string | null;
-  url: string;
+  hasOriginal: boolean;
 }
 
 type State =
@@ -89,7 +85,6 @@ function videoQuality(w: number, h: number) {
 
 export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
-  const [pending, setPending] = useState<PendingItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -102,7 +97,6 @@ export default function MomentsAdminPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || `Failed (${r.status})`);
       setItems(Array.isArray(data.items) ? data.items : []);
-      setPending(Array.isArray(data.pending) ? data.pending : []);
       setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
@@ -216,23 +210,6 @@ export default function MomentsAdminPage() {
       {state.kind === "ready" && (
         <div className="space-y-6">
           <AdminUpload onDone={() => load(false)} />
-          {pending.length > 0 && (
-            <PendingStrip
-              items={pending}
-              onDelete={async (key) => {
-                const r = await fetch("/api/admin/moments", {
-                  method: "DELETE",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ key }),
-                });
-                if (!r.ok) {
-                  window.alert("Delete failed");
-                  return;
-                }
-                setPending((prev) => prev.filter((p) => p.key !== key));
-              }}
-            />
-          )}
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
@@ -542,9 +519,11 @@ function ReviewCard({
           <IconButton href={item.downloadUrl} label="Download">
             <DownloadIcon />
           </IconButton>
-          <IconButton onClick={rename} disabled={busy} label="Rename">
-            <PencilIcon />
-          </IconButton>
+          {item.hasOriginal && (
+            <IconButton onClick={rename} disabled={busy} label="Rename">
+              <PencilIcon />
+            </IconButton>
+          )}
           <IconButton
             onClick={remove}
             disabled={busy}
@@ -619,55 +598,6 @@ function ReviewCard({
         )}
       </div>
     </div>
-  );
-}
-
-function PendingStrip({
-  items,
-  onDelete,
-}: {
-  items: PendingItem[];
-  onDelete: (key: string) => void;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Waiting on full-size files
-        </h2>
-        <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
-          {items.length}
-        </span>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {items.map((it) => (
-          <div
-            key={it.key}
-            className="relative shrink-0 w-28 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900"
-          >
-            <div className="aspect-square">
-              <img src={it.url} alt="" decoding="async" className="h-full w-full object-cover" />
-            </div>
-            <button
-              type="button"
-              onClick={() => onDelete(it.key)}
-              aria-label="Delete preview"
-              title="Delete preview"
-              className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
-            >
-              <CloseIcon />
-            </button>
-            <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1.5 py-1 text-center text-[10px] tabular-nums text-white">
-              {formatDate(it.lastModified)}
-            </span>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-neutral-400 dark:text-neutral-500">
-        The phone sent a preview but the full-size file never arrived. Previews stand in on
-        /moments until it lands.
-      </p>
-    </section>
   );
 }
 
@@ -1212,9 +1142,6 @@ function ChevronRightIcon() {
   );
 }
 
-const PART_SIZE = 16 * 1024 * 1024;
-const MULTIPART_MIN = 32 * 1024 * 1024;
-const PART_CONCURRENCY = 5;
 const FILE_CONCURRENCY = 3;
 
 function AdminUpload({ onDone }: { onDone: () => void }) {
@@ -1222,34 +1149,21 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<{ files: string; pct: number } | null>(null);
 
-  async function api(body: Record<string, unknown>) {
-    const r = await fetch("/api/admin/moments/multipart", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || "Upload failed");
-    return d;
-  }
-
   async function upload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
     setError("");
     const queue = Array.from(files);
-    const totalBytes = queue.reduce((s, f) => s + f.size, 0) || 1;
-    let doneBytes = 0;
+    const percents = queue.map(() => 0);
+    const totalBytes = queue.reduce((sum, f) => sum + f.size, 0) || 1;
     let doneFiles = 0;
-    const tick = (add: number) => {
-      doneBytes += add;
+    const show = () =>
       setProgress({
         files: `${doneFiles}/${queue.length}`,
-        pct: Math.min(100, Math.round((doneBytes / totalBytes) * 100)),
+        pct: Math.round(
+          percents.reduce((sum, p, i) => sum + p * queue[i].size, 0) / totalBytes,
+        ),
       });
-    };
-    // Serialized: concurrent process calls would race the read-modify-write on
-    // the thumbs/dims JSON in R2 and drop entries.
     let processChain: Promise<unknown> = Promise.resolve();
     const processInBackground = (key: string) => {
       processChain = processChain
@@ -1263,105 +1177,29 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
         .catch(() => {});
     };
 
-    const uploadSmall = async (file: File) => {
-      const signRes = await fetch("/api/admin/moments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
-      });
-      const signData = await signRes.json().catch(() => ({}));
-      if (!signRes.ok) throw new Error(signData.error || "Could not get upload URL");
-      const put = await fetch(signData.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
-      tick(file.size);
-      processInBackground(signData.key);
-    };
-
-    // Large files: parallel 16MB parts, resumable. Uploaded parts survive an
-    // interrupted session; re-picking the same file skips them.
-    const uploadLarge = async (file: File) => {
-      const memo = `mpu:${file.name}:${file.size}`;
-      let session: { key: string; uploadId: string } | null = null;
-      try {
-        session = JSON.parse(localStorage.getItem(memo) || "null");
-      } catch {}
-      let have = new Set<number>();
-      if (session) {
-        try {
-          have = new Set<number>((await api({ action: "parts", ...session })).parts);
-        } catch {
-          session = null;
-        }
-      }
-      if (!session) {
-        session = (await api({
-          action: "create",
-          filename: file.name,
-          contentType: file.type,
-        })) as { key: string; uploadId: string };
-        localStorage.setItem(memo, JSON.stringify(session));
-        have = new Set();
-      }
-      const totalParts = Math.ceil(file.size / PART_SIZE);
-      if (have.size) tick(Math.min(have.size * PART_SIZE, file.size));
-      const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter(
-        (n) => !have.has(n),
-      );
-      let idx = 0;
-      await Promise.all(
-        Array.from({ length: Math.min(PART_CONCURRENCY, remaining.length) }, async () => {
-          while (idx < remaining.length) {
-            const n = remaining[idx++];
-            const { url } = await api({ action: "sign", ...session, partNumber: n });
-            const start = (n - 1) * PART_SIZE;
-            const blob = file.slice(start, Math.min(start + PART_SIZE, file.size));
-            const put = await fetch(url, { method: "PUT", body: blob });
-            if (!put.ok) throw new Error(`Part ${n} failed (${put.status})`);
-            tick(blob.size);
-          }
-        }),
-      );
-      await api({ action: "complete", ...session });
-      localStorage.removeItem(memo);
-      processInBackground(session.key);
-    };
-
     let firstError = "";
-    const fail = (err: unknown) => {
-      if (!firstError) firstError = err instanceof Error ? err.message : "Upload failed";
-    };
+    let next = 0;
     try {
-      tick(0);
-      const smalls = queue.filter((f) => f.size < MULTIPART_MIN);
-      const larges = queue.filter((f) => f.size >= MULTIPART_MIN);
-      let si = 0;
+      show();
       await Promise.all(
-        Array.from({ length: Math.min(FILE_CONCURRENCY, smalls.length) }, async () => {
-          while (si < smalls.length) {
-            const file = smalls[si++];
+        Array.from({ length: Math.min(FILE_CONCURRENCY, queue.length) }, async () => {
+          while (next < queue.length) {
+            const i = next++;
             try {
-              await uploadSmall(file);
+              const result = await uploadFile(queue[i], { passcode: "" }, (pct) => {
+                percents[i] = pct;
+                show();
+              });
+              percents[i] = 100;
               doneFiles++;
-              tick(0);
+              show();
+              processInBackground(result.key);
             } catch (err) {
-              fail(err);
+              if (!firstError) firstError = err instanceof Error ? err.message : "Upload failed";
             }
           }
         }),
       );
-      for (const file of larges) {
-        try {
-          await uploadLarge(file);
-          doneFiles++;
-          tick(0);
-        } catch (err) {
-          fail(err);
-        }
-      }
       if (firstError) setError(firstError);
       else processChain.then(() => onDone());
     } finally {

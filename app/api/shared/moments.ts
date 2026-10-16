@@ -62,6 +62,96 @@ export function previewKeyFor(originalKey: string): string {
   return `previews/${base}.jpg`;
 }
 
+export const ORIGINS_PREFIX = "origins/";
+
+const baseOfKey = (key: string) =>
+  key.replace(/^(drops|previews|origins)\//, "").replace(/\.[^./]+$/, "");
+
+const originHintKey = (originalKey: string) =>
+  `${ORIGINS_PREFIX}${originalKey.replace(/^drops\//, "")}`;
+
+export async function recordOriginalHint(originalKey: string): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: originHintKey(originalKey),
+      Body: "",
+    }),
+  );
+}
+
+export type MomentSource = {
+  key: string;
+  originalKey?: string;
+  previewKey?: string;
+  viewKey: string;
+  size: number;
+  lastModified: Date | null;
+};
+
+async function listAll(prefix: string) {
+  const out: Array<{ key: string; size: number; lastModified: Date | null }> = [];
+  if (!s3 || !s3Bucket) return out;
+  let token: string | undefined;
+  do {
+    const res = await s3.send(
+      new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: prefix, ContinuationToken: token }),
+    );
+    for (const o of res.Contents ?? []) {
+      if (o.Key && o.Key !== prefix) {
+        out.push({ key: o.Key, size: o.Size ?? 0, lastModified: o.LastModified ?? null });
+      }
+    }
+    token = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (token);
+  return out;
+}
+
+export async function listMomentSources(): Promise<MomentSource[]> {
+  const [drops, previews, hints] = await Promise.all([
+    listAll("drops/"),
+    listAll("previews/"),
+    listAll(ORIGINS_PREFIX),
+  ]);
+  const previewByBase = new Map(previews.map((p) => [baseOfKey(p.key), p]));
+  const bases = new Set(drops.map((d) => baseOfKey(d.key)));
+  const out: MomentSource[] = drops.map((d) => {
+    const preview = previewByBase.get(baseOfKey(d.key));
+    return {
+      key: d.key,
+      originalKey: d.key,
+      previewKey: preview?.key,
+      viewKey: d.key,
+      size: d.size,
+      lastModified: d.lastModified,
+    };
+  });
+  const hintByBase = new Map<string, string>();
+  for (const h of hints) {
+    hintByBase.set(baseOfKey(h.key), `drops/${h.key.slice(ORIGINS_PREFIX.length)}`);
+  }
+  for (const p of previews) {
+    const base = baseOfKey(p.key);
+    const key = hintByBase.get(base);
+    if (bases.has(base) || !key || OG_VIDEO_EXT.test(key)) continue;
+    out.push({
+      key,
+      previewKey: p.key,
+      viewKey: p.key,
+      size: p.size,
+      lastModified: p.lastModified,
+    });
+  }
+  return out;
+}
+
+export function sourceKeysFor(originalKey: string): string[] {
+  return OG_VIDEO_EXT.test(originalKey)
+    ? [previewKeyFor(originalKey)]
+    : [previewKeyFor(originalKey), originalKey];
+}
+
 const CITIES_KEY = "cities.json";
 
 export async function getCities(): Promise<Record<string, string>> {
@@ -335,6 +425,7 @@ export async function createUploadUrl(
   filename: string,
   contentType?: string,
   key?: string,
+  metadata?: Record<string, string>,
 ) {
   const objectKey = key || `drops/${Date.now()}-${sanitizeFilename(filename)}`;
   const url = await getSignedUrl(
@@ -343,6 +434,7 @@ export async function createUploadUrl(
       Bucket: s3Bucket!,
       Key: objectKey,
       ContentType: contentType || "application/octet-stream",
+      Metadata: metadata,
     }),
     { expiresIn: 900 },
   );
@@ -387,7 +479,7 @@ export async function renderOgMoment(): Promise<Response> {
     ogKey && !OG_VIDEO_EXT.test(ogKey) ? ogKey : featured.find((k) => !OG_VIDEO_EXT.test(k));
   if (!key) return Response.redirect(OG_FALLBACK);
 
-  for (const source of [previewKeyFor(key), key]) {
+  for (const source of sourceKeysFor(key)) {
     try {
       const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: source }));
       const bytes = await res.Body?.transformToByteArray();
@@ -509,16 +601,14 @@ function parseImageDims(b: Uint8Array): [number, number] | null {
   return null;
 }
 
-export async function probeImageDims(key: string): Promise<[number, number] | null> {
+async function probeDimsAt(source: string): Promise<[number, number] | null> {
   if (!s3 || !s3Bucket) return null;
   try {
     const res = await s3.send(
-      new GetObjectCommand({ Bucket: s3Bucket, Key: key, Range: "bytes=0-262143" }),
+      new GetObjectCommand({ Bucket: s3Bucket, Key: source, Range: "bytes=0-262143" }),
     );
     const bytes = await res.Body?.transformToByteArray();
     if (!bytes) return null;
-    // Sharp reads EXIF orientation; the byte parser reports stored dimensions,
-    // which are swapped for rotated portrait shots.
     try {
       const meta = await sharp(bytes).metadata();
       if (meta.width && meta.height) {
@@ -529,6 +619,10 @@ export async function probeImageDims(key: string): Promise<[number, number] | nu
   } catch {
     return null;
   }
+}
+
+export async function probeImageDims(key: string): Promise<[number, number] | null> {
+  return (await probeDimsAt(key)) ?? (await probeDimsAt(previewKeyFor(key)));
 }
 
 const THUMBS_KEY = "thumbs.json";
@@ -576,10 +670,7 @@ export async function makeThumbSizes(
 
 export async function generateThumb(originalKey: string): Promise<ThumbEntry | null> {
   if (!s3 || !s3Bucket) return null;
-  const sources = OG_VIDEO_EXT.test(originalKey)
-    ? [previewKeyFor(originalKey)]
-    : [previewKeyFor(originalKey), originalKey];
-  for (const source of sources) {
+  for (const source of sourceKeysFor(originalKey)) {
     try {
       const res = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: source }));
       const bytes = await res.Body?.transformToByteArray();
@@ -644,6 +735,14 @@ export async function deleteMomentArtifacts(originalKey: string): Promise<void> 
     s3.send(
       new DeleteObjectCommand({ Bucket: s3Bucket, Key: previewKeyFor(originalKey) }),
     ),
+    s3
+      .send(
+        new DeleteObjectCommand({
+          Bucket: s3Bucket,
+          Key: originHintKey(originalKey),
+        }),
+      )
+      .catch(() => {}),
     ...thumbObjects.map((key) =>
       s3!.send(new DeleteObjectCommand({ Bucket: s3Bucket!, Key: key })).catch(() => {}),
     ),
@@ -660,6 +759,16 @@ export async function deleteMomentArtifacts(originalKey: string): Promise<void> 
   await Promise.all(writes);
 }
 
+export async function deleteMoment(key: string): Promise<void> {
+  if (!s3 || !s3Bucket) return;
+  await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+  await deleteMomentArtifacts(key);
+  const featured = await getFeatured();
+  if (featured.includes(key)) await setFeatured(featured.filter((k) => k !== key));
+  if ((await getOgKey()) === key) await setOgKey(null);
+  purgeFeatured();
+}
+
 export async function renameMomentArtifacts(oldKey: string, newKey: string): Promise<void> {
   if (!s3 || !s3Bucket) return;
   try {
@@ -673,6 +782,16 @@ export async function renameMomentArtifacts(oldKey: string, newKey: string): Pro
     await s3.send(
       new DeleteObjectCommand({ Bucket: s3Bucket, Key: previewKeyFor(oldKey) }),
     );
+  } catch {}
+  try {
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: s3Bucket,
+        CopySource: `${s3Bucket}/${originHintKey(oldKey)}`,
+        Key: originHintKey(newKey),
+      }),
+    );
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: originHintKey(oldKey) }));
   } catch {}
   const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
   const writes: Promise<void>[] = [];
@@ -718,18 +837,12 @@ const getCore = unstable_cache(
     const [dims, thumbs, previewList, cities] = await Promise.all([
       getDims(),
       getThumbs(),
-      s3!.send(
-        new ListObjectsV2Command({ Bucket: s3Bucket!, Prefix: "previews/", MaxKeys: 1000 }),
-      ),
+      listAll("previews/"),
       resolveCities(featured),
     ]);
     const stops = await resolveStops(featured, cities);
     const keys = leg ? rotateToLeg(featured, stops, cities, leg) : featured;
-    const previewKeys = new Set(
-      (previewList.Contents || [])
-        .map((o) => o.Key || "")
-        .filter((k) => k && k !== "previews/"),
-    );
+    const previewKeys = new Set(previewList.map((p) => p.key));
 
     return keys.map((key) => {
       const t = thumbs[key];

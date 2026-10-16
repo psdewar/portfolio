@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  ListObjectsV2Command,
   GetObjectCommand,
   DeleteObjectCommand,
   CopyObjectCommand,
@@ -16,11 +15,13 @@ import {
   setOgKey,
   getThumbs,
   sanitizeFilename,
-  createUploadUrl,
   deleteMomentArtifacts,
   renameMomentArtifacts,
   resolveCities,
   resolveStops,
+  listMomentSources,
+  objectExists,
+  deleteMoment,
 } from "../../shared/moments";
 
 const URL_TTL = 3600;
@@ -37,13 +38,13 @@ function signView(key: string) {
   );
 }
 
-function signDownload(key: string) {
+function signDownload(key: string, filenameKey = key) {
   return getSignedUrl(
     s3!,
     new GetObjectCommand({
       Bucket: s3Bucket!,
       Key: key,
-      ResponseContentDisposition: `attachment; filename="${nameFromKey(key)}"`,
+      ResponseContentDisposition: `attachment; filename="${nameFromKey(filenameKey)}"`,
     }),
     { expiresIn: URL_TTL },
   );
@@ -57,88 +58,38 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [list, previewList, featuredKeys, thumbs, ogKey] = await Promise.all([
-    s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "drops/", MaxKeys: 1000 })),
-    s3.send(new ListObjectsV2Command({ Bucket: s3Bucket, Prefix: "previews/", MaxKeys: 1000 })),
+  const [sources, featuredKeys, thumbs, ogKey] = await Promise.all([
+    listMomentSources(),
     getFeatured(),
     getThumbs(),
     getOgKey(),
   ]);
   const featured = new Set(featuredKeys);
-
-  const baseOf = (key: string) =>
-    key.replace(/^(drops|previews)\//, "").replace(/\.[^./]+$/, "");
-
-  const objects = (list.Contents || [])
-    .filter((o) => o.Key && o.Key !== "drops/")
-    .sort((a, b) => (a.LastModified?.getTime() || 0) - (b.LastModified?.getTime() || 0));
-  const dropBases = new Set(objects.map((o) => baseOf(o.Key!)));
-
-  const previewObjects = (previewList.Contents || []).filter(
-    (o) => o.Key && o.Key !== "previews/",
-  );
-  const previewByBase = new Map(previewObjects.map((o) => [baseOf(o.Key!), o.Key!]));
-  const cities = await resolveCities(objects.map((o) => o.Key!));
-  const stops = await resolveStops(objects.map((o) => o.Key!), cities);
+  sources.sort((a, b) => (a.lastModified?.getTime() || 0) - (b.lastModified?.getTime() || 0));
+  const keys = sources.map((src) => src.key);
+  const cities = await resolveCities(keys);
+  const stops = await resolveStops(keys, cities);
 
   const items = await Promise.all(
-    objects.map(async (o) => {
-      const thumb = thumbs[o.Key!];
-      const previewKey = previewByBase.get(baseOf(o.Key!));
-      const thumbKey = thumb?.key ?? previewKey;
+    sources.map(async (src) => {
+      const thumbKey = thumbs[src.key]?.key ?? src.previewKey;
       return {
-        key: o.Key!,
-        size: o.Size || 0,
-        lastModified: o.LastModified?.toISOString() || null,
-        url: await signView(o.Key!),
+        key: src.key,
+        size: src.size,
+        lastModified: src.lastModified?.toISOString() || null,
+        url: await signView(src.viewKey),
         thumb: thumbKey ? await signView(thumbKey) : undefined,
-        downloadUrl: await signDownload(o.Key!),
-        featured: featured.has(o.Key!),
-        city: cities[o.Key!],
-        visit: stops[o.Key!]?.visit,
-        leg: stops[o.Key!]?.leg,
+        downloadUrl: await signDownload(src.viewKey, src.key),
+        featured: featured.has(src.key),
+        city: cities[src.key],
+        visit: stops[src.key]?.visit,
+        leg: stops[src.key]?.leg,
+        hasOriginal: !!src.originalKey,
       };
     }),
   );
 
-  const pending = await Promise.all(
-    previewObjects
-      .filter((o) => !dropBases.has(baseOf(o.Key!)))
-      .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0))
-      .map(async (o) => ({
-        key: o.Key!,
-        lastModified: o.LastModified?.toISOString() || null,
-        url: await signView(o.Key!),
-      })),
-  );
-
-  return NextResponse.json({
-    items,
-    pending,
-    featuredKeys,
-    ogKey,
-    truncated: list.IsTruncated || false,
-  });
-}
-
-export async function POST(request: Request) {
-  if (!(await isAdminAuthorized(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!s3 || !s3Bucket) {
-    return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
-  }
-
-  const { filename, contentType } = (await request.json().catch(() => ({}))) as {
-    filename?: string;
-    contentType?: string;
-  };
-  if (!filename) {
-    return NextResponse.json({ error: "Missing filename." }, { status: 400 });
-  }
-
-  const { url, key } = await createUploadUrl(filename, contentType);
-  return NextResponse.json({ url, key });
+  return NextResponse.json({ items, featuredKeys, ogKey });
 }
 
 export async function DELETE(request: Request) {
@@ -150,24 +101,11 @@ export async function DELETE(request: Request) {
   }
 
   const { key } = (await request.json().catch(() => ({}))) as { key?: string };
-  if (key && key.startsWith("previews/")) {
-    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
-    return NextResponse.json({ ok: true });
-  }
   if (!key || !key.startsWith("drops/")) {
     return NextResponse.json({ error: "Invalid key." }, { status: 400 });
   }
 
-  await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
-  await deleteMomentArtifacts(key);
-
-  const featured = await getFeatured();
-  if (featured.includes(key)) {
-    await setFeatured(featured.filter((k) => k !== key));
-  }
-  if ((await getOgKey()) === key) await setOgKey(null);
-  purgeFeatured();
-
+  await deleteMoment(key);
   return NextResponse.json({ ok: true });
 }
 
@@ -202,6 +140,13 @@ export async function PATCH(request: Request) {
       url: await signView(key),
       downloadUrl: await signDownload(key),
     });
+  }
+
+  if (!(await objectExists(key))) {
+    return NextResponse.json(
+      { error: "The full-size file has not arrived yet. Rename it after it uploads." },
+      { status: 409 },
+    );
   }
 
   await s3.send(

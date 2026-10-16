@@ -1,4 +1,4 @@
-import { isDatePast, todayIn } from "./dates";
+import { isDatePast } from "./dates";
 import type { TimelineEvent } from "../data/timeline";
 
 export interface Show {
@@ -107,15 +107,6 @@ export function listableShows(shows: Show[]): Show[] {
   return shows
     .filter(isShowListable)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-}
-
-export function isCheckinLive(
-  show: Pick<Show, "date" | "status" | "stage" | "visibility" | "unlisted">,
-): boolean {
-  if (show.status === "cancelled" || !isShowListed(show) || show.visibility === "private") {
-    return false;
-  }
-  return show.date === todayIn("America/New_York") || show.date === todayIn("Pacific/Honolulu");
 }
 
 export function getVenueLabel(show: Pick<Show, "venueLabel" | "venue" | "hideHost">): string | null {

@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
-import { Bebas_Neue, Space_Mono, Fira_Sans } from "next/font/google";
+import { Bebas_Neue, Be_Vietnam_Pro, Space_Mono, Fira_Sans } from "next/font/google";
 import { ClientLayout } from "./ClientLayout";
+import DevDataToggle from "./components/DevDataToggle";
 
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.woff2",
@@ -20,6 +21,13 @@ const parkinsans = localFont({
   src: "./fonts/Parkinsans-VariableFont_wght.woff2",
   variable: "--font-parkinsans",
   adjustFontFallback: "Arial",
+  preload: false,
+});
+
+const parkinsansVi = Be_Vietnam_Pro({
+  weight: ["400", "800"],
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-parkinsans-vi",
   preload: false,
 });
 
@@ -158,7 +166,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${myFont.className} ${myFont.variable} ${bebasNeue.variable} ${parkinsans.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
+      className={`${myFont.className} ${myFont.variable} ${bebasNeue.variable} ${parkinsans.variable} ${parkinsansVi.variable} ${spaceMono.variable} ${firaSans.variable} bg-white dark:bg-gray-900`}
     >
       <head>
         <link rel="manifest" href="/manifest.json" />
@@ -171,6 +179,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased flex flex-col min-h-screen bg-white dark:bg-gray-900">
         <ClientLayout>{children}</ClientLayout>
+        {process.env.NODE_ENV === "development" && <DevDataToggle />}
       </body>
     </html>
   );

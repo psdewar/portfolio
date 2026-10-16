@@ -29,7 +29,7 @@ export default function CheckoutPanel({
           {backLabel}
         </button>
       </div>
-      <div className="-mt-3">
+      <div>
         <CheckoutEmbed
           fetchClientSecret={fetchClientSecret}
           onComplete={onComplete}

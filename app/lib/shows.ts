@@ -2,6 +2,8 @@ import { cache } from "react";
 import { doorTimeMinutes } from "./dates";
 import { getJourneyEvents, type TimelineEvent } from "../data/timeline";
 import { chorusRead } from "./chorus";
+import { getDataMode } from "./dev-data/mode";
+import { fixtureShowFor } from "./dev-data/fixtures";
 import {
   type Show,
   isShowUpcoming,
@@ -43,6 +45,8 @@ export async function getUpcomingShows(): Promise<Show[]> {
 }
 
 export async function getShowBySlug(slug: string): Promise<Show | null> {
+  const mode = await getDataMode();
+  if (mode !== "demo") return fixtureShowFor(slug, mode);
   const shows = await getShows();
   return shows.find((s) => s.slug === slug) || null;
 }

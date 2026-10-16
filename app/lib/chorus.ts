@@ -1,5 +1,7 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
+import { getDataMode } from "./dev-data/mode";
+import { fixtureFor } from "./dev-data/fixtures";
 
 const CHORUS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
 
@@ -8,6 +10,16 @@ export const CHORUS_TOKEN = process.env.SCHEDULE_API_TOKEN;
 export const chorusTag = (resource: string) => `chorus:${resource}`;
 
 export async function chorusFetch(resource: string, init: RequestInit = {}) {
+  const verb = (init.method ?? "GET").toUpperCase();
+  if (verb === "GET" || verb === "HEAD") {
+    const mode = await getDataMode();
+    if (mode !== "demo") {
+      return new Response(JSON.stringify(fixtureFor(resource, mode)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+  }
   const headers = new Headers(init.headers);
   if (CHORUS_TOKEN) headers.set("Authorization", `Bearer ${CHORUS_TOKEN}`);
   const res = await fetch(`${CHORUS_API}/chorus/${resource}`, { ...init, headers });

@@ -35,8 +35,11 @@ export default function PaymentOptions({
   cardLoading = false,
   onSelect,
   zelle = true,
+  zelleAmount,
   interac = false,
   interacFirst = false,
+  blocked = false,
+  onBlocked,
 }: {
   venmoUrl: string;
   onCard?: () => void;
@@ -44,8 +47,11 @@ export default function PaymentOptions({
   cardLoading?: boolean;
   onSelect?: (method: "venmo" | "zelle" | "card") => void;
   zelle?: boolean;
+  zelleAmount?: string;
   interac?: boolean;
   interacFirst?: boolean;
+  blocked?: boolean;
+  onBlocked?: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -85,7 +91,15 @@ export default function PaymentOptions({
         href={venmoUrl}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => onSelect?.("venmo")}
+        aria-disabled={blocked || undefined}
+        onClick={(e) => {
+          if (blocked) {
+            e.preventDefault();
+            onBlocked?.();
+            return;
+          }
+          onSelect?.("venmo");
+        }}
       >
         <span className="cc-tag">no fees</span>
         <img className="cc-venmo-logo" src="/Venmo_Logo_Blue.png" alt="Venmo" />
@@ -93,7 +107,12 @@ export default function PaymentOptions({
       {zelle && ZELLE_EMAIL && (
         <button
           className="cc-btn cc-zelle"
+          aria-disabled={blocked || undefined}
           onClick={() => {
+            if (blocked) {
+              onBlocked?.();
+              return;
+            }
             copy(ZELLE_EMAIL, "zelle");
             onSelect?.("zelle");
           }}
@@ -111,7 +130,7 @@ export default function PaymentOptions({
       )}
       {copied === "zelle" && (
         <p className="cc-rail-hint" aria-live="polite">
-          Open your banking app and paste it in Zelle to send.
+          Open your banking app and paste it in Zelle to send{zelleAmount ? ` ${zelleAmount}` : ""}.
         </p>
       )}
       {copied === "interac" && (
@@ -124,7 +143,12 @@ export default function PaymentOptions({
         <button
           className="cc-btn cc-card"
           disabled={cardLoading}
+          aria-disabled={blocked || undefined}
           onClick={() => {
+            if (blocked) {
+              onBlocked?.();
+              return;
+            }
             onSelect?.("card");
             onCard();
           }}

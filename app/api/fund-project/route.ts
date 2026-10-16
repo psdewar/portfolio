@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
 import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
 import { extractIpAddress } from "../shared/audio-utils";
+import { checkinMetadata } from "../shared/checkin-metadata";
 import { stripeFeeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import { PATRON_TIER_BASE } from "../../data/patron-config";
 
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       interval = "month",
       customerEmail,
       embedded = false,
+      checkinId,
     } = body;
 
     const productId = PROJECT_PRODUCT_MAP[projectId];
@@ -154,6 +156,7 @@ export async function POST(request: NextRequest) {
         productId,
         type: useSubscription ? "subscription" : "support",
         ...createBaseMetadata(ip),
+        ...checkinMetadata(checkinId),
       },
       ...(customerEmail && { customerEmail }),
     };

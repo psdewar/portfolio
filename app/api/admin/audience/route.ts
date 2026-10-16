@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     [attRows, rsvpRows] = await Promise.all([
       selectAll<Row>((from, to) =>
-        supabaseAdmin.from("attendances").select("show_slug, email").order("id").range(from, to),
+        supabaseAdmin.from("attendances").select("show_slug, email").not("email", "is", null).order("id").range(from, to),
       ),
       selectAll<Row>((from, to) =>
         supabaseAdmin.from("rsvps").select("show_slug, email").order("id").range(from, to),

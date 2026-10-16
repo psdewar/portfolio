@@ -303,6 +303,10 @@ interface TierPickerProps {
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
   onRegisterSilence?: (silence: () => void) => void;
+  checkinId?: string | null;
+  onCheckoutComplete?: () => void;
+  showImage?: boolean;
+  descriptionOnOwnLine?: boolean;
 }
 
 export function TierPicker({
@@ -313,6 +317,10 @@ export function TierPicker({
   onLoudPlay,
   onLoudEnd,
   onRegisterSilence,
+  checkinId,
+  onCheckoutComplete,
+  showImage = true,
+  descriptionOnOwnLine = false,
 }: TierPickerProps) {
   const hydrated = useHydrated();
   const { session } = useSession();
@@ -402,6 +410,7 @@ export function TierPicker({
           amount: finalAmount,
           interval,
           embedded: true,
+          ...(checkinId ? { checkinId } : {}),
         }),
       });
 
@@ -534,7 +543,7 @@ export function TierPicker({
                 backLabel="Back to tiers"
                 onBack={() => setCheckoutSecret(null)}
                 fetchClientSecret={() => Promise.resolve(checkoutSecret)}
-                onComplete={() => {}}
+                onComplete={() => onCheckoutComplete?.()}
               />
             </div>
           </div>,
@@ -587,14 +596,16 @@ export function TierPicker({
           </div>
         )}
         <div className="relative overflow-hidden -mx-[var(--tp-x,1.5rem)] -mb-6">
-          <img
-            src="/images/support/tiers-bg.webp"
-            alt=""
-            aria-hidden="true"
-            loading="lazy"
-            decoding="async"
-            className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[48%_40%] transition-opacity duration-300 motion-reduce:transition-none ${previewPlaying ? "opacity-[0.3] dark:opacity-[0.4]" : "opacity-[0.12] dark:opacity-[0.18]"}`}
-          />
+          {showImage && (
+            <img
+              src="/images/support/tiers-bg.webp"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[48%_40%] transition-opacity duration-300 motion-reduce:transition-none ${previewPlaying ? "opacity-[0.3] dark:opacity-[0.4]" : "opacity-[0.12] dark:opacity-[0.18]"}`}
+            />
+          )}
           <form
             id="soul-price-form"
             className="hidden"
@@ -665,7 +676,7 @@ export function TierPicker({
                 >
                   <p className="flex-1 min-w-0 flex items-center gap-x-1 leading-snug text-neutral-600 dark:text-neutral-300 flex-wrap text-base">
                     <span
-                      className={`inline-flex items-center gap-x-0.5 whitespace-nowrap ${isSoul && isSelected ? "cursor-text" : ""}`}
+                      className={`${descriptionOnOwnLine ? "mr-[100%] " : ""}inline-flex items-center gap-x-0.5 whitespace-nowrap ${isSoul && isSelected ? "cursor-text" : ""}`}
                       onClick={
                         isSoul && isSelected
                           ? (e) => {

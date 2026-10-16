@@ -16,6 +16,7 @@
 //   S3_FORCE_PATH_STYLE, MOMENTS_PASSCODE
 
 import exifr from "exifr";
+import { NetworkError, networkFetch } from "../lib/network-error";
 
 export type UploadMeta = {
   passcode: string;
@@ -24,6 +25,7 @@ export type UploadMeta = {
 export type UploadResult = {
   key: string;
   duplicate?: boolean;
+  originalPending?: boolean;
 };
 
 const SINGLE_PART_MAX = 16 * 1024 * 1024;
@@ -267,13 +269,13 @@ async function uploadPreview(
   signal?: AbortSignal,
   provided?: Blob,
   onMade?: (made: PreviewResult) => void,
-) {
-  if (!fp?.hash) return;
+): Promise<string | null> {
+  if (!fp?.hash) return null;
   const made = provided ? { blob: provided } : await makePreview(file);
-  if (!made) return;
+  if (!made) return null;
   if (!provided) onMade?.(made);
   const blob = made.blob;
-  const res = await fetch("/api/moments/sign", {
+  const res = await networkFetch("/api/moments/sign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -284,18 +286,21 @@ async function uploadPreview(
       captured: fp.captured,
     }),
   });
-  if (!res.ok) return;
-  const data = (await res.json()) as { url?: string; exists?: boolean };
-  if (data.exists || !data.url) return;
+  if (!res.ok) return null;
+  const data = (await res.json()) as { url?: string; exists?: boolean; originalKey?: string };
+  if (!data.originalKey) return null;
+  if (data.exists) return data.originalKey;
+  if (!data.url) return null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       await putWithPermit(data.url, blob, "image/jpeg", () => {}, signal);
-      return;
+      return data.originalKey;
     } catch (err) {
-      if (err instanceof PermanentError) return;
+      if (err instanceof PermanentError) return null;
       if (attempt === 0) await sleep(backoffMs(0));
     }
   }
+  return null;
 }
 
 const STORE_KEY = "moments-uploads";
@@ -381,7 +386,7 @@ function putXhr(
     };
     xhr.onerror = () => {
       cleanup();
-      reject(new Error("Network error during upload"));
+      reject(new NetworkError("Network error during upload"));
     };
     xhr.onabort = () => {
       cleanup();
@@ -407,7 +412,7 @@ async function putWithPermit(
 }
 
 async function postAction(payload: Record<string, unknown>, fallbackError: string) {
-  const res = await fetch("/api/moments/multipart", {
+  const res = await networkFetch("/api/moments/multipart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -432,7 +437,7 @@ async function uploadSingle(
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       onProgress(0);
-      const signRes = await fetch("/api/moments/sign", {
+      const signRes = await networkFetch("/api/moments/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -494,7 +499,7 @@ async function uploadMultipart(
   let uploadedParts: Array<{ partNumber: number; etag: string }> = [];
 
   if (existing) {
-    const res = await fetch("/api/moments/multipart", {
+    const res = await networkFetch("/api/moments/multipart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -667,8 +672,38 @@ export async function uploadFile(
   }
   const fp = await fingerprint(file);
   const gps = await getGps(file);
-  await uploadPreview(file, fp, meta, signal, preview, onPreview).catch(() => {});
-  if (file.size <= SINGLE_PART_MAX)
-    return uploadSingle(file, fp, gps, meta, onProgress, signal);
+  const originalKey = await uploadPreview(file, fp, meta, signal, preview, onPreview).catch(
+    () => null,
+  );
+  try {
+    return await sendOriginal(file, fp, gps, meta, onProgress, signal);
+  } catch (err) {
+    if (originalKey && !signal?.aborted) {
+      return { key: originalKey, originalPending: true };
+    }
+    throw err;
+  }
+}
+
+function sendOriginal(
+  file: File,
+  fp: Fingerprint | undefined,
+  gps: { lat: number; lng: number } | null,
+  meta: UploadMeta,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<UploadResult> {
+  if (file.size <= SINGLE_PART_MAX) return uploadSingle(file, fp, gps, meta, onProgress, signal);
   return uploadMultipart(file, fp, gps, meta, onProgress, signal);
+}
+
+export async function uploadOriginal(
+  file: File,
+  meta: UploadMeta,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<UploadResult> {
+  const fp = await fingerprint(file);
+  const gps = await getGps(file);
+  return sendOriginal(file, fp, gps, meta, onProgress, signal);
 }

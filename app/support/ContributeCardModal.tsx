@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { XIcon } from "@phosphor-icons/react";
 import CheckoutPanel, { CHECKOUT_CARD } from "../components/CheckoutPanel";
+import CheckoutSheet from "../components/CheckoutSheet";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { grossUpCents, feeCents, formatFee, MAX_CARD_CENTS } from "../lib/fees";
 
@@ -10,8 +11,14 @@ const PRESETS = [25, 50, 100];
 
 export default function ContributeCardModal({
   onClose,
+  checkinId,
+  onComplete,
+  sheet = false,
 }: {
   onClose: () => void;
+  checkinId?: string | null;
+  onComplete?: () => void;
+  sheet?: boolean;
 }) {
   const [amount, setAmount] = useState("25");
   const [creating, setCreating] = useState(false);
@@ -36,7 +43,7 @@ export default function ContributeCardModal({
     if (!complete) return;
     const t = setTimeout(() => {
       onCloseRef.current();
-      window.location.href = "/support?thanks=tip";
+      if (!onComplete) window.location.href = "/support?thanks=tip";
     }, 1500);
     return () => clearTimeout(t);
   }, [complete]);
@@ -54,6 +61,7 @@ export default function ContributeCardModal({
           items: [{ key: "support", amountCents: grossUpCents(cents) }],
           trip: "tour",
           feeIncluded: true,
+          ...(checkinId ? { checkinId } : {}),
         }),
       });
       if (!res.ok) throw new Error("failed");
@@ -68,26 +76,26 @@ export default function ContributeCardModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[950] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <CheckoutSheet
+      sheet={sheet}
+      zIndex={950}
+      onClose={onClose}
+      label="Contribute by card"
+      wrapClass="fixed inset-0 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      cardClass={
+        secret && !complete
+          ? `${CHECKOUT_CARD} max-h-[90vh] overflow-y-auto`
+          : "w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-neutral-900 shadow-xl"
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Contribute by card"
-        className={
-          secret && !complete
-            ? `${CHECKOUT_CARD} max-h-[90vh] overflow-y-auto`
-            : "w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-neutral-900 shadow-xl"
-        }
-        onClick={(e) => e.stopPropagation()}
-      >
         {secret && !complete ? (
           <CheckoutPanel
             onBack={() => setSecret(null)}
             fetchClientSecret={() => Promise.resolve(secret)}
-            onComplete={() => setComplete(true)}
+            onComplete={() => {
+              setComplete(true);
+              onComplete?.();
+            }}
           />
         ) : (
           <>
@@ -177,7 +185,6 @@ export default function ContributeCardModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </CheckoutSheet>
   );
 }

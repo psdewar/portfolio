@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
+import { isUploadAuthorized, checkinIdFromPasscode } from "../../shared/moments-auth";
+import { isAdminAuthorized } from "../../shared/admin-auth";
+import { checkinMetadata } from "../../shared/checkin-metadata";
 import { s3, s3Bucket } from "../../shared/s3";
 import {
   createUploadUrl,
   contentKey,
   objectExists,
+  recordOriginalHint,
   previewKeyFor,
   recordCityFromCoords,
   coordsFrom,
@@ -12,10 +16,12 @@ import {
 
 export async function POST(request: Request) {
   const ip = getClientIP(request);
-  const rateCheck = checkRateLimit(ip, "moments-sign", {
-    windowMs: 60 * 60 * 1000,
-    maxRequests: 200,
-  });
+  const rateCheck = (await isAdminAuthorized(request))
+    ? { allowed: true, resetIn: 0 }
+    : checkRateLimit(ip, "moments-sign", {
+        windowMs: 60 * 60 * 1000,
+        maxRequests: 200,
+      });
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Try again later." },
@@ -36,13 +42,14 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { passcode, filename, contentType, hash } = body as Record<string, string>;
 
-  if (passcode !== process.env.MOMENTS_PASSCODE) {
+  if (!(await isUploadAuthorized(request, passcode))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!filename) {
     return NextResponse.json({ error: "Missing filename" }, { status: 400 });
   }
 
+  const metadata = checkinMetadata(checkinIdFromPasscode(passcode));
   const validHash =
     typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash) ? hash : "";
   const capturedRaw = (body as Record<string, unknown>).captured;
@@ -56,12 +63,14 @@ export async function POST(request: Request) {
       if (!validHash) {
         return NextResponse.json({ error: "Preview requires a hash" }, { status: 400 });
       }
-      const key = previewKeyFor(contentKey(filename, validHash, captured));
-      if (await objectExists(key)) {
-        return NextResponse.json({ key, exists: true });
+      const originalKey = contentKey(filename, validHash, captured);
+      const key = previewKeyFor(originalKey);
+      if ((await objectExists(key)) || (await objectExists(originalKey))) {
+        return NextResponse.json({ key, originalKey, exists: true });
       }
-      const { url } = await createUploadUrl(filename, "image/jpeg", key);
-      return NextResponse.json({ url, key, exists: false });
+      await recordOriginalHint(originalKey);
+      const { url } = await createUploadUrl(filename, "image/jpeg", key, metadata);
+      return NextResponse.json({ url, key, originalKey, exists: false });
     }
     if (validHash) {
       const key = contentKey(filename, validHash, captured);
@@ -70,10 +79,10 @@ export async function POST(request: Request) {
       }
       const coords = coordsFrom(body as Record<string, unknown>);
       if (coords) await recordCityFromCoords(key, coords.lat, coords.lng);
-      const { url } = await createUploadUrl(filename, contentType, key);
+      const { url } = await createUploadUrl(filename, contentType, key, metadata);
       return NextResponse.json({ url, key, exists: false });
     }
-    const { url, key } = await createUploadUrl(filename, contentType);
+    const { url, key } = await createUploadUrl(filename, contentType, undefined, metadata);
     return NextResponse.json({ url, key });
   } catch (err) {
     console.error("[moments/sign] error", err);

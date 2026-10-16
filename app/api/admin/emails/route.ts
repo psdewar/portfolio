@@ -17,7 +17,7 @@ async function fetchRecipientsForSlugs(
 ): Promise<Array<{ email: string; name: string }>> {
   const [attRows, rsvpRows] = await Promise.all([
     selectAll<{ email: string }>((from, to) =>
-      supabaseAdmin.from("attendances").select("email").in("show_slug", slugs).order("id").range(from, to),
+      supabaseAdmin.from("attendances").select("email").not("email", "is", null).in("show_slug", slugs).order("id").range(from, to),
     ),
     selectAll<{ email: string }>((from, to) =>
       supabaseAdmin.from("rsvps").select("email").in("show_slug", slugs).order("id").range(from, to),

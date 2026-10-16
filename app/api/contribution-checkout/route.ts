@@ -4,6 +4,7 @@ import { getBaseUrl, createBaseMetadata } from "../shared/stripe-utils";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { feeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import { getLeg } from "../../fund/legs";
+import { checkinMetadata } from "../shared/checkin-metadata";
 
 const TRIP_ITEMS: Record<string, { name: string; description: string }> = {
   flight: {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { items, trip, feeIncluded } = body;
+    const { items, trip, feeIncluded, checkinId } = body;
 
     if (!Array.isArray(items) || items.length === 0 || items.length > 12) {
       return NextResponse.json({ error: "Invalid items" }, { status: 400 });
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
         trip: safeTrip,
         type: "contribution",
         breakdown: JSON.stringify(breakdown),
+        ...checkinMetadata(checkinId),
       },
       lineItems: checkoutItems,
     });

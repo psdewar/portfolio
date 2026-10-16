@@ -561,26 +561,6 @@ input[type="email"] {
   pointer-events: none;
 }
 
-/* Camera flash: the "photo taken" beat, after the stamp, before the rip */
-@keyframes photo-flash {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  35% {
-    opacity: 0.85;
-  }
-}
-.photo-flash {
-  animation: photo-flash 0.7s ease-in-out both;
-}
-/* display:none, not animation:none, which would leave opacity at default 1 (solid white). */
-@media (prefers-reduced-motion: reduce) {
-  .photo-flash {
-    display: none;
-  }
-}
-
 /* Shadow on each paper piece (box-shadow survives -webkit-mask; a parent
    drop-shadow does not in Safari). Tightens from soft/far to close as it lands. */
 @keyframes ticket-shadow-in {
@@ -594,23 +574,6 @@ input[type="email"] {
 .ticket-shadow {
   box-shadow: 0 18px 26px rgba(0, 0, 0, 0.4);
   animation: ticket-shadow-in 0.62s cubic-bezier(0.2, 0.72, 0.25, 1) both;
-}
-
-/* Stub torn off at the perforation, swinging down and away */
-@keyframes stub-rip {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  65% {
-    transform: translate(5px, 62px) rotate(11deg);
-  }
-  100% {
-    transform: translate(5px, 56px) rotate(9deg);
-  }
-}
-.stub-rip {
-  transform-origin: center top;
-  animation: stub-rip 0.55s cubic-bezier(0.45, 0, 0.35, 1) 0.75s both;
 }
 
 /* Post-admission CTA: gold ring breathing outward to pull the eye */
