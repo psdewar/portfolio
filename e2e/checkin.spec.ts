@@ -146,11 +146,12 @@ test.describe("Check in", () => {
     await checkInRow(page).click();
     await expect(page.getByRole("textbox", { name: "Your name" })).toBeHidden();
 
-    const support = page.getByRole("button", { name: /Support me/ });
-    await support.click();
-    await expect(page.getByRole("radio", { name: "Once" })).toBeVisible();
-    await support.click();
-    await expect(page.getByRole("radio", { name: "Once" })).toBeHidden();
+    const fund = page.getByRole("button", { name: /Fund my tour/ });
+    const card = page.getByRole("button", { name: /Pay with your card/ });
+    await fund.click();
+    await expect(card).toBeVisible();
+    await fund.click();
+    await expect(card).toBeHidden();
 
     const tee = page.getByRole("button", { name: /Grab merch/ });
     for (let i = 0; i < 3; i++) {
@@ -177,19 +178,26 @@ test.describe("Check in", () => {
     });
   });
 
-  test("Support me starts closed, opens on Once, and choosing Monthly selects Flow", async ({ page }) => {
+  test("Fund my tour starts closed and opens to the one-time rails", async ({ page }) => {
     await open(page);
     await skip(page);
-    const row = page.getByRole("button", { name: /Support me/ });
-    await expect(page.getByText("Fund my tour or get new songs early", { exact: true })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "Once" })).toBeHidden();
+    const row = page.getByRole("button", { name: /Fund my tour/ });
+    const card = page.getByRole("button", { name: /Pay with your card/ });
+    await expect(card).toBeHidden();
     await row.click();
-    await expect(page.getByRole("radio", { name: "Once" })).toBeChecked();
-    await page.getByRole("radio", { name: "Monthly" }).click();
-    await expect(page.getByRole("radio", { name: /Flow/ })).toBeChecked();
+    await expect(page.getByRole("img", { name: "Venmo" })).toBeVisible();
+    await expect(card).toBeVisible();
     await row.click();
-    await row.click();
-    await expect(page.getByRole("radio", { name: "Monthly" })).toBeChecked();
+    await expect(card).toBeHidden();
+  });
+
+  test("the Be my monthly supporter band shows its tiers and a Read my story button", async ({ page }) => {
+    await open(page);
+    await skip(page);
+    await expect(page.getByText("Be my monthly supporter", { exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /Flow/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pay \$.*\/month with your card/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Read my story" })).toBeVisible();
   });
 
   test("a guest who saves the ticket hears Keep your ticket, done", async ({ page }) => {

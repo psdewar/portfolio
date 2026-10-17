@@ -3,7 +3,7 @@
 import { useEffect, type RefObject } from "react";
 
 const CONTROLS =
-  "input:not([type=hidden]), textarea, select, .tbtn, .cc-btn, .cc-rail-hint, .segb, .size, .dot, [role=radio], .teeimg, .ups";
+  "input:not([type=hidden]), textarea, select, .tbtn, .cc-btn, .cc-rail-hint, .size, .dot, [role=radio], .teeimg, .ups";
 
 function offsetWithin(el: HTMLElement, root: HTMLElement) {
   let y = 0;

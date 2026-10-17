@@ -16,7 +16,7 @@ export const motion = () => {
   };
 };
 
-export function Mark({ done, pop = false, empty = false }: { done: boolean; pop?: boolean; empty?: boolean }) {
+export function Mark({ done, pop = false }: { done: boolean; pop?: boolean }) {
   if (done) {
     return (
       <span className="mk">
@@ -36,24 +36,18 @@ export function Mark({ done, pop = false, empty = false }: { done: boolean; pop?
   }
   return (
     <span className="mk">
-      {empty ? (
-        <svg viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="7" cy="7" r="6.2" fill="none" stroke="rgba(38,43,63,0.4)" strokeWidth="1.5" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="7" cy="7" r="7" fill="#d5d8de" />
-          <path
-            d="M3.8 7.2l2.2 2.2 4.2-4.4"
-            fill="none"
-            stroke="#fff"
-            strokeOpacity=".7"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
+      <svg viewBox="0 0 14 14" aria-hidden="true">
+        <circle cx="7" cy="7" r="7" fill="#d5d8de" />
+        <path
+          d="M3.8 7.2l2.2 2.2 4.2-4.4"
+          fill="none"
+          stroke="#fff"
+          strokeOpacity=".7"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </span>
   );
 }
@@ -61,20 +55,18 @@ export function Mark({ done, pop = false, empty = false }: { done: boolean; pop?
 export function Lead({
   done = false,
   pop = false,
-  empty = false,
   mark = true,
   children,
 }: {
   done?: boolean;
   pop?: boolean;
-  empty?: boolean;
   mark?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <span className={`lead${children ? "" : " plain"}`}>
       {children}
-      {mark && <Mark done={done} pop={pop} empty={empty} />}
+      {mark && <Mark done={done} pop={pop} />}
     </span>
   );
 }
@@ -131,6 +123,22 @@ export function PhotosIcon() {
       <rect x="3" y="4" width="18" height="16" rx="2.5" />
       <circle cx="9" cy="10" r="1.6" />
       <path d="M21 16l-5-5-9 9" />
+    </svg>
+  );
+}
+
+export function PlaneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...lineProps} aria-hidden="true">
+      <path d="M21 3L10 14M21 3l-7 18-4-7-7-4 18-7z" />
+    </svg>
+  );
+}
+
+export function NoteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...lineProps} aria-hidden="true">
+      <path d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
     </svg>
   );
 }

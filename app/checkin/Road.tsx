@@ -1,21 +1,21 @@
 "use client";
 
+import type { StoryParagraph } from "../data/story";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Device } from "./platform";
 import dynamic from "next/dynamic";
 import { flushSync } from "react-dom";
-import { FUND_COPY } from "../lib/fund-copy";
+import { concertLine } from "../lib/tour-momentum";
 import CheckinPayRails from "./CheckinPayRails";
-import { TierPicker } from "../components/SupportModal";
 import UploadList from "../moments/UploadList";
 import UploadSurface from "../moments/UploadSurface";
 import { useBackToClose } from "../lib/useBackToClose";
 import { useMomentsUpload } from "../moments/useMomentsUpload";
-import { HandHeartIcon } from "@phosphor-icons/react";
 import TicketThumb from "./TicketThumb";
-import { DoneText, DownloadIcon, Lead, StepShell, PhotosIcon, PlayIcon, UploadIcon, reducedMotion } from "./RoadParts";
+import { DoneText, DownloadIcon, Lead, StepShell, PhotosIcon, PlaneIcon, PlayIcon, UploadIcon, reducedMotion } from "./RoadParts";
 import TeeStep from "./TeeStep";
 import TipRow from "./TipRow";
+import MonthlyStep from "./MonthlyStep";
 import type { CheckinStep } from "./steps";
 import { lineCount, shrinkToFit, useFontFit } from "../components/fitText";
 import { useRoadGaps } from "./useRoadGaps";
@@ -24,9 +24,8 @@ import { isCheckedIn, type Stored } from "./useCheckinState";
 const ContributeCardModal = dynamic(() => import("../support/ContributeCardModal"), { ssr: false });
 
 type Open = 0 | 1 | 3 | 4 | 5;
-type Mode = "once" | "monthly";
 
-const STEP_OF = { 2: "save", 3: "tee", 4: "support", 5: "upload" } as const;
+const STEP_OF = { 2: "save", 3: "tee", 4: "support", 5: "upload", 6: "monthly" } as const;
 const VENMO = "https://venmo.com/u/psdewar";
 
 const SAVE_BEFORE = "Proof you attended";
@@ -54,6 +53,8 @@ export default function Road({
   onNudge,
   saveError,
   past,
+  concertCount,
+  storyParagraphs,
 }: {
   stored: Stored;
   simulateUpload: boolean;
@@ -70,11 +71,12 @@ export default function Road({
   onNudge: () => void;
   saveError: string;
   past: boolean;
+  concertCount: number;
+  storyParagraphs: StoryParagraph[];
 }) {
   const checkedIn = isCheckedIn(stored);
   const first = checkedIn ? (stored.name.trim().split(/\s+/)[0] ?? "") : "";
   const [open, setOpen] = useState<Open>(0);
-  const [mode, setMode] = useState<Mode>("once");
   const [cardOpen, setCardOpen] = useState(false);
   useBackToClose(cardOpen, () => setCardOpen(false));
   const [upThumb, setUpThumb] = useState<string | null | undefined>(undefined);
@@ -117,13 +119,14 @@ export default function Road({
     !!stored.steps.tee,
     !!stored.steps.support,
     !!stored.steps.upload,
+    !!stored.steps.monthly,
   ];
   doneRef.current = done;
   const isDone = (n: number) => done[n] ?? true;
   const allDone = [1, 2, 3, 4, 5].every(isDone);
 
   let ok = true;
-  const linked = [1, 2, 3, 4].map((i) => {
+  const linked = [1, 2, 3, 4, 5].map((i) => {
     ok = ok && isDone(i) && isDone(i + 1);
     return ok;
   });
@@ -166,9 +169,10 @@ export default function Road({
   );
 
   const complete = useCallback(
-    (n: 3 | 4) => {
+    (n: 3 | 4 | 6) => {
       markStep(STEP_OF[n]);
       doneRef.current = doneRef.current.map((v, i) => (i === n ? true : v));
+      if (n === 6) return;
       setTimeout(() => advance(n), reducedMotion() ? 0 : 450);
     },
     [markStep, advance],
@@ -195,23 +199,6 @@ export default function Road({
     const first = upload.jobs.find((j) => j.status === "done");
     if (first) setUpThumb(first.thumb ?? null);
   }, [upload.jobs, upThumb]);
-
-  useEffect(() => {
-    const sheet = sheetRef.current;
-    const sup = supRef.current;
-    const last = sup?.lastElementChild as HTMLElement | null;
-    if (!sheet || !sup || !last) return;
-    const fit = () => {
-      if (sheet.clientHeight) {
-        sup.style.paddingBottom = `${Math.max(24, sheet.clientHeight - last.offsetHeight - 8)}px`;
-      }
-    };
-    const ro = new ResizeObserver(fit);
-    ro.observe(sheet);
-    ro.observe(last);
-    fit();
-    return () => ro.disconnect();
-  }, [sheetRef]);
 
   const focusCheckin = () => {
     flushSync(() => setOpen(1));
@@ -245,7 +232,6 @@ export default function Road({
     openStep(5, true, true);
   };
 
-  const shown = open === 4 ? mode : null;
   const uploadDone = !!stored.steps.upload;
   const showUpThumb = uploadDone || upThumb !== undefined;
 
@@ -286,7 +272,7 @@ export default function Road({
               onPlainCheckin();
               focusCheckin();
             }}
-            lead={<Lead empty />}
+            lead={<Lead />}
             title="Check in"
           >
             <div className="pad inl">{inlineForm}</div>
@@ -372,71 +358,23 @@ export default function Road({
           lead={
             <Lead done={done[4]} pop>
               <span className="tiptile" aria-hidden="true">
-                <HandHeartIcon />
+                <PlaneIcon />
               </span>
             </Lead>
           }
-          title="Support me"
-          sub="Fund my tour or get new songs early"
+          title="Fund my tour"
+          sub={concertLine(concertCount)}
         >
-              {shown && (
-                <div className="gut">
-                  <span className="modes" role="radiogroup" aria-label="Support type">
-                    {(["once", "monthly"] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className="segb"
-                        data-mode={m}
-                        role="radio"
-                        aria-checked={shown === m}
-                        onClick={() => setMode(m)}
-                      >
-                        {m === "once" ? "Once" : "Monthly"}
-                      </button>
-                    ))}
-                  </span>
-                </div>
-              )}
-              {shown === "once" && (
-                <>
-                  <div className="pad">
-                    <p className="muted-line">{FUND_COPY}</p>
-                  </div>
-                  <CheckinPayRails
-                    venmoUrl={VENMO}
-                    onCard={() => setCardOpen(true)}
-                    onExternal={() => {
-                      external.current = 4;
-                    }}
-                  />
-                </>
-              )}
-              {shown === "monthly" && (
-                <>
-                  <div className="pad">
-                    <p className="muted-line">
-                      All supporters get every new song a month before anyone else and access to
-                      behind the scenes! Think Patreon, but the only cut is your card fee, added so
-                      I receive 100%. Cancel anytime.
-                    </p>
-                  </div>
-                  <div className="tier-wrap" style={{ "--tp-x": "var(--gut)" } as React.CSSProperties}>
-                    <TierPicker
-                      preview={null}
-                      source="checkin"
-                      showImage={false}
-                      descriptionOnOwnLine
-                      panelClassName="relative overflow-hidden px-[var(--tp-x)] pb-6"
-                      checkinId={stored.checkinId}
-                      onCheckoutComplete={() => complete(4)}
-                    />
-                  </div>
-                </>
-              )}
+              <CheckinPayRails
+                venmoUrl={VENMO}
+                onCard={() => setCardOpen(true)}
+                onExternal={() => {
+                  external.current = 4;
+                }}
+              />
         </StepShell>
 
-        <div className={`st${open === 5 ? " open" : ""}`} data-n="5" id="st-5">
+        <div className={`st${open === 5 ? " open" : ""}${linked[4] ? " linked" : ""}`} data-n="5" id="st-5">
           <button
             type="button"
             className="srow two"
@@ -486,6 +424,14 @@ export default function Road({
             </div>
           </div>
         </div>
+
+        <MonthlyStep
+          done={done[6]}
+          linked={linked[4]}
+          checkinId={stored.checkinId}
+          storyParagraphs={storyParagraphs}
+          onDone={() => complete(6)}
+        />
       </div>
       {cardOpen && (
         <ContributeCardModal

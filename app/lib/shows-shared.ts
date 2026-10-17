@@ -184,8 +184,12 @@ export function isGuestSet(show: Pick<Show, "guestSet">): boolean {
   return !!show.guestSet;
 }
 
+export function isTourConcert(show: Show): boolean {
+  return isShowCompleted(show) && !isGuestSet(show);
+}
+
 export function getTourConcertCount(shows: Show[]): number {
-  return shows.filter((s) => isShowCompleted(s) && !isGuestSet(s)).length;
+  return shows.filter(isTourConcert).length;
 }
 
 export function showToTimelineEvent(show: Show, sameDayIndex = 0): TimelineEvent {

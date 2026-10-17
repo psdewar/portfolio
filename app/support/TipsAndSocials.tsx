@@ -6,6 +6,7 @@ import SocialCards from "../components/SocialCards";
 import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
 import ContributeCardModal from "./ContributeCardModal";
+import { concertLine, nextStopLine } from "../lib/tour-momentum";
 
 export function TipsSection({
   interacFirst = false,
@@ -16,7 +17,7 @@ export function TipsSection({
   interacFirst?: boolean;
   isOg?: boolean;
   concertCount?: number;
-  nextStop?: string;
+  nextStop?: string | null;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
 
@@ -29,12 +30,11 @@ export function TipsSection({
       </h2>
       {!isOg && (
         <p className="text-neutral-500 dark:text-neutral-400 text-base mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
-          {concertCount} concerts since Mar '26 &middot; hundreds of
-          participants
+          {concertLine(concertCount)}
           {nextStop && (
             <>
               <br />
-              Next stop: {nextStop}
+              {nextStopLine(nextStop)}
             </>
           )}
         </p>
@@ -61,7 +61,7 @@ export default function TipsAndSocials({
 }: {
   interacFirst?: boolean;
   concertCount: number;
-  nextStop?: string;
+  nextStop?: string | null;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();

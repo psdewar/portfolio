@@ -2,35 +2,31 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import posthog from "posthog-js";
 import { XIcon, CheckIcon, CaretDownIcon } from "@phosphor-icons/react";
-import { useHydrated } from "../hooks/useHydrated";
 import { useScrollLock } from "../hooks/useScrollLock";
-import { useSession } from "../hooks/useSession";
+import { useSwipeToDismiss } from "../lib/useSwipeToDismiss";
 import { useAudio } from "../contexts/AudioContext";
-import { PLAY_MASK_FLUSH, PAUSE_MASK_FLUSH } from "../lib/glyph-masks";
-import { PATRON_TIERS } from "../data/patron-tiers";
+import { PlayCircle } from "./PlayCircle";
 import { EARLY_ACCESS_TRACKS, toTrackPreview } from "../data/patron-config";
-import { grossUpCents, formatCents, MAX_CARD_CENTS } from "../lib/fees";
+import {
+  MAX_CUSTOM_AMOUNT,
+  MIN_CUSTOM_AMOUNT,
+  PICKER_TIERS,
+  SUPPORT_AMOUNTS,
+  useMonthlySupport,
+} from "./useMonthlySupport";
 import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
 import PatronSignInForm from "./PatronSignInForm";
 import { PAYMENT_OPTIONS_STYLE } from "./PaymentOptions";
+import { GRADIENT_CTA_OVERRIDE } from "../lib/cta";
 import { TipsSection } from "../support/TipsAndSocials";
 
-const PICKER_TIERS = [...PATRON_TIERS].reverse();
 const TIER_ICONS = PICKER_TIERS.map((tier) => tier.icon);
 const TIER_COLORS = PICKER_TIERS.map((tier) => tier.color);
 
-const MAX_CUSTOM_AMOUNT = MAX_CARD_CENTS / 100;
-const MIN_CUSTOM_AMOUNT = PATRON_TIERS[PATRON_TIERS.length - 1].net;
+export const MONTHLY_PITCH =
+  "All supporters get every new song a month before anyone else and access to behind the scenes! Think Patreon, but the only cut is your card fee, added so I receive 100%. Cancel anytime.";
 
-const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
-  Math.round(monthlyNetDollars * (annual ? 1000 : 100));
-const SUPPORT_AMOUNTS = PICKER_TIERS.map((tier) => ({
-  net: tier.net,
-  name: tier.name,
-  hint: tier.hint,
-}));
 const PREVIEW_TRACKS = EARLY_ACCESS_TRACKS.map(toTrackPreview);
 
 function useModalStage(open: boolean) {
@@ -78,17 +74,28 @@ export function ModalShell({
   onClose,
   ariaLabel,
   panelClassName = "px-6 pt-6 pb-1",
+  layerClassName = "z-50",
+  closeWrapperClassName,
+  swipeToClose,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   ariaLabel: string;
   panelClassName?: string;
+  layerClassName?: string;
+  closeWrapperClassName?: string;
+  swipeToClose?: boolean;
   children: React.ReactNode;
 }) {
   const tierModal = useModalStage(open);
   const backdropStage = useModalStage(open);
   useScrollLock(tierModal.mounted);
+  useSwipeToDismiss(tierModal.ref, {
+    enabled: Boolean(swipeToClose) && tierModal.mounted,
+    onClose,
+    backdropRef: backdropStage.ref,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -101,10 +108,20 @@ export function ModalShell({
 
   if (!backdropStage.mounted) return null;
 
+  const closeButton = (
+    <button
+      onClick={onClose}
+      aria-label="Close"
+      className="absolute z-20 right-4 top-4 w-11 h-11 rounded-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
+    >
+      <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
+    </button>
+  );
+
   return createPortal(
     <div
       ref={backdropStage.ref}
-      className={`t-modal-backdrop ${backdropStage.stageClass} fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
+      className={`t-modal-backdrop ${backdropStage.stageClass} fixed inset-0 overflow-hidden overscroll-contain ${layerClassName} flex items-center justify-center bg-black/70 backdrop-blur-sm p-4`}
       onClick={() => open && onClose()}
     >
       {tierModal.mounted && (
@@ -113,17 +130,15 @@ export function ModalShell({
           role="dialog"
           aria-modal="true"
           aria-label={ariaLabel}
-          className={`t-modal ${tierModal.stageClass} relative w-full max-w-md max-h-full overflow-y-auto rounded-2xl bg-neutral-50 dark:bg-neutral-950 ${panelClassName} shadow-xl`}
+          className={`t-modal ${tierModal.stageClass} relative w-full max-w-md max-h-full overflow-y-auto overscroll-y-contain rounded-2xl bg-neutral-50 dark:bg-neutral-950 ${panelClassName} shadow-xl`}
           onClick={(e) => e.stopPropagation()}
         >
           <style>{`body:has([role="dialog"][aria-modal="true"]) button[title="Dev Tools"] { display: none; }`}</style>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute z-20 right-4 top-4 w-11 h-11 rounded-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
-          >
-            <XIcon className="w-4 h-4 text-neutral-500" weight="bold" />
-          </button>
+          {closeWrapperClassName ? (
+            <div className={closeWrapperClassName}>{closeButton}</div>
+          ) : (
+            closeButton
+          )}
           {children}
         </div>
       )}
@@ -144,6 +159,9 @@ interface SupportModalProps {
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
   onRegisterSilence?: (silence: () => void) => void;
+  checkinId?: string | null;
+  onCheckoutComplete?: () => void;
+  layerClassName?: string;
 }
 
 export default function SupportModal({
@@ -156,6 +174,9 @@ export default function SupportModal({
   onLoudPlay,
   onLoudEnd,
   onRegisterSilence,
+  checkinId,
+  onCheckoutComplete,
+  layerClassName,
 }: SupportModalProps) {
   const [signingIn, setSigningIn] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -172,6 +193,7 @@ export default function SupportModal({
     <ModalShell
       open={open}
       onClose={dismiss}
+      layerClassName={layerClassName}
       ariaLabel={signingIn ? "Sign in" : "Support"}
       panelClassName={signingIn ? "p-6" : "px-6 pt-6 pb-1"}
     >
@@ -205,6 +227,8 @@ export default function SupportModal({
             onLoudPlay={onLoudPlay}
             onLoudEnd={onLoudEnd}
             onRegisterSilence={onRegisterSilence}
+            checkinId={checkinId}
+            onCheckoutComplete={onCheckoutComplete}
           />
         </>
       )}
@@ -221,8 +245,10 @@ export function MonthlySupporter({
   collapseTiers = false,
   detailsOpen = false,
   onToggleDetails,
+  afterTiers,
   ...picker
-}: Omit<TierPickerProps, "panelClassName"> & {
+}: Omit<TierPickerProps, "bleed" | "tone"> & {
+  afterTiers?: React.ReactNode;
   heading?: "h1" | "h2";
   panelBleed: string;
   onSignIn?: () => void;
@@ -237,7 +263,7 @@ export function MonthlySupporter({
 
   return (
     <div>
-      <div className={isExpanded ? "mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]" : "mb-2"}>
+      <div className={isExpanded ? "" : "-mb-2"}>
         {isExpanded ? (
           <Heading className="font-bebas text-neutral-900 dark:text-white text-3xl">
             Be my monthly supporter
@@ -269,18 +295,17 @@ export function MonthlySupporter({
         )}
         {!og && isExpanded && (
           <p className="text-neutral-500 dark:text-neutral-400 text-base mt-1">
-            All supporters get every new song a month before anyone else and
-            access to behind the scenes! Think Patreon, but the only cut is
-            your card fee, added so I receive 100%. Cancel anytime.
+            {MONTHLY_PITCH}
           </p>
         )}
       </div>
       {showTiers && (
         <TierPicker
           {...picker}
-          panelClassName={`relative ${panelBleed} bg-neutral-100 dark:bg-neutral-900 overflow-hidden px-[var(--tp-x)] pb-6`}
+          bleed={panelBleed}
         />
       )}
+      {showTiers && afterTiers}
       {onSignIn && isExpanded && (
         <button
           type="button"
@@ -295,11 +320,59 @@ export function MonthlySupporter({
   );
 }
 
+type TierTone = "neutral" | "ink";
+
+interface ToneClasses {
+  panel: string;
+  group: string;
+  rowIdle: string;
+  rowSelected: string;
+  rowPlaying: string;
+  toggleIdle: string;
+  previewBar: string;
+  togglePlaying: string;
+  card: string;
+}
+
+const TIER_TONES: Record<TierTone, ToneClasses> = {
+  neutral: {
+    panel: "bg-neutral-100 dark:bg-neutral-900",
+    group: "border-neutral-200 dark:border-neutral-800",
+    rowIdle:
+      "bg-neutral-900/[0.03] hover:bg-neutral-900/[0.05] dark:bg-white/[0.06] dark:hover:bg-white/[0.12]",
+    rowSelected: "bg-neutral-900/[0.07] dark:bg-white/[0.14]",
+    rowPlaying: "bg-neutral-900/[0.03] dark:bg-white/[0.06]",
+    toggleIdle:
+      "bg-neutral-900/[0.03] hover:bg-neutral-900/[0.05] dark:bg-white/[0.06] dark:hover:bg-white/[0.12]",
+    togglePlaying: "bg-neutral-900/[0.03] dark:bg-white/[0.06]",
+    previewBar:
+      "bg-neutral-100/80 dark:bg-neutral-900/80 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 active:bg-neutral-200/50 dark:active:bg-neutral-800/40",
+    card: GRADIENT_CTA_OVERRIDE,
+  },
+  ink: {
+    panel: "",
+    group: "border-[rgba(244,241,234,0.18)]",
+    rowIdle:
+      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+    rowSelected:
+      "bg-[rgba(244,241,234,0.14)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+    rowPlaying:
+      "bg-[rgba(244,241,234,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+    toggleIdle:
+      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)]",
+    togglePlaying: "bg-[rgba(244,241,234,0.06)]",
+    previewBar:
+      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)] active:bg-[rgba(244,241,234,0.12)]",
+    card: `!w-[calc(100%-2*var(--gut))] !mx-[var(--gut)] !mt-[calc(14*var(--u))] !mb-[calc(10*var(--u))] ${GRADIENT_CTA_OVERRIDE}`,
+  },
+};
+
 interface TierPickerProps {
   active?: boolean;
   preview?: Preview;
   source: string;
-  panelClassName: string;
+  tone?: TierTone;
+  bleed?: string;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
   onRegisterSilence?: (silence: () => void) => void;
@@ -307,13 +380,15 @@ interface TierPickerProps {
   onCheckoutComplete?: () => void;
   showImage?: boolean;
   descriptionOnOwnLine?: boolean;
+  preloadAudio?: "auto" | "none";
 }
 
 export function TierPicker({
   active = true,
   preview = null,
   source,
-  panelClassName,
+  tone = "neutral",
+  bleed = "",
   onLoudPlay,
   onLoudEnd,
   onRegisterSilence,
@@ -321,20 +396,25 @@ export function TierPicker({
   onCheckoutComplete,
   showImage = true,
   descriptionOnOwnLine = false,
+  preloadAudio = "auto",
 }: TierPickerProps) {
-  const hydrated = useHydrated();
-  const { session } = useSession();
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(() =>
-    Math.max(0, SUPPORT_AMOUNTS.findIndex((t) => t.name === "Flow")),
-  );
+  const t = TIER_TONES[tone];
   const [selectionTick, setSelectionTick] = useState(0);
-  const [checkoutSecret, setCheckoutSecret] = useState<string | null>(null);
-  useScrollLock(!!checkoutSecret);
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annually">(
-    "monthly",
-  );
-  const [customAmount, setCustomAmount] = useState(String(MIN_CUSTOM_AMOUNT));
+  const monthly = useMonthlySupport({ source, checkinId });
+  const {
+    hydrated,
+    isLoading,
+    selectedIndex,
+    setSelectedIndex,
+    billingPeriod,
+    customAmount,
+    setCustomAmount,
+    soulMinimum,
+    soulBelowMinimum,
+    payLabel,
+    checkoutSecret,
+    closeCheckout,
+  } = monthly;
   const soulInputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -376,72 +456,8 @@ export function TierPicker({
     if (active) return;
     audioRef.current?.pause();
     setPreviewPlaying(false);
-    setSelectedIndex(Math.max(0, SUPPORT_AMOUNTS.findIndex((t) => t.name === "Flow")));
-    setCheckoutSecret(null);
+    monthly.reset();
   }, [active]);
-
-  const proceedToCheckout = async (
-    netAmount: number,
-    period: "monthly" | "annually",
-  ) => {
-    setIsLoading(true);
-
-    const isAnnual = period === "annually";
-    const finalAmount = grossUpCents(netAmount);
-    const interval = isAnnual ? "year" : "month";
-    const displayAmount = Math.round(netAmount / 100);
-
-    posthog.capture("patron_checkout_initiated", {
-      amount_cents: finalAmount,
-      net_amount: netAmount,
-      billing_period: period,
-      display_amount: displayAmount,
-      source,
-    });
-
-    try {
-      const response = await fetch("/api/fund-project", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectTitle: `$${displayAmount}/${interval} - ${period === "annually" ? "Annual" : "Monthly"} Support`,
-          projectId:
-            period === "annually" ? "annual-support" : "monthly-support",
-          amount: finalAmount,
-          interval,
-          embedded: true,
-          ...(checkinId ? { checkinId } : {}),
-        }),
-      });
-
-      const { clientSecret, error: serverError } = await response.json();
-
-      if (serverError || !clientSecret) {
-        throw new Error(serverError || "Failed to create checkout");
-      }
-
-      setCheckoutSecret(clientSecret);
-    } catch (error) {
-      console.error("Error creating checkout:", error);
-      alert("There was an error. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSubscribe = (
-    netCents: number,
-    period: "monthly" | "annually" = billingPeriod,
-  ) => {
-    posthog.capture("patron_tier_selected", {
-      amount_cents: grossUpCents(netCents),
-      billing_period: period,
-      is_logged_in: !!session,
-      source,
-    });
-
-    proceedToCheckout(netCents, period);
-  };
 
   const nextPreview = () => {
     if (previewIndex < previewList.length - 1)
@@ -463,10 +479,6 @@ export function TierPicker({
     el.play().catch(() => {});
   };
 
-  const soulMinimum =
-    billingPeriod === "annually" ? MIN_CUSTOM_AMOUNT * 10 : MIN_CUSTOM_AMOUNT;
-  const soulBelowMinimum = !(parseInt(customAmount, 10) >= soulMinimum);
-
   const snapSoulToMinimum = () => {
     setCustomAmount(String(soulMinimum));
     const input = soulInputRef.current;
@@ -478,27 +490,7 @@ export function TierPicker({
     );
   };
 
-  const selectedTierData = SUPPORT_AMOUNTS[selectedIndex];
-  const selectedIsSoul = selectedTierData.name === "Soul";
-  const annual = billingPeriod === "annually";
-  const soulAmountNum = parseInt(customAmount, 10) || 0;
-  const selectedNetCents = selectedIsSoul
-    ? soulAmountNum * 100
-    : periodNetCents(selectedTierData.net, annual);
-  const payWithCardLabel = `Pay ${formatCents(grossUpCents(selectedNetCents))} with your card`;
-
-  const handleSupportClick = () => {
-    if (isLoading || !hydrated) return;
-    if (selectedIsSoul) {
-      if (soulBelowMinimum) {
-        snapSoulToMinimum();
-        return;
-      }
-      handleSubscribe(soulAmountNum * 100, billingPeriod);
-      return;
-    }
-    handleSubscribe(periodNetCents(selectedTierData.net, annual));
-  };
+  const handleSupportClick = () => monthly.submit(snapSoulToMinimum);
 
   const selectTier = (index: number, focusRow = false) => {
     setSelectionTick((t) => t + 1);
@@ -533,7 +525,7 @@ export function TierPicker({
         createPortal(
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setCheckoutSecret(null)}
+            onClick={() => closeCheckout()}
           >
             <div
               className={`${CHECKOUT_CARD} max-h-full overflow-y-auto`}
@@ -541,7 +533,7 @@ export function TierPicker({
             >
               <CheckoutPanel
                 backLabel="Back to tiers"
-                onBack={() => setCheckoutSecret(null)}
+                onBack={() => closeCheckout()}
                 fetchClientSecret={() => Promise.resolve(checkoutSecret)}
                 onComplete={() => onCheckoutComplete?.()}
               />
@@ -549,13 +541,15 @@ export function TierPicker({
           </div>,
           document.body,
         )}
-      <div className={panelClassName}>
+      <div
+        className={`relative mt-4 split:mt-[clamp(0.25rem,calc(-50px_+_6vh),1rem)] ${bleed} ${t.panel} overflow-hidden px-[var(--tp-x)] pb-6`}
+      >
         {currentPreview && (
           <div>
             <audio
               ref={audioRef}
               src={currentPreview.src}
-              preload="auto"
+              preload={preloadAudio}
               onPlaying={() => setPreviewStarted(true)}
               onPlay={() => {
                 pauseTrack();
@@ -580,14 +574,9 @@ export function TierPicker({
               type="button"
               onClick={togglePreview}
               aria-label={previewPlaying ? "Pause preview" : "Play preview"}
-              className={`min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex px-[var(--tp-x,1.5rem)] items-center gap-3 text-left py-3 transition-colors hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 active:bg-neutral-200/50 dark:active:bg-neutral-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white`}
+              className={`tp-preview min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex px-[var(--tp-x,1.5rem)] items-center gap-3 text-left py-3 cursor-pointer ${t.previewBar} transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white`}
             >
-              <span aria-hidden className="w-6 shrink-0 flex justify-center">
-                <span
-                  className="w-4 h-4 bg-gradient-to-br from-orange-400 to-pink-500"
-                  style={previewPlaying ? PAUSE_MASK_FLUSH : PLAY_MASK_FLUSH}
-                />
-              </span>
+              <PlayCircle playing={previewPlaying} />
               <span className="truncate text-base font-medium text-neutral-900 dark:text-white">
                 {previewStarted ? "Previewing" : "Preview"} &quot;
                 {currentPreview.title}&quot;
@@ -603,7 +592,7 @@ export function TierPicker({
               aria-hidden="true"
               loading="lazy"
               decoding="async"
-              className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[48%_40%] transition-opacity duration-300 motion-reduce:transition-none ${previewPlaying ? "opacity-[0.3] dark:opacity-[0.4]" : "opacity-[0.12] dark:opacity-[0.18]"}`}
+              className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[48%_40%] scale-105 transition-[opacity,filter] duration-300 motion-reduce:transition-none ${previewPlaying ? "opacity-[0.3] dark:opacity-[0.4] blur-0" : "opacity-[0.12] dark:opacity-[0.18] blur-[3px]"}`}
             />
           )}
           <form
@@ -624,7 +613,8 @@ export function TierPicker({
           <div
             role="radiogroup"
             aria-label="Monthly support amount"
-            className={`border-t-2 border-neutral-200 dark:border-neutral-800 ${isLoading ? "opacity-60 pointer-events-none" : ""}`}
+            data-playing={previewPlaying || undefined}
+            className={`border-t-2 ${t.group} ${isLoading ? "opacity-60 pointer-events-none" : ""}`}
           >
             <style>{`
               @keyframes tierCheckDraw {
@@ -655,6 +645,11 @@ export function TierPicker({
                 billingPeriod === "annually" ? tier.net * 10 : tier.net;
               const period = billingPeriod === "annually" ? "yr" : "mo";
               const tierColor = TIER_COLORS[index];
+              const rowSurface = previewPlaying
+                ? t.rowPlaying
+                : isSelected
+                  ? t.rowSelected
+                  : t.rowIdle;
               return (
                 <div
                   key={tier.name}
@@ -666,13 +661,7 @@ export function TierPicker({
                   tabIndex={isSelected ? 0 : -1}
                   onClick={() => selectTier(index)}
                   onKeyDown={(e) => handleRowKeyDown(e, index)}
-                  className={`relative z-10 w-full flex px-[var(--tp-x,1.5rem)] items-center min-h-11 gap-4 py-4 cursor-pointer transition-colors duration-300 motion-reduce:transition-none ${
-                    isSelected
-                      ? previewPlaying
-                        ? "bg-neutral-100/45 dark:bg-neutral-900/45"
-                        : "bg-neutral-200/50 dark:bg-neutral-800/40"
-                      : `hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 ${previewPlaying ? "bg-neutral-100/45 dark:bg-neutral-900/45" : "bg-neutral-100/80 dark:bg-neutral-900/80"}`
-                  }`}
+                  className={`relative z-10 w-full flex px-[var(--tp-x,1.5rem)] items-center min-h-11 gap-4 py-4 cursor-pointer transition-colors duration-300 motion-reduce:transition-none ${rowSurface}`}
                 >
                   <p className="flex-1 min-w-0 flex items-center gap-x-1 leading-snug text-neutral-600 dark:text-neutral-300 flex-wrap text-base">
                     <span
@@ -748,7 +737,7 @@ export function TierPicker({
                               </span>
                             </>
                           ) : (
-                            <>${soulAmountNum.toLocaleString()}</>
+                            <>${(parseInt(customAmount, 10) || 0).toLocaleString()}</>
                           )
                         ) : (
                           <>${price}</>
@@ -811,19 +800,8 @@ export function TierPicker({
           </div>
           <div className="flex items-center justify-start text-base">
             <button
-              onClick={() => {
-                const nextPeriod =
-                  billingPeriod === "monthly" ? "annually" : "monthly";
-                setBillingPeriod(nextPeriod);
-                setCustomAmount((prev) => {
-                  const net = parseInt(prev, 10);
-                  if (!net) return prev;
-                  const scaled =
-                    nextPeriod === "annually" ? net * 10 : Math.round(net / 10);
-                  return scaled.toString();
-                });
-              }}
-              className={`relative z-10 w-full px-[var(--tp-x,1.5rem)] font-medium text-neutral-900 dark:text-white hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 flex items-center gap-2 min-h-11 py-4 transition-colors duration-300 motion-reduce:transition-none ${previewPlaying ? "bg-neutral-100/45 dark:bg-neutral-900/45" : "bg-neutral-100/80 dark:bg-neutral-900/80"}`}
+              onClick={monthly.toggleBilling}
+              className={`relative z-10 w-full px-[var(--tp-x,1.5rem)] font-medium text-neutral-900 dark:text-white flex items-center gap-2 min-h-11 py-4 transition-colors duration-300 motion-reduce:transition-none ${previewPlaying ? t.togglePlaying : t.toggleIdle}`}
             >
               <span
                 className={`relative shrink-0 rounded-full transition-colors w-12 h-7 ${
@@ -857,7 +835,7 @@ export function TierPicker({
         type="button"
         onClick={handleSupportClick}
         disabled={isLoading || !hydrated}
-        className="cc-btn cc-card mt-4"
+        className={`cc-btn cc-card mt-4 ${t.card}`}
       >
         {isLoading ? (
           <>
@@ -865,7 +843,7 @@ export function TierPicker({
             Opening checkout
           </>
         ) : (
-          payWithCardLabel
+          payLabel
         )}
       </button>
     </>

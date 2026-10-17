@@ -1,5 +1,6 @@
 "use client";
 
+import type { StoryParagraph } from "../data/story";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useDocumentReady } from "../hooks/useDocumentReady";
@@ -34,6 +35,8 @@ interface Props {
   ticketNoOverride?: number | null;
   rsvpdOverride?: boolean;
   past?: boolean;
+  concertCount: number;
+  storyParagraphs: StoryParagraph[];
 }
 
 const messageOf = (e: unknown) =>
@@ -53,6 +56,8 @@ export default function CheckInClient({
   ticketNoOverride = null,
   rsvpdOverride = false,
   past = false,
+  concertCount,
+  storyParagraphs,
 }: Props) {
   const { stored, setFields, hydrated, restored, submit, skip, markStep } = useCheckinState({
     slug,
@@ -590,6 +595,8 @@ export default function CheckInClient({
         }}
         saveError={saveError}
         past={past}
+        concertCount={concertCount}
+        storyParagraphs={storyParagraphs}
       />
     </div>
   );

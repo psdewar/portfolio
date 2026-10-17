@@ -4,12 +4,14 @@ import { getJourneyEvents, type TimelineEvent } from "../data/timeline";
 import { chorusRead } from "./chorus";
 import { getDataMode } from "./dev-data/mode";
 import { fixtureShowFor } from "./dev-data/fixtures";
+import type { TourCounts } from "../data/story";
 import {
   type Show,
   isShowUpcoming,
   isShowListed,
   isShowListable,
   isShowCompleted,
+  isTourConcert,
   showsToTimelineEvents,
 } from "./shows-shared";
 
@@ -49,6 +51,14 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   if (mode !== "demo") return fixtureShowFor(slug, mode);
   const shows = await getShows();
   return shows.find((s) => s.slug === slug) || null;
+}
+
+export async function getTourCounts(): Promise<TourCounts> {
+  const done = (await getShows()).filter(isTourConcert);
+  return {
+    shows: done.length,
+    cities: new Set(done.map((s) => `${s.city}|${s.region}`)).size,
+  };
 }
 
 export async function getShowHistory(): Promise<TimelineEvent[]> {

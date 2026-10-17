@@ -64,17 +64,16 @@ test.describe("Check in edge cases", () => {
     await expect(page.getByText(/Load failed|Failed to fetch|NetworkError/)).toHaveCount(0);
   });
 
-  test("a guest who presses Back on the card sheet returns to the open Support me step", async ({ page }) => {
+  test("a guest who presses Back on the card sheet returns to the open Fund my tour step", async ({ page }) => {
     await open(page, "ci-short");
     await skipForNow(page);
     const start = page.url();
-    await page.getByRole("button", { name: /Support me/ }).click();
+    await page.getByRole("button", { name: /Fund my tour/ }).click();
     await page.getByRole("button", { name: /Pay with your card/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.goBack();
     await expect(page.getByRole("dialog")).toBeHidden();
     expect(page.url()).toBe(start);
-    await expect(page.getByRole("radio", { name: "Once" })).toBeInViewport();
     await expect(page.getByRole("button", { name: /Pay with your card/ })).toBeVisible();
   });
 
@@ -82,7 +81,7 @@ test.describe("Check in edge cases", () => {
     await page.goto("/robots.txt");
     await open(page, "ci-short");
     await skipForNow(page);
-    await page.getByRole("button", { name: /Support me/ }).click();
+    await page.getByRole("button", { name: /Fund my tour/ }).click();
     await page.getByRole("button", { name: /Pay with your card/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: /close/i }).first().click();

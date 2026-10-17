@@ -1,5 +1,6 @@
 "use client";
 
+import type { StoryParagraph } from "../data/story";
 import { Fragment, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,7 +24,8 @@ import { useAudio } from "../contexts/AudioContext";
 import { usePatronStatus } from "../hooks/usePatronStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { type Show, showsToTimelineEvents } from "../lib/shows-shared";
-import { PLAY_MASK_STYLE } from "../lib/glyph-masks";
+import { PlayCircle } from "./PlayCircle";
+import { ReadMyStory } from "./ReadMyStory";
 import { DateStack, PendingRsvpProvider, ShowRow } from "./ShowRow";
 
 const formatDuration = (s: number) =>
@@ -72,6 +74,7 @@ interface SupporterSectionProps {
   sponsorHref?: string;
   children?: React.ReactNode;
   og?: boolean;
+  storyParagraphs?: StoryParagraph[];
 }
 
 const ROW_HOVER =
@@ -98,6 +101,7 @@ export function SupporterSection({
   sponsorHref,
   children,
   og = false,
+  storyParagraphs = [],
 }: SupporterSectionProps) {
   const {
     loadTrack,
@@ -237,11 +241,7 @@ export function SupporterSection({
               onClick={() => onTrackClick(track)}
               className="w-full flex items-center gap-3 px-4 py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-left"
             >
-              <span
-                aria-hidden
-                className="w-8 h-8 shrink-0 bg-gradient-to-br from-orange-400 to-pink-500"
-                style={PLAY_MASK_STYLE}
-              />
+              <PlayCircle playing={false} />
               <div className="flex-1 min-w-0">
                 <div className="text-neutral-900 dark:text-white font-medium truncate">
                   {track.title}
@@ -570,6 +570,11 @@ export function SupporterSection({
                 panelBleed="-mx-4 sm:mx-0 sm:rounded-lg [--tp-x:1rem] sm:[--tp-x:1.5rem]"
                 og={og}
                 onSignIn={og ? undefined : () => setShowVerifyForm(true)}
+                afterTiers={
+                  !isModal && !og ? (
+                    <ReadMyStory paragraphs={storyParagraphs} />
+                  ) : undefined
+                }
               />
             </div>
           </section>
@@ -596,7 +601,7 @@ export function SupporterSection({
                 <button
                   type="button"
                   onClick={() => window.location.assign("/api/stripe-portal")}
-                  className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="w-full py-3.5 split:py-[clamp(0.5rem,calc(-32px_+_4vh),0.875rem)] rounded-btn border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   Manage my subscription
                 </button>
@@ -632,7 +637,7 @@ export function SupporterSection({
           onClick={() =>
             tierSectionRef.current?.scrollIntoView({ behavior: "smooth" })
           }
-          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-5 sm:px-8 flex items-center justify-center gap-2 rounded-xl text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
+          className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-5 sm:px-8 flex items-center justify-center gap-2 rounded-btn text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
             bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
