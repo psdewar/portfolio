@@ -20,10 +20,11 @@ const writeCookie = (mode: DataMode) => {
   document.cookie = `${DATA_COOKIE}=${mode}; path=/; SameSite=Lax`;
 };
 
-export default function DevDataToggle() {
+export function useDataMode() {
   const [active, setActive] = useState<DataMode>("demo");
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
     const current = readCookie();
     const fromUrl = new URLSearchParams(location.search).get("data");
     if (isDataMode(fromUrl) && fromUrl !== current) {
@@ -42,41 +43,27 @@ export default function DevDataToggle() {
     location.reload();
   };
 
+  return { active, choose };
+}
+
+export default function DevDataToggle({
+  active,
+  choose,
+}: {
+  active: DataMode;
+  choose: (mode: DataMode) => void;
+}) {
   return (
-    <div
-      role="group"
-      aria-label="Data mode"
-      style={{
-        position: "fixed",
-        left: "50%",
-        bottom: "calc(var(--player-h, 0px) + 8px)",
-        transform: "translateX(-50%)",
-        zIndex: 2147483647,
-        display: "flex",
-        gap: 2,
-        padding: 2,
-        background: "#d1d5db",
-        borderRadius: 8,
-        font: "12px/1 system-ui, sans-serif",
-        maxWidth: "calc(100vw - 16px)",
-      }}
-    >
+    <div role="group" aria-label="Data mode" className="flex w-full bg-gray-800 rounded-lg p-0.5">
       {OPTIONS.map(({ mode, label }) => (
         <button
           key={mode}
           type="button"
           onClick={() => choose(mode)}
           aria-pressed={active === mode}
-          style={{
-            padding: "6px 8px",
-            border: 0,
-            borderRadius: 6,
-            font: "inherit",
-            whiteSpace: "nowrap",
-            cursor: "pointer",
-            color: "#111827",
-            background: active === mode ? "#fff" : "transparent",
-          }}
+          className={`flex-1 min-w-0 rounded-md text-xs py-1.5 transition-colors ${
+            active === mode ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"
+          }`}
         >
           {label}
         </button>

@@ -4,6 +4,70 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDevTools } from "../contexts/DevToolsContext";
 import { isShowUpcoming } from "../lib/shows-shared";
+import DevDataToggle, { useDataMode } from "./DevDataToggle";
+
+const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-500";
+
+function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-gray-100">{label}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={label}
+          onClick={onChange}
+          className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${focusRing} ${
+            checked ? "bg-yellow-500" : "bg-gray-600"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+              checked ? "translate-x-5" : ""
+            }`}
+          />
+        </button>
+      </div>
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function Action({
+  children,
+  onClick,
+  tone,
+  className = "w-full",
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  tone?: "danger";
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${className} py-2 px-3 rounded-md text-sm bg-gray-800 transition-colors text-left ${focusRing} ${
+        tone === "danger" ? "text-red-300 hover:bg-red-950" : "text-gray-100 hover:bg-gray-700"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function DevToolsPanel() {
   const [simulatedNow, setSimulatedNow] = useState("");
@@ -21,6 +85,7 @@ export function DevToolsPanel() {
     setSimulateSupporter,
   } = useDevTools();
 
+  const { active, choose } = useDataMode();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -53,22 +118,21 @@ export function DevToolsPanel() {
     window.location.reload();
   };
 
-  // Only render in development
   if (!isDevMode) return null;
 
   return (
     <>
-      {/* Floating button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-24 right-4 z-[100] w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
           isOpen
             ? "bg-red-500 hover:bg-red-600"
-            : simulateSlowNetwork || useLocalAudio
+            : simulateSlowNetwork || useLocalAudio || active !== "demo"
               ? "bg-yellow-500 hover:bg-yellow-600"
               : "bg-gray-800 hover:bg-gray-700"
         }`}
         title="Dev Tools"
+        aria-label="Dev tools"
       >
         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -86,12 +150,15 @@ export function DevToolsPanel() {
         </svg>
       </button>
 
-      {/* Panel */}
       {isOpen && (
-        <div className="fixed bottom-40 right-4 z-[100] w-80 bg-gray-900 text-white rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
-          <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-            <h3 className="font-semibold text-lg">🛠 Dev Tools</h3>
-            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+        <div className="fixed bottom-40 right-4 z-[100] w-[min(20rem,calc(100vw-2rem))] max-h-[calc(100dvh-11rem)] flex flex-col bg-gray-900 text-white rounded-lg shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="shrink-0 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Dev tools</h3>
+            <button
+              onClick={() => setIsOpen(false)}
+              aria-label="Close dev tools"
+              className={`text-gray-400 hover:text-white ${focusRing}`}
+            >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -103,175 +170,121 @@ export function DevToolsPanel() {
             </button>
           </div>
 
-          <div className="p-4 space-y-4">
-            {/* Simulate Slow Network */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between">
-                <span className="text-sm font-medium">🐢 Simulate Slow Network</span>
-                <button
-                  onClick={() => setSimulateSlowNetwork(!simulateSlowNetwork)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
-                    simulateSlowNetwork ? "bg-yellow-500" : "bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      simulateSlowNetwork ? "translate-x-5" : ""
-                    }`}
-                  />
-                </button>
-              </label>
-              {simulateSlowNetwork && (
-                <div className="pl-4">
-                  <label className="text-xs text-gray-400">Delay: {slowNetworkDelay}ms</label>
-                  <input
-                    type="range"
-                    min="500"
-                    max="5000"
-                    step="500"
-                    value={slowNetworkDelay}
-                    onChange={(e) => setSlowNetworkDelay(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-              )}
-            </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-5">
+            <section>
+              <h4 className="text-xs font-medium text-gray-400 mb-2">Data</h4>
+              <DevDataToggle active={active} choose={choose} />
+            </section>
 
-            {/* Use Local Audio */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between">
-                <span className="text-sm font-medium">💾 Use Local Audio</span>
-                <button
-                  onClick={() => {
-                    setUseLocalAudio(!useLocalAudio);
-                    // Note: requires page refresh to take effect due to cached blob URLs
-                  }}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
-                    useLocalAudio ? "bg-green-500" : "bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      useLocalAudio ? "translate-x-5" : ""
-                    }`}
-                  />
-                </button>
-              </label>
-              <p className="text-xs text-gray-400 pl-4">
-                {useLocalAudio
-                  ? "Using mock audio (saves Vercel Blob egress)"
-                  : "Using Vercel Blob audio (costs egress)"}
-              </p>
-            </div>
-
-            {/* ING Conversion (Lyrics Sync) */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between">
-                <span className="text-sm font-medium">🎤 -ing → -in'</span>
-                <button
-                  onClick={() => setEnableIngConversion(!enableIngConversion)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
-                    enableIngConversion ? "bg-purple-500" : "bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      enableIngConversion ? "translate-x-5" : ""
-                    }`}
-                  />
-                </button>
-              </label>
-              <p className="text-xs text-gray-400 pl-4">
-                Lyrics sync: convert -ing to -in' (hip-hop style)
-              </p>
-            </div>
-
-            {/* Simulate Supporter */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between">
-                <span className="text-sm font-medium">👑 Simulate Supporter</span>
-                <button
-                  onClick={() => setSimulateSupporter(!simulateSupporter)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
-                    simulateSupporter ? "bg-orange-500" : "bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      simulateSupporter ? "translate-x-5" : ""
-                    }`}
-                  />
-                </button>
-              </label>
-              <p className="text-xs text-gray-400 pl-4">View supporter experience on /support page</p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (!simulateSupporter) setSimulateSupporter(true);
-                navigateTo("/listen?supporter_welcome=1");
-              }}
-              className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Supporter Welcome
-            </button>
-
-            <button
-              onClick={() => {
-                const to = prompt("Send the supporter welcome email to:");
-                if (!to) return;
-                fetch(`/api/test-email?type=supporter-welcome&to=${encodeURIComponent(to)}`);
-              }}
-              className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Send Welcome Email
-            </button>
-
-            <button
-              onClick={() => navigateTo("/download?session_id=test_123")}
-              className="w-full py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Download Page
-            </button>
-
-            <div className="flex gap-2">
-              <input
-                type="date"
-                value={simulatedNow}
-                onChange={(e) => setSimulatedNow(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-500"
-              />
-              <button
-                onClick={() =>
-                  navigateTo(simulatedNow ? `/support?now=${simulatedNow}` : "/support?country=CA")
-                }
-                className="shrink-0 py-2 px-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Support (CA)
-              </button>
-            </div>
-
-            <button
-              onClick={resetCheckin}
-              className="w-full py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Reset check-in
-            </button>
-
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Refresh to apply changes
-            </button>
-
-            {/* Status indicator */}
-            <div className="pt-2 border-t border-gray-700">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Development mode
+            <section>
+              <h4 className="text-xs font-medium text-gray-400 mb-2">Network and audio</h4>
+              <div className="space-y-2">
+                <Toggle
+                  label="Slow network"
+                  checked={simulateSlowNetwork}
+                  onChange={() => setSimulateSlowNetwork(!simulateSlowNetwork)}
+                />
+                {simulateSlowNetwork && (
+                  <div>
+                    <label htmlFor="dev-slow-delay" className="text-xs text-gray-400">
+                      Delay {slowNetworkDelay}ms
+                    </label>
+                    <input
+                      id="dev-slow-delay"
+                      type="range"
+                      min="500"
+                      max="5000"
+                      step="500"
+                      value={slowNetworkDelay}
+                      onChange={(e) => setSlowNetworkDelay(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                )}
+                <Toggle
+                  label="Local audio"
+                  hint={useLocalAudio ? "Mock audio, no Blob egress" : "Blob audio, costs egress"}
+                  checked={useLocalAudio}
+                  onChange={() => setUseLocalAudio(!useLocalAudio)}
+                />
               </div>
-            </div>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-medium text-gray-400 mb-2">Lyrics</h4>
+              <div className="space-y-2">
+                <Toggle
+                  label="Convert -ing to -in'"
+                  checked={enableIngConversion}
+                  onChange={() => setEnableIngConversion(!enableIngConversion)}
+                />
+              </div>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-medium text-gray-400 mb-2">Supporter</h4>
+              <div className="space-y-2">
+                <Toggle
+                  label="Simulate supporter"
+                  hint="Shows supporter view on /support"
+                  checked={simulateSupporter}
+                  onChange={() => setSimulateSupporter(!simulateSupporter)}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Action
+                    onClick={() => {
+                      if (!simulateSupporter) setSimulateSupporter(true);
+                      navigateTo("/listen?supporter_welcome=1");
+                    }}
+                  >
+                    Welcome page
+                  </Action>
+                  <Action
+                    onClick={() => {
+                      const to = prompt("Send supporter welcome email to:");
+                      if (!to) return;
+                      fetch(`/api/test-email?type=supporter-welcome&to=${encodeURIComponent(to)}`);
+                    }}
+                  >
+                    Send welcome email
+                  </Action>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-medium text-gray-400 mb-2">Pages</h4>
+              <div className="space-y-2">
+                <Action onClick={() => navigateTo("/download?session_id=test_123")}>
+                  Download page
+                </Action>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={simulatedNow}
+                    onChange={(e) => setSimulatedNow(e.target.value)}
+                    className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:border-gray-500"
+                  />
+                  <Action
+                    className="shrink-0 w-auto"
+                    onClick={() =>
+                      navigateTo(
+                        simulatedNow ? `/support?now=${simulatedNow}` : "/support?country=CA"
+                      )
+                    }
+                  >
+                    Support (CA)
+                  </Action>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="shrink-0 border-t border-gray-700 px-4 py-3 grid grid-cols-2 gap-2">
+            <Action tone="danger" onClick={resetCheckin}>
+              Reset check-in
+            </Action>
+            <Action onClick={() => window.location.reload()}>Refresh page</Action>
           </div>
         </div>
       )}

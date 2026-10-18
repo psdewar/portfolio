@@ -3,7 +3,6 @@ import "./globals.css";
 import localFont from "next/font/local";
 import { Bebas_Neue, Be_Vietnam_Pro, Space_Mono, Fira_Sans } from "next/font/google";
 import { ClientLayout } from "./ClientLayout";
-import DevDataToggle from "./components/DevDataToggle";
 
 const myFont = localFont({
   src: "./fonts/EpundaSans-VariableFont_wght.woff2",
@@ -179,7 +178,6 @@ export default function RootLayout({
       </head>
       <body className="antialiased flex flex-col min-h-screen bg-white dark:bg-gray-900">
         <ClientLayout>{children}</ClientLayout>
-        {process.env.NODE_ENV === "development" && <DevDataToggle />}
       </body>
     </html>
   );
