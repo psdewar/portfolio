@@ -6,18 +6,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import dynamic from "next/dynamic";
 import { TShirtIcon } from "@phosphor-icons/react";
+import { ColorSwatches, SizeGrid, TEE_COLORS, TEE_DEFAULT_SIZE, TEE_SIZES } from "../components/TeePickers";
 import { Lead, StepShell, motion, reducedMotion } from "./RoadParts";
 
 const EmbeddedTeeCheckout = dynamic(() => import("../components/EmbeddedTeeCheckout"), { ssr: false });
 
 const PRODUCT_ID = "tee-patience";
 const PRICE = "45";
-const COLORS = [
-  { id: "navy", name: "Navy", hex: "#262b3f" },
-  { id: "forest", name: "Forest", hex: "#2c413a" },
-  { id: "maroon", name: "Maroon", hex: "#5d2c30" },
-];
-const SIZES = ["XS", "S", "M", "L", "XL"];
+const COLORS = TEE_COLORS;
+const SIZES = TEE_SIZES;
 const src = (id: string) => `/images/merch/checkin/patience-${id}.webp`;
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 const HERO_RATIO = 1018 / 1080;
@@ -42,10 +39,9 @@ export default function TeeStep({
   onDone: () => void;
   onExternal: () => void;
 }) {
-  const [color, setColor] = useState(COLORS[0]);
-  const [size, setSize] = useState("");
+  const [color, setColor] = useState<(typeof COLORS)[number]>(COLORS[0]);
+  const [size, setSize] = useState<string>(TEE_DEFAULT_SIZE);
   const [paying, setPaying] = useState(false);
-  const [shaking, setShaking] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLSpanElement>(null);
   const heroRef = useRef<HTMLImageElement>(null);
@@ -55,13 +51,6 @@ export default function TeeStep({
   const pin = useRef<number | null>(null);
   const closed = useRef<Closed | null>(null);
   const el = <T extends HTMLElement>(sel: string) => rootRef.current?.querySelector<T>(sel) ?? null;
-
-  const nudgeSize = () => {
-    el(".sizes")?.scrollIntoView({ block: "center", behavior: reducedMotion() ? "auto" : "smooth" });
-    setShaking(false);
-    requestAnimationFrame(() => setShaking(true));
-    setTimeout(() => setShaking(false), 320);
-  };
 
   const measureClosed = () => {
     const row = el(".srow");
@@ -253,39 +242,25 @@ export default function TeeStep({
           </div>
           <div className="tee-more">
             <div className="pad">
-            <div className="dots" role="radiogroup" aria-label="Color">
-              {COLORS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="dot"
-                  role="radio"
-                  aria-checked={c.id === color.id}
-                  aria-label={c.name}
-                  style={{ background: c.hex }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-            <div className={`sizes${shaking ? " shake" : ""}`} role="group" aria-label="Size">
-              {SIZES.map((z) => (
-                <button
-                  key={z}
-                  type="button"
-                  className="size"
-                  aria-pressed={size === z}
-                  onClick={() => setSize(z)}
-                >
-                  {z}
-                </button>
-              ))}
-            </div>
+            <ColorSwatches
+              colors={COLORS}
+              value={color.id}
+              accent="#d4a553"
+              tone="ink"
+              onChange={(id) => setColor(COLORS.find((c) => c.id === id) ?? COLORS[0])}
+              className="mt-4"
+            />
+            <SizeGrid
+              sizes={SIZES}
+              value={size}
+              activeHex="#262b3f"
+              onChange={setSize}
+              className="mt-4"
+            />
             </div>
             <CheckinPayRails
               venmoUrl={venmoPayUrl(PRICE, `Patience tee ${size} ${color.name}`)}
               zelleAmount={`$${PRICE}`}
-              blocked={!size}
-              onBlocked={nudgeSize}
               onCard={() => setPaying(true)}
               cardNoFees
               onExternal={onExternal}

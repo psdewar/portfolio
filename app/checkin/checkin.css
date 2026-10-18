@@ -47,7 +47,7 @@
 .ci[data-view="road"]::before, .ci.flying::before { opacity: 0; }
 .ci *, .ci *::before, .ci *::after { box-sizing: border-box; }
 .ci [hidden] { display: none !important; }
-.ci button:not(.cc-btn) { font: inherit; }
+.ci button:not(.cc-btn):not(.tee-size) { font: inherit; }
 .ci .cc-btn, .ci button.tbtn { font: inherit; font-family: var(--font-epunda); font-size: var(--pay-btn-size); font-weight: var(--pay-btn-weight); line-height: 1.5; letter-spacing: normal; }
 .ci button:focus-visible, .ci a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .ci input:focus-visible { outline: none; box-shadow: 0 1px 0 0 var(--ink); border-bottom-color: var(--ink); }
@@ -177,16 +177,7 @@
 .ci .lead > .mk { z-index: 8; }
 .ci-sheet { overflow-anchor: none; }
 .ci .teeimg { transform-origin: 0 0; display: block; width: 100%; width: min(100%, calc(300 * var(--u)), 40svh); aspect-ratio: 1080 / 1018; height: auto; transform-origin: 0 0; margin: 16px auto 0; object-fit: contain; }
-.ci .dotwrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.ci .dots { display: flex; gap: 16px; padding: 4px 4px 0; margin-top: 16px; }
-.ci .dot { position: relative; width: max(28px, calc(30 * var(--u))); height: max(28px, calc(30 * var(--u))); border-radius: 50%; border: 0; padding: 0; cursor: pointer; }
-.ci .dot::after { content: ""; position: absolute; top: 50%; left: 50%; width: max(44px, 100%); height: max(44px, 100%); transform: translate(-50%, -50%); }
-.ci .dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
-.ci .sizes { display: flex; gap: 8px; margin-top: 16px; }
-.ci .size { flex: 1; min-width: 0; height: var(--ck-control-h); padding: 0; background: transparent; border: 1px solid rgba(38,43,63,0.35); border-radius: 3px; color: var(--ink); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
-.ci .size[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .ci .cc-btn[aria-disabled="true"] { opacity: 0.7; }
-.ci .sizes.shake { animation: ci-shake 0.3s ease-in-out; }
 .ci .tee-more > .pad { padding-top: 0; }
 .ci .tee-more > .gut { padding-top: 14px; }
 .ci .muted-line { margin: 0; font-size: var(--fs-body); line-height: 1.4; color: rgba(38,43,63,0.62); }

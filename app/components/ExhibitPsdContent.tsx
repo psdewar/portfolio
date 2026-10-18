@@ -7,9 +7,12 @@ import { PlayIcon } from "@phosphor-icons/react";
 import { ColorSwatches, SizeGrid } from "./TeePickers";
 import { useTeeCheckout } from "./useTeeCheckout";
 import { venmoPayUrl } from "./PaymentModal";
+import PaymentOptions from "./PaymentOptions";
 import { EXHIBIT_STORY } from "../data/exhibit-psd";
 
-const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), { ssr: false });
+const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), {
+  ssr: false,
+});
 
 const PRODUCT_ID = "tee-exhibit-psd";
 const INK = "#b02b1e";
@@ -82,8 +85,12 @@ export function ExhibitPsdContent({
 
   if (section === "media") {
     return (
-      <div className={`relative w-full overflow-hidden bg-neutral-900 [container-type:inline-size] ${stacked ? "" : "lg:h-full lg:min-h-60 lg:rounded-2xl"}`}>
-        <div className={`grid ${stacked ? "" : "lg:absolute lg:inset-0 lg:grid-rows-[3fr_4fr]"}`}>
+      <div
+        className={`relative w-full overflow-hidden bg-neutral-900 [container-type:inline-size] ${stacked ? "" : "lg:h-full lg:min-h-60 lg:rounded-2xl"}`}
+      >
+        <div
+          className={`grid ${stacked ? "" : "lg:absolute lg:inset-0 lg:grid-rows-[3fr_4fr]"}`}
+        >
           <div
             className={`relative aspect-[2/1] min-h-0 cursor-pointer ${stacked ? "" : "lg:aspect-auto"}`}
             onClick={() => setStoryOpen(true)}
@@ -98,7 +105,9 @@ export function ExhibitPsdContent({
             />
             <div className="absolute left-0 top-0 p-3">
               <div className="rounded-lg bg-black/30 px-2 py-1 backdrop-blur-sm">
-                <p className="text-sm font-medium text-white">With the homie Ludger</p>
+                <p className="text-sm font-medium text-white">
+                  With the homie Ludger
+                </p>
                 <p className="text-xs text-white/70">Los Angeles, CA · 2018</p>
               </div>
             </div>
@@ -116,7 +125,9 @@ export function ExhibitPsdContent({
                 className="object-cover"
               />
             </div>
-            <div className={`relative aspect-[3/4] min-h-0 ${stacked ? "" : "lg:aspect-auto"}`}>
+            <div
+              className={`relative aspect-[3/4] min-h-0 ${stacked ? "" : "lg:aspect-auto"}`}
+            >
               <video
                 ref={videoRef}
                 src="https://assets.peytspencer.com/videos/exhibit-psd-live.mp4"
@@ -148,8 +159,12 @@ export function ExhibitPsdContent({
               )}
               <div className="pointer-events-none absolute left-0 top-0 p-3">
                 <div className="rounded-lg bg-black/30 px-2 py-1 backdrop-blur-sm">
-                  <p className="text-sm font-medium text-white">Live with the band at High Dive</p>
-                  <p className="text-xs text-white/70">Gainesville, FL · 2015</p>
+                  <p className="text-sm font-medium text-white">
+                    Live with the band at High Dive
+                  </p>
+                  <p className="text-xs text-white/70">
+                    Gainesville, FL · 2015
+                  </p>
                 </div>
               </div>
             </div>
@@ -159,7 +174,7 @@ export function ExhibitPsdContent({
           type="button"
           onClick={() => setStoryOpen(true)}
           aria-expanded={storyOpen}
-          className={`absolute bottom-0 left-0 p-3 text-left transition-opacity ${
+          className={`absolute bottom-0 left-0 p-3 text-left transition-opacity lg:hidden ${
             storyOpen ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >
@@ -170,7 +185,7 @@ export function ExhibitPsdContent({
         </button>
         <div
           onClick={() => setStoryOpen(false)}
-          className={`absolute inset-0 z-10 flex cursor-pointer flex-col gap-[clamp(0.75rem,2.5cqw,1.75rem)] overflow-y-auto bg-black/90 p-[clamp(1.25rem,4cqw,3rem)] backdrop-blur-sm transition-transform duration-300 ease-out ${
+          className={`absolute inset-0 z-10 flex cursor-pointer flex-col lg:hidden gap-[clamp(0.75rem,2.5cqw,1.75rem)] overflow-y-auto bg-black/90 p-[clamp(1.25rem,4cqw,3rem)] backdrop-blur-sm transition-transform duration-300 ease-out ${
             storyOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -189,10 +204,16 @@ export function ExhibitPsdContent({
   }
 
   const colorName = COLORS.find((c) => c.id === colorId)?.name ?? colorId;
-  const venmoUrl = venmoPayUrl(PRICE, `Exhibit PSD tee ${sizeLabel} ${colorName}`);
+  const venmoUrl = venmoPayUrl(
+    PRICE,
+    `Exhibit PSD tee ${size} ${colorName}`,
+  );
 
   return (
-    <div className="flex min-w-0 flex-col lg:!pb-0" style={{ paddingBottom: footerH }}>
+    <div
+      className="flex min-w-0 flex-col lg:gap-6 lg:!pb-0"
+      style={{ paddingBottom: footerH }}
+    >
       {showCheckout && (
         <EmbeddedTeeCheckout
           productId={PRODUCT_ID}
@@ -214,49 +235,33 @@ export function ExhibitPsdContent({
       )}
       <div
         ref={footerRef}
-        className="fixed inset-x-0 z-30 bg-white/95 px-4 pb-3 pt-3 backdrop-blur [&_h2]:hidden dark:bg-gray-900/95 sm:px-6 lg:static lg:z-auto lg:bg-transparent lg:p-0 lg:backdrop-blur-0 lg:[&_h2]:block"
+        className="fixed inset-x-0 z-30 bg-white/95 px-4 pb-3 pt-3 backdrop-blur dark:bg-gray-900/95 sm:px-6 lg:static lg:z-auto lg:flex lg:flex-col lg:gap-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-0"
         style={{ bottom: "var(--player-h, 0px)" }}
       >
-        <div>
-          <ColorSwatches colors={COLORS} value={colorId} accent={INK} onChange={selectColor} />
+        <div className="lg:flex lg:flex-col lg:gap-6">
+          <ColorSwatches
+            colors={COLORS}
+            value={colorId}
+            accent={INK}
+            onChange={selectColor}
+          />
           <SizeGrid
             sizes={SIZES}
             value={size}
             activeHex={INK}
             onChange={setSize}
-            className="mt-3 lg:mt-5"
+            className="mt-3 lg:mt-0"
           />
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:mt-6">
-          <a
-            href={size ? venmoUrl : undefined}
-            onClick={() => trackCheckout("venmo")}
-            aria-disabled={!size}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex h-14 items-center justify-center rounded-xl px-4 text-white transition-all lgtall:h-[4.5rem] lgtall:px-5 hover:brightness-110 active:scale-[0.99] ${
-              size ? "" : "pointer-events-none opacity-40"
-            }`}
-            style={{ backgroundColor: "#008CFF" }}
-          >
-            <img
-              src="/Venmo_Logo_Blue.png"
-              alt="Venmo"
-              className="h-[18px] w-auto brightness-0 invert lgtall:h-6"
-            />
-          </a>
-          <button
-            type="button"
-            onClick={() => {
-              trackCheckout("card");
-              startCard();
-            }}
-            disabled={!size || loading}
-            className="flex h-14 items-center justify-center rounded-xl px-4 text-white transition-all lgtall:h-[4.5rem] lgtall:px-5 hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
-            style={{ backgroundColor: INK }}
-          >
-            <span className="text-lg font-semibold lgtall:text-xl">Pay with your card</span>
-          </button>
+        <div className="mt-3 lg:mt-0 lg:[&_.payment-options]:-mb-3">
+          <PaymentOptions
+            venmoUrl={venmoUrl}
+            onCard={startCard}
+            cardLoading={loading}
+            blocked={!size}
+            zelleNote={`Exhibit PSD tee ${size} ${colorName}`}
+            onSelect={(method) => method !== "zelle" && trackCheckout(method)}
+          />
         </div>
         {!size && (
           <p className="mt-2 text-center text-sm text-stone-500 dark:text-neutral-500">
@@ -265,14 +270,25 @@ export function ExhibitPsdContent({
         )}
         {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
       </div>
-      <ul className="mt-4 space-y-1 text-[10px] uppercase tracking-[0.14em] text-stone-500 dark:text-neutral-500 lgtall:mt-5 lgtall:space-y-1.5 lgtall:text-xs">
+      <ul className="mt-4 lg:mt-0 space-y-1 text-[10px] uppercase tracking-[0.14em] text-stone-500 dark:text-neutral-500 lgtall:mt-0 lgtall:space-y-1.5 lgtall:text-xs">
         {FINE_PRINT.map((item) => (
-          <li key={item} className="flex items-center gap-2">
-            <span className="h-1 w-1 shrink-0 rounded-full" style={{ backgroundColor: INK }} />
+          <li key={item} className="flex items-start gap-2">
+            <span
+              className="mt-[calc((1lh-0.25rem)/2)] h-1 w-1 shrink-0 rounded-full"
+              style={{ backgroundColor: INK }}
+            />
             {item}
           </li>
         ))}
       </ul>
+      <div className="hidden lg:block">
+        <h3 className="font-bebas text-2xl leading-none text-stone-900 dark:text-white">
+          Exhibit PSD
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-neutral-400">
+          {EXHIBIT_STORY}
+        </p>
+      </div>
     </div>
   );
 }

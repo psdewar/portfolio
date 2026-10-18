@@ -211,18 +211,21 @@ test.describe("Check in", () => {
     await expect(page.getByRole("button", { name: /Keep your ticket.*, done$/ })).toBeVisible();
   });
 
-  test("a guest buying a tee cannot pay until they pick a size, then can", async ({ page }) => {
+  test("a guest buying a tee starts on size M and can switch size and color", async ({ page }) => {
     await open(page);
     await skip(page);
     await page.getByRole("button", { name: /Grab merch/ }).click();
     const venmo = page.getByRole("link", { name: /Venmo/ });
     const card = page.getByRole("button", { name: "Pay with your card" });
-    await expect(venmo).toBeDisabled();
-    await expect(card).toBeDisabled();
-    await page.getByRole("radio", { name: "Forest" }).click();
-    await page.getByRole("button", { name: "M", exact: true }).click();
-    await expect(venmo).toBeEnabled();
+    await expect(page.getByRole("button", { name: "M", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(card).toBeEnabled();
+    await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20M%20Navy/);
+    await page.getByRole("button", { name: "L", exact: true }).click();
+    await expect(page.getByRole("button", { name: "L", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20L%20Navy/);
+    await page.getByRole("button", { name: "Forest", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Forest", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20L%20Forest/);
     await expect(page.getByRole("img", { name: /Patience tee in Forest/ })).toBeVisible();
   });
 });

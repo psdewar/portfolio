@@ -6,22 +6,60 @@ export interface TeeColor {
   hex: string;
 }
 
-const HEADING = "font-bebas text-2xl leading-none text-stone-900 dark:text-white sm:text-3xl lgtall:text-4xl";
+export const TEE_COLORS = [
+  { id: "navy", name: "Navy", hex: "#262b3f" },
+  { id: "forest", name: "Forest", hex: "#2c413a" },
+  { id: "maroon", name: "Maroon", hex: "#5d2c30" },
+] as const;
+
+export const TEE_SIZES = ["XS", "S", "M", "L", "XL"] as const;
+export const TEE_DEFAULT_SIZE = "M";
+
+const NAME_TONES = {
+  neutral: {
+    on: "text-stone-900 dark:text-white",
+    off: "text-stone-400 dark:text-neutral-500",
+  },
+  ink: { on: "text-[#262b3f]", off: "text-[#262b3f]/50" },
+};
+
+function ColorName({
+  name,
+  active,
+  tone,
+  className = "",
+}: {
+  name: string;
+  active: boolean;
+  tone: keyof typeof NAME_TONES;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`text-[11px] uppercase leading-none tracking-[0.18em] transition-colors lgtall:text-[13px] ${
+        active ? NAME_TONES[tone].on : NAME_TONES[tone].off
+      } ${className}`}
+    >
+      {name}
+    </span>
+  );
+}
 
 interface ColorProps {
   colors: readonly TeeColor[];
   value: string;
   accent: string;
+  tone?: keyof typeof NAME_TONES;
   onChange: (id: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function ColorSwatches({ colors, value, accent, onChange, className, style }: ColorProps) {
+export function ColorSwatches({ colors, value, accent, tone = "neutral", onChange, className, style }: ColorProps) {
   return (
     <div className={className} style={style}>
-      <h2 className={HEADING}>Color</h2>
-      <div className="mt-3 flex gap-4 lgtall:mt-4 lgtall:gap-5">
+      <div className="flex gap-5 lgtall:gap-6">
         {colors.map((c) => {
           const active = c.id === value;
           return (
@@ -30,7 +68,8 @@ export function ColorSwatches({ colors, value, accent, onChange, className, styl
               type="button"
               onClick={() => onChange(c.id)}
               aria-pressed={active}
-              className="group flex flex-col items-center gap-2"
+              aria-label={c.name}
+              className="group relative mb-6 lg:mb-[1.2rem] lgtall:mb-[1.3rem]"
             >
               <span
                 className="flex h-11 w-11 items-center justify-center rounded-full lgtall:h-14 lgtall:w-14 ring-1 ring-inset ring-black/10 transition-transform duration-200 group-hover:scale-105 dark:ring-white/15"
@@ -51,13 +90,12 @@ export function ColorSwatches({ colors, value, accent, onChange, className, styl
                   </svg>
                 )}
               </span>
-              <span
-                className={`text-[11px] uppercase tracking-[0.18em] transition-colors lgtall:text-[13px] ${
-                  active ? "text-stone-900 dark:text-white" : "text-stone-400 dark:text-neutral-500"
-                }`}
-              >
-                {c.name}
-              </span>
+              <ColorName
+                name={c.name}
+                active={active}
+                tone={tone}
+                className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap"
+              />
             </button>
           );
         })}
@@ -87,8 +125,7 @@ export function SizeGrid({
 }: SizeProps) {
   return (
     <div className={className} style={style}>
-      <h2 className={HEADING}>Size</h2>
-      <div className="mt-3 flex gap-2.5 sm:gap-3 lgtall:mt-4 lgtall:gap-3.5">
+      <div className="flex gap-2.5 sm:gap-3 lgtall:gap-3.5">
         {sizes.map((s) => {
           const active = s === value;
           return (
@@ -98,7 +135,7 @@ export function SizeGrid({
               onClick={() => onChange(s)}
               aria-pressed={active}
               style={active ? { backgroundColor: activeHex, borderColor: activeHex } : undefined}
-              className={`flex h-12 min-w-0 flex-1 items-center justify-center rounded-xl border text-base font-semibold transition-all lgtall:h-16 lgtall:text-xl ${
+              className={`tee-size flex h-12 min-w-0 flex-1 items-center justify-center rounded-btn border text-base font-semibold transition-all lgtall:h-16 lgtall:text-xl ${
                 active
                   ? activeTextClass
                   : "border-stone-300 text-stone-700 hover:border-stone-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white"

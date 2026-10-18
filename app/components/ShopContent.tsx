@@ -3,23 +3,31 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { ColorSwatches, SizeGrid } from "./TeePickers";
+import {
+  ColorSwatches,
+  SizeGrid,
+  TEE_COLORS,
+  TEE_DEFAULT_SIZE,
+  TEE_SIZES,
+} from "./TeePickers";
 import { useTeeCheckout } from "./useTeeCheckout";
 import { venmoPayUrl } from "./PaymentModal";
+import PaymentOptions from "./PaymentOptions";
 
-const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), { ssr: false });
+const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), {
+  ssr: false,
+});
 
 const PRODUCT_ID = "tee-patience";
 const GOLD = "#c59d57";
 const PRICE = "45";
 
-const COLORS = [
-  { id: "navy", name: "Navy", hex: "#262b3f", image: "/images/merch/patience-navy.jpeg" },
-  { id: "forest", name: "Forest", hex: "#2c413a", image: "/images/merch/patience-forest.jpeg" },
-  { id: "maroon", name: "Maroon", hex: "#5d2c30", image: "/images/merch/patience-maroon.jpeg" },
-] as const;
+const COLORS = TEE_COLORS.map((c) => ({
+  ...c,
+  image: `/images/merch/patience-${c.id}.jpeg`,
+}));
 
-const SIZES = ["XS", "S", "M", "L", "XL"] as const;
+const SIZES = TEE_SIZES;
 
 const FINE_PRINT = ["Available when you attend From The Ground Up"];
 
@@ -55,7 +63,7 @@ export function ShopContent({
     productId: PRODUCT_ID,
     colors: COLORS,
     sizes: SIZES,
-    defaultSize: "M",
+    defaultSize: TEE_DEFAULT_SIZE,
     embedded,
     event: "checkout_initiated",
     errorText: "Something went wrong starting checkout. Please try again.",
@@ -78,7 +86,9 @@ export function ShopContent({
 
   if (section === "media") {
     return (
-      <div className={`relative aspect-square w-full overflow-hidden bg-white ${stacked ? "" : "lg:aspect-auto lg:h-full lg:min-h-60 lg:rounded-2xl"}`}>
+      <div
+        className={`relative aspect-square w-full overflow-hidden bg-white ${stacked ? "" : "lg:aspect-auto lg:h-full lg:min-h-60 lg:rounded-2xl lg:border lg:border-neutral-200 dark:lg:border-neutral-700"}`}
+      >
         {COLORS.map((c) => {
           const active = c.id === colorId;
           const beneath = c.id === prevColorId && !active;
@@ -90,9 +100,13 @@ export function ShopContent({
               aria-hidden={!active}
               fill
               priority
-              sizes="(min-width: 1024px) 45vw, 100vw"
-              className={`object-cover transition-opacity duration-300 ease-out ${
-                active ? "z-20 opacity-100" : beneath ? "z-10 opacity-100" : "z-0 opacity-0"
+              sizes="(min-width: 1024px) 60vw, 100vw"
+              className={`object-contain transition-opacity duration-300 ease-out ${
+                active
+                  ? "z-20 opacity-100"
+                  : beneath
+                    ? "z-10 opacity-100"
+                    : "z-0 opacity-0"
               }`}
             />
           );
@@ -102,9 +116,15 @@ export function ShopContent({
   }
 
   if (section === "controls") {
-    const venmoUrl = venmoPayUrl(PRICE, `Patience tee ${sizeLabel} ${color.name}`);
+    const venmoUrl = venmoPayUrl(
+      PRICE,
+      `Patience tee ${size} ${color.name}`,
+    );
     return (
-      <div className="flex min-w-0 flex-col lg:!pb-0" style={{ paddingBottom: footerH }}>
+      <div
+        className="flex min-w-0 flex-col lg:gap-6 lg:!pb-0"
+        style={{ paddingBottom: footerH }}
+      >
         {showCheckout && (
           <EmbeddedTeeCheckout
             productId={PRODUCT_ID}
@@ -112,54 +132,45 @@ export function ShopContent({
             size={sizeLabel}
             onClose={closeCheckout}
             crossSellLabel="Get the Exhibit PSD tee too"
-            onCrossSell={onCrossSell && (() => { closeCheckout(); onCrossSell(); })}
+            onCrossSell={
+              onCrossSell &&
+              (() => {
+                closeCheckout();
+                onCrossSell();
+              })
+            }
           />
         )}
         <div
           ref={footerRef}
-          className="fixed inset-x-0 z-30 bg-white/95 px-4 pb-3 pt-3 backdrop-blur [&_h2]:hidden dark:bg-gray-900/95 sm:px-6 lg:static lg:z-auto lg:bg-transparent lg:p-0 lg:backdrop-blur-0 lg:[&_h2]:block"
+          className="fixed inset-x-0 z-30 bg-white/95 px-4 pb-3 pt-3 backdrop-blur dark:bg-gray-900/95 sm:px-6 lg:static lg:z-auto lg:flex lg:flex-col lg:gap-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-0"
           style={{ bottom: "var(--player-h, 0px)" }}
         >
-          <div>
-            <ColorSwatches colors={COLORS} value={colorId} accent={GOLD} onChange={selectColor} />
+          <div className="lg:flex lg:flex-col lg:gap-6">
+            <ColorSwatches
+              colors={COLORS}
+              value={colorId}
+              accent={GOLD}
+              onChange={selectColor}
+            />
             <SizeGrid
               sizes={SIZES}
               value={size}
               activeHex={color.hex}
               onChange={setSize}
-              className="mt-3 lg:mt-5"
+              className="mt-3 lg:mt-0"
             />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 lg:mt-6">
-            <a
-              href={size ? venmoUrl : undefined}
-              onClick={() => trackCheckout("venmo")}
-              aria-disabled={!size}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex h-14 items-center justify-center rounded-xl px-4 text-white transition-all lgtall:h-[4.5rem] lgtall:px-5 hover:brightness-110 active:scale-[0.99] ${
-                size ? "" : "pointer-events-none opacity-40"
-              }`}
-              style={{ backgroundColor: "#008CFF" }}
-            >
-              <img
-                src="/Venmo_Logo_Blue.png"
-                alt="Venmo"
-                className="h-[18px] w-auto brightness-0 invert lgtall:h-6"
-              />
-            </a>
-            <button
-              type="button"
-              onClick={() => {
-                trackCheckout("card");
-                startCard();
-              }}
-              disabled={!size || loading}
-              className="flex h-14 items-center justify-center rounded-xl px-4 text-white transition-all lgtall:h-[4.5rem] lgtall:px-5 hover:brightness-110 active:scale-[0.99] disabled:opacity-40"
-              style={{ backgroundColor: color.hex }}
-            >
-              <span className="text-lg font-semibold lgtall:text-xl">Pay with your card</span>
-            </button>
+          <div className="mt-3 lg:mt-0 lg:[&_.payment-options]:-mb-3">
+            <PaymentOptions
+              venmoUrl={venmoUrl}
+              onCard={startCard}
+              cardLoading={loading}
+              cardNoFees
+              blocked={!size}
+              zelleNote={`Patience tee ${size} ${color.name}`}
+              onSelect={(method) => method !== "zelle" && trackCheckout(method)}
+            />
           </div>
           {!size && (
             <p className="mt-2 text-center text-sm text-stone-500 dark:text-neutral-500">
@@ -168,12 +179,13 @@ export function ShopContent({
           )}
           {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
         </div>
-        <ul
-          className="mt-4 space-y-1 text-[10px] uppercase tracking-[0.14em] text-stone-500 dark:text-neutral-500 lgtall:mt-5 lgtall:space-y-1.5 lgtall:text-xs"
-        >
+        <ul className="mt-4 lg:mt-0 space-y-1 text-[10px] uppercase tracking-[0.14em] text-stone-500 dark:text-neutral-500 lgtall:mt-0 lgtall:space-y-1.5 lgtall:text-xs">
           {FINE_PRINT.map((item) => (
-            <li key={item} className="flex items-center gap-2">
-              <span className="h-1 w-1 shrink-0 rounded-full" style={{ backgroundColor: GOLD }} />
+            <li key={item} className="flex items-start gap-2">
+              <span
+                className="mt-[calc((1lh-0.25rem)/2)] h-1 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: GOLD }}
+              />
               {item}
             </li>
           ))}

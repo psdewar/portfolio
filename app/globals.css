@@ -36,6 +36,7 @@
 /* transitions-dev - copy this :root block into your project once.
    Every transition snippet reads from these semantic names. */
 :root {
+  --btn-r: 3px;
   /* Card resize */
   --resize-dur: 300ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);

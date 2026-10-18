@@ -89,7 +89,7 @@ export default function EmbeddedTeeCheckout({
               {onCrossSell && crossSellLabel && (
                 <button
                   onClick={onCrossSell}
-                  className="rounded-xl px-6 py-3 font-medium"
+                  className="rounded-btn px-6 py-3 font-medium"
                   style={{ background: accent, color: accentText }}
                 >
                   {crossSellLabel}
@@ -97,7 +97,7 @@ export default function EmbeddedTeeCheckout({
               )}
               <Link
                 href="/listen"
-                className="rounded-xl border-2 border-neutral-200 px-6 py-3 font-medium text-neutral-700 transition-colors hover:border-neutral-400"
+                className="rounded-btn border-2 border-neutral-200 px-6 py-3 font-medium text-neutral-700 transition-colors hover:border-neutral-400"
               >
                 Listen while you wait
               </Link>

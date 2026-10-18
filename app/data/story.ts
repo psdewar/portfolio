@@ -37,7 +37,7 @@ export function storyParagraphs({ shows, cities }: TourCounts): StoryParagraph[]
     },
     { text: "Senior year, he became a regular in NBA star Damian Lillard's weekly #4BarFriday Instagram rap challenge, and his bars caught the attention of Dame D.O.L.L.A., who reposted his videos." },
     {
-      text: "After graduation he stayed in Gainesville another year testing corporate training software, then moved west to join Microsoft, where he spent the next decade as a software engineer and developed Lyrist for songwriters to find beats and beat writer's block. During Covid, Dame brought him onto the #4BarFriday IG Cypher live.",
+      text: "After graduation he stayed in Gainesville another year testing corporate training software, then moved west to join Microsoft, where he spent the next decade as a software engineer. He kept writing bars, and turned how he writes into Lyrist, an app for songwriters to find beats and beat writer's block. During Covid, Dame brought him onto the #4BarFriday IG Cypher live.",
       photo: {
         src: "/images/story/cypher.webp",
         alt: "Peyt on the #4BarFriday IG Cypher live in 2020",

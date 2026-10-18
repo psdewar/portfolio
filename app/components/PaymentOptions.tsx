@@ -6,7 +6,7 @@ const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
 const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
 
 export const PAYMENT_OPTIONS_STYLE = `
-  .cc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 12px; font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; margin-bottom: 12px; transition: opacity 0.15s ease; }
+  .cc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: var(--btn-r); font: inherit; font-size: 17px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; margin-bottom: 12px; transition: opacity 0.15s ease; }
   .cc-btn:hover { opacity: 0.92; }
   .cc-btn:disabled { cursor: wait; opacity: 0.85; }
   .cc-spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: cc-spin 0.8s linear infinite; }
@@ -37,6 +37,7 @@ export default function PaymentOptions({
   onSelect,
   zelle = true,
   zelleAmount,
+  zelleNote,
   interac = false,
   interacFirst = false,
   blocked = false,
@@ -50,6 +51,7 @@ export default function PaymentOptions({
   onSelect?: (method: "venmo" | "zelle" | "card") => void;
   zelle?: boolean;
   zelleAmount?: string;
+  zelleNote?: string;
   interac?: boolean;
   interacFirst?: boolean;
   blocked?: boolean;
@@ -133,6 +135,7 @@ export default function PaymentOptions({
       {copied === "zelle" && (
         <p className="cc-rail-hint" aria-live="polite">
           Open your banking app and paste it in Zelle to send{zelleAmount ? ` ${zelleAmount}` : ""}.
+          {zelleNote ? ` Add the note: ${zelleNote}.` : ""}
         </p>
       )}
       {copied === "interac" && (
