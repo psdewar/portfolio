@@ -60,6 +60,17 @@ export const TRACK_DATA: TrackData[] = [
     artworkPending: true,
   },
   {
+    id: "see-this-through",
+    title: "See This Through",
+    artist: "Peyt Spencer",
+    audioUrl: "/api/audio/see-this-through",
+    thumbnail: "/images/covers/see-this-through.jpg",
+    duration: 134,
+    releaseDate: "2026-10-18",
+    label: "Lyrist Records",
+    artworkPending: true,
+  },
+  {
     id: "so-good",
     title: "So Good",
     artist: "Peyt Spencer",

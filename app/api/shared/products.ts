@@ -171,6 +171,10 @@ export const DIGITAL_ASSETS: Record<string, { blobPrefix: string; displayName: s
     blobPrefix: "vps",
     displayName: "Best Foot Forward",
   },
+  "see-this-through": {
+    blobPrefix: "vps",
+    displayName: "See This Through",
+  },
   // Production assets (Vercel Blob)
   patience: { blobPrefix: "audio/patience", displayName: "Patience" },
   safe: { blobPrefix: "audio/safe", displayName: "Safe" },
