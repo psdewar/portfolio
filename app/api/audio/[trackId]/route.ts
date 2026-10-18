@@ -14,7 +14,8 @@ import {
   logDevWarning,
   generateMockAudioBuffer,
 } from "../../shared/audio-utils";
-import { isPatronTrack } from "../../../data/patron-config";
+import { isSupporterTrack } from "../../../data/supporter-config";
+import { verifySupporterToken } from "../../../../lib/session";
 
 // VPS URL for audio files
 const VPS_AUDIO_BASE_URL = process.env.VPS_AUDIO_URL || "https://assets.peytspencer.com/audio";
@@ -57,16 +58,16 @@ export async function GET(
       return new NextResponse("Track not found", { status: 404 });
     }
 
-    // Check patron access for patron-exclusive tracks
-    if (isPatronTrack(trackId)) {
-      const patronToken = request.cookies.get("patronToken")?.value;
-      if (patronToken !== "active") {
-        return new NextResponse("Patron access required", { status: 403 });
+    // Check supporter access for supporter-exclusive tracks
+    if (isSupporterTrack(trackId)) {
+      const supporterToken = request.cookies.get("supporterToken")?.value;
+      if (!verifySupporterToken(supporterToken) && !(isDev && supporterToken === "active")) {
+        return new NextResponse("Supporter access required", { status: 403 });
       }
     }
 
-    // Patron stays private (never on shared CDN); public gets long browser + CDN cache.
-    const cacheControl = isPatronTrack(trackId)
+    // Supporter stays private (never on shared CDN); public gets long browser + CDN cache.
+    const cacheControl = isSupporterTrack(trackId)
       ? "private, max-age=86400, stale-while-revalidate=86400"
       : "public, max-age=31536000, immutable, s-maxage=31536000";
 

@@ -18,8 +18,8 @@ import {
   STREAMING_PLATFORM_LABELS,
   type StreamingPlatform,
 } from "app/data/tracks";
-import { isPatronTrack } from "app/data/patron-config";
-import { usePatronStatus } from "app/hooks/usePatronStatus";
+import { isSupporterTrack } from "app/data/supporter-config";
+import { useSupporterStatus } from "app/hooks/useSupporterStatus";
 import { useScrollLock } from "app/hooks/useScrollLock";
 import SupportModal from "app/components/SupportModal";
 import { getLyrics, getCurrentLyric } from "app/lib/lyrics";
@@ -86,7 +86,7 @@ export default function SingleOverlay({
     formatTime,
     getLyricTime,
   } = useAudio();
-  const isPatron = usePatronStatus();
+  const isSupporter = useSupporterStatus();
 
   useScrollLock();
 
@@ -95,17 +95,17 @@ export default function SingleOverlay({
   const playing = isCurrent && isPlaying;
   const releaseYear = trackData?.releaseDate?.slice(0, 4);
 
-  const isPatronOnly = isPatronTrack(trackId);
+  const isSupporterOnly = isSupporterTrack(trackId);
   const isHosted = (trackData?.source ?? "hosted") === "hosted";
-  const state: "playable" | "patronGated" | "streamOnly" = !isHosted
+  const state: "playable" | "supporterGated" | "streamOnly" = !isHosted
     ? "streamOnly"
-    : isPatronOnly && !isPatron
-      ? "patronGated"
+    : isSupporterOnly && !isSupporter
+      ? "supporterGated"
       : "playable";
 
   const [showSupportModal, setShowSupportModal] = useState(false);
   const previewTrack =
-    state === "patronGated" && trackData
+    state === "supporterGated" && trackData
       ? { title: trackData.title, src: `/audio/${trackId}-preview.mp3` }
       : null;
 
@@ -231,7 +231,7 @@ export default function SingleOverlay({
   };
 
   const handlePlayToggle = () => {
-    if (state === "patronGated") {
+    if (state === "supporterGated") {
       setShowSupportModal(true);
       return;
     }
@@ -525,7 +525,7 @@ export default function SingleOverlay({
             aria-label={
               state === "streamOnly"
                 ? "Not playable in app"
-                : state === "patronGated"
+                : state === "supporterGated"
                   ? "Play preview"
                   : playing || (isLoading && isCurrent)
                   ? "Pause"

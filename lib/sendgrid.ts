@@ -1,6 +1,6 @@
 import sgMail from "@sendgrid/mail";
 import type { EmailImage } from "./email-image";
-import { patronPortalPath } from "../app/lib/confirm";
+import { supporterPortalPath } from "../app/lib/confirm";
 
 // SDK TS types declare `contentId` (camelCase) but the v3 API requires
 // `content_id` (snake_case). Bug: sendgrid-nodejs#1080, unfixed in 8.1.6.
@@ -411,13 +411,13 @@ export async function sendDownloadEmail(params: {
   );
 }
 
-export async function sendPatronWelcomeEmail(params: {
+export async function sendSupporterWelcomeEmail(params: {
   to: string;
   claimPath: string;
 }): Promise<boolean> {
   const { to, claimPath } = params;
   const claimUrl = `${SITE_URL}${claimPath}`;
-  const portalUrl = `${SITE_URL}${patronPortalPath(to)}`;
+  const portalUrl = `${SITE_URL}${supporterPortalPath(to)}`;
 
   return trySend(
     {
@@ -438,6 +438,6 @@ export async function sendPatronWelcomeEmail(params: {
       ${signOff()}
     `),
     },
-    "PatronWelcome",
+    "SupporterWelcome",
   );
 }

@@ -158,7 +158,7 @@ export type Product =
  * TEST ASSETS: Prefixed with "test-" - use local files or mock data
  */
 export const DIGITAL_ASSETS: Record<string, { blobPrefix: string; displayName: string }> = {
-  // Patron-exclusive assets (served from VPS, not Vercel Blob)
+  // Supporter-exclusive assets (served from VPS, not Vercel Blob)
   "crg-freestyle": {
     blobPrefix: "vps", // Marker only - actual fetch is from VPS
     displayName: "Can't Rush Greatness Freestyle",

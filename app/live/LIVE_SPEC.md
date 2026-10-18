@@ -96,6 +96,8 @@ Live, the Notify bell sits top-right above Share and fullscreen and does not aut
 
 The sheet and `firstScreenClone` headings share `cityHeadingClass` and `clamp(2rem, 9vw, 2.75rem)` (the city-list face), so the measured first screen matches the rendered one.
 
+The offline mobile stage height is reserved before the measurement lands. Until `mobileStageHeightPx` resolves, `MobileTree` sets the stage to `min(natural photo height, max(var(--sheet-stage-floor), 100dvh - var(--header-h) - sheetIdeal))`, where `sheetIdeal` = `mobileSheetIdealCss(showCount, hasHeading)` (`LiveSupportAsk.tsx`) = rows (max 4) x `var(--sheet-row)` (48px, 56px from `sm`, matching `ShowRow` `min-h-12 sm:min-h-14`) + the heading (`20px` margins + `0.95 x` the heading font clamp). `--sheet-stage-floor` is 44px, or 40% of the viewport under `(orientation: landscape)`, mirroring `mobileStageFloorPx`. The `firstScreenClone` measurement then only corrects rows that wrap, so the stage does not shift on mount.
+
 ## Clip viewer
 
 `LiveClips` passes `expandOnPlay` to `EnergyVideos` (home's `ArtistIntro` does not, so it is unchanged). With it,
@@ -116,7 +118,7 @@ tiles do not autoplay, so closing leaves previews as they were.
 ## Offline and live CTAs
 
 - **Offline (Marketing)** has a primary and a secondary action (`renderOfflineState` in `Stage.tsx`), anchored
-  bottom-left of the stage photo (`px-4 pb-5`, over a `h-[30%]` `from-black/50` bottom scrim) on desktop and mobile, nothing under the marquee, hidden for patrons. `computePhotoFit` still pins the hairline 48px from the top, clear of the 36px marquee. Primary on the right: "Notify me"
+  bottom-left of the stage photo (`px-4 pb-5`, over a `h-[30%]` `from-black/50` bottom scrim) on desktop and mobile, nothing under the marquee, hidden for supporters. `computePhotoFit` still pins the hairline 48px from the top, clear of the 36px marquee. Primary on the right: "Notify me"
   (`aria-label` "Notify me by email"), `min-h-[52px]`, white pill, Bebas `text-[26px]`, dark text, bell icon.
   Secondary on the left: "Fund My Tour" (`onOpenSupport`), same height and Bebas size, `bg-black/40
   backdrop-blur`, white text, the Support nav icon (`NAV_ICON["/support"]`). At max-width 400px the row goes full width with a smaller gap (`gap-1.5`), padding (`px-3`) and
@@ -125,7 +127,7 @@ tiles do not autoplay, so closing leaves previews as they were.
   on all four chat surfaces: desktop rail (`DesktopChatRail`), mobile panel chat (`MobileTree`), the mobile
   overlay and the desktop fullscreen overlay (both `AdlibChatOverlay`), via the `action` slot of
   `AdlibReactionButtons`. The input spans the full composer row next to Send (`h-10 w-10` in the panel).
-- **Live Notify**: a bell button (`renderNotifyButton`, hidden for patrons) top-right of the stage on
+- **Live Notify**: a bell button (`renderNotifyButton`, hidden for supporters) top-right of the stage on
   mobile and desktop, before Share. It is `pointer-events-auto` and never uses `fadeCls`, so it does
   not auto-hide; Share, fullscreen, the volume pill label and show-chat keep the auto-hide.
 - **Show rows**: `/live` rows pass `quietRsvp` to `ShowRow`, so the Bebas "RSVP" label becomes a small

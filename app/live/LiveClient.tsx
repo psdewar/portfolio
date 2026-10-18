@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { activatePatronStatus } from "../lib/patron";
+import { claimSupporterSession } from "../lib/supporter";
 import StayConnected, { type StayConnectedPurpose } from "../components/StayConnected";
 import { Toast } from "../components/Toast";
 import { useAdlibSocket } from "../hooks/useAdlibSocket";
@@ -12,11 +12,11 @@ import type { StreamPath } from "../lib/live";
 import { usePlayer } from "./player";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { type TimelineEvent } from "../data/timeline";
-import { usePatronStatus } from "../hooks/usePatronStatus";
+import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { getLegDisplayName } from "../lib/shows-shared";
 import SupportModal from "../components/SupportModal";
 import { type EnergyVideosHandle } from "../components/EnergyVideos";
-import { EARLY_ACCESS_PREVIEW } from "../data/patron-config";
+import { EARLY_ACCESS_PREVIEW } from "../data/supporter-config";
 import { useLiveLayout } from "./useLiveLayout";
 import { useStageVideo, type StageProps } from "./Stage";
 import { DesktopTree } from "./DesktopTree";
@@ -47,7 +47,7 @@ export default function LiveClient({
   const searchParams = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
-  const isPatron = usePatronStatus();
+  const isSupporter = useSupporterStatus();
   const isOgMode = searchParams.get("og") === "true";
   const whepUrl = WHEP_URL.replace("/live/whep", `/${path}_opus/whep`);
   const hlsUrl = HLS_URL.replace("/live_aac/", `/${path}_aac/`);
@@ -185,11 +185,11 @@ export default function LiveClient({
   useEffect(() => {
     if (searchParams.get("thanks") !== "1" || thanksHandled.current) return;
     thanksHandled.current = true;
-    activatePatronStatus();
-    posthog?.capture("patron_checkout_completed", { source: "live" });
+    void claimSupporterSession(searchParams.get("session_id"));
+    posthog?.capture("supporter_checkout_completed", { source: "live" });
 
     if (!isLive) {
-      router.replace("/listen?success=patron_live");
+      router.replace("/listen?success=supporter_live");
       return;
     }
 
@@ -286,7 +286,7 @@ export default function LiveClient({
     player,
     adlib,
     elapsedTime,
-    isPatron,
+    isSupporter,
     notifyPurpose,
     setNotifyPurpose,
     chatCollapsed,

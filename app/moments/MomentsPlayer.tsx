@@ -10,11 +10,11 @@ import {
 } from "@phosphor-icons/react";
 import posthog from "posthog-js";
 import { TRACK_DATA, type TrackData } from "../data/tracks";
-import { isPatronTrack } from "../data/patron-config";
+import { isSupporterTrack } from "../data/supporter-config";
 import { useAudio } from "../contexts/AudioContext";
 
 const PLAYLIST: TrackData[] = TRACK_DATA.filter(
-  (t) => (t.source ?? "hosted") === "hosted" && !isPatronTrack(t.id),
+  (t) => (t.source ?? "hosted") === "hosted" && !isSupporterTrack(t.id),
 );
 
 const START_INDEX = Math.max(

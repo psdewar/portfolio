@@ -5,12 +5,12 @@ import posthog from "posthog-js";
 import { useHydrated } from "../hooks/useHydrated";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useSession } from "../hooks/useSession";
-import { PATRON_TIERS } from "../data/patron-tiers";
+import { SUPPORTER_TIERS } from "../data/supporter-tiers";
 import { grossUpCents, formatCents, MAX_CARD_CENTS } from "../lib/fees";
 
-export const PICKER_TIERS = [...PATRON_TIERS].reverse();
+export const PICKER_TIERS = [...SUPPORTER_TIERS].reverse();
 export const MAX_CUSTOM_AMOUNT = MAX_CARD_CENTS / 100;
-export const MIN_CUSTOM_AMOUNT = PATRON_TIERS[PATRON_TIERS.length - 1].net;
+export const MIN_CUSTOM_AMOUNT = SUPPORTER_TIERS[SUPPORTER_TIERS.length - 1].net;
 
 const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
   Math.round(monthlyNetDollars * (annual ? 1000 : 100));
@@ -50,7 +50,7 @@ export function useMonthlySupport({ source, checkinId }: { source: string; check
     const interval = period === "annually" ? "year" : "month";
     const displayAmount = Math.round(netAmount / 100);
 
-    posthog.capture("patron_checkout_initiated", {
+    posthog.capture("supporter_checkout_initiated", {
       amount_cents: finalAmount,
       net_amount: netAmount,
       billing_period: period,
@@ -93,7 +93,7 @@ export function useMonthlySupport({ source, checkinId }: { source: string; check
       onBelowMinimum();
       return;
     }
-    posthog.capture("patron_tier_selected", {
+    posthog.capture("supporter_tier_selected", {
       amount_cents: grossUpCents(selectedNetCents),
       billing_period: billingPeriod,
       is_logged_in: !!session,

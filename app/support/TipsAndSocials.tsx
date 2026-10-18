@@ -74,7 +74,7 @@ export default function TipsAndSocials({
       const sid = searchParams.get("session_id");
       router.replace(
         sid
-          ? `/listen?patron_welcome=1&session_id=${encodeURIComponent(sid)}`
+          ? `/listen?supporter_welcome=1&session_id=${encodeURIComponent(sid)}`
           : "/listen",
       );
     }

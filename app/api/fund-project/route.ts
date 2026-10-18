@@ -4,7 +4,7 @@ import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
 import { extractIpAddress } from "../shared/audio-utils";
 import { checkinMetadata } from "../shared/checkin-metadata";
 import { stripeFeeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
-import { PATRON_TIER_BASE } from "../../data/patron-config";
+import { SUPPORTER_TIER_BASE } from "../../data/supporter-config";
 
 // Map project slug -> Stripe product (or price) id
 const PROJECT_PRODUCT_MAP: Record<string, string> = {
@@ -32,7 +32,7 @@ const SOUL_MONTHLY_PRODUCT =
   process.env.STRIPE_PRODUCT_SOUL || "prod_Tq51rjgmSMyLPJ";
 const SOUL_ANNUAL_PRODUCT =
   process.env.STRIPE_PRODUCT_SOUL_ANNUAL || "prod_VIEAF2GYSkGshj";
-const CUSTOM_MINIMUM_NET = PATRON_TIER_BASE[PATRON_TIER_BASE.length - 1].net;
+const CUSTOM_MINIMUM_NET = SUPPORTER_TIER_BASE[SUPPORTER_TIER_BASE.length - 1].net;
 
 // Per-project minimum amounts in cents
 const PROJECT_MINIMUMS: Record<string, number> = {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = getBaseUrl(request);
     const isMonthlySupport = projectId === "monthly-support";
     const isAnnualSupport = projectId === "annual-support";
-    const isPatronSupport = isMonthlySupport || isAnnualSupport;
+    const isSupporterSupport = isMonthlySupport || isAnnualSupport;
 
     // Redirect paths - check referer to determine where user came from
     const referer = request.headers.get("referer") || "";
@@ -97,13 +97,13 @@ export async function POST(request: NextRequest) {
     let successPath: string;
     let cancelPath: string;
 
-    if (isPatronSupport) {
+    if (isSupporterSupport) {
       if (fromLive) {
-        successPath = "/live?thanks=1";
+        successPath = "/live?thanks=1&session_id={CHECKOUT_SESSION_ID}";
         cancelPath = "/live";
       } else {
         successPath =
-          "/listen?patron_welcome=1&session_id={CHECKOUT_SESSION_ID}";
+          "/listen?supporter_welcome=1&session_id={CHECKOUT_SESSION_ID}";
         cancelPath = "/support?canceled=1";
       }
     } else {
@@ -117,14 +117,14 @@ export async function POST(request: NextRequest) {
       ? ANNUAL_SUBSCRIPTION_PRICES
       : MONTHLY_SUBSCRIPTION_PRICES;
     const subscriptionPriceId =
-      isPatronSupport && Number.isInteger(netAmountDollars)
+      isSupporterSupport && Number.isInteger(netAmountDollars)
         ? priceTable[netAmountDollars]
         : null;
     const customMinimumNet = isAnnual
       ? CUSTOM_MINIMUM_NET * 10
       : CUSTOM_MINIMUM_NET;
     if (
-      isPatronSupport &&
+      isSupporterSupport &&
       !subscriptionPriceId &&
       netAmountDollars < customMinimumNet
     ) {
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const priceId = isPatronSupport
+    const priceId = isSupporterSupport
       ? (subscriptionPriceId ??
         (
           await stripe.prices.create({
@@ -167,10 +167,10 @@ export async function POST(request: NextRequest) {
       // Fall back to one-time payment with inline pricing
       checkoutRequest.lineItems = [
         {
-          name: isPatronSupport
+          name: isSupporterSupport
             ? "Support My Independence"
             : "Peyt Spencer: Independent Artist",
-          description: isPatronSupport
+          description: isSupporterSupport
             ? "Your support funds my music"
             : "Fund my next single",
           amountCents: amount,

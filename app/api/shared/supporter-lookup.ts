@@ -1,35 +1,36 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "./stripe-utils";
-import { tierForMonthlyNet, type PatronTierName } from "../../data/patron-config";
+import { tierForMonthlyNet, type SupporterTierName } from "../../data/supporter-config";
 import { stripeFeeCents } from "../../lib/fees";
+import { createSupporterToken, SUPPORTER_MAX_AGE } from "../../../lib/session";
 
-export function tierFromPrice(price: Stripe.Price | null | undefined): PatronTierName | null {
+export function tierFromPrice(price: Stripe.Price | null | undefined): SupporterTierName | null {
   if (!price || !price.unit_amount) return null;
   const periodNet = (price.unit_amount - stripeFeeCents(price.unit_amount)) / 100;
   const net = periodNet / (price.recurring?.interval === "year" ? 10 : 1);
   return tierForMonthlyNet(net);
 }
 
-const PATRON_PROJECT_IDS = new Set(["monthly-support", "annual-support"]);
+const SUPPORTER_PROJECT_IDS = new Set(["monthly-support", "annual-support"]);
 
-export function isPatronSession(session: Stripe.Checkout.Session): boolean {
-  return session.mode === "subscription" || PATRON_PROJECT_IDS.has(session.metadata?.projectId ?? "");
+export function isSupporterSession(session: Stripe.Checkout.Session): boolean {
+  return session.mode === "subscription" || SUPPORTER_PROJECT_IDS.has(session.metadata?.projectId ?? "");
 }
 
-export function tierFromSession(session: Stripe.Checkout.Session): PatronTierName | null {
+export function tierFromSession(session: Stripe.Checkout.Session): SupporterTierName | null {
   if (typeof session.subscription === "object" && session.subscription) {
     return tierFromPrice(session.subscription.items.data[0]?.price);
   }
-  if (!isPatronSession(session) || !session.amount_total) return null;
+  if (!isSupporterSession(session) || !session.amount_total) return null;
   const periodNet = (session.amount_total - stripeFeeCents(session.amount_total)) / 100;
   const net = periodNet / (session.metadata?.projectId === "annual-support" ? 10 : 1);
   return tierForMonthlyNet(net);
 }
 
-export async function findActivePatron(
+export async function findActiveSupporter(
   email: string,
-): Promise<{ email: string; tier: PatronTierName | null } | null> {
+): Promise<{ email: string; tier: SupporterTierName | null } | null> {
   const customers = await stripe.customers.list({ email: email.trim().toLowerCase(), limit: 1 });
   const customer = customers.data[0];
   if (!customer) return null;
@@ -41,12 +42,13 @@ export async function findActivePatron(
   };
 }
 
-export function setPatronCookie(response: NextResponse): NextResponse {
-  response.cookies.set("patronToken", "active", {
+export function setSupporterCookie(response: NextResponse, email: string): NextResponse {
+  response.cookies.set("supporterToken", createSupporterToken(email), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+    maxAge: SUPPORTER_MAX_AGE,
   });
   return response;
 }

@@ -47,7 +47,7 @@ export type TrackSource = "hosted" | "stream-only";
 // Your track data with audio URLs
 // Note: You'll need to add actual MP3 files to /public/audio/ or use external URLs
 export const TRACK_DATA: TrackData[] = [
-  // Patron-exclusive tracks (Welcome Pack)
+  // Supporter-exclusive tracks (Welcome Pack)
   {
     id: "best-foot-forward",
     title: "Best Foot Forward",

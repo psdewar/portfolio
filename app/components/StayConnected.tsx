@@ -51,7 +51,7 @@ export const shouldShowStayConnected = (): boolean => {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("og") === "true") return false;
   if (urlParams.get("success")) return false;
-  if (localStorage.getItem("patronStatus") === "active") return false;
+  if (localStorage.getItem("supporterStatus") === "active") return false;
   if (sessionStorage.getItem("stayConnectedCompleted")) return false;
   if (sessionStorage.getItem("stayConnectedDismissed")) return false;
   return true;
@@ -240,7 +240,7 @@ export default function StayConnected({
     ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
     : "bg-white dark:bg-neutral-800 p-4 sm:p-6 w-full h-full flex flex-col";
 
-  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-xl`;
+  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-btn`;
   const formLayoutClass = isModal
     ? ""
     : " md:grid md:grid-cols-[1fr_2fr] xl:grid-cols-2 md:gap-x-6 xl:p-4 3xl:flex";

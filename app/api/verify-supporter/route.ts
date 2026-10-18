@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findActivePatron, setPatronCookie } from "../shared/patron-lookup";
+import { findActiveSupporter, setSupporterCookie } from "../shared/supporter-lookup";
 import { readSession } from "../../../lib/session";
 
 export async function POST(request: Request) {
@@ -9,15 +9,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const patron = await findActivePatron(session.email);
+    const supporter = await findActiveSupporter(session.email);
 
-    if (!patron) {
+    if (!supporter) {
       return NextResponse.json({ error: "No active subscription" }, { status: 404 });
     }
 
-    return setPatronCookie(NextResponse.json({ success: true, email: patron.email, tier: patron.tier }));
+    return setSupporterCookie(NextResponse.json({ success: true, email: supporter.email, tier: supporter.tier }), supporter.email);
   } catch (error) {
-    console.error("Verify patron error:", error);
+    console.error("Verify supporter error:", error);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });
   }
 }

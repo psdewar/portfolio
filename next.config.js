@@ -29,6 +29,7 @@ const nextConfig = {
     "/api/poster": posterBundle,
     "/api/poster/*": posterBundle,
     "/api/pamphlet": posterBundle,
+    "/api/qr": ["public/images/printouts/**"],
   },
   images: {
     remotePatterns: [
@@ -67,7 +68,6 @@ const nextConfig = {
       { source: "/music", destination: "/listen", permanent: true },
       { source: "/songs", destination: "/listen", permanent: true },
       { source: "/tracks", destination: "/listen", permanent: true },
-      { source: "/patron", destination: "/support", permanent: true },
       { source: "/journey", destination: "/support", permanent: true },
       { source: "/join", destination: "/support", permanent: true },
       { source: "/subscribe", destination: "/support", permanent: true },

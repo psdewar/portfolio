@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySlug } from "../../lib/confirm";
-import { findActivePatron, setPatronCookie } from "../shared/patron-lookup";
+import { findActiveSupporter, setSupporterCookie } from "../shared/supporter-lookup";
 
 export async function GET(request: NextRequest) {
   const email = request.nextUrl.searchParams.get("email")?.trim().toLowerCase();
@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
   if (!email || !verifySlug(email, sig)) {
     return NextResponse.json({ error: "Invalid link" }, { status: 403 });
   }
-  const patron = await findActivePatron(email);
-  if (!patron) {
+  const supporter = await findActiveSupporter(email);
+  if (!supporter) {
     return NextResponse.json({ error: "No active subscription" }, { status: 404 });
   }
-  return setPatronCookie(NextResponse.json({ email: patron.email, tier: patron.tier }));
+  return setSupporterCookie(NextResponse.json({ email: supporter.email, tier: supporter.tier }), supporter.email);
 }

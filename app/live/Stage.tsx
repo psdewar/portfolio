@@ -182,7 +182,7 @@ export interface StageProps {
   player: UsePlayerResult;
   adlib: UseAdlibSocketResult;
   elapsedTime: string;
-  isPatron: boolean;
+  isSupporter: boolean;
   notifyPurpose: StayConnectedPurpose | null;
   setNotifyPurpose: Dispatch<SetStateAction<StayConnectedPurpose | null>>;
   chatCollapsed: boolean;
@@ -209,7 +209,7 @@ export function Stage({
   player,
   adlib,
   elapsedTime,
-  isPatron,
+  isSupporter,
   notifyPurpose,
   setNotifyPurpose,
   chatCollapsed,
@@ -286,7 +286,7 @@ export function Stage({
   }, [pillMode]);
 
   const renderNotifyButton = (mobile: boolean) =>
-    isLive && !isPatron ? (
+    isLive && !isSupporter ? (
       <button
         onClick={() => setNotifyPurpose((p) => (p ? null : "notify"))}
         aria-label="Notify me by email"
@@ -472,22 +472,22 @@ export function Stage({
   );
 
   const renderOfflineState = (mobile: boolean) => {
-    const notifyPill = !isPatron && (
+    const notifyPill = !isSupporter && (
       <button
         onClick={() => setNotifyPurpose("notify")}
         aria-label="Notify me by email"
-        className="min-h-[52px] flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-neutral-900 shadow-lg whitespace-nowrap transition-colors hover:bg-neutral-100"
+        className="min-h-[52px] [@media(max-height:400px)]:min-h-10 flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] [@media(max-height:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-neutral-900 shadow-lg whitespace-nowrap transition-colors hover:bg-neutral-100"
       >
         <BellIcon size={22} weight="bold" />
         Notify me
       </button>
     );
     const FundIcon = NAV_ICON["/support"];
-    const fundPill = !isPatron && (
+    const fundPill = !isSupporter && (
       <button
         onClick={onOpenSupport}
         aria-label="Fund My Tour"
-        className="min-h-[52px] flex w-full items-center justify-center gap-2 rounded-full bg-black/40 px-5 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-white backdrop-blur whitespace-nowrap transition-colors hover:bg-black/55"
+        className="min-h-[52px] [@media(max-height:400px)]:min-h-10 flex w-full items-center justify-center gap-2 rounded-full bg-black/40 px-5 [@media(max-width:400px)]:gap-1.5 [@media(max-width:400px)]:px-3 [@media(max-width:400px)]:text-[22px] [@media(max-height:400px)]:text-[22px] font-bebas text-[26px] tracking-wide text-white backdrop-blur whitespace-nowrap transition-colors hover:bg-black/55"
       >
         <FundIcon size={22} weight="bold" />
         Fund My Tour
@@ -536,7 +536,7 @@ export function Stage({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30%] bg-gradient-to-t from-black/50 to-transparent"
         />
-        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5">
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5 [@media(max-height:400px)]:pb-3">
           <div className="grid w-fit max-w-full grid-cols-2 gap-2 [@media(max-width:400px)]:w-full">
             {fundPill}
             {notifyPill}

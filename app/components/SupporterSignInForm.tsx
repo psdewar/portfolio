@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { notifySessionChange } from "../hooks/useSession";
 import {
-  activatePatronStatus,
-  storePatronEmail,
-  storePatronTier,
-} from "../lib/patron";
+  activateSupporterStatus,
+  storeSupporterEmail,
+  storeSupporterTier,
+} from "../lib/supporter";
 
-export default function PatronSignInForm({
+export default function SupporterSignInForm({
   onCancel,
   onVerified,
 }: {
@@ -28,8 +28,8 @@ export default function PatronSignInForm({
       body: JSON.stringify(body),
     });
 
-  const claimPatron = async () => {
-    const res = await post("/api/verify-patron", {});
+  const claimSupporter = async () => {
+    const res = await post("/api/verify-supporter", {});
     const data = await res.json();
     if (!res.ok) {
       setError(
@@ -40,9 +40,9 @@ export default function PatronSignInForm({
       return;
     }
     const normalized = String(data.email).trim().toLowerCase();
-    activatePatronStatus();
-    storePatronEmail(normalized);
-    storePatronTier(data.tier ?? null);
+    activateSupporterStatus();
+    storeSupporterEmail(normalized);
+    storeSupporterTier(data.tier ?? null);
     onVerified(normalized);
   };
 
@@ -55,7 +55,7 @@ export default function PatronSignInForm({
       const me = await fetch("/api/me");
       const session = me.ok ? await me.json() : null;
       if (session?.email?.toLowerCase() === typed) {
-        await claimPatron();
+        await claimSupporter();
         return;
       }
       const res = await post("/api/otp/request", { email: typed });
@@ -81,7 +81,7 @@ export default function PatronSignInForm({
         return;
       }
       notifySessionChange();
-      await claimPatron();
+      await claimSupporter();
     } catch {
       setError("Something went wrong");
     } finally {

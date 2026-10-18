@@ -13,9 +13,9 @@ import BlockVisualizer from "app/components/BlockVisualizer";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
-import { PATRON_CONFIG, PATRON_EXCLUSIVE_TRACKS } from "../data/patron-config";
-import { usePatronStatus } from "../hooks/usePatronStatus";
-import { claimPatronSession, claimPatronLink } from "../lib/patron";
+import { SUPPORTER_CONFIG, SUPPORTER_EXCLUSIVE_TRACKS } from "../data/supporter-config";
+import { useSupporterStatus } from "../hooks/useSupporterStatus";
+import { claimSupporterSession, claimSupporterLink } from "../lib/supporter";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
 import SupportModal from "app/components/SupportModal";
 import { useToast } from "../contexts/ToastContext";
@@ -69,7 +69,7 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-const PATRON_TRACKS: TrackCard[] = PATRON_CONFIG.earlyAccess.trackIds.map((id) => {
+const SUPPORTER_TRACKS: TrackCard[] = SUPPORTER_CONFIG.earlyAccess.trackIds.map((id) => {
   const track = TRACK_DATA.find((t) => t.id === id)!;
   return { id, title: track.title, src: track.thumbnail };
 });
@@ -77,9 +77,9 @@ const PATRON_TRACKS: TrackCard[] = PATRON_CONFIG.earlyAccess.trackIds.map((id) =
 const ARTWORK_PENDING = new Set(
   TRACK_DATA.filter((t) => t.artworkPending).map((t) => t.id),
 );
-const WELCOME_PACK_IDS = PATRON_EXCLUSIVE_TRACKS;
+const WELCOME_PACK_IDS = SUPPORTER_EXCLUSIVE_TRACKS;
 
-const ALL_TRACKS: TrackCard[] = [...PATRON_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
+const ALL_TRACKS: TrackCard[] = [...SUPPORTER_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
 const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 
 const PLAYABLE_TRACK_IDS = new Set(
@@ -90,13 +90,13 @@ export default function Page() {
   const { loadPlaylist, currentTrack, loadingTrack, playlist } = useAudio();
   const router = useRouter();
   const isSimulatingLoad = useSimulatedLoading();
-  const isPatron = usePatronStatus();
+  const isSupporter = useSupporterStatus();
   const [showStayConnected, setShowStayConnected] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [previewTrack, setPreviewTrack] = useState<{ title: string; src: string } | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [suppressHoverId, setSuppressHoverId] = useState<string | null>(null);
-  const [patronWelcome, setPatronWelcome] = useState(false);
+  const [supporterWelcome, setSupporterWelcome] = useState(false);
   const [welcomeFromCheckout, setWelcomeFromCheckout] = useState(false);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export default function Page() {
     const params = new URLSearchParams(window.location.search);
     const success = params.get("success");
 
-    if (params.get("patron_welcome") === "1") {
+    if (params.get("supporter_welcome") === "1") {
       const email = params.get("email");
       const sig = params.get("sig");
       const sessionId = params.get("session_id");
@@ -115,11 +115,11 @@ export default function Page() {
 
       const claimWelcome = async () => {
         const activated = isEmailLink
-          ? await claimPatronLink(email, sig)
-          : await claimPatronSession(sessionId);
+          ? await claimSupporterLink(email, sig)
+          : await claimSupporterSession(sessionId);
         if (activated) {
           setWelcomeFromCheckout(!isEmailLink);
-          setPatronWelcome(true);
+          setSupporterWelcome(true);
         }
       };
       claimWelcome();
@@ -130,7 +130,7 @@ export default function Page() {
       rsvp: "You're in. Check your email for details.",
       rsvp_music: "You're in + music on the way. Check your email.",
       funded: "Contribution received. Thank you.",
-      patron_live: "Thank you for supporting.",
+      supporter_live: "Thank you for supporting.",
     };
 
     const message = success ? SUCCESS_MESSAGES[success] : null;
@@ -183,15 +183,15 @@ export default function Page() {
         source="listen"
       />
 
-      {isPatron && (
+      {isSupporter && (
         <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border-b border-neutral-800 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-baseline justify-between mb-4">
               <div>
                 <h2 className="font-bebas text-2xl text-white">
-                  {patronWelcome ? "You're in. Thank you." : "Your Exclusive Content"}
+                  {supporterWelcome ? "You're in. Thank you." : "Your Exclusive Content"}
                 </h2>
-                {patronWelcome && (
+                {supporterWelcome && (
                   <p className="text-neutral-400 text-sm mt-1">
                     {welcomeFromCheckout
                       ? "Tap a lock to unlock your song. A welcome email is on its way."
@@ -210,7 +210,7 @@ export default function Page() {
             </div>
             <a
               href="/api/download/pack?file=singles-16s-2025"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-lg font-medium transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-400 hover:to-pink-400 text-white rounded-btn font-medium transition-colors"
             >
               <DownloadSimpleIcon size={20} weight="bold" />
               Download Singles & 16s Pack
@@ -223,7 +223,7 @@ export default function Page() {
         {visibleTracks.map((t, i) => {
           const isCurrent = currentTrack?.id === t.id;
           const isLoadingThis = loadingTrack?.id === t.id;
-          const isLockedWelcome = patronWelcome && WELCOME_PACK_IDS.has(t.id) && !unlockedIds.has(t.id);
+          const isLockedWelcome = supporterWelcome && WELCOME_PACK_IDS.has(t.id) && !unlockedIds.has(t.id);
           const isUnlocking = unlockingId === t.id;
 
           return (
@@ -243,7 +243,7 @@ export default function Page() {
                   }, 1500);
                   return;
                 }
-                if (!isPatron && WELCOME_PACK_IDS.has(t.id)) {
+                if (!isSupporter && WELCOME_PACK_IDS.has(t.id)) {
                   setPreviewTrack({ title: t.title, src: `/audio/${t.id}-preview.mp3` });
                   setShowSupportModal(true);
                   return;
@@ -257,7 +257,7 @@ export default function Page() {
               className={`relative aspect-square overflow-hidden cursor-pointer text-left transition-transform duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset${
                 suppressHoverId === t.id ? "" : " hover:scale-[1.05] hover:z-[70]"
               }${
-                isUnlocking ? " animate-patron-glow" : ""
+                isUnlocking ? " animate-supporter-glow" : ""
               }`}
             >
               {brokenImages.has(t.id) ? (
@@ -270,23 +270,22 @@ export default function Page() {
                   src={t.src}
                   fill
                   className="object-cover absolute inset-0"
-                  loading={patronWelcome && WELCOME_PACK_IDS.has(t.id) ? "eager" : "lazy"}
+                  loading={supporterWelcome && WELCOME_PACK_IDS.has(t.id) ? "eager" : "lazy"}
                   sizes="(max-width: 768px) 50vw, 25vw"
                   onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
                 />
               )}
 
-              {brokenImages.has(t.id) && (
-                <div className="absolute bottom-2 right-2 z-10">
-                  <span className="text-sm font-medium text-white/80">{t.title}</span>
-                </div>
-              )}
-
-              {ARTWORK_PENDING.has(t.id) && (
-                <div className="absolute bottom-2 left-2 z-40">
-                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
-                    Early Listen
-                  </span>
+              {(brokenImages.has(t.id) || ARTWORK_PENDING.has(t.id)) && (
+                <div className="absolute inset-x-2 bottom-2 z-40 flex flex-col items-start gap-1">
+                  {brokenImages.has(t.id) && (
+                    <span className="text-sm font-medium text-white/80">{t.title}</span>
+                  )}
+                  {ARTWORK_PENDING.has(t.id) && (
+                    <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
+                      Early Listen
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -299,7 +298,7 @@ export default function Page() {
               {isLockedWelcome && (
                 <div
                   className={`absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/60 backdrop-blur-md backdrop-grayscale${
-                    isUnlocking ? " animate-patron-unlock" : ""
+                    isUnlocking ? " animate-supporter-unlock" : ""
                   }`}
                 >
                   {isUnlocking ? (
@@ -324,7 +323,7 @@ export default function Page() {
             </button>
           );
         })}
-        {showStayConnected && !isPatron && (
+        {showStayConnected && !isSupporter && (
           <section className="col-span-2 md:col-span-full xl:col-span-2 3xl:col-span-1 flex justify-center bg-neutral-900 order-[13] lg:order-[17] xl:order-[13]">
             <StayConnected onClose={() => setShowStayConnected(false)} />
           </section>

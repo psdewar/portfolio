@@ -10,10 +10,10 @@ import {
   isTestMode,
 } from "../../shared/products";
 import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "../../../../lib/supabase-admin";
-import { sendDownloadEmail, sendPatronWelcomeEmail } from "../../../../lib/sendgrid";
-import { patronClaimPath } from "../../../lib/confirm";
+import { sendDownloadEmail, sendSupporterWelcomeEmail } from "../../../../lib/sendgrid";
+import { supporterClaimPath } from "../../../lib/confirm";
 import PostHogClient from "../../../../lib/posthog";
-import { isPatronSession } from "../../shared/patron-lookup";
+import { isSupporterSession } from "../../shared/supporter-lookup";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -131,9 +131,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const patronEmail = session.customer_details?.email || session.customer_email;
-  if (isPatronSession(session) && patronEmail) {
-    await sendPatronWelcomeEmail({ to: patronEmail, claimPath: patronClaimPath(patronEmail) });
+  const supporterEmail = session.customer_details?.email || session.customer_email;
+  if (isSupporterSession(session) && supporterEmail) {
+    await sendSupporterWelcomeEmail({ to: supporterEmail, claimPath: supporterClaimPath(supporterEmail) });
   }
 
   if (metadata.type === "project_funding" || productType === "funding") {
@@ -296,7 +296,7 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     const status = subscription.status;
 
     // Log subscription changes for now
-    // Future: Update patron status in database
+    // Future: Update supporter status in database
     console.log(`Subscription ${subscription.id} for customer ${customerId}: ${status}`);
 
     // Track in PostHog
@@ -337,8 +337,8 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
     });
     await posthog.shutdown();
 
-    // Future: Revoke patron status in database
-    // For now, patron cookie will eventually expire
+    // Future: Revoke supporter status in database
+    // For now, supporter cookie will eventually expire
   } catch (error) {
     console.error("Error handling subscription cancellation:", error);
   }

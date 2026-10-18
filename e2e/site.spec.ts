@@ -24,9 +24,9 @@ test.describe("Pages load", () => {
     await expect(page.locator("h1").first()).toBeVisible({ timeout: 30000 });
   });
 
-  test("patron page loads", async ({ page }) => {
-    await goto(page, "/patron");
-    await expect(page.locator("h1").first()).toBeVisible({ timeout: 30000 });
+  test("support page loads", async ({ page }) => {
+    await goto(page, "/support");
+    await expect(page.getByRole("heading", { name: "Be my monthly supporter" })).toBeVisible({ timeout: 30000 });
   });
 
   test("listen page loads", async ({ page }) => {

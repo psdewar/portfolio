@@ -13,8 +13,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Footer } from "./components/Footer";
 import { useAudio } from "./contexts/AudioContext";
 import { TRACK_DATA } from "./data/tracks";
-import { isPatronTrack } from "./data/patron-config";
-import { usePatronStatus } from "./hooks/usePatronStatus";
+import { isSupporterTrack } from "./data/supporter-config";
+import { useSupporterStatus } from "./hooks/useSupporterStatus";
 import SingleOverlay from "./components/SingleOverlay";
 import { isFundPath, isLivePath } from "./lib/route-checks";
 import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
@@ -85,7 +85,7 @@ function OverlayManager() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { loadTrack, setPlaylist, pause } = useAudio();
-  const isPatron = usePatronStatus();
+  const isSupporter = useSupporterStatus();
 
   const overlayTrackId = searchParams?.get("play") ?? null;
   const trackIndex = overlayTrackId ? TRACK_DATA.findIndex((t) => t.id === overlayTrackId) : -1;
@@ -103,7 +103,7 @@ function OverlayManager() {
 
   useEffect(() => {
     const playable = TRACK_DATA
-      .filter((t) => (t.source ?? "hosted") === "hosted" && (!isPatronTrack(t.id) || isPatron))
+      .filter((t) => (t.source ?? "hosted") === "hosted" && (!isSupporterTrack(t.id) || isSupporter))
       .map((t) => ({
         id: t.id,
         title: t.title,
@@ -113,12 +113,12 @@ function OverlayManager() {
         duration: t.duration,
       }));
     if (playable.length) setPlaylist(playable);
-  }, [isPatron, setPlaylist]);
+  }, [isSupporter, setPlaylist]);
 
   useEffect(() => {
     if (!overlayTrackData) return;
     const isHosted = (overlayTrackData.source ?? "hosted") === "hosted";
-    const isGated = isPatronTrack(overlayTrackData.id) && !isPatron;
+    const isGated = isSupporterTrack(overlayTrackData.id) && !isSupporter;
     if (!isHosted || isGated) {
       pause();
       return;
@@ -134,7 +134,7 @@ function OverlayManager() {
       },
       true,
     );
-  }, [overlayTrackId, isPatron, loadTrack, pause]);
+  }, [overlayTrackId, isSupporter, loadTrack, pause]);
 
   if (!overlayTrackData || isOgMode || isAdminPage) return null;
 

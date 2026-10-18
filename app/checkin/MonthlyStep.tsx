@@ -3,7 +3,7 @@
 import type { StoryParagraph } from "../data/story";
 import { ReadMyStory } from "../components/ReadMyStory";
 import { MONTHLY_PITCH, TierPicker } from "../components/SupportModal";
-import { EARLY_ACCESS_PREVIEW } from "../data/patron-config";
+import { EARLY_ACCESS_PREVIEW } from "../data/supporter-config";
 import { Lead, NoteIcon } from "./RoadParts";
 
 const LABEL = "Be my monthly supporter";

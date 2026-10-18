@@ -7,7 +7,7 @@ interface DevToolsState {
   useLocalAudio: boolean;
   slowNetworkDelay: number; // milliseconds
   enableIngConversion: boolean; // Lyrics sync: convert -ing to -in'
-  simulatePatron: boolean; // Simulate logged-in patron state
+  simulateSupporter: boolean; // Simulate logged-in supporter state
 }
 
 interface DevToolsContextType extends DevToolsState {
@@ -15,7 +15,7 @@ interface DevToolsContextType extends DevToolsState {
   setUseLocalAudio: (value: boolean) => void;
   setSlowNetworkDelay: (value: number) => void;
   setEnableIngConversion: (value: boolean) => void;
-  setSimulatePatron: (value: boolean) => void;
+  setSimulateSupporter: (value: boolean) => void;
   isDevMode: boolean;
   // Helper to simulate network delay - returns a promise that resolves after the configured delay
   simulateDelay: () => Promise<void>;
@@ -32,7 +32,7 @@ const DEFAULT_STATE: DevToolsState = {
   useLocalAudio: false,
   slowNetworkDelay: 5000,
   enableIngConversion: true,
-  simulatePatron: false,
+  simulateSupporter: false,
 };
 
 // Helper to read dev tools state synchronously (for use outside React)
@@ -45,7 +45,7 @@ export function getDevToolsState(): DevToolsState & { isDevMode: boolean } {
       useLocalAudio: false,
       slowNetworkDelay: 0,
       enableIngConversion: false,
-      simulatePatron: false,
+      simulateSupporter: false,
       isDevMode: false,
     };
   }
@@ -101,12 +101,12 @@ export function useDevTools() {
       useLocalAudio: false,
       slowNetworkDelay: 0,
       enableIngConversion: false,
-      simulatePatron: false,
+      simulateSupporter: false,
       setSimulateSlowNetwork: () => {},
       setUseLocalAudio: () => {},
       setSlowNetworkDelay: () => {},
       setEnableIngConversion: () => {},
-      setSimulatePatron: () => {},
+      setSimulateSupporter: () => {},
       isDevMode: false,
       simulateDelay: async () => {},
       getMinLoadingTime: () => 0,
@@ -152,20 +152,20 @@ export function DevToolsProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, enableIngConversion: value }));
   };
 
-  const setSimulatePatron = (value: boolean) => {
+  const setSimulateSupporter = (value: boolean) => {
     setState((prev) => ({
       ...prev,
-      simulatePatron: value,
-      // Auto-disable local audio when patron is on (need real VPS audio)
+      simulateSupporter: value,
+      // Auto-disable local audio when supporter is on (need real VPS audio)
       useLocalAudio: value ? false : prev.useLocalAudio,
     }));
     // Also set/clear the cookie and localStorage for API auth
     if (value) {
-      document.cookie = "patronToken=active; path=/; max-age=31536000";
-      localStorage.setItem("patronStatus", "active");
+      document.cookie = "supporterToken=active; path=/; max-age=31536000";
+      localStorage.setItem("supporterStatus", "active");
     } else {
-      document.cookie = "patronToken=; path=/; max-age=0";
-      localStorage.removeItem("patronStatus");
+      document.cookie = "supporterToken=; path=/; max-age=0";
+      localStorage.removeItem("supporterStatus");
     }
   };
 
@@ -192,7 +192,7 @@ export function DevToolsProvider({ children }: { children: ReactNode }) {
         setUseLocalAudio,
         setSlowNetworkDelay,
         setEnableIngConversion,
-        setSimulatePatron,
+        setSimulateSupporter,
         isDevMode,
         simulateDelay,
         getMinLoadingTime,

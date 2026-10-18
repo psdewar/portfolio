@@ -2,11 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, StarIcon, type Icon } from "@phosphor-icons/react";
+import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, StarIcon, FileTextIcon, type Icon } from "@phosphor-icons/react";
 import { ArrowIcon } from "./ArrowIcon";
 import { Social, SOCIAL_LINKS } from "./components/Social";
-import { usePatronStatus, usePatronTier } from "./hooks/usePatronStatus";
-import { PATRON_TIERS } from "./data/patron-tiers";
+import { useSupporterStatus, useSupporterTier } from "./hooks/useSupporterStatus";
+import { SUPPORTER_TIERS } from "./data/supporter-tiers";
 import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
 import { isFundPath, isLivePath } from "./lib/route-checks";
 
@@ -41,6 +41,11 @@ export const BRAND_SWEEP_STYLE: React.CSSProperties = {
   transition: "background-position 400ms ease",
 };
 
+const HIRE_LINKS = [
+  { href: "/resume", label: "Resume" },
+  { href: "/peer-reviews.pdf", label: "Peer Reviews" },
+];
+
 const DRAWER_ICON_GUTTER = "pl-[calc(1rem-9px)] sm:pl-[calc(1.5rem-9px)]";
 const DRAWER_SOCIAL_GUTTER = "pl-[calc(1rem-11px)] sm:pl-[calc(1.5rem-11px)]";
 
@@ -48,9 +53,9 @@ export function Navbar() {
   const headerRef = useRef<HTMLElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const isPatron = usePatronStatus();
-  const tier = usePatronTier();
-  const tierDef = PATRON_TIERS.find((t) => t.name === tier);
+  const isSupporter = useSupporterStatus();
+  const tier = useSupporterTier();
+  const tierDef = SUPPORTER_TIERS.find((t) => t.name === tier);
   const pathname = usePathname() ?? "/";
   const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
@@ -134,7 +139,7 @@ export function Navbar() {
   return (
     <header
       ref={headerRef}
-      className={`${isFundPage ? "" : `sticky ${hidden && !menuOpen ? "-top-16" : "top-0"}`} w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 transition-[top] duration-300 ${
+      className={`${isFundPage ? "" : `sticky ${hidden && !menuOpen ? "-top-16" : "top-0"}`} w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 transition-[top] duration-300 [container-type:inline-size] ${
         isLivePage ? LIVE_DESKTOP_HIDDEN : ""
       }`}
     >
@@ -152,7 +157,7 @@ export function Navbar() {
                   Spencer
                 </span>
               </Link>
-              {isPatron && tierDef && (
+              {isSupporter && tierDef && (
                 <Link
                   href="/listen"
                   className="shrink-0 ml-2 inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide rounded-full px-2 py-0.5 border"
@@ -166,7 +171,7 @@ export function Navbar() {
                   {tierDef.name}
                 </Link>
               )}
-              {isPatron && !tierDef && (
+              {isSupporter && !tierDef && (
                 <Link
                   href="/listen"
                   className="shrink-0 ml-2 text-[10px] font-semibold tracking-wide rounded-full px-2 py-0.5 text-[#d4a553] bg-[#d4a553]/15 border border-[#d4a553]/40"
@@ -235,7 +240,7 @@ export function Navbar() {
             </div>
 
             {isHirePage && (
-              <div className="md:hidden flex items-center gap-1.5">
+              <div className={`md:hidden flex items-center gap-1.5 [@container(max-width:19.9rem)]:hidden`}>
                 <Link
                   href="/resume"
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-lyrist text-white text-xs font-medium rounded-full hover:bg-lyrist/90 transition-colors whitespace-nowrap"
@@ -314,6 +319,24 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {isHirePage &&
+              HIRE_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  style={{ "--row": "#737373" } as React.CSSProperties}
+                  className={`group hidden [@container(max-width:19.9rem)]:flex h-14 items-center gap-2 pr-4 sm:pr-6 ${DRAWER_ICON_GUTTER} text-[17px] font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)] text-gray-600 dark:text-gray-400 hover:text-[var(--row)] hover:bg-gray-100 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800/60`}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center">
+                    <FileTextIcon size={22} />
+                  </span>
+                  <span className="min-w-0 truncate">{link.label}</span>
+                  <ArrowIcon />
+                </a>
+              ))}
             {isMusicPage && (
               <a
                 href="https://soundbetter.com/profiles/630479-peyt-spencer"

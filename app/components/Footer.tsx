@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { ArrowIcon } from "../ArrowIcon";
-import { usePatronStatus } from "../hooks/usePatronStatus";
+import { useSupporterStatus } from "../hooks/useSupporterStatus";
 
 export function Footer() {
-  const isPatron = usePatronStatus();
+  const isSupporter = useSupporterStatus();
 
-  if (!isPatron) return null;
+  if (!isSupporter) return null;
 
   return (
     <footer className="fixed bottom-20 right-4 z-30">

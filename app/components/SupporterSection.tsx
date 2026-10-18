@@ -16,12 +16,12 @@ import {
 } from "@phosphor-icons/react";
 
 import { MonthlySupporter } from "./SupportModal";
-import PatronSignInForm from "./PatronSignInForm";
+import SupporterSignInForm from "./SupporterSignInForm";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
-import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW } from "../data/patron-config";
+import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW } from "../data/supporter-config";
 import { useAudio } from "../contexts/AudioContext";
-import { usePatronStatus } from "../hooks/usePatronStatus";
+import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { type Show, showsToTimelineEvents } from "../lib/shows-shared";
 import { PlayCircle } from "./PlayCircle";
@@ -67,7 +67,7 @@ const eventTypeStyles: Record<
 interface SupporterSectionProps {
   onClose?: () => void;
   isModal?: boolean;
-  forcePatron?: boolean;
+  forceSupporter?: boolean;
   upcomingShows?: Show[];
   pastShows?: Show[];
   ask?: React.ReactNode;
@@ -94,7 +94,7 @@ const ROW_ACCENT = {
 export function SupporterSection({
   onClose,
   isModal = false,
-  forcePatron = false,
+  forceSupporter = false,
   upcomingShows = [],
   pastShows = [],
   ask,
@@ -111,8 +111,8 @@ export function SupporterSection({
     isLoading: isAudioLoading,
   } = useAudio();
   const router = useRouter();
-  const patronStatus = usePatronStatus();
-  const isPatron = (patronStatus || forcePatron) && !og;
+  const supporterStatus = useSupporterStatus();
+  const isSupporter = (supporterStatus || forceSupporter) && !og;
 
   const [showCalendarInfo, setShowCalendarInfo] = useState(false);
 
@@ -149,12 +149,12 @@ export function SupporterSection({
 
   useEffect(() => {
     if (!isModal) {
-      posthog.capture("patron_page_viewed", { is_patron: isPatron });
+      posthog.capture("supporter_page_viewed", { is_supporter: isSupporter });
     }
   }, []);
 
   useEffect(() => {
-    if (isPatron) return;
+    if (isSupporter) return;
     const tierSection = tierSectionRef.current;
     if (!tierSection) return;
     const root = isModal ? containerRef.current : null;
@@ -167,7 +167,7 @@ export function SupporterSection({
     );
     observer.observe(tierSection);
     return () => observer.disconnect();
-  }, [isPatron, isModal]);
+  }, [isSupporter, isModal]);
 
   useEffect(() => {
     const root = isModal ? containerRef.current : null;
@@ -556,7 +556,7 @@ export function SupporterSection({
       <div className="split:min-w-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:-ml-8 split:pl-8 split:pr-6 split:border-r split:border-neutral-200 dark:split:border-neutral-800 split:pb-[clamp(0rem,calc(-144px_+_16vh),2rem)]">
         <div id="ask-slot">{ask}</div>
 
-        {!isPatron && (
+        {!isSupporter && (
           <section
             id="supporter"
             ref={tierSectionRef}
@@ -580,7 +580,7 @@ export function SupporterSection({
           </section>
         )}
 
-        {isPatron && (
+        {isSupporter && (
           <section
             id="supporter"
             className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 md:pb-12 split:pb-[clamp(0.5rem,calc(-172px_+_20vh),3rem)] split:px-0 split:max-w-none split:mx-0 scroll-mt-16"
@@ -614,7 +614,7 @@ export function SupporterSection({
       </div>
 
       <section
-        className={`px-4 sm:px-6 lg:px-8 split:px-0 split:pl-6 split:max-w-none split:mx-0 split:min-w-0 split:flex split:flex-col split:min-h-0 split:pb-0 ${isPatron ? "pb-8" : "pb-32"}`}
+        className={`px-4 sm:px-6 lg:px-8 split:px-0 split:pl-6 split:max-w-none split:mx-0 split:min-w-0 split:flex split:flex-col split:min-h-0 split:pb-0 ${isSupporter ? "pb-8" : "pb-32"}`}
       >
         <div
           ref={timelineRef}
@@ -632,7 +632,7 @@ export function SupporterSection({
         </div>
       </section>
 
-      {!isPatron && showBottomCta && !og && (
+      {!isSupporter && showBottomCta && !og && (
         <button
           onClick={() =>
             tierSectionRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -660,7 +660,7 @@ export function SupporterSection({
             <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
               Sign in with your supporter email
             </h2>
-            <PatronSignInForm
+            <SupporterSignInForm
               onCancel={closeVerifyForm}
               onVerified={() => {
                 closeVerifyForm();

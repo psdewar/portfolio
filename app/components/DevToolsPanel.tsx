@@ -13,12 +13,12 @@ export function DevToolsPanel() {
     useLocalAudio,
     slowNetworkDelay,
     enableIngConversion,
-    simulatePatron,
+    simulateSupporter,
     setSimulateSlowNetwork,
     setUseLocalAudio,
     setSlowNetworkDelay,
     setEnableIngConversion,
-    setSimulatePatron,
+    setSimulateSupporter,
   } = useDevTools();
 
   const router = useRouter();
@@ -186,41 +186,41 @@ export function DevToolsPanel() {
               </p>
             </div>
 
-            {/* Simulate Patron */}
+            {/* Simulate Supporter */}
             <div className="space-y-2">
               <label className="flex items-center justify-between">
-                <span className="text-sm font-medium">👑 Simulate Patron</span>
+                <span className="text-sm font-medium">👑 Simulate Supporter</span>
                 <button
-                  onClick={() => setSimulatePatron(!simulatePatron)}
+                  onClick={() => setSimulateSupporter(!simulateSupporter)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${
-                    simulatePatron ? "bg-orange-500" : "bg-gray-600"
+                    simulateSupporter ? "bg-orange-500" : "bg-gray-600"
                   }`}
                 >
                   <span
                     className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      simulatePatron ? "translate-x-5" : ""
+                      simulateSupporter ? "translate-x-5" : ""
                     }`}
                   />
                 </button>
               </label>
-              <p className="text-xs text-gray-400 pl-4">View patron experience on /support page</p>
+              <p className="text-xs text-gray-400 pl-4">View supporter experience on /support page</p>
             </div>
 
             <button
               onClick={() => {
-                if (!simulatePatron) setSimulatePatron(true);
-                navigateTo("/listen?patron_welcome=1");
+                if (!simulateSupporter) setSimulateSupporter(true);
+                navigateTo("/listen?supporter_welcome=1");
               }}
               className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              Patron Welcome
+              Supporter Welcome
             </button>
 
             <button
               onClick={() => {
-                const to = prompt("Send the patron welcome email to:");
+                const to = prompt("Send the supporter welcome email to:");
                 if (!to) return;
-                fetch(`/api/test-email?type=patron-welcome&to=${encodeURIComponent(to)}`);
+                fetch(`/api/test-email?type=supporter-welcome&to=${encodeURIComponent(to)}`);
               }}
               className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
             >

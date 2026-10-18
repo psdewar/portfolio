@@ -7,7 +7,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import { useSwipeToDismiss } from "../lib/useSwipeToDismiss";
 import { useAudio } from "../contexts/AudioContext";
 import { PlayCircle } from "./PlayCircle";
-import { EARLY_ACCESS_TRACKS, toTrackPreview } from "../data/patron-config";
+import { EARLY_ACCESS_TRACKS, toTrackPreview } from "../data/supporter-config";
 import {
   MAX_CUSTOM_AMOUNT,
   MIN_CUSTOM_AMOUNT,
@@ -16,7 +16,7 @@ import {
   useMonthlySupport,
 } from "./useMonthlySupport";
 import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
-import PatronSignInForm from "./PatronSignInForm";
+import SupporterSignInForm from "./SupporterSignInForm";
 import { PAYMENT_OPTIONS_STYLE } from "./PaymentOptions";
 import { GRADIENT_CTA_OVERRIDE } from "../lib/cta";
 import { TipsSection } from "../support/TipsAndSocials";
@@ -202,7 +202,7 @@ export default function SupportModal({
           <h2 className="pr-12 mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
             Sign in with your supporter email
           </h2>
-          <PatronSignInForm
+          <SupporterSignInForm
             onCancel={() => setSigningIn(false)}
             onVerified={dismiss}
           />

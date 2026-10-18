@@ -20,12 +20,12 @@ export function confirmPath(slug: string): string {
   return `/host/${slug}?sig=${signSlug(slug)}`;
 }
 
-export function patronPortalPath(email: string): string {
+export function supporterPortalPath(email: string): string {
   const normalized = email.trim().toLowerCase();
   return `/api/stripe-portal?email=${encodeURIComponent(normalized)}&sig=${signSlug(normalized)}`;
 }
 
-export function patronClaimPath(email: string): string {
+export function supporterClaimPath(email: string): string {
   const normalized = email.trim().toLowerCase();
-  return `/listen?patron_welcome=1&email=${encodeURIComponent(normalized)}&sig=${signSlug(normalized)}`;
+  return `/listen?supporter_welcome=1&email=${encodeURIComponent(normalized)}&sig=${signSlug(normalized)}`;
 }

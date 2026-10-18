@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "../shared/stripe-utils";
-import { isPatronSession, tierFromSession } from "../shared/patron-lookup";
+import { isSupporterSession, setSupporterCookie, tierFromSession } from "../shared/supporter-lookup";
 
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id");
@@ -15,13 +15,17 @@ export async function GET(request: NextRequest) {
     });
     const tier = tierFromSession(session);
 
-    return NextResponse.json({
-      email: session.customer_details?.email || session.customer_email,
+    const email = session.customer_details?.email || session.customer_email;
+    const supporter = isSupporterSession(session);
+    const paid = session.payment_status === "paid";
+    const response = NextResponse.json({
+      email,
       name: session.customer_details?.name,
-      paid: session.payment_status === "paid",
-      patron: isPatronSession(session),
+      paid,
+      supporter,
       tier,
     });
+    return paid && supporter && email ? setSupporterCookie(response, email) : response;
   } catch (error) {
     console.error("Error retrieving checkout session:", error);
     return NextResponse.json({ error: "Session not found" }, { status: 404 });

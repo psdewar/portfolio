@@ -720,7 +720,7 @@ input[type="email"] {
   animation: gradient-shift 3s linear infinite;
 }
 
-@keyframes patron-unlock {
+@keyframes supporter-unlock {
   0% {
     opacity: 1;
     backdrop-filter: blur(12px) grayscale(1);
@@ -738,7 +738,7 @@ input[type="email"] {
   }
 }
 
-@keyframes patron-glow {
+@keyframes supporter-glow {
   0% {
     box-shadow:
       0 0 0 0 rgba(212, 165, 83, 0),
@@ -765,12 +765,12 @@ input[type="email"] {
   }
 }
 
-.animate-patron-unlock {
-  animation: patron-unlock 1.2s ease-out both;
+.animate-supporter-unlock {
+  animation: supporter-unlock 1.2s ease-out both;
 }
 
-.animate-patron-glow {
-  animation: patron-glow 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+.animate-supporter-glow {
+  animation: supporter-glow 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   z-index: 20;
 }
 
