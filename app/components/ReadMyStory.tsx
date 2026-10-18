@@ -66,7 +66,7 @@ function StoryBody({ paragraphs, onDone }: { paragraphs: StoryParagraph[]; onDon
         </p>
       )}
       <div className="mt-3 space-y-4 text-base leading-relaxed text-neutral-700 dark:text-neutral-300">
-        <StoryParagraphs paragraphs={paragraphs} />
+        <StoryParagraphs paragraphs={paragraphs} eager />
       </div>
       <button
         ref={doneRef}
@@ -80,6 +80,31 @@ function StoryBody({ paragraphs, onDone }: { paragraphs: StoryParagraph[]; onDon
   );
 }
 
+export function StoryModal({
+  open,
+  onClose,
+  paragraphs,
+}: {
+  open: boolean;
+  onClose: () => void;
+  paragraphs: StoryParagraph[];
+}) {
+  useBackToClose(open, onClose);
+  return (
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      ariaLabel="Peyt Spencer"
+      layerClassName="z-[60] [@media(max-width:639px)]:!p-0"
+      panelClassName={STORY_PANEL}
+      closeWrapperClassName={STORY_CLOSE_WRAPPER}
+      swipeToClose
+    >
+      <StoryBody paragraphs={paragraphs} onDone={onClose} />
+    </ModalShell>
+  );
+}
+
 export function ReadMyStory({
   paragraphs,
   tone = "neutral",
@@ -90,7 +115,6 @@ export function ReadMyStory({
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const t = STORY_TONES[tone];
-  useBackToClose(open, () => setOpen(false));
 
   const close = () => {
     setOpen(false);
@@ -108,17 +132,7 @@ export function ReadMyStory({
       >
         Read my story
       </button>
-      <ModalShell
-        open={open}
-        onClose={close}
-        ariaLabel="Peyt Spencer"
-        layerClassName="z-[60] [@media(max-width:639px)]:!p-0"
-        panelClassName={STORY_PANEL}
-        closeWrapperClassName={STORY_CLOSE_WRAPPER}
-        swipeToClose
-      >
-        <StoryBody paragraphs={paragraphs} onDone={close} />
-      </ModalShell>
+      <StoryModal open={open} onClose={close} paragraphs={paragraphs} />
     </>
   );
 }

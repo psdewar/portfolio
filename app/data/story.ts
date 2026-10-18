@@ -1,6 +1,6 @@
 export type TourCounts = { shows: number; cities: number };
 
-export type StoryPhoto = { src: string; alt: string; width: number; height: number };
+export type StoryPhoto = { src: string; alt: string; width: number; height: number; blur?: string };
 export type StoryHeadword = { name: string; pronunciation: string };
 export type StoryParagraph = { text: string; headword?: StoryHeadword; photo?: StoryPhoto };
 
@@ -20,6 +20,7 @@ export function storyParagraphs({ shows, cities }: TourCounts): StoryParagraph[]
         alt: "Peyt with a local family in Veraguas, Panama",
         width: 720,
         height: 540,
+        blur: "data:image/webp;base64,UklGRm4AAABXRUJQVlA4IGIAAAAwAgCdASoQAAwAA4BaJbACdAEU3eDvRqQknAD+9++DLNR1mJ33U49Qk9T5Ft6LqcSSpApqwBdE3dJUyVQP8hukxUaoHGONCsVeta/+KQO8bxl5lCu5Il4N4M2iwlUzhHSgAA==",
       },
     },
     {
@@ -33,6 +34,7 @@ export function storyParagraphs({ shows, cities }: TourCounts): StoryParagraph[]
         alt: "Peyt with the Signs of Life theater troupe at the University of Florida",
         width: 640,
         height: 640,
+        blur: "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAAAwAgCdASoQABAAA4BaJYwCdAYtf21fiLAnAAD+qeDjhqJ5Lz6FYQYeAI17iKW0UKM6hCGeLhBsz7HLxE5maznJ4Pv857M+3vPurG+AOx2RQ6s/W+yUAmO+FTvhkm3B9eEuKim7cZAAAA==",
       },
     },
     { text: "Senior year, he became a regular in NBA star Damian Lillard's weekly #4BarFriday Instagram rap challenge, and his bars caught the attention of Dame D.O.L.L.A., who reposted his videos." },
@@ -43,6 +45,7 @@ export function storyParagraphs({ shows, cities }: TourCounts): StoryParagraph[]
         alt: "Peyt on the #4BarFriday IG Cypher live in 2020",
         width: 480,
         height: 480,
+        blur: "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAADwAQCdASoQABAAA4BaJQBOgBjROnf1+0AA/gjtoxY9X/ixFKPDrMAf4/tYX6WabK19gJGL0bi28pYpF4XxX2vB9TkCbpe67I+Hu+zrRairq0azhkHoHk228swNwFjAAAA==",
       },
     },
     { text: "Then he released one last single and stepped away from music to get married." },

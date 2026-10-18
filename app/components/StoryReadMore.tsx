@@ -1,17 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { storyFullText, type StoryParagraph } from "../data/story";
-import { StoryBlock } from "./StoryParagraphs";
+import { StoryModal } from "./ReadMyStory";
 
 export default function StoryReadMore({ paragraphs }: { paragraphs: StoryParagraph[] }) {
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  if (!expanded && paragraphs.length > 1) {
-    return (
+  if (paragraphs.length <= 1) {
+    return paragraphs[0] ? <p>{storyFullText(paragraphs[0])}</p> : null;
+  }
+
+  const close = () => {
+    setOpen(false);
+    buttonRef.current?.focus({ preventScroll: true });
+  };
+
+  return (
+    <>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setExpanded(true)}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
         className="group block w-full text-left"
       >
         {storyFullText(paragraphs[0])}{" "}
@@ -19,14 +31,7 @@ export default function StoryReadMore({ paragraphs }: { paragraphs: StoryParagra
           Read more
         </span>
       </button>
-    );
-  }
-
-  return (
-    <>
-      {paragraphs.map((p, i) => (
-        <StoryBlock key={i} text={storyFullText(p)} photo={p.photo} />
-      ))}
+      <StoryModal open={open} onClose={close} paragraphs={paragraphs} />
     </>
   );
 }
