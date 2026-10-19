@@ -114,6 +114,22 @@ test.describe("Sign in for existing supporters", () => {
   });
 });
 
+test.describe("Supporter view of /support", () => {
+  test("a supporter sees their perks and can manage their subscription", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("supporterStatus", "active");
+    });
+    await page.goto("/support");
+
+    await expect(page.getByRole("heading", { name: "You're a monthly supporter" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Unlocked for you")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Manage my subscription" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Be my monthly supporter" })).toBeHidden();
+    await expect(tier(page, "Flow")).toBeHidden();
+    await expect(page.getByRole("button", { name: /Already a supporter\?/ })).toBeHidden();
+  });
+});
+
 test.describe("Supporter songs on /listen", () => {
   test("tapping a supporter-only song offers the way to become a supporter", async ({ page }) => {
     await page.goto("/listen");

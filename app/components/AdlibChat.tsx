@@ -169,7 +169,6 @@ export function AdlibChat({
 
   return (
     <div
-      data-adlib-connected={connected}
       className="relative flex h-full min-h-0 flex-col bg-neutral-100 dark:bg-neutral-900"
     >
       <style>{`.chat-row-time { transform: translateY(-1px); }`}</style>

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createHmac, randomUUID } from "node:crypto";
-import { mockLivestreamSchedule, waitForAdlibConnected } from "./helpers";
+import { mockLivestreamSchedule } from "./helpers";
 
 const ADLIB_SECRET = process.env.ADLIB_SECRET || "dev-secret-adlib";
 
@@ -16,12 +16,18 @@ async function openLive(page: Page, token?: string) {
   const params = new URLSearchParams({ adlibDemo: "landscape" });
   if (token) params.set("adlibToken", token);
   await page.goto(`/live?${params.toString()}`, { waitUntil: "domcontentloaded" });
-  await waitForAdlibConnected(page);
+  await expect(page.getByPlaceholder("Send a message")).toBeVisible({ timeout: 10000 });
+}
+
+async function sendMessage(page: Page, text: string) {
+  await page.getByPlaceholder("Send a message").fill(text);
+  const send = page.getByRole("button", { name: "Send" });
+  await expect(send).toBeEnabled({ timeout: 10000 });
+  await send.click();
 }
 
 test.describe("Adlib chat", () => {
   test.describe.configure({ mode: "serial" });
-
 
   test("host and viewer exchange messages, and history survives a reload", async ({ browser }) => {
     test.setTimeout(20000);
@@ -38,15 +44,14 @@ test.describe("Adlib chat", () => {
     await openLive(viewerPage, viewerToken);
 
     const hostMessage = `hello from host ${run}`;
-    await hostPage.getByPlaceholder("Send a message").fill(hostMessage);
-    await hostPage.getByRole("button", { name: "Send" }).click();
+    await sendMessage(hostPage, hostMessage);
 
     await expect(viewerPage.getByText(hostMessage)).toBeVisible({ timeout: 5000 });
     await expect(hostPage.getByText(hostMessage)).toBeVisible();
 
     await viewerPage.reload({ waitUntil: "domcontentloaded" });
-    await waitForAdlibConnected(viewerPage);
-    await expect(viewerPage.getByText(hostMessage)).toBeVisible({ timeout: 5000 });
+    await expect(viewerPage.getByPlaceholder("Send a message")).toBeVisible({ timeout: 10000 });
+    await expect(viewerPage.getByText(hostMessage)).toBeVisible({ timeout: 10000 });
 
     await hostCtx.close();
     await viewerCtx.close();
@@ -67,8 +72,7 @@ test.describe("Adlib chat", () => {
     await openLive(viewerPage, viewerToken);
 
     const viewerMessage = `viewer says ${run}`;
-    await viewerPage.getByPlaceholder("Send a message").fill(viewerMessage);
-    await viewerPage.getByRole("button", { name: "Send" }).click();
+    await sendMessage(viewerPage, viewerMessage);
 
     await expect(hostPage.getByText(viewerMessage)).toBeVisible({ timeout: 5000 });
 
@@ -83,7 +87,7 @@ test.describe("Adlib chat", () => {
   });
 
   test("sending too fast shows the slow-mode inline error", async ({ browser }) => {
-    test.setTimeout(12000);
+    test.setTimeout(20000);
     const run = randomUUID().slice(0, 8);
     const token = mintToken(`slow-${run}`, "Speedy", "viewer");
     const ctx = await browser.newContext();
@@ -93,13 +97,17 @@ test.describe("Adlib chat", () => {
     const input = page.getByPlaceholder("Send a message");
     const send = page.getByRole("button", { name: "Send" });
 
-    await input.fill(`first ${run}`);
-    await send.click();
+    await sendMessage(page, `first ${run}`);
     await expect(page.getByText(`first ${run}`)).toBeVisible({ timeout: 5000 });
 
     await input.fill(`second ${run}`);
     await send.click();
     await expect(page.getByText("slow down a little")).toBeVisible({ timeout: 5000 });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByPlaceholder("Send a message")).toBeVisible();
+    await expect(page.getByText(`first ${run}`)).toBeVisible();
+    await expect(page.getByText(`second ${run}`)).toBeHidden();
 
     await ctx.close();
   });
@@ -113,15 +121,14 @@ test.describe("Adlib chat", () => {
     await openLive(hostPage, hostToken);
 
     const seedMessage = `seed for anon ${run}`;
-    await hostPage.getByPlaceholder("Send a message").fill(seedMessage);
-    await hostPage.getByRole("button", { name: "Send" }).click();
+    await sendMessage(hostPage, seedMessage);
     await expect(hostPage.getByText(seedMessage)).toBeVisible({ timeout: 5000 });
 
     const anonCtx = await browser.newContext();
     const anonPage = await anonCtx.newPage();
     await openLive(anonPage);
 
-    await expect(anonPage.getByText(seedMessage)).toBeVisible({ timeout: 5000 });
+    await expect(anonPage.getByText(seedMessage)).toBeVisible({ timeout: 10000 });
 
     const input = anonPage.getByPlaceholder("Send a message");
     await input.fill("hello");

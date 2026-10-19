@@ -25,7 +25,3 @@ export async function mockLiveStatus(page: Page, online: RoomOnline = false) {
 
   await mockLivestreamSchedule(page);
 }
-
-export async function waitForAdlibConnected(page: Page, timeout = 10000) {
-  await page.locator('[data-adlib-connected="true"]').first().waitFor({ timeout });
-}
