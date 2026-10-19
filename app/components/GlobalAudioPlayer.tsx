@@ -61,7 +61,10 @@ const LyricView: React.FC<{
   }
   if (trackTitle) {
     return (
-      <p className="text-[15px] font-medium text-neutral-800 dark:text-white/85 w-full text-left truncate">
+      <p
+        title={trackTitle}
+        className="text-[15px] font-medium text-neutral-800 dark:text-white/85 w-full text-left leading-tight line-clamp-2"
+      >
         {trackTitle}
       </p>
     );

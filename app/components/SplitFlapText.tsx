@@ -49,7 +49,7 @@ export default function SplitFlapText({ text, active }: { text: string; active: 
         {text.split(" ").map((word, wi) => (
           <span key={wi}>
             {wi > 0 && " "}
-            <span className="inline-block whitespace-nowrap">
+            <span className="inline-block max-w-full">
               {[...word].map((ch, ci) => {
                 if (!isLetter(ch)) return <span key={ci}>{ch}</span>;
                 const i = letterIndex++;
