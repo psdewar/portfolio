@@ -3740,7 +3740,7 @@ function ShowGroupCard({
               )}
               {rsvpCounts && (
                 <p className="text-xs text-neutral-500 mt-1">
-                  {rsvpCounts.responses} responses &middot;{" "}
+                  {rsvpCounts.responses} response{rsvpCounts.responses === 1 ? "" : "s"} &middot;{" "}
                   {rsvpCounts.attending} attending
                 </p>
               )}

@@ -168,6 +168,16 @@ function Poster({
   const sameDoors =
     !showDoors || !shows || shows.every((s) => resolveDoors(s) === resolveDoors(shows[0]));
   const isCompact = !!sharedLocation && sameDoors;
+  const renderTags = (parts: string[]) => (
+    <div className="tags">
+      {parts.map((part, i) => (
+        <span key={i} className="tag">
+          {part}
+          {i < parts.length - 1 && <span className="tags-separator">·</span>}
+        </span>
+      ))}
+    </div>
+  );
   const topRowParts = [...tagsList, ...(sharedLocation ? [sharedLocation] : [])];
   const compactDateStr = isCompact ? formatCombinedDates(shows?.map((s) => s.date) ?? []) : "";
   const compactDoorsStr =
@@ -386,7 +396,7 @@ function Poster({
           color: rgba(240, 237, 230, 0.8);
           line-height: 1.25;
         }
-        .tags {
+        .details :global(.tags) {
           font-family: var(--font-space-mono), monospace;
           font-size: 2.083cqw;
           font-weight: 500;
@@ -394,11 +404,17 @@ function Poster({
           text-transform: uppercase;
           color: #e0b860;
           line-height: 1;
+          display: flex;
+          flex-wrap: wrap;
+          column-gap: 0.66em;
+          row-gap: 0.5em;
         }
-        .tags-separator {
-          color: #e0b860;
+        .details :global(.tag) {
+          white-space: nowrap;
+        }
+        .details :global(.tags-separator) {
+          margin-left: 0.66em;
           opacity: 0.4;
-          margin: 0 0.5em;
         }
         .bottom-row {
           display: flex;
@@ -652,7 +668,7 @@ function Poster({
             <div className="details">
               {topRowParts.length > 0 && (
                 <div className="pamphlet-top">
-                  <div className="tags">{topRowParts.join(" · ")}</div>
+                  {renderTags(topRowParts)}
                 </div>
               )}
               <div className="pamphlet-rows">
@@ -712,7 +728,7 @@ function Poster({
                 style={{ "--loc-extra": locationExtraLines(loc.label) } as CSSProperties}
               >
                 <div className={`bottom-left${tagsList.length ? "" : " three-line"}`}>
-                  {tagsList.length > 0 && <div className="tags">{tagsList.join(" · ")}</div>}
+                  {tagsList.length > 0 && renderTags(tagsList)}
                   <div className={`detail-value date${longDate ? " long" : ""}`}>{dateText}</div>
                   {hasLocation ? (
                     <div className="detail-value location">
