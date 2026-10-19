@@ -37,6 +37,8 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
   className?: string;
   fitHeight?: boolean;
   flush?: boolean;
+  inset?: number;
+  underLeft?: boolean;
   expandOnPlay?: boolean;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
@@ -47,6 +49,8 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
     className,
     fitHeight = false,
     flush = false,
+    inset = 0,
+    underLeft = false,
     expandOnPlay = false,
     onLoudPlay,
     onLoudEnd,
@@ -279,6 +283,7 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
         <div
           ref={ref}
           onScroll={onStripScroll}
+          style={inset ? { paddingInlineStart: inset, scrollPaddingInline: inset } : undefined}
           className={`flex ${flush ? "gap-0" : "gap-3"} overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
             fitHeight ? "h-full" : "pb-2"
           }`}
@@ -344,14 +349,12 @@ const EnergyVideos = forwardRef<EnergyVideosHandle, {
               )}
             </div>
           ))}
+          {inset > 0 && <div aria-hidden className={`shrink-0 ${flush ? "" : "-ml-3"}`} style={{ width: inset }} />}
           {!fitHeight && <div aria-hidden className="shrink-0 w-[min(calc(100%-312px),320px)]" />}
         </div>
 
-        {fitHeight && canLeft && (
-          <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/50 to-transparent" />
-        )}
-        {fitHeight && canRight && (
-          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/50 to-transparent" />
+        {fitHeight && underLeft && canLeft && (
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-black/20 to-transparent" />
         )}
 
         {!fitHeight && canLeft && (

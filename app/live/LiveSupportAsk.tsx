@@ -15,6 +15,16 @@ export interface LiveSupportAskCore {
   place?: string | null;
 }
 
+const MOBILE_SHEET_HEADING_FONT = "clamp(1.75rem, 7vw, 2.25rem)";
+const MOBILE_SHEET_HEADING_MARGIN_PX = 20;
+const MOBILE_SHEET_MAX_ROWS = 4;
+
+export function mobileSheetIdealCss(showCount: number, hasHeading: boolean) {
+  const rows = Math.min(showCount, MOBILE_SHEET_MAX_ROWS);
+  const heading = hasHeading ? ` + ${MOBILE_SHEET_HEADING_MARGIN_PX}px + 0.95 * ${MOBILE_SHEET_HEADING_FONT}` : "";
+  return `(${rows} * var(--sheet-row, 48px)${heading})`;
+}
+
 export function LiveSupportAsk({
   upcomingShows,
   pastShows = [],
@@ -47,7 +57,7 @@ export function LiveSupportAsk({
 
   const hasHeading = !!place;
   const cityHeadingClass = "font-semibold leading-[0.95]";
-  const mobileHeadingSize = { fontSize: "clamp(1.75rem, 7vw, 2.25rem)" };
+  const mobileHeadingSize = { fontSize: MOBILE_SHEET_HEADING_FONT };
   const headingRowClass = `mt-3 mb-2 px-4 w-fit shrink-0 ${cityHeadingClass}`;
   const headingText = place ? `Pull up in ${place}` : null;
 

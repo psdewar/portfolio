@@ -7,7 +7,7 @@ import { AdlibReactionButtons } from "../components/AdlibReactions";
 import type { UseAdlibSocketResult } from "../hooks/useAdlibSocket";
 import { LiveClips, type EnergyClipHandlers } from "./LiveClips";
 import { FundPill } from "../components/FundPill";
-import { LiveSupportAsk, type LiveSupportAskCore } from "./LiveSupportAsk";
+import { LiveSupportAsk, mobileSheetIdealCss, type LiveSupportAskCore } from "./LiveSupportAsk";
 import { Stage, type StageProps } from "./Stage";
 import { PHOTO_NAT_W, PHOTO_NAT_H, CLIP_WRAPPER_MIN_PX } from "./useLiveLayout";
 import { LIVE_DESKTOP_HIDDEN } from "./live-breakpoint";
@@ -64,6 +64,7 @@ export function MobileTree({
     isDesktop === false && !isOgMode && isLive && !overlayChat && (
       <div className="min-h-0 flex-1">{mobileAdlibChat}</div>
     );
+  const sheetIdealCss = mobileSheetIdealCss(supportAsk.upcomingShows.length, !!supportAsk.place);
   const offlineMobileContent = !isLive && !isOgMode && (
     <div data-live-schedule>
       <LiveSupportAsk
@@ -71,11 +72,12 @@ export function MobileTree({
         variant="sheet"
         onFirstScreenMeasured={handleMobileScheduleMeasured}
       >
-        <div className="p-3" style={{ height: CLIP_WRAPPER_MIN_PX }}>
+        <div className="py-3" style={{ height: CLIP_WRAPPER_MIN_PX }}>
           <LiveClips
             active={isDesktop === false}
             {...energyClip}
             fitHeight
+            inset={12}
             className="h-full w-full"
           />
         </div>
@@ -86,7 +88,7 @@ export function MobileTree({
   return (
     <div
       ref={mobileColRef}
-      className={`${LIVE_DESKTOP_HIDDEN} ${
+      className={`${LIVE_DESKTOP_HIDDEN} [--sheet-row:48px] sm:[--sheet-row:56px] [--sheet-stage-floor:44px] [@media(orientation:landscape)]:[--sheet-stage-floor:calc((100dvh_-_var(--header-h,65px))*0.4)] ${
         mobileOfflineScroll ? "relative w-full" : "absolute inset-0"
       } flex flex-col z-[2] ${isLive ? "bg-black" : "bg-neutral-50 dark:bg-black"}`}
     >
@@ -100,7 +102,7 @@ export function MobileTree({
           !isLive
             ? mobileStageHeightPx != null
               ? { height: mobileStageHeightPx }
-              : { aspectRatio: `${PHOTO_NAT_W} / ${PHOTO_NAT_H}` }
+              : { height: `min(${(100 * PHOTO_NAT_H) / PHOTO_NAT_W}vw, max(var(--sheet-stage-floor, 44px), calc(100dvh - var(--header-h, calc(4rem + 1px)) - ${sheetIdealCss})))` }
             : {
                 height:
                   overlayChat && !mobileLandscape

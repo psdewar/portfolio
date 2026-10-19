@@ -17,11 +17,15 @@ export function LiveClips({
   onLoudEnd,
   fitHeight,
   flush,
+  inset,
+  underLeft,
   className,
 }: EnergyClipHandlers & {
   active: boolean;
   fitHeight?: boolean;
   flush?: boolean;
+  inset?: number;
+  underLeft?: boolean;
   className?: string;
 }) {
   return (
@@ -30,6 +34,8 @@ export function LiveClips({
       videoIds={ENERGY_VIDEO_IDS}
       fitHeight={fitHeight}
       flush={flush}
+      inset={inset}
+      underLeft={underLeft}
       expandOnPlay
       className={className}
       onLoudPlay={onLoudStart}

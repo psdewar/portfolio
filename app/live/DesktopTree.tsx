@@ -302,7 +302,9 @@ export function DesktopTree({
                     active={isDesktop === true}
                     {...energyClip}
                     fitHeight
-                    className="h-full w-full px-4 py-3"
+                    inset={16}
+                    underLeft
+                    className="h-full w-full py-3"
                   />
                 </div>
               </div>
