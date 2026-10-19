@@ -273,7 +273,7 @@ export default function ConfirmForm({
       <button
         onClick={handleConfirm}
         disabled={loading}
-        className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-lg py-3 lg:py-4 text-sm lg:text-base hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+        className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold rounded-btn py-3 lg:py-4 text-sm lg:text-base hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
       >
         {loading
           ? isPrivate

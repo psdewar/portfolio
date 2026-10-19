@@ -107,7 +107,7 @@ export function SuccessClient({
                 {emailStatus === "idle" && (
                   <button
                     onClick={handleSendEmail}
-                    className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white font-bold py-5 px-6 rounded-xl transition-all active:scale-[0.98] text-lg"
+                    className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white font-bold py-5 px-6 rounded-btn transition-all active:scale-[0.98] text-lg"
                   >
                     Send Download Link
                   </button>
@@ -124,7 +124,7 @@ export function SuccessClient({
                     </div>
                     <button
                       onClick={() => router.push("/listen")}
-                      className="w-full bg-white text-black font-bold py-5 px-6 rounded-xl transition-all active:scale-[0.98] text-xl"
+                      className="w-full bg-white text-black font-bold py-5 px-6 rounded-btn transition-all active:scale-[0.98] text-xl"
                     >
                       Listen ({countdown}s)
                     </button>
@@ -160,7 +160,7 @@ export function SuccessClient({
                     <button
                       key={asset}
                       onClick={() => handleDownload(asset)}
-                      className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-medium py-3 px-6 rounded-xl transition-colors"
+                      className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-medium py-3 px-6 rounded-btn transition-colors"
                     >
                       {assets.length === 1 ? "Download" : `Download ${asset}`}
                     </button>

@@ -129,7 +129,7 @@ export default function MomentsClient({
             <button
               type="submit"
               disabled={unlockLoading || !passcode.trim()}
-              className="w-full py-4 font-medium text-lg rounded-lg text-[#0a0a0a] transition-all hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
+              className="w-full py-4 font-medium text-lg rounded-btn text-[#0a0a0a] transition-all hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
               style={{ background: gold }}
             >
               {unlockLoading ? "Opening..." : "Open"}
@@ -149,7 +149,7 @@ export default function MomentsClient({
                         <div className="px-4 py-4 sm:px-6">
                           <a
                             href="/fund"
-                            className="flex w-full items-center justify-center gap-2 rounded-lg py-4 text-lg font-medium text-[#0a0a0a] transition-all hover:scale-[1.01]"
+                            className="flex w-full items-center justify-center gap-2 rounded-btn py-4 text-lg font-medium text-[#0a0a0a] transition-all hover:scale-[1.01]"
                             style={{ background: gold }}
                           >
                             {fundName

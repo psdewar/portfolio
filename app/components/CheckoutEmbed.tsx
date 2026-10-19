@@ -61,7 +61,7 @@ export default function CheckoutEmbed({
             setLoadFailed(false);
             setStripePromise(getStripe());
           }}
-          className="mt-5 rounded-xl bg-neutral-900 px-6 py-3 font-medium text-white dark:bg-white dark:text-neutral-900"
+          className="mt-5 rounded-btn bg-neutral-900 px-6 py-3 font-medium text-white dark:bg-white dark:text-neutral-900"
         >
           Try again
         </button>

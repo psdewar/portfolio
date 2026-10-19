@@ -224,7 +224,7 @@ export function FundingCard({
           <button
             onClick={handleCustomAmount}
             disabled={isLoading || !customAmount}
-            className="relative px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+            className="relative px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-btn transition-colors flex items-center gap-2"
           >
             <span>
               {isLoading && selectedAmount === null

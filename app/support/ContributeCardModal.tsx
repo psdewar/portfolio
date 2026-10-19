@@ -164,7 +164,7 @@ export default function ContributeCardModal({
                   <button
                     onClick={startCheckout}
                     disabled={cents < 100 || creating}
-                    className="w-full rounded-xl bg-neutral-900 dark:bg-white py-3.5 text-xl font-semibold text-white dark:text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                    className="w-full rounded-btn bg-neutral-900 dark:bg-white py-3.5 text-xl font-semibold text-white dark:text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                   >
                     {creating ? (
                       <>
