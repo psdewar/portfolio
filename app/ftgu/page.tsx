@@ -169,6 +169,12 @@ const CSS = `
   color: var(--muted);
   line-height: 1.25;
 }
+.ftgu-more {
+  font-size: calc(3.4 * var(--s));
+  color: var(--muted);
+  line-height: 1.25;
+  flex-shrink: 0;
+}
 .ftgu-empty {
   font-size: calc(5 * var(--s));
   font-weight: 700;
@@ -215,6 +221,8 @@ const CSS = `
 }
 `;
 
+const MAX_ROWS = 5;
+
 function rowScaleFor(count: number): number {
   if (count <= 2) return 1;
   if (count === 3) return 0.9;
@@ -251,7 +259,8 @@ export default async function FtguPage({
   const places = new Set(selected.map((s) => `${s.city}, ${s.region}`));
   const sameCity = places.size === 1;
   const heading = params.title?.trim() || (sameCity ? [...places][0] : null);
-  const rowScale = rowScaleFor(selected.length);
+  const shown = selected.slice(0, MAX_ROWS);
+  const rowScale = rowScaleFor(shown.length);
 
   return (
     <>
@@ -297,7 +306,7 @@ export default async function FtguPage({
                 drop soon
               </div>
             ) : (
-              selected.map((show) => {
+              shown.map((show) => {
                 const d = parseLocalDate(show.date);
                 const cityLine = `${show.city}, ${show.region}`;
                 const venue = isResidence(show) || show.hideHost ? null : show.venue;
@@ -315,6 +324,7 @@ export default async function FtguPage({
                 );
               })
             )}
+            {selected.length > MAX_ROWS && <div className="ftgu-more">More dates at peytspencer.com/rsvp</div>}
           </div>
 
           <div className="ftgu-qr">
