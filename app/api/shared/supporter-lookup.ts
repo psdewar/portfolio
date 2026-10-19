@@ -18,6 +18,14 @@ export function isSupporterSession(session: Stripe.Checkout.Session): boolean {
   return session.mode === "subscription" || SUPPORTER_PROJECT_IDS.has(session.metadata?.projectId ?? "");
 }
 
+export function supporterSessionIsCurrent(session: Stripe.Checkout.Session): boolean {
+  if (typeof session.subscription === "object" && session.subscription) {
+    return ["active", "trialing"].includes(session.subscription.status);
+  }
+  const days = session.metadata?.projectId === "annual-support" ? 366 : 31;
+  return Date.now() / 1000 < session.created + days * 86400;
+}
+
 export function tierFromSession(session: Stripe.Checkout.Session): SupporterTierName | null {
   if (typeof session.subscription === "object" && session.subscription) {
     return tierFromPrice(session.subscription.items.data[0]?.price);
