@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { getUpcomingShows } from "../lib/shows";
 import { chorusRead } from "../lib/chorus";
+import { getFixtureMode } from "../lib/dev-data/mode";
+import { fixtureLegFor } from "../lib/dev-data/fixtures";
 import { SEED_LEGS, posterLineFor, type Leg, type PosterLineShow } from "./legs-shared";
 
 export * from "./legs-shared";
@@ -35,6 +37,8 @@ export const getLegs = cache(async (): Promise<Leg[]> => {
 });
 
 export async function getLeg(slug: string): Promise<Leg | undefined> {
+  const fixture = await getFixtureMode();
+  if (fixture) return fixtureLegFor(slug, fixture) ?? SEED_LEGS[slug];
   const legs = await getLegs();
   return legs.find((l) => l.slug === slug);
 }

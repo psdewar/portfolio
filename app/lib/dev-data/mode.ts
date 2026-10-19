@@ -16,3 +16,8 @@ export async function getDataMode(): Promise<DataMode> {
     return "demo";
   }
 }
+
+export async function getFixtureMode(): Promise<Exclude<DataMode, "demo"> | null> {
+  const mode = await getDataMode();
+  return mode === "demo" ? null : mode;
+}

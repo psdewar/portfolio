@@ -1,4 +1,6 @@
 import { chorusFetch } from "./chorus";
+import { getFixtureMode } from "./dev-data/mode";
+import { fixtureHostFor } from "./dev-data/fixtures";
 
 export interface Sponsor {
   showSlug?: string;
@@ -33,6 +35,8 @@ export async function getSponsors(): Promise<Sponsor[]> {
 }
 
 export async function getHostForShow(slug: string): Promise<Sponsor | null> {
+  const fixture = await getFixtureMode();
+  if (fixture) return fixtureHostFor(slug, fixture);
   const sponsors = await getSponsors();
   return sponsors.find((s) => s.showSlug === slug && s.role === "host") ?? null;
 }

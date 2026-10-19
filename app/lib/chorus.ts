@@ -1,6 +1,6 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
-import { getDataMode } from "./dev-data/mode";
+import { getFixtureMode } from "./dev-data/mode";
 import { fixtureFor } from "./dev-data/fixtures";
 
 const CHORUS_API = process.env.SCHEDULE_API_URL || "https://live.peytspencer.com";
@@ -12,9 +12,9 @@ export const chorusTag = (resource: string) => `chorus:${resource}`;
 export async function chorusFetch(resource: string, init: RequestInit = {}) {
   const verb = (init.method ?? "GET").toUpperCase();
   if (verb === "GET" || verb === "HEAD") {
-    const mode = await getDataMode();
-    if (mode !== "demo") {
-      return new Response(JSON.stringify(fixtureFor(resource, mode)), {
+    const fixture = await getFixtureMode();
+    if (fixture) {
+      return new Response(JSON.stringify(fixtureFor(resource, fixture)), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
