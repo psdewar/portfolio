@@ -19,7 +19,17 @@ const BANKS: Record<string, { name: string; bg: string; fg: string; ring?: boole
   wise: { name: "Wise", bg: "#9FE870", fg: "#163300", ch: "W" },
 };
 
-const COLS = "grid grid-cols-[37%_21%_21%_21%] items-baseline";
+const SM_GRID = "sm:grid sm:grid-cols-[37%_21%_21%_21%] sm:items-baseline";
+const COLS = `flex flex-wrap items-baseline gap-x-4 gap-y-1 ${SM_GRID}`;
+
+function Figure({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <span className="flex items-baseline gap-1.5 sm:justify-end">
+      <span className="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 sm:hidden">{label}</span>
+      <span className={`whitespace-nowrap ${className}`}>{children}</span>
+    </span>
+  );
+}
 
 function Badge({ source, size = "h-6 w-6 text-[0.7rem] rounded-md" }: { source: string; size?: string }) {
   const b = BANKS[source];
@@ -86,28 +96,28 @@ export default async function LedgerPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         
 
-        <div className="flex w-full items-end justify-between gap-x-4">
+        <div className="flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-2">
           <span className="flex flex-col">
             <span className="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">Income</span>
-            <span className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{money(data.income)}</span>
+            <span className="text-2xl sm:text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{money(data.income)}</span>
           </span>
-          <span className="pb-1 text-3xl text-neutral-400">−</span>
+          <span className="pb-1 text-2xl sm:text-3xl text-neutral-400">−</span>
           <span className="flex flex-col">
             <span className="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">Expenses</span>
-            <span className="text-3xl font-bold tabular-nums text-rose-600 dark:text-rose-400">{money(data.expenses)}</span>
+            <span className="text-2xl sm:text-3xl font-bold tabular-nums text-rose-600 dark:text-rose-400">{money(data.expenses)}</span>
           </span>
-          <span className="pb-1 text-3xl text-neutral-400">=</span>
+          <span className="pb-1 text-2xl sm:text-3xl text-neutral-400">=</span>
           <span className="flex flex-col items-end text-right">
             <span className="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
               {data.net >= 0 ? "Net income" : "Net loss"}
             </span>
-            <span className={`text-3xl font-bold tabular-nums ${netColor(data.net)}`}>{netText(data.net)}</span>
+            <span className={`text-2xl sm:text-3xl font-bold tabular-nums ${netColor(data.net)}`}>{netText(data.net)}</span>
           </span>
         </div>
 
         
 
-        <div className={`${COLS} mt-8 pb-2 text-sm uppercase tracking-wider text-neutral-500 dark:text-neutral-400`}>
+        <div className={`hidden ${SM_GRID} mt-8 pb-2 text-sm uppercase tracking-wider text-neutral-500 dark:text-neutral-400`}>
           <span className="font-semibold">Leg</span>
           <span className="text-right font-semibold">Income</span>
           <span className="text-right font-semibold">Expenses</span>
@@ -117,14 +127,20 @@ export default async function LedgerPage() {
         {data.legs.map((leg) => (
           <details key={leg.id} className="group border-t border-neutral-200 dark:border-neutral-800">
             <summary className={`${COLS} cursor-pointer list-none py-2.5 text-lg tabular-nums [&::-webkit-details-marker]:hidden`}>
-              <span className="flex min-w-0 items-baseline gap-2 text-neutral-800 dark:text-neutral-200">
+              <span className="flex w-full min-w-0 items-baseline gap-2 text-neutral-800 dark:text-neutral-200 sm:w-auto">
                 <span className="inline-block w-3 shrink-0 text-xs text-neutral-400 transition-transform group-open:rotate-90">▸</span>
-                <span className="truncate">{leg.label}</span>
+                <span className="min-w-0 break-words sm:truncate">{leg.label}</span>
                 <span className="hidden text-sm text-neutral-400 dark:text-neutral-500 sm:inline">{leg.range}</span>
               </span>
-              <span className="text-right text-emerald-600 dark:text-emerald-400">{leg.income ? money(leg.income) : "—"}</span>
-              <span className="text-right text-rose-600/80 dark:text-rose-400/80">{money(leg.expenses)}</span>
-              <span className={`text-right font-medium ${netColor(leg.net)}`}>{netText(leg.net)}</span>
+              <Figure label="Income" className="text-emerald-600 dark:text-emerald-400">
+                {leg.income ? money(leg.income) : "—"}
+              </Figure>
+              <Figure label="Expenses" className="text-rose-600/80 dark:text-rose-400/80">
+                {money(leg.expenses)}
+              </Figure>
+              <Figure label="Net" className={`font-medium ${netColor(leg.net)}`}>
+                {netText(leg.net)}
+              </Figure>
             </summary>
             <div className="pb-3">
               {leg.note && (
@@ -138,10 +154,16 @@ export default async function LedgerPage() {
         ))}
 
         <div className={`${COLS} border-t-2 border-neutral-300 py-2.5 text-lg font-semibold tabular-nums dark:border-neutral-700`}>
-          <span className="pl-5 text-neutral-900 dark:text-neutral-100">Total</span>
-          <span className="text-right text-emerald-600 dark:text-emerald-400">{money(data.income)}</span>
-          <span className="text-right text-rose-600 dark:text-rose-400">{money(data.expenses)}</span>
-          <span className={`text-right ${netColor(data.net)}`}>{netText(data.net)}</span>
+          <span className="w-full pl-5 text-neutral-900 dark:text-neutral-100 sm:w-auto">Total</span>
+          <Figure label="Income" className="text-emerald-600 dark:text-emerald-400">
+            {money(data.income)}
+          </Figure>
+          <Figure label="Expenses" className="text-rose-600 dark:text-rose-400">
+            {money(data.expenses)}
+          </Figure>
+          <Figure label="Net" className={netColor(data.net)}>
+            {netText(data.net)}
+          </Figure>
         </div>
 
         

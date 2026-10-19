@@ -3,6 +3,7 @@
 import { type Leg, type FundFacet, type FundLine, primeLines } from "../fund/legs-shared";
 import { type Show } from "../lib/shows-shared";
 import { formatMonthDay } from "../lib/dates";
+import { formatDollars } from "../lib/fees";
 
 const emptyFund = (): FundFacet => ({ destination: "", shortName: "", nights: 0, lines: [] });
 
@@ -165,7 +166,7 @@ export default function LegRow({
             </span>
           </span>
         </button>
-        <div className="flex items-center gap-3 shrink-0 ml-auto">
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 ml-auto">
           {actions}
           {fund && (
             <a
@@ -184,7 +185,7 @@ export default function LegRow({
               open ? "text-neutral-900 dark:text-white" : ""
             }`}
           >
-            {fund ? `Budget $${total.toLocaleString()}` : "Add a budget"}
+            {fund ? `Budget ${formatDollars(Math.round(total) * 100)}` : "Add a budget"}
           </button>
         </div>
       </div>

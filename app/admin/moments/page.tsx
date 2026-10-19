@@ -832,7 +832,7 @@ function SlideshowReorder({
           const dragging = groupDragging || (drag?.kind === "tile" && drag.key === key);
           const groupStart = i === 0 || groupKeyOf(order[i - 1]) !== group;
           return (
-            <div key={key} className="flex shrink-0 gap-3">
+            <div key={key} className="flex shrink-0 items-start gap-3">
               {groupStart && (
                 <div
                   data-group={group}
@@ -841,7 +841,7 @@ function SlideshowReorder({
                 >
                   <span
                     style={{ writingMode: "vertical-rl" }}
-                    className={`rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                    className={`max-h-28 rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                       city ? "text-neutral-400 dark:text-neutral-500" : "text-amber-500"
                     }`}
                   >
