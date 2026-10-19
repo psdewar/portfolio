@@ -41,14 +41,19 @@ export default function CityList({
 
           const label = (
             <span
-              className="min-w-0 break-words font-extrabold leading-[0.95] [font-size:var(--city)]"
+              className="min-w-0 font-extrabold leading-[0.95] [font-size:var(--city)] [overflow-wrap:anywhere]"
             >
-              <span data-city={show.slug} className="inline-block" style={{ fontFamily: '"Parkinsans", sans-serif' }}>{show.city}</span>
-              <span
-                className="font-normal tracking-normal"
-                style={{ fontSize: stateSize }}
-              >
-                {`, ${show.region}`}
+              <span data-city={show.slug} className="inline-block max-w-full" style={{ fontFamily: '"Parkinsans", sans-serif' }}>
+                {show.city.slice(0, -1)}
+                <span className="whitespace-nowrap">
+                  {show.city.slice(-1)}
+                  <span className="font-normal tracking-normal" style={{ fontSize: stateSize }}>
+                    ,
+                  </span>
+                </span>
+              </span>
+              <span className="font-normal tracking-normal" style={{ fontSize: stateSize }}>
+                {` ${show.region}`}
               </span>
             </span>
           );

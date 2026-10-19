@@ -26,6 +26,7 @@ import { formatEventDateShort } from "../../lib/dates";
 import { captureUtm } from "../../lib/utm";
 import { buildIcs, downloadIcs } from "../../lib/ics";
 import { routeFormError } from "../../lib/form-errors";
+import { formatDollars, MAX_CARD_CENTS } from "../../lib/fees";
 import { calculateStripeFee } from "../../api/shared/products";
 
 const TYPE = {
@@ -37,8 +38,14 @@ const TYPE = {
   button: "clamp(1.25rem, 0.8vw + 1rem, 1.75rem)",
 };
 
+const MAX_SUPPORT_DOLLARS = MAX_CARD_CENTS / 100;
+
 const parseSupportDollars = (draft: string) =>
-  Math.min(10000, Math.round((parseInt(draft, 10) || 0) / 5) * 5);
+  Math.min(MAX_SUPPORT_DOLLARS, Math.round((parseInt(draft, 10) || 0) / 5) * 5);
+
+const formatWhole = (dollars: number) => new Intl.NumberFormat("en-US").format(dollars);
+
+const SUPPORT_MAX_HINT = `${formatDollars(MAX_SUPPORT_DOLLARS * 100)} max`;
 
 const ROW_CLASS =
   "group flex items-center justify-between gap-3 w-full min-w-0";
@@ -180,11 +187,11 @@ export default function RSVPForm({
   const defaultSupportCents = (fundDefault ?? 0) * 100;
   const [committedCents, setSupportCents] = useState(defaultSupportCents);
   const [supportDraft, setSupportDraft] = useState<string | null>(null);
+  const [supportClamped, setSupportClamped] = useState(false);
   const supportCents = supportDraft === null ? committedCents : parseSupportDollars(supportDraft) * 100;
   const [showPay, setShowPay] = useState(false);
   const [payError, setPayError] = useState("");
   const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
-  const formatCents = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -400,7 +407,9 @@ export default function RSVPForm({
   }
 
   const adjustSupport = (deltaCents: number) => {
-    setSupportCents(Math.max(0, supportCents + deltaCents));
+    const next = supportCents + deltaCents;
+    setSupportCents(Math.min(MAX_SUPPORT_DOLLARS * 100, Math.max(0, next)));
+    setSupportClamped(next > MAX_SUPPORT_DOLLARS * 100);
     setSupportDraft(null);
   };
   const commitSupportDraft = () => {
@@ -482,7 +491,7 @@ export default function RSVPForm({
         Fund my tour across North America
       </span>
       {renderStepper({
-        value: formatCents(supportCents),
+        value: formatDollars(supportCents),
         center: (
           <div
             className="shrink-0 inline-flex items-center justify-center gap-0 px-2 text-neutral-900 dark:text-white font-bold"
@@ -494,8 +503,12 @@ export default function RSVPForm({
               inputMode="numeric"
               pattern="[0-9]*"
               aria-label="Support amount in dollars"
-              value={supportDraft ?? String(Math.round(supportCents / 100))}
-              onChange={(e) => setSupportDraft(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              value={supportDraft ?? formatWhole(Math.round(supportCents / 100))}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 5);
+                setSupportDraft(digits);
+                setSupportClamped((parseInt(digits, 10) || 0) > MAX_SUPPORT_DOLLARS);
+              }}
               onFocus={(e) => e.target.select()}
               onBlur={commitSupportDraft}
               onKeyDown={(e) => {
@@ -505,7 +518,7 @@ export default function RSVPForm({
                 }
               }}
               className="bg-transparent p-0 text-left tabular-nums font-bold focus:outline-none"
-              style={{ fontSize: "inherit", width: `${Math.max(1, (supportDraft ?? String(Math.round(supportCents / 100))).length) * 1.12}ch` }}
+              style={{ fontSize: "inherit", width: `${Math.max(1, (supportDraft ?? formatWhole(Math.round(supportCents / 100))).length) * 1.12}ch` }}
             />
           </div>
         ),
@@ -516,7 +529,7 @@ export default function RSVPForm({
         plusLabel: "Increase support by $5",
       })}
       <p className="mt-2 text-neutral-500 dark:text-neutral-400 tabular-nums" style={pillText}>
-        {supportCents > 0 ? "no fees with Venmo or Zelle" : "no charges"}
+        {supportClamped ? SUPPORT_MAX_HINT : supportCents > 0 ? "no fees with Venmo or Zelle" : "no charges"}
       </p>
     </div>
   );
@@ -665,8 +678,8 @@ export default function RSVPForm({
         <PaymentModal
           venmoUrl={venmoPayUrl(supportCents / 100, `Concert support ${city}`)}
           label={`Concert support · ${city}`}
-          amount={formatCents(supportCents)}
-          hint={`No fees with Venmo or Zelle. Card adds processing fees (${formatCents(totalWithFeesCents)} total).`}
+          amount={formatDollars(supportCents)}
+          hint={`No fees with Venmo or Zelle. Card adds processing fees (${formatDollars(totalWithFeesCents)} total).`}
           error={payError}
           onCard={startCardCheckout}
           onClose={() => setShowPay(false)}
@@ -702,10 +715,10 @@ export default function RSVPForm({
                     >
                       {isPast ? "Thank you," : "See you in"}
                     </span>
-                    <span className="block break-words leading-[0.95]">
+                    <span className="block leading-[0.95] [overflow-wrap:anywhere]">
                       <span
                         data-flip-city
-                        className="inline-block text-[color:var(--z-fg)] split:![font-size:clamp(2.5rem,12.3cqi,3.45rem)]"
+                        className="inline-block max-w-full text-[color:var(--z-fg)] split:![font-size:clamp(2.5rem,12.3cqi,3.45rem)]"
                         style={{ ...parkinsans, fontSize: TYPE.display }}
                       >
                         <SplitFlapText text={city} active={enter === "flap"} />
