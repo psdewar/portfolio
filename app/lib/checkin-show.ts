@@ -65,7 +65,7 @@ export async function resolveCheckinSlug(cookieValue?: string): Promise<string |
 
 export async function resolveCheckinPath(cookieValue?: string): Promise<string> {
   const slug = await resolveCheckinSlug(cookieValue);
-  return slug ? `/checkin/${slug}` : "/rsvp";
+  return slug ? `/checkin/${slug}` : "/support";
 }
 
 export function setCheckinCookie(response: NextResponse, slug: string, checkinId: string) {
