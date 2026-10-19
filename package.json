@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "node test-components-simple.js",
     "setup:tunnel": "bash scripts/setup-tunnel.sh",
-    "tunnel": "echo 'waiting for next dev on :3000…' && until curl -fsS http://localhost:3000 >/dev/null 2>&1; do sleep 1; done && echo 'dev ready, opening tunnel' && cloudflared tunnel run dev"
+    "tunnel": "echo 'waiting for next dev on :3000…' && until curl -fsS http://localhost:3000 >/dev/null 2>&1; do sleep 1; done && echo 'dev ready, opening tunnel' && cloudflared tunnel run dev",
+    "dev:tunnel": "bash scripts/dev-tunnel.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",
