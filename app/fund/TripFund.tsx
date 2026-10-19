@@ -34,11 +34,17 @@ import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 import { useScrollLock } from "../hooks/useScrollLock";
+import StatusShield from "../components/StatusShield";
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 
 function isShowPast(dateStr: string): boolean {
   return new Date(`${dateStr}T23:59:59`) < new Date();
+}
+
+function wholeDollars(raw: string): string {
+  const n = Math.floor(parseFloat(raw));
+  return n >= 1 ? String(Math.min(n, MAX_CARD_CENTS / 100)) : "";
 }
 
 function money(n: number): string {
@@ -184,7 +190,8 @@ function LineMatchControl({
   full?: number;
   presets: number[];
 }) {
-  const pressed = full !== undefined && value === String(full);
+  const fullValue = full === undefined ? undefined : wholeDollars(String(full));
+  const pressed = fullValue !== undefined && value === fullValue;
   return (
     <div className="match-ctrl">
       <div className="match-input-row">
@@ -193,24 +200,20 @@ function LineMatchControl({
           <input
             className="match-input"
             type="number"
+            inputMode="numeric"
             min="1"
+            step="1"
             max={MAX_CARD_CENTS / 100}
             placeholder="0"
             value={value}
-            onChange={(e) =>
-              onChange(
-                parseFloat(e.target.value) > MAX_CARD_CENTS / 100
-                  ? String(MAX_CARD_CENTS / 100)
-                  : e.target.value,
-              )
-            }
+            onChange={(e) => onChange(wholeDollars(e.target.value))}
           />
         </div>
         {full !== undefined && (
           <button
             className="match-btn match-full"
             aria-pressed={pressed}
-            onClick={() => onChange(pressed ? "" : String(full))}
+            onClick={() => onChange(pressed ? "" : fullValue!)}
           >
             Full
           </button>
@@ -219,7 +222,7 @@ function LineMatchControl({
           <button
             key={p}
             className="match-btn match-chip"
-            onClick={() => onChange(String((parseFloat(value) || 0) + p))}
+            onClick={() => onChange(wholeDollars(String((parseFloat(value) || 0) + p)))}
           >
             {p}
           </button>
@@ -758,8 +761,6 @@ export function TripFund({
 .bf-root ::-webkit-scrollbar-thumb { background: var(--rule-strong); border: 2px solid var(--bg); border-radius: 10px; }
 
 .bf-root a { color: inherit; }
-.status-shield { display: none; position: fixed; top: 0; left: 0; right: 0; height: calc(env(safe-area-inset-top, 0px) + 6px); background: var(--navy); z-index: 1500; pointer-events: none; }
-@media (hover: none) and (pointer: coarse) { .status-shield { display: block; } }
 body { padding-top: env(safe-area-inset-top, 0px); }
 .wrap { max-width: 780px; margin: 0 auto; padding: 0 16px 72px; position: relative; }
 @media (min-width: 640px) { .wrap { padding: 0 40px 80px; } }
@@ -789,6 +790,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .site-foot-social a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; padding: 0; color: var(--ink-dim); }
 .site-foot-social a:hover { color: var(--paper); }
 .site-foot-social svg { width: 28px; height: 28px; }
+@media (max-width: 359px) { .site-foot-social .gap-4 { gap: 4px; } }
 .bf-h1 {
   font-size: var(--fs-hero); line-height: 0.98; text-align: left;
   letter-spacing: -0.025em; color: var(--paper); margin: 10px 0 0; font-weight: 600;
@@ -856,10 +858,10 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .route-stop::after { content: ""; position: absolute; left: 0; top: 8px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: var(--gold); }
 .route-stop--next::after { background: var(--navy); border: 2px solid var(--gold); }
 .route-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
-.route-place { flex: 1 1 auto; min-width: 0; color: #ece9e0; font-size: 18px; font-weight: 700; line-height: 1.3; }
-.route-time { flex: 0 0 auto; color: rgba(236, 233, 224, 0.6); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.route-place { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: #ece9e0; font-size: 18px; font-weight: 700; line-height: 1.3; }
+.route-time { flex: 0 1 auto; min-width: 0; max-width: 60%; overflow-wrap: anywhere; text-align: right; color: rgba(236, 233, 224, 0.6); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .route-stop--next .route-time { color: var(--gold); }
-.route-detail { margin-top: 2px; color: rgba(236, 233, 224, 0.72); }
+.route-detail { margin-top: 2px; overflow-wrap: anywhere; color: rgba(236, 233, 224, 0.72); }
 .route-detail--pill { display: flex; align-items: flex-start; gap: 8px; justify-content: flex-end; }
 .route-detail-text { flex: 1 1 auto; min-width: 0; }
 .route-detail--pill .route-pill { margin-top: 2px; }
@@ -916,7 +918,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 }
 .match-field:focus-within { border-color: var(--paper); }
 .match-input {
-  width: 60px; background: transparent; border: none;
+  width: 5.5ch; background: transparent; border: none;
   color: var(--paper); font: inherit; font-size: var(--fs-xl); font-weight: 700;
   text-align: right; padding: 0; outline: none;
   -moz-appearance: textfield;
@@ -940,7 +942,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .match-chip::before { content: '+$'; opacity: 0.8; }
 @media (max-width: 359px) {
   .match-field { padding: 0 8px; }
-  .match-input { width: 44px; }
   .match-full, .match-chip { width: 52px; }
   .match-input-row { gap: 5px; }
 }
@@ -958,7 +959,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
   flex: 0 0 auto; cursor: pointer; text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--act-bg); color: var(--act-text); font: inherit; font-weight: 600; font-size: var(--fs-base);
-  border: 1.5px solid var(--act-border); border-radius: 8px; min-height: 48px; padding: 10px 18px; white-space: nowrap;
+  border: 1.5px solid var(--act-border); border-radius: var(--btn-r); min-height: 48px; padding: 10px 18px; white-space: nowrap;
   max-width: 100%; min-width: 0; transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .other-action:hover { background: var(--navy); border-color: var(--navy); color: var(--gold); }
@@ -1141,7 +1142,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
       `}</style>
 
       <div className={og ? "bf-root bf-root--og" : "bf-root"}>
-        <div className="status-shield" aria-hidden="true" />
+        <StatusShield color="var(--navy)" zIndex={1500} />
         <SectionNav
           items={navItems}
           trip={leg.slug}
