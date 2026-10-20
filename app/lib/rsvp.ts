@@ -83,18 +83,29 @@ export async function markAttended({
     source: "checkin",
   });
 
-  const { data: stepRow } = await supabaseAdmin
+  const { data: attendanceRows } = await supabaseAdmin
     .from("attendances")
-    .select("public_id, steps")
-    .eq("show_slug", slug)
-    .eq("email", emailLower)
-    .maybeSingle();
+    .select("show_slug, public_id, steps")
+    .eq("email", emailLower);
+
+  const rows = (attendanceRows ?? []) as {
+    show_slug: string;
+    public_id: string | null;
+    steps: Record<string, string> | null;
+  }[];
+  const current = rows.find((r) => r.show_slug === slug);
+  const carried: Record<string, string> = {};
+  for (const row of rows) {
+    if (row.show_slug === slug) continue;
+    const { upload: _upload, ...rest } = row.steps ?? {};
+    Object.assign(carried, rest);
+  }
 
   return {
     number: assignedNumber as number,
     rsvpd,
-    checkinId: (stepRow?.public_id as string | undefined) ?? null,
-    steps: (stepRow?.steps as Record<string, string> | undefined) ?? {},
+    checkinId: current?.public_id ?? null,
+    steps: { ...carried, ...(current?.steps ?? {}) },
   };
 }
 

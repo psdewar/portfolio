@@ -38,20 +38,27 @@ export function isCheckinOpen(show: Show): boolean {
   return show.date < earliestToday && show.date >= shiftDate(earliestToday, -REOPEN_DAYS);
 }
 
-export async function resolveCheckinSlug(cookieValue?: string): Promise<string | null> {
-  const shows = (await getShows()).filter(isRunnable);
-
+export function pickCheckinSlug(shows: Show[], cookieValue?: string): string | null {
+  const runnable = shows.filter(isRunnable);
   const own = parseCheckinCookie(cookieValue);
-  if (own && shows.some((s) => s.slug === own.slug)) return own.slug;
 
-  const today = shows
+  const today = runnable
     .filter(isShowToday)
-    .sort((a, b) => doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime));
-  if (today[0]) return today[0].slug;
+    .sort(
+      (a, b) =>
+        (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+        doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
+    );
+  if (today.length > 0) {
+    return today.find((s) => s.slug === own?.slug)?.slug ?? today[0].slug;
+  }
+
+  const ownShow = runnable.find((s) => s.slug === own?.slug);
+  if (ownShow && isCheckinOpen(ownShow)) return ownShow.slug;
 
   const earliestToday = todayIn("Pacific/Honolulu");
   const floor = shiftDate(earliestToday, -REOPEN_DAYS);
-  const recent = shows
+  const recent = runnable
     .filter((s) => s.date < earliestToday && s.date >= floor)
     .sort((a, b) =>
       a.date === b.date
@@ -61,6 +68,10 @@ export async function resolveCheckinSlug(cookieValue?: string): Promise<string |
           : -1,
     );
   return recent[0]?.slug ?? null;
+}
+
+export async function resolveCheckinSlug(cookieValue?: string): Promise<string | null> {
+  return pickCheckinSlug(await getShows(), cookieValue);
 }
 
 export async function resolveCheckinPath(cookieValue?: string): Promise<string> {
