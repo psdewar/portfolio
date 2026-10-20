@@ -1,14 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getShowBySlug } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { isNameTooLong } from "../../lib/name";
 import { markAttended } from "../../lib/rsvp";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import PostHogClient from "../../../lib/posthog";
-import { isCheckinOpen, isShowToday, setCheckinCookie } from "../../lib/checkin-show";
+import {
+  CHECKIN_COOKIE,
+  isCheckinOpen,
+  isShowToday,
+  parseCheckinCookie,
+  setCheckinCookie,
+} from "../../lib/checkin-show";
 import { isCheckinId } from "../shared/checkin-metadata";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Generous per-IP cap: a venue shares one NAT'd IP, so high enough for a full room, not a bot.
     const rate = checkRateLimit(getClientIP(request), "checkin", {
@@ -51,6 +57,7 @@ export async function POST(request: Request) {
       phone,
       slug: slug.trim(),
       claimId: claiming ? claimId : null,
+      carryFromId: parseCheckinCookie(request.cookies.get(CHECKIN_COOKIE)?.value)?.checkinId ?? null,
     });
 
     const posthog = PostHogClient();

@@ -47,12 +47,14 @@ export async function markAttended({
   phone,
   slug,
   claimId,
+  carryFromId,
 }: {
   email: string;
   name?: string;
   phone?: string;
   slug: string;
   claimId?: string | null;
+  carryFromId?: string | null;
 }): Promise<{ number: number; rsvpd: boolean; checkinId: string | null; steps: Record<string, string> }> {
   const emailLower = email.trim().toLowerCase();
 
@@ -95,7 +97,8 @@ export async function markAttended({
   }[];
   const current = rows.find((r) => r.show_slug === slug);
   const carried: Record<string, string> = {};
-  for (const row of rows) {
+  const owned = !!carryFromId && rows.some((r) => r.show_slug !== slug && r.public_id === carryFromId);
+  for (const row of owned ? rows : []) {
     if (row.show_slug === slug) continue;
     const { upload: _upload, ...rest } = row.steps ?? {};
     Object.assign(carried, rest);
