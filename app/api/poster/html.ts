@@ -88,11 +88,26 @@ function fontHead(): string {
   </style>`;
 }
 
-import { POSTER_DIMS, PRINT_ZOOM, type PosterFormat } from "../../lib/poster-formats";
+import { POSTER_DIMS, PRINT_ZOOM, PRINT_PAGE, type PosterFormat } from "../../lib/poster-formats";
 export { POSTER_DIMS, type PosterFormat };
 
+export const HIDE_DETAILS_CSS = ".bottom-overlay { display: none; } .details { display: none; }";
+
+export const printPageCss = (W: number, H: number) =>
+  `body { display: block; width: ${Math.round(W * PRINT_ZOOM)}px; height: ${Math.round(H * PRINT_ZOOM)}px; min-height: 0; overflow: hidden; } .poster { transform: scale(${PRINT_ZOOM}); transform-origin: 0 0; }`;
+
+export function posterPdfOptions(format: PosterFormat) {
+  const { W, H } = POSTER_DIMS[format];
+  return format === "print"
+    ? {
+        viewport: { width: Math.round(W * PRINT_ZOOM), height: Math.round(H * PRINT_ZOOM) },
+        pageSize: PRINT_PAGE,
+      }
+    : { viewport: { width: W, height: H }, pageFormat: "Letter" as const };
+}
+
 export function wideBannerCss(): string {
-  return `.poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
+  return `.poster-bg { object-position: center 37.5%; } ${HIDE_DETAILS_CSS} .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }`;
 }
 
 export type PosterOptions = {
@@ -113,6 +128,7 @@ export type PosterOptions = {
   // Press-kit invite: no date to announce, so the poster asks for one instead.
   invite?: boolean;
   posterLine?: string | null;
+  hideDetails?: boolean;
 };
 
 export function posterHtml(
@@ -147,12 +163,11 @@ export function posterHtml(
     bgImgSrc = "",
     invite = false,
     posterLine,
+    hideDetails = false,
   } = opts;
   const { W, H } = POSTER_DIMS[format];
   const isPrint = format === "print";
-  const printCss = isPrint
-    ? `body { display: block; width: ${Math.round(W * PRINT_ZOOM)}px; height: ${Math.round(H * PRINT_ZOOM)}px; min-height: 0; overflow: hidden; } .poster { transform: scale(${PRINT_ZOOM}); transform-origin: 0 0; }`
-    : "";
+  const printCss = isPrint ? printPageCss(W, H) : "";
   const detailCss = (k: number) => {
     const px = (n: number) => `${Math.round(n * k * 4) / 4}px`;
     return `.content { padding: ${px(24)} ${px(28)}; } .lockup { --lockup-h: ${px(22)}; margin-bottom: ${px(4)}; } .presents { font-size: ${px(10)}; margin-bottom: ${px(8)}; margin-top: ${px(8)}; } .title-from { font-size: ${px(26)}; } .title-accent { width: ${px(64)}; height: ${px(3)}; margin: ${px(6)} 0 ${px(7)}; } .the-concert { font-size: ${px(10)}; } .venue-img { height: ${px(110)}; max-width: ${px(220)}; margin: ${px(14)} 0 ${px(10)}; } .theme-topright { top: ${px(24)}; right: ${px(28)}; font-size: ${px(10)}; transform: translateY(${px(-2.5)}); } .bottom-left { gap: ${px(10)}; } .tags { font-size: ${px(10)}; } .detail-value { font-size: ${px(14)}; } .detail-value.date { font-size: ${px(20)}; white-space: nowrap; } .detail-value.date.long { font-size: ${px(17)}; } .detail-value.date.invite { font-size: ${px(26)}; } .bottom-left.three-line .detail-value { font-size: ${px(14)}; } .bottom-left.three-line .detail-value.date { font-size: ${px(22)}; } .bottom-left.three-line .detail-value.date.long { font-size: ${px(17)}; } .bottom-left .detail-value.location { font-size: ${px(14 * scale)}; } .qr-section { gap: ${px(8)}; flex-shrink: 0; } .qr-code { width: calc(${px(92)} + var(--loc-extra, 0) * ${px(14 * scale * 1.4)}); height: calc(${px(92)} + var(--loc-extra, 0) * ${px(14 * scale * 1.4)}); } .qr-label { font-size: ${px(10)}; }`;
@@ -274,11 +289,12 @@ export function posterHtml(
     ${format === "pdf" || isPrint || format === "ig" || format === "yt" ? detailCss(W / 480) : ""}
     ${format === "ig" ? ".title-big { font-size: 66px; }" : ""}
     ${format === "yt" ? ".title-from { font-size: 19.5px; } .title-big { font-size: 54px; }" : ""}
-    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }" : ""}
+    ${format === "eb" ? `.poster-bg { object-position: center 37.5%; } ${HIDE_DETAILS_CSS} .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 15px; top: 36px; right: 42px; }` : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
     ${printCss}
+    ${hideDetails ? HIDE_DETAILS_CSS : ""}
   </style>
 </head>
 <body>

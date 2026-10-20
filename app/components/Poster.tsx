@@ -604,7 +604,7 @@ function Poster({
           />
         )}
         <div className="photo-overlay" />
-        <div className="bottom-overlay" />
+        {hideDetails ? null : <div className="bottom-overlay" />}
         <div className="poster-content">
           <div className="theme-topright">
             <div>rap concert for all ages</div>

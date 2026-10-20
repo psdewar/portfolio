@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { getShowBySlug, needsHostLocation } from "../../../lib/shows";
 import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
-import { posterHtml, inlineVenueImg, printBgSrc, POSTER_DIMS, type PosterFormat } from "../html";
-import { posterFileName, POSTER_SCALE, PRINT_PAGE, PRINT_ZOOM } from "../../../lib/poster-formats";
+import { posterHtml, inlineVenueImg, printBgSrc, posterPdfOptions, POSTER_DIMS, type PosterFormat } from "../html";
+import { posterFileName, POSTER_SCALE } from "../../../lib/poster-formats";
 import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       taglineAlign: sp.get("align") || show.taglineAlign || "left",
       scale: Math.min(2, Math.max(0.5, Number(sp.get("scale")) || show.locationScale || 1)),
       invite: needsHostLocation(show),
+      hideDetails: sp.get("details") === "0",
     });
     const fileName = posterFileName(`poster-${slug}`, format);
 
@@ -68,14 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    const isPrint = format === "print";
-    const pdf = await takePdf({
-      htmlContent: html,
-      viewport: isPrint
-        ? { width: Math.round(W * PRINT_ZOOM), height: Math.round(H * PRINT_ZOOM) }
-        : { width: W, height: H },
-      ...(isPrint ? { pageSize: PRINT_PAGE } : { pageFormat: "Letter" as const }),
-    });
+    const pdf = await takePdf({ htmlContent: html, ...posterPdfOptions(format) });
     return new Response(new Blob([pdf]).stream(), {
       headers: {
         "Content-Type": "application/pdf",

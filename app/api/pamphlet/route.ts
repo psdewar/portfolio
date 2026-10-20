@@ -3,7 +3,15 @@ import { type Show, getShows, getPosterLocationText, collapseLines } from "../..
 import { getLegs, type PamphletFacet } from "../../fund/legs";
 import { formatEventDateShort, formatCombinedDates } from "../../lib/dates";
 import { takePdf, takeScreenshot } from "../../lib/screenshot";
-import { POSTER_DIMS, wideBannerCss, inlineVenueImg } from "../poster/html";
+import {
+  POSTER_DIMS,
+  HIDE_DETAILS_CSS,
+  wideBannerCss,
+  inlineVenueImg,
+  printBgSrc,
+  printPageCss,
+  posterPdfOptions,
+} from "../poster/html";
 import { posterFileName, POSTER_SCALE } from "../../lib/poster-formats";
 import { DEFAULT_TAGLINE } from "../../lib/poster-defaults";
 import { qrDataUrl } from "../../lib/qr";
@@ -40,6 +48,8 @@ function pamphletHtml(
   scale = 1,
   venueImgOffsetY = 0,
   rsvpLabel = "",
+  hideDetails = false,
+  bgSrc = "",
 ): string {
   const { W, H } = POSTER_DIMS[format];
   const qrPath = "/rsvp";
@@ -149,15 +159,17 @@ function pamphletHtml(
     .qr-label { font-family: "Space Mono", monospace; font-size: ${pct(2.083)}px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #f0ede6; line-height: 1; white-space: nowrap; text-decoration: none; text-align: center; }
     ${format === "ig" ? `.title-from { font-size: ${pct(4.444)}px; } .title-big { font-size: ${pct(12.222)}px; }` : ""}
     ${format === "yt" ? `.title-from { font-size: ${pct(3.611)}px; } .title-big { font-size: ${pct(10)}px; } .venue-img { height: ${pct(16)}px; max-width: ${pct(32)}px; margin: ${pct(2)}px 0 ${pct(1.5)}px; } .pamphlet-date { font-size: ${pct(3.2 * scale)}px; } .pamphlet-detail { font-size: ${pct(2.2 * scale)}px; } .qr-label { font-size: ${pct(1.8)}px; }` : ""}
-    ${format === "eb" ? ".poster-bg { object-position: center 37.5%; } .bottom-overlay { display: none; } .details { display: none; } .venue-img { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }" : ""}
+    ${format === "eb" ? `.poster-bg { object-position: center 37.5%; } ${HIDE_DETAILS_CSS} .venue-img { display: none; } .content { padding: 36px 42px; } .lockup { --lockup-h: 33px; } .presents { font-size: 15px; margin-bottom: 12px; margin-top: 12px; } .title-from { font-size: 39px; } .title-big { font-size: 108px; } .title-accent { width: 96px; height: 4.5px; margin: 9px 0 10.5px; } .the-concert { font-size: 15px; } .theme-topright { font-size: 13.5px; top: 36px; right: 42px; }` : ""}
     ${format === "fb" || format === "fbe" ? wideBannerCss() + " .venue-img { display: none; }" : ""}
     ${format === "fbe" ? ".poster-bg { object-position: center 61%; } .title-big { font-size: 84px; }" : ""}
     ${format === "fb" ? ".poster-bg { object-position: center 53%; } .presents { font-size: 10px; margin-top: 6px; margin-bottom: 6px; } .title-from { font-size: 24px; } .title-big { font-size: 60px; } .title-accent { height: 3px; width: 60px; margin: 5px 0 5px; } .the-concert { font-size: 10px; } .theme-topright { font-size: 10px; } .lockup { margin-top: auto; } .title-block { margin-bottom: 0; } .bottom-overlay { display: block; }" : ""}
+    ${format === "print" ? printPageCss(W, H) : ""}
+    ${hideDetails ? HIDE_DETAILS_CSS : ""}
   </style>
 </head>
 <body>
   <div class="poster">
-    <img src="${format === "fb" || format === "fbe" ? `${BASE_URL}/Jan23OpenMicNight-07_Original.JPEG` : `${BASE_URL}/Jan23OpenMicNight-08_Original.jpg`}" alt="" class="poster-bg" />
+    <img src="${bgSrc || (format === "fb" || format === "fbe" ? `${BASE_URL}/Jan23OpenMicNight-07_Original.JPEG` : `${BASE_URL}/Jan23OpenMicNight-08_Original.jpg`)}" alt="" class="poster-bg" />
     <div class="photo-overlay"></div>
     <div class="bottom-overlay"></div>
     <div class="content">
@@ -353,7 +365,9 @@ export async function GET(request: NextRequest) {
 
   const rawFormat = searchParams.get("format") ?? "pdf";
   const format: PamphletFormat =
-    rawFormat in POSTER_DIMS && rawFormat !== "print" ? (rawFormat as PamphletFormat) : "pdf";
+    rawFormat in POSTER_DIMS && (rawFormat !== "print" || blank)
+      ? (rawFormat as PamphletFormat)
+      : "pdf";
   const { W, H } = POSTER_DIMS[format];
   const flag = (key: string, fallback: boolean) => {
     const v = searchParams.get(key);
@@ -384,6 +398,8 @@ export async function GET(request: NextRequest) {
     scale,
     venueImgOffsetY,
     (searchParams.get("rsvpLabel") ?? pamphletRsvpLabel).trim(),
+    searchParams.get("details") === "0",
+    format === "print" ? await printBgSrc() : "",
   );
   // Raw HTML for in-app previews — skips Puppeteer entirely.
   if (searchParams.get("html") === "true") {
@@ -398,12 +414,8 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    if (format === "pdf") {
-      const pdf = await takePdf({
-        htmlContent: html,
-        viewport: { width: W, height: H },
-        pageFormat: "Letter",
-      });
+    if (format === "pdf" || format === "print") {
+      const pdf = await takePdf({ htmlContent: html, ...posterPdfOptions(format) });
       return new Response(pdf, {
         headers: {
           "Content-Type": "application/pdf",

@@ -1375,6 +1375,7 @@ function PosterEditor({
     matchedPamphlet?.showDoors ?? false,
   );
   const [showQr, setShowQr] = useState(matchedPamphlet?.showQr ?? false);
+  const [hideDetails, setHideDetails] = useState(false);
   const [rsvpLabel, setRsvpLabel] = useState(matchedPamphlet?.rsvpLabel ?? "");
   const [pinTopRsvp, setPinTopRsvp] = useState(
     matchedPamphlet?.pinTopRsvp ?? true,
@@ -1568,6 +1569,7 @@ function PosterEditor({
     const applyExtras = (params: URLSearchParams) => {
       if (showDoors) params.set("doors", "1");
       if (showQr) params.set("qr", "1");
+      if (hideDetails) params.set("details", "0");
       if (!pinTopRsvp) params.set("pinTopRsvp", "0");
       params.set("rsvpLabel", rsvpLabel.trim());
       params.set("centerLogo", centerLogo ? "1" : "0");
@@ -1687,6 +1689,7 @@ function PosterEditor({
     params.set("centerLogo", centerLogo ? "1" : "0");
     params.set("align", taglineAlign);
     params.set("scale", String(scale));
+    if (hideDetails) params.set("details", "0");
     // Sent so an unsaved poster-line edit still shows up in the download; blank
     // leaves the param off so the route falls back to the facet/default.
     const posterLine = posterLines[soloShow!.slug]?.trim();
@@ -1788,7 +1791,8 @@ function PosterEditor({
     return true;
   };
 
-  const formats = isSingle
+  const isBlank = !isSingle && activeGroup.length === 0;
+  const formats = isSingle || isBlank
     ? POSTER_FORMATS
     : POSTER_FORMATS.filter((f) => f !== "print");
 
@@ -1796,7 +1800,7 @@ function PosterEditor({
     posterFileName(
       isSingle
         ? `poster-${soloShow!.slug}`
-        : `pamphlet-${legId.trim() || first.date}`,
+        : `pamphlet-${isBlank ? "blank" : legId.trim() || first.date}`,
       fmt,
     );
 
@@ -1822,7 +1826,7 @@ function PosterEditor({
         entries,
         isSingle
           ? `poster-${soloShow!.slug}.zip`
-          : `pamphlet-${legId.trim() || first.date}.zip`,
+          : `${isBlank ? "pamphlet-blank" : `pamphlet-${legId.trim() || first.date}`}.zip`,
       );
     } finally {
       setDownloading(null);
@@ -2122,6 +2126,15 @@ function PosterEditor({
                       <span className="text-xs">Center</span>
                     </label>
                   </div>
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer mb-1.5">
+                    <input
+                      type="checkbox"
+                      checked={hideDetails}
+                      onChange={(e) => setHideDetails(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Hide details</span>
+                  </label>
                   {isSingle ? (
                     <>
                       <input
@@ -2481,6 +2494,7 @@ function PosterEditor({
                   taglineAlign={taglineAlign}
                   scale={scale}
                   showQr
+                  hideDetails={hideDetails}
                   debug
                   centerLogo={centerLogo}
                   format={previewFormat}
@@ -2495,6 +2509,7 @@ function PosterEditor({
                   taglineAlign={taglineAlign}
                   showDoors={showDoors}
                   showQr={showQr}
+                  hideDetails={hideDetails}
                   pinTopRsvp={pinTopRsvp}
                   rsvpLabel={rsvpLabel}
                   scale={scale}
