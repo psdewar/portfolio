@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 const SHEET_STYLE = `
 .co-wrap { position: fixed; inset: 0; z-index: var(--co-z); }
 .co-card { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; background: #fff; padding: env(safe-area-inset-top, 0px) 0 calc(env(safe-area-inset-bottom, 0px) + 16px); animation: co-up 300ms cubic-bezier(.2,.8,.2,1) both; }
@@ -30,7 +33,11 @@ export default function CheckoutSheet({
   cardClass: string;
   children: React.ReactNode;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className={sheet ? "co-wrap" : wrapClass}
       style={sheet ? ({ "--co-z": zIndex } as React.CSSProperties) : { zIndex }}
@@ -46,6 +53,7 @@ export default function CheckoutSheet({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

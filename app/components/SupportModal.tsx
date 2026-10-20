@@ -247,7 +247,7 @@ export function MonthlySupporter({
   onToggleDetails,
   afterTiers,
   ...picker
-}: Omit<TierPickerProps, "bleed" | "tone"> & {
+}: Omit<TierPickerProps, "bleed" | "tone" | "flushTop"> & {
   afterTiers?: React.ReactNode;
   heading?: "h1" | "h2";
   panelBleed: string;
@@ -294,7 +294,7 @@ export function MonthlySupporter({
           </Heading>
         )}
         {!og && isExpanded && (
-          <p className="text-neutral-500 dark:text-neutral-400 text-base mt-1">
+          <p className="text-neutral-500 dark:text-neutral-400 text-base mt-1 mb-3 split:mb-3.5">
             {MONTHLY_PITCH}
           </p>
         )}
@@ -303,6 +303,7 @@ export function MonthlySupporter({
         <TierPicker
           {...picker}
           bleed={panelBleed}
+          flushTop={!og && isExpanded}
         />
       )}
       {showTiers && afterTiers}
@@ -373,6 +374,7 @@ interface TierPickerProps {
   source: string;
   tone?: TierTone;
   bleed?: string;
+  flushTop?: boolean;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
   onRegisterSilence?: (silence: () => void) => void;
@@ -389,6 +391,7 @@ export function TierPicker({
   source,
   tone = "neutral",
   bleed = "",
+  flushTop = false,
   onLoudPlay,
   onLoudEnd,
   onRegisterSilence,
@@ -542,7 +545,7 @@ export function TierPicker({
           document.body,
         )}
       <div
-        className={`relative mt-4 split:mt-[clamp(0.25rem,calc(-50px_+_6vh),1rem)] ${bleed} ${t.panel} overflow-hidden px-[var(--tp-x)] pb-6`}
+        className={`relative ${flushTop ? "mt-0" : "mt-4 split:mt-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]"} ${bleed} ${t.panel} overflow-hidden px-[var(--tp-x)] pb-6`}
       >
         {currentPreview && (
           <div>

@@ -21,7 +21,7 @@ import { lineCount, shrinkToFit, useFontFit } from "../components/fitText";
 import { useRoadGaps } from "./useRoadGaps";
 import { isCheckedIn, type Stored } from "./useCheckinState";
 
-const ContributeCardModal = dynamic(() => import("../support/ContributeCardModal"), { ssr: false });
+const ContributeCardModal = dynamic(() => import("../components/ContributeCardModal"), { ssr: false });
 
 type Open = 0 | 1 | 3 | 4 | 5;
 
@@ -435,7 +435,6 @@ export default function Road({
       </div>
       {cardOpen && (
         <ContributeCardModal
-          sheet
           checkinId={stored.checkinId}
           onClose={() => setCardOpen(false)}
           onComplete={() => complete(4)}

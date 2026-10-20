@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import SocialCards from "../components/SocialCards";
 import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
-import ContributeCardModal from "./ContributeCardModal";
+import ContributeCardModal from "../components/ContributeCardModal";
 import { concertLine, nextStopLine } from "../lib/tour-momentum";
 
 export function TipsSection({
