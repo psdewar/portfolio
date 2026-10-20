@@ -117,47 +117,6 @@ function DonationBoxLabel() {
   );
 }
 
-function ThankYouCard() {
-  return (
-    <div className="page" style={{ display: "grid", placeItems: "center" }}>
-      <div
-        className="border-2 border-dashed border-neutral-400 flex items-stretch overflow-hidden"
-        style={{ width: "6.5in", height: "4.5in" }}
-      >
-        <div
-          className="flex-1 min-w-0 flex flex-col items-center justify-center text-center bg-white text-black"
-          style={{ borderRight: "2px solid #0a0a0a" }}
-        >
-          <h2 className="font-bebas text-5xl leading-[0.95] tracking-wide">
-            Thanks For
-            <br />
-            Being Here
-            <br />
-            <span style={{ color: "#d4a553" }}>Help Fund</span>
-            <br />
-            my Next
-            <br />
-            Tour Stop
-          </h2>
-        </div>
-        <div
-          className="shrink-0 bg-white flex items-center justify-center"
-          style={{ width: "4.125in" }}
-        >
-          <Image
-            src="/api/qr?d=%2Fsupport"
-            alt="Scan to support"
-            width={280}
-            height={280}
-            style={{ width: "3.625in", height: "3.625in" }}
-            unoptimized
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SizeSign({ word }: { word: string }) {
   return (
     <div className="page" style={{ display: "grid", placeItems: "center" }}>
@@ -428,10 +387,9 @@ export default function PrintoutsClient() {
         <DonationPage />
         <DonationPage interac />
         <DonationPage interac />
-        <ThankYouCard />
-        <SizeSign word="SMALL" />
-        <SizeSign word="MEDIUM" />
-        <SizeSign word="LARGE" />
+        {["X-SMALL", "SMALL", "MEDIUM", "LARGE", "X-LARGE"].flatMap((word) =>
+          [0, 1].map((copy) => <SizeSign key={`${word}-${copy}`} word={word} />),
+        )}
         <DonationBoxLabel />
       </div>
     </>
