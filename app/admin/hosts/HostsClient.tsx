@@ -1795,6 +1795,7 @@ function PosterEditor({
   const formats = isSingle || isBlank
     ? POSTER_FORMATS
     : POSTER_FORMATS.filter((f) => f !== "print");
+  const activeFormat = formats.includes(previewFormat) ? previewFormat : "pdf";
 
   const downloadName = (fmt: PosterFormat) =>
     posterFileName(
@@ -2426,7 +2427,7 @@ function PosterEditor({
                     key={f}
                     onClick={() => setPreviewFormat(f)}
                     className={`shrink-0 whitespace-nowrap px-3 py-1 text-xs uppercase tracking-wider rounded-md transition-colors ${
-                      previewFormat === f
+                      activeFormat === f
                         ? "bg-[#d4a553] text-black font-medium"
                         : "text-neutral-400 hover:text-white hover:bg-white/5"
                     }`}
@@ -2440,9 +2441,9 @@ function PosterEditor({
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
                 <button
-                  onClick={() => downloadOne(previewFormat)}
+                  onClick={() => downloadOne(activeFormat)}
                   disabled={downloading !== null}
-                  title={`Download ${previewFormat.toUpperCase()}`}
+                  title={`Download ${activeFormat.toUpperCase()}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase tracking-wider font-medium rounded-lg border border-neutral-700 text-neutral-200 hover:border-neutral-500 hover:bg-white/5 transition-colors disabled:opacity-50"
                 >
                   <DownloadSimpleIcon size={14} />
@@ -2497,7 +2498,7 @@ function PosterEditor({
                   hideDetails={hideDetails}
                   debug
                   centerLogo={centerLogo}
-                  format={previewFormat}
+                  format={activeFormat}
                 />
               ) : (
                 <Poster
@@ -2515,7 +2516,7 @@ function PosterEditor({
                   scale={scale}
                   debug
                   centerLogo={centerLogo}
-                  format={previewFormat}
+                  format={activeFormat}
                   shows={previewShows}
                 />
               )}
