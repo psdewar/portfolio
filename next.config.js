@@ -66,6 +66,7 @@ const nextConfig = {
     const aliasRedirects = [
       { source: "/merch", destination: "/shop", permanent: false },
       { source: "/music", destination: "/listen", permanent: true },
+      { source: "/lessons", destination: "/learn", permanent: true },
       { source: "/songs", destination: "/listen", permanent: true },
       { source: "/tracks", destination: "/listen", permanent: true },
       { source: "/journey", destination: "/support", permanent: true },
