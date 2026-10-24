@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SOCIAL_LINKS } from "./Social";
+import { APPLE_MUSIC_URL, SOCIAL_LINKS } from "./Social";
 
 function Chevron({ dir }: { dir: "left" | "right" }) {
   return (
@@ -25,7 +25,7 @@ const CARDS = [
   },
   {
     label: "Apple Music",
-    href: "https://music.apple.com/us/artist/peyt-spencer/1361786209",
+    href: APPLE_MUSIC_URL,
     handle: "Peyt Spencer",
     logo: "/brand/apple-music-icon.svg",
     logoClass: "w-16 h-16",

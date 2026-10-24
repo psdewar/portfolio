@@ -38,17 +38,38 @@ export function isCheckinOpen(show: Show): boolean {
   return show.date < earliestToday && show.date >= shiftDate(earliestToday, -REOPEN_DAYS);
 }
 
-export function pickCheckinSlug(shows: Show[], cookieValue?: string): string | null {
-  const runnable = shows.filter(isRunnable);
-  const own = parseCheckinCookie(cookieValue);
-
-  const today = runnable
+function todayShows(shows: Show[]): Show[] {
+  return shows
+    .filter(isRunnable)
     .filter(isShowToday)
     .sort(
       (a, b) =>
         (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
         doorTimeMinutes(a.doorTime) - doorTimeMinutes(b.doorTime),
     );
+}
+
+export function pickTodayShow(shows: Show[]): Show | null {
+  return todayShows(shows)[0] ?? null;
+}
+
+export const NEAR_SHOW_KM = 80;
+
+export function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+  const rad = Math.PI / 180;
+  const dLat = (b.latitude - a.latitude) * rad;
+  const dLon = (b.longitude - a.longitude) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+export function pickCheckinSlug(shows: Show[], cookieValue?: string): string | null {
+  const runnable = shows.filter(isRunnable);
+  const own = parseCheckinCookie(cookieValue);
+
+  const today = todayShows(shows);
   if (today.length > 0) {
     return today.find((s) => s.slug === own?.slug)?.slug ?? today[0].slug;
   }

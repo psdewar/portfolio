@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { getShowBySlug, getShows, getTourCounts } from "../../lib/shows";
-import { tourMomentum } from "../../lib/tour-momentum";
+import { getShowBySlug, getTourCounts } from "../../lib/shows";
 import { todayIn } from "../../lib/dates";
 import { isCheckinOpen } from "../../lib/checkin-show";
 import { storyParagraphs } from "../../data/story";
 import CheckInClient from "../CheckInClient";
+import { getLeg, toFundView } from "../../fund/legs";
+import { tripExpensesOf } from "../../fund/TripExpenses";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -20,7 +21,6 @@ export default async function CheckinPage({ params, searchParams }: Props) {
   if (!show) redirect("/support");
   if (!isCheckinOpen(show) && preview !== "1") redirect("/support");
 
-  const { concertCount } = tourMomentum(await getShows(), show.slug);
   const ticketNoOverride = no && /^\d+$/.test(no) ? parseInt(no, 10) : null;
 
   return (
@@ -34,8 +34,8 @@ export default async function CheckinPage({ params, searchParams }: Props) {
       ticketNoOverride={ticketNoOverride}
       rsvpdOverride={rsvpd === "1"}
       past={show.date < todayIn("Pacific/Honolulu")}
-      concertCount={concertCount}
       storyParagraphs={storyParagraphs(await getTourCounts())}
+      expenses={show.leg ? tripExpensesOf(toFundView(await getLeg(show.leg))) : null}
     />
   );
 }

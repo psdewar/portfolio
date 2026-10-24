@@ -7,7 +7,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import { useSwipeToDismiss } from "../lib/useSwipeToDismiss";
 import { useAudio } from "../contexts/AudioContext";
 import { PlayCircle } from "./PlayCircle";
-import { EARLY_ACCESS_TRACKS, toTrackPreview } from "../data/supporter-config";
+import { EARLY_ACCESS_TRACKS, SUPPORTER_COPY, toTrackPreview } from "../data/supporter-config";
 import {
   MAX_CUSTOM_AMOUNT,
   MIN_CUSTOM_AMOUNT,
@@ -24,8 +24,7 @@ import { TipsSection } from "../support/TipsAndSocials";
 const TIER_ICONS = PICKER_TIERS.map((tier) => tier.icon);
 const TIER_COLORS = PICKER_TIERS.map((tier) => tier.color);
 
-export const MONTHLY_PITCH =
-  "All supporters get every new song a month before anyone else and access to behind the scenes! Think Patreon, but the only cut is your card fee, added so I receive 100%. Cancel anytime.";
+export const MONTHLY_PITCH = SUPPORTER_COPY.pitch;
 
 const PREVIEW_TRACKS = EARLY_ACCESS_TRACKS.map(toTrackPreview);
 
@@ -218,7 +217,8 @@ export default function SupportModal({
             active={open}
             preview={preview}
             source={source}
-            panelBleed="-mx-6 [--tp-x:1.5rem]"
+            panelBleed="-mx-6"
+            gutter="[--tp-x:1.5rem]"
             onSignIn={() => setSigningIn(true)}
             collapsibleSubtitle={showFundSection}
             collapseTiers={showFundSection}
@@ -239,6 +239,7 @@ export default function SupportModal({
 export function MonthlySupporter({
   heading: Heading = "h2",
   panelBleed,
+  gutter,
   onSignIn,
   og,
   collapsibleSubtitle = false,
@@ -251,6 +252,7 @@ export function MonthlySupporter({
   afterTiers?: React.ReactNode;
   heading?: "h1" | "h2";
   panelBleed: string;
+  gutter: string;
   onSignIn?: () => void;
   og?: boolean;
   collapsibleSubtitle?: boolean;
@@ -262,7 +264,7 @@ export function MonthlySupporter({
   const showTiers = !collapsibleSubtitle || !collapseTiers || detailsOpen;
 
   return (
-    <div>
+    <div className={gutter}>
       <div className={isExpanded ? "" : "-mb-2"}>
         {isExpanded ? (
           <Heading className="font-bebas text-neutral-900 dark:text-white text-3xl">

@@ -35,21 +35,6 @@ export async function GET(request: NextRequest) {
         ics: { filename: "sample.ics", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR" },
       });
       break;
-    case "rsvp-music":
-      await sendRsvpConfirmation({
-        to,
-        title: "From The Ground Up: My Path of Growth and the Principles that Connect Us",
-        dateLabel: "Sunday, October 25",
-        shortDate: "Sunday, Oct 25",
-        city: "Springfield",
-        region: "CA",
-        doorLabel: "Doors open at 11:00AM",
-        venueName: "The Sample Residence",
-        address: "123 Example St, Springfield, CA 90000",
-        ics: { filename: "sample.ics", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR" },
-        maybe: true,
-      });
-      break;
     case "download":
       await sendDownloadEmail({
         to,
@@ -62,7 +47,7 @@ export async function GET(request: NextRequest) {
       break;
     default:
       return NextResponse.json({
-        error: "Missing ?type=otp|live|rsvp|rsvp-music|download|supporter-welcome",
+        error: "Missing ?type=otp|live|rsvp|download|supporter-welcome",
         usage: "/api/test-email?type=otp&to=you@email.com",
       }, { status: 400 });
   }

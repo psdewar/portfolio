@@ -1,47 +1,50 @@
 import { test, expect, Page } from "@playwright/test";
-import { PNG, checkInFromRoad, mockCheckinApi, skipForNow as skip } from "./checkin-flow";
+import { PNG, checkInFromRoad, checkInSubmit, fillGuest, landOnList, openCheckin } from "./checkin-flow";
 
-const URL = "/checkin/fulton-md-0?preview=1&fresh=1";
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+const PAST = "/checkin/fulton-md-0?preview=1&fresh=1";
+const LIVE = "/checkin/ci-short?preview=1&fresh=1";
 
-async function open(page: Page) {
+async function open(page: Page, url = PAST) {
   test.setTimeout(30000);
-  await mockCheckinApi(page);
-  await page.addInitScript(() => localStorage.clear());
-  await page.goto(URL, { waitUntil: "domcontentloaded" });
+  await openCheckin(page, url, { uiData: url === LIVE ? "worst" : undefined });
 }
 
-const checkInRow = (page: Page) => page.getByRole("button", { name: "Check in", exact: true });
-const saveRow = (page: Page) => page.getByRole("button", { name: /Keep your ticket Proof you attended/ });
+const checkInRow = (page: Page) => page.getByRole("button", { name: /Were you there\?/ });
+const socialsRow = (page: Page) => page.getByRole("button", { name: /Find me on socials/ });
+const saveRow = (page: Page) => page.getByRole("button", { name: /Tap here to keep your ticket Proof you attended/ });
 const saveSubmit = (page: Page) => page.getByRole("button", { name: "Keep your ticket", exact: true });
 
 test.describe("Check in", () => {
-  test("a guest who skips sees the road with Check in and Keep your ticket", async ({ page }) => {
+  test("a guest lands on the list with Check in and Tap here to keep your ticket", async ({ page }) => {
     await open(page);
-    await skip(page);
+    await landOnList(page);
     await expect(checkInRow(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Keep your ticket/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Tap here to keep your ticket/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Find me on socials/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Send me your best photo/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Fund my tour/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Be my monthly supporter" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Grab merch/ })).toHaveCount(0);
   });
 
-  test("a checked-in guest sees their name printed on the ticket and never their email", async ({ page }) => {
+  test("a checked-in guest is greeted by first name and never sees their email", async ({ page }) => {
     await open(page);
-    await expect(page.getByRole("button", { name: "Skip for now" })).toBeEnabled({ timeout: 20000 });
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
+    await landOnList(page);
+    await fillGuest(page, "Jordan Lee", "jordan@example.com");
     await page.getByRole("textbox", { name: "Email" }).press("Enter");
     await page.getByRole("textbox", { name: "Phone" }).press("Enter");
-    await expect(page.getByText("GUEST", { exact: true })).toBeVisible();
-    await expect(page.getByText("Jordan Lee", { exact: true })).toBeVisible();
+    await expect(page.getByText("Checked in", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Thank you for being there, Jordan", { exact: true })).toBeVisible();
     await expect(page.getByText("jordan@example.com")).toHaveCount(0);
-    await expect(page.getByRole("textbox", { name: "Email" })).toHaveCount(0);
   });
 
   test("a skipped guest who checks in from the road sees the full stamped ticket, then lands back on the road", async ({ page }) => {
     await open(page);
-    await skip(page);
-    await checkInRow(page).click();
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
-    await page.getByRole("button", { name: "I’m Here" }).first().click();
+    await landOnList(page);
+    await fillGuest(page, "Jordan Lee", "jordan@example.com");
+    await checkInSubmit(page).first().click();
     await expect(page.getByText("GUEST", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Jordan Lee", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Admitted", { exact: true }).first()).toBeVisible();
@@ -51,13 +54,11 @@ test.describe("Check in", () => {
 
   test("a guest with a long two-surname name sees the whole name on the ticket", async ({ page }) => {
     await open(page);
+    await landOnList(page);
     const full = "María José de la Cruz Hernández y Fitzgerald-Nguyễn";
-    await expect(page.getByRole("button", { name: "Skip for now" })).toBeEnabled({ timeout: 20000 });
-    await page.getByRole("textbox", { name: "Your name" }).fill(full);
-    await page.getByRole("textbox", { name: "Email" }).fill("maria@example.com");
-    await page.getByRole("textbox", { name: "Email" }).press("Enter");
-    await page.getByRole("textbox", { name: "Phone" }).press("Enter");
-    const printed = page.getByText(full, { exact: true });
+    await fillGuest(page, full, "maria@example.com");
+    await checkInSubmit(page).first().click();
+    const printed = page.getByText(full, { exact: true }).first();
     await expect(printed).toBeVisible();
     await expect(page.getByText("Admitted", { exact: true }).first()).toBeVisible();
     const fits = await printed.evaluate((n) => n.scrollWidth <= n.clientWidth + 1);
@@ -66,85 +67,87 @@ test.describe("Check in", () => {
 
   test("a skipped guest who checks in later is greeted by first name", async ({ page }) => {
     await open(page);
-    await skip(page);
-    await checkInRow(page).click();
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
-    await page.getByRole("button", { name: "I’m Here" }).click();
-    await expect(page.getByText("Checked in", { exact: true })).toBeVisible();
+    await landOnList(page);
+    await fillGuest(page, "Jordan Lee", "jordan@example.com");
+    await checkInSubmit(page).first().click();
+    await expect(page.getByText("Checked in", { exact: true })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/^Thank you for being (here|there), Jordan$/)).toBeVisible();
   });
 
   test("a guest walks the fields with Enter and checks in from the last one", async ({ page }) => {
     await open(page);
-    await skip(page);
-    await checkInRow(page).click();
+    await landOnList(page);
     const name = page.getByRole("textbox", { name: "Your name" });
     const email = page.getByRole("textbox", { name: "Email" });
-    await name.fill("Jordan Lee");
+    await fillGuest(page, "Jordan Lee", "jordan@example.com");
     await name.press("Enter");
     await expect(email).toBeFocused();
-    await email.fill("jordan@example.com");
     await email.press("Enter");
     const phone = page.getByRole("textbox", { name: "Phone" });
     if (await phone.count()) {
       await expect(phone).toBeFocused();
       await phone.press("Enter");
     }
-    await expect(page.getByText("Checked in", { exact: true })).toBeVisible();
+    await expect(page.getByText("Checked in", { exact: true })).toBeVisible({ timeout: 10000 });
   });
 
-  test("a skipped guest who taps Check in lands in the name field", async ({ page }) => {
+  test("a skipped guest who reopens the Were you there row lands in the name field", async ({ page }) => {
     await open(page);
-    await skip(page);
+    await landOnList(page);
+    await checkInRow(page).click();
+    await expect(page.getByRole("textbox", { name: "Your name" })).toBeHidden();
     await checkInRow(page).click();
     await expect(page.getByRole("textbox", { name: "Your name" })).toBeFocused();
-    await expect(page.getByRole("button", { name: "I’m Here" }).first()).toBeVisible();
+    await expect(checkInSubmit(page).first()).toBeVisible();
   });
 
   test("a skipped guest who taps Save with the form open sees Keep your ticket and lands in the name field", async ({
     page,
   }) => {
     await open(page);
-    await skip(page);
-    await checkInRow(page).click();
+    await landOnList(page);
     await saveRow(page).click();
     await expect(saveSubmit(page)).toBeVisible();
     await expect(page.getByText("Check in to keep your ticket")).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "Your name" })).toBeFocused();
   });
 
-  test("a skipped guest who taps Save checks in, then downloads the ticket and sees Saved on your computer", async ({
-    page,
-  }) => {
-    await open(page);
-    await skip(page);
-    await saveRow(page).click();
-    await expect(saveSubmit(page)).toBeVisible();
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
-    const download = page.waitForEvent("download");
-    await saveSubmit(page).click();
-    expect((await download).suggestedFilename()).toBe("ground-up-ticket.png");
-    await expect(page.getByText("Saved on your computer", { exact: true })).toBeVisible();
+  test.describe("on a desktop browser", () => {
+    test.use({ userAgent: DESKTOP_UA });
+
+    test("a skipped guest who taps Save checks in, then downloads the ticket and sees Saved on your computer", async ({
+      page,
+    }) => {
+      await open(page);
+      await landOnList(page);
+      await saveRow(page).click();
+      await expect(saveSubmit(page)).toBeVisible();
+      await fillGuest(page, "Jordan Lee", "jordan@example.com");
+      const download = page.waitForEvent("download", { timeout: 15000 });
+      await saveSubmit(page).click();
+      expect((await download).suggestedFilename()).toBe("ground-up-ticket.png");
+      await expect(page.getByText("Saved on your computer", { exact: true })).toBeVisible();
+    });
   });
 
   test("each step opens to show its content and closes again when tapped", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await open(page);
-    await skip(page);
+    await open(page, LIVE);
+    await landOnList(page);
 
-    const filming = page.getByRole("button", { name: /Filming tonight/ });
-    const tips = page.getByRole("region", { name: "Filming tips" });
-    await filming.click();
-    await expect(tips).toBeVisible();
-    await filming.click();
-    await expect(tips).toBeHidden();
-
-    await checkInRow(page).click();
+    const live = page.getByRole("button", { name: /^Check in/, expanded: true });
     await expect(page.getByRole("textbox", { name: "Your name" })).toBeVisible();
-    await checkInRow(page).click();
+    await live.first().click();
     await expect(page.getByRole("textbox", { name: "Your name" })).toBeHidden();
+    await page.getByRole("button", { name: /^Check in/, expanded: false }).click();
+    await expect(page.getByRole("textbox", { name: "Your name" })).toBeVisible();
+
+    const instagram = page.getByRole("link", { name: "Follow me on Instagram" });
+    await expect(instagram).toBeHidden();
+    await socialsRow(page).click();
+    await expect(instagram).toBeVisible();
+    await socialsRow(page).click();
+    await expect(instagram).toBeHidden();
 
     const fund = page.getByRole("button", { name: /Fund my tour/ });
     const card = page.getByRole("button", { name: /Pay with your card/ });
@@ -161,6 +164,48 @@ test.describe("Check in", () => {
       await expect(page.getByRole("img", { name: /Patience tee/ })).toBeHidden();
     }
   });
+
+  test("a guest who taps a social button is not checked off until they come back to the page", async ({ page }) => {
+    await open(page, LIVE);
+    await landOnList(page);
+    await page.evaluate(() =>
+      document.addEventListener("click", (e) => (e.target as Element).closest("a[target=_blank]") && e.preventDefault(), true),
+    );
+    await socialsRow(page).click();
+    await page.getByRole("link", { name: "Follow me on Instagram" }).click();
+    await expect(socialsRow(page)).not.toHaveAccessibleName(/, done$/);
+    const setVisibility = (state: string) =>
+      page.evaluate((v) => {
+        Object.defineProperty(document, "visibilityState", { value: v, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, state);
+    await setVisibility("hidden");
+    await expect(socialsRow(page)).not.toHaveAccessibleName(/, done$/);
+    await setVisibility("visible");
+    await expect(socialsRow(page)).toHaveAccessibleName(/Find me on socials.*, done$/);
+  });
+
+  test("a guest who missed the show taps I missed this one, sees the quiet view, and can undo it", async ({ page }) => {
+    await open(page);
+    await landOnList(page);
+    await page.getByRole("button", { name: "I missed this one" }).click();
+    await expect(page.getByText("I missed you this time", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Tap here to keep your ticket/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Send me your best photo/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Grab merch/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Missed this one" }).click();
+    await expect(page.getByRole("textbox", { name: "Your name" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Tap here to keep your ticket/ })).toBeVisible();
+    await expect(page.getByText("I missed you this time", { exact: true })).toHaveCount(0);
+  });
+
+  test("a guest who taps keep your ticket before checking in sees Check in first", async ({ page }) => {
+    await open(page);
+    await landOnList(page);
+    await saveRow(page).click();
+    await expect(page.getByRole("button", { name: /Check in first/ })).toBeVisible();
+  });
+
   test.describe("on a Samsung phone", () => {
     test.use({
       viewport: { width: 390, height: 844 },
@@ -168,19 +213,20 @@ test.describe("Check in", () => {
         "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36",
     });
 
-    test("a guest opens Filming tonight and reads which label to tap", async ({ page }) => {
+    test("a guest opens Find me on socials and sees all four buttons", async ({ page }) => {
       await open(page);
-      await skip(page);
-      await page.getByRole("button", { name: /Filming tonight/ }).click();
-      await expect(
-        page.getByRole("region", { name: "Filming tips" }).getByText("Find the label that says FHD. Tap it until it says UHD."),
-      ).toBeVisible();
+      await landOnList(page);
+      await socialsRow(page).click();
+      await expect(page.getByRole("link", { name: "Follow me on Instagram" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Follow me on Spotify" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Subscribe on YouTube" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Favorite me on Apple Music" })).toBeVisible();
     });
   });
 
   test("Fund my tour starts closed and opens to the one-time rails", async ({ page }) => {
     await open(page);
-    await skip(page);
+    await landOnList(page);
     const row = page.getByRole("button", { name: /Fund my tour/ });
     const card = page.getByRole("button", { name: /Pay with your card/ });
     await expect(card).toBeHidden();
@@ -191,40 +237,47 @@ test.describe("Check in", () => {
     await expect(card).toBeHidden();
   });
 
-  test("the Be my monthly supporter band shows its tiers and a Read my story button", async ({ page }) => {
+  test("the Be my monthly supporter row opens to its tiers and a Read my story button", async ({ page }) => {
     await open(page);
-    await skip(page);
-    await expect(page.getByText("Be my monthly supporter", { exact: true })).toBeVisible();
+    await landOnList(page);
+    const monthly = (expanded: boolean) => page.getByRole("button", { name: "Be my monthly supporter", expanded });
+    await expect(monthly(false)).toBeVisible();
+    await expect(page.getByRole("radio", { name: /Flow/ })).toBeHidden();
+    await monthly(false).click();
+    await expect(monthly(true)).toBeVisible();
     await expect(page.getByRole("radio", { name: /Flow/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Pay \$.*\/month with your card/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Read my story" })).toBeVisible();
   });
 
-  test("a guest who saves the ticket hears Keep your ticket, done", async ({ page }) => {
-    await open(page);
-    await skip(page);
-    await expect(page.getByRole("button", { name: /^Keep your ticket(?!.*done)/ })).toBeVisible();
-    await saveRow(page).click();
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
-    await saveSubmit(page).click();
-    await expect(page.getByRole("button", { name: /Keep your ticket.*, done$/ })).toBeVisible();
+  test.describe("on a desktop browser", () => {
+    test.use({ userAgent: DESKTOP_UA });
+
+    test("a guest who saves the ticket hears Keep your ticket, done", async ({ page }) => {
+      await open(page);
+      await landOnList(page);
+      await expect(page.getByRole("button", { name: /^Tap here to keep your ticket(?!.*done)/ })).toBeVisible();
+      await saveRow(page).click();
+      await fillGuest(page, "Jordan Lee", "jordan@example.com");
+      await saveSubmit(page).click();
+      await expect(page.getByRole("button", { name: /Tap here to keep your ticket.*, done$/ })).toBeVisible();
+    });
   });
 
   test("a guest buying a tee starts on size M and can switch size and color", async ({ page }) => {
-    await open(page);
-    await skip(page);
+    await open(page, LIVE);
+    await landOnList(page);
     await page.getByRole("button", { name: /Grab merch/ }).click();
     const venmo = page.getByRole("link", { name: /Venmo/ });
     const card = page.getByRole("button", { name: "Pay with your card" });
-    await expect(page.getByRole("button", { name: "M", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "M", exact: true, pressed: true })).toBeVisible();
     await expect(card).toBeEnabled();
     await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20M%20Navy/);
     await page.getByRole("button", { name: "L", exact: true }).click();
-    await expect(page.getByRole("button", { name: "L", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "L", exact: true, pressed: true })).toBeVisible();
     await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20L%20Navy/);
     await page.getByRole("button", { name: "Forest", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Forest", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Forest", exact: true, pressed: true })).toBeVisible();
     await expect(venmo).toHaveAttribute("href", /note=Patience%20tee%20L%20Forest/);
     await expect(page.getByRole("img", { name: /Patience tee in Forest/ })).toBeVisible();
   });
@@ -244,10 +297,10 @@ for (const [label, userAgent, before, after] of [
 
     test("a checked-in guest taps once and the ticket downloads", async ({ page }) => {
       await open(page);
-      await skip(page);
+      await landOnList(page);
       await checkInFromRoad(page, "Jordan Lee");
       await expect(saveRow(page)).toContainText(before);
-      const download = page.waitForEvent("download");
+      const download = page.waitForEvent("download", { timeout: 15000 });
       await saveRow(page).click();
       expect((await download).suggestedFilename()).toBe("ground-up-ticket.png");
       await expect(page.getByText(after, { exact: true })).toBeVisible();
@@ -284,12 +337,11 @@ test.describe("Keep your ticket on iPhone", () => {
       await new Promise((r) => setTimeout(r, 6000));
       await route.fulfill({ status: 200, contentType: "image/png", body: PNG });
     });
-    await skip(page);
+    await landOnList(page);
     await saveRow(page).click();
-    await page.getByRole("textbox", { name: "Your name" }).fill("Jordan Lee");
-    await page.getByRole("textbox", { name: "Email" }).fill("jordan@example.com");
+    await fillGuest(page, "Jordan Lee", "jordan@example.com");
     await saveSubmit(page).click();
-    const row = page.getByRole("button", { name: /Keep your ticket/ });
+    const row = page.getByRole("button", { name: /Tap here to keep your ticket/ });
     await expect(row).toHaveAttribute("aria-busy", "true");
     await row.click();
     expect(await shareCalls(page)).toBe(0);
@@ -297,16 +349,16 @@ test.describe("Keep your ticket on iPhone", () => {
     expect(await shareCalls(page)).toBe(0);
     await row.click();
     await expect.poll(() => shareCalls(page)).toBe(1);
-    await expect(page.getByRole("button", { name: /Keep your ticket.*, done$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Tap here to keep your ticket.*, done$/ })).toBeVisible();
     expect(await shareCalls(page)).toBe(1);
   });
 
   test("a checked-in guest whose ticket is ready shares with one tap", async ({ page }) => {
     await stubShare(page);
     await open(page);
-    await skip(page);
+    await landOnList(page);
     await checkInFromRoad(page, "Jordan Lee");
-    await page.waitForTimeout(1000);
+    await expect(saveRow(page)).not.toHaveAttribute("aria-busy", "true");
     await saveRow(page).click();
     await expect.poll(() => shareCalls(page)).toBe(1);
   });

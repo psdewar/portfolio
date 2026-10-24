@@ -79,7 +79,7 @@ function DonationPage({ interac }: { interac?: boolean }) {
           style={{ width: "4.125in" }}
         >
           <Image
-            src="/api/qr?d=%2Fsupport"
+            src="/api/qr?d=%2Fcheckin%3Fopen%3Dfund"
             alt="Scan to support"
             width={280}
             height={280}

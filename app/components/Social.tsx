@@ -8,6 +8,8 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 
+export const APPLE_MUSIC_URL = "https://music.apple.com/us/artist/peyt-spencer/1361786209";
+
 export const SOCIAL_LINKS: { href: string; label: string; username: string; icon: Icon; color: string }[] = [
   {
     href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN",

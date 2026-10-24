@@ -236,6 +236,7 @@ export function AdlibChat({
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value.slice(0, ADLIB_MESSAGE_MAX_LENGTH))}
+                aria-label="Send a message"
                 placeholder="Send a message"
                 maxLength={ADLIB_MESSAGE_MAX_LENGTH}
                 className="min-w-0 flex-1 rounded-full bg-white px-4 py-2 text-[16px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-500 dark:focus:ring-neutral-600"

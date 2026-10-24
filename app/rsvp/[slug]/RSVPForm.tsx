@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { useAudio } from "../../contexts/AudioContext";
 import { TRACK_DATA } from "../../data/tracks";
 import posthog from "posthog-js";
+import SocialButtons from "../../components/SocialButtons";
+import { detectDevice } from "../../checkin/platform";
 import {
   MinusIcon,
   PlusIcon,
@@ -26,6 +28,7 @@ import { formatEventDateShort } from "../../lib/dates";
 import { captureUtm } from "../../lib/utm";
 import { buildIcs, downloadIcs } from "../../lib/ics";
 import { routeFormError } from "../../lib/form-errors";
+import { errorMessage, postJson } from "../../lib/network-error";
 import { formatDollars, MAX_CARD_CENTS } from "../../lib/fees";
 import { calculateStripeFee } from "../../api/shared/products";
 
@@ -130,7 +133,6 @@ interface FormErrors {
   form?: string;
 }
 
-type RsvpStatus = "going" | "maybe";
 
 export default function RSVPForm({
   eventId,
@@ -164,12 +166,9 @@ export default function RSVPForm({
     guests: 1,
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [mode, setMode] = useState<RsvpStatus>("going");
-  const [submittedStatus, setSubmittedStatus] = useState<RsvpStatus>("going");
-  const isMaybe = mode === "maybe";
-  const nameFieldRef = useRef<HTMLDivElement>(null);
+  const [declined, setDeclined] = useState(false);
   const successRef = useRef<HTMLDivElement>(null);
-  const pendingScrollRef = useRef<"name" | "success" | null>(null);
+  const pendingScrollRef = useRef<"success" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(
     searchParams.get("test") === "success" || !!searchParams.get("session_id"),
@@ -179,11 +178,11 @@ export default function RSVPForm({
     if (!target) return;
     pendingScrollRef.current = null;
     if (window.matchMedia(SPLIT_QUERY).matches) return;
-    (target === "name" ? nameFieldRef : successRef).current?.scrollIntoView({
+    successRef.current?.scrollIntoView({
       behavior: prefersReducedMotion() ? "auto" : "smooth",
       block: "start",
     });
-  }, [mode, submitted]);
+  }, [submitted]);
   const defaultSupportCents = (fundDefault ?? 0) * 100;
   const [committedCents, setSupportCents] = useState(defaultSupportCents);
   const [supportDraft, setSupportDraft] = useState<string | null>(null);
@@ -234,33 +233,28 @@ export default function RSVPForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    submit(mode);
+    submit();
   };
 
-  const submit = async (status: RsvpStatus) => {
+  const submit = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
     setErrors({});
 
     try {
-      const res = await fetch("/api/rsvp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim() || undefined,
-          guests: status === "maybe" ? 1 : formData.guests,
-          intent: status === "maybe" ? "maybe" : undefined,
-          eventId,
-          utm: captureUtm(),
-          fbclid: searchParams.get("fbclid") || sessionStorage.getItem("fbclid") || undefined,
-        }),
+      const res = await postJson("/api/rsvp", {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        guests: formData.guests,
+        eventId,
+        utm: captureUtm(),
+        fbclid: searchParams.get("fbclid") || sessionStorage.getItem("fbclid") || undefined,
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setErrors(routeFormError(res.status, data.error));
         return;
       }
@@ -272,18 +266,16 @@ export default function RSVPForm({
 
       posthog.capture("rsvp_submitted", {
         event_id: eventId,
-        guests: status === "maybe" ? 1 : formData.guests,
-        status,
-        paid: status === "going" && supportCents > 0,
-        amount_cents: status === "going" ? supportCents : 0,
+        guests: formData.guests,
+        paid: supportCents > 0,
+        amount_cents: supportCents,
       });
 
-      setSubmittedStatus(status);
       pendingScrollRef.current = "success";
       setSubmitted(true);
-      if (status === "going" && supportCents > 0) setShowPay(true);
-    } catch {
-      setErrors({ form: "Failed to submit. Please try again." });
+      if (supportCents > 0) setShowPay(true);
+    } catch (e) {
+      setErrors({ form: errorMessage(e, "Failed to submit. Please try again.") });
     } finally {
       setIsLoading(false);
     }
@@ -295,30 +287,26 @@ export default function RSVPForm({
     cardLoadingRef.current = true;
     setPayError("");
     try {
-      const checkoutRes = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: "support-next-concert",
-          amount: totalWithFeesCents,
-          customerEmail: formData.email,
-          successPath: `/rsvp/${eventId}`,
-          cancelPath: `/rsvp/${eventId}`,
-          metadata: {
-            eventId,
-            name: formData.name,
-            phDistinctId: posthog.get_distinct_id?.() ?? "",
-          },
-        }),
+      const checkoutRes = await postJson("/api/create-checkout-session", {
+        productId: "support-next-concert",
+        amount: totalWithFeesCents,
+        customerEmail: formData.email,
+        successPath: `/rsvp/${eventId}`,
+        cancelPath: `/rsvp/${eventId}`,
+        metadata: {
+          eventId,
+          name: formData.name,
+          phDistinctId: posthog.get_distinct_id?.() ?? "",
+        },
       });
-      const checkoutData = await checkoutRes.json();
+      const checkoutData = await checkoutRes.json().catch(() => ({}));
       if (checkoutRes.ok && checkoutData.url) {
         window.location.href = checkoutData.url;
         return;
       }
       setPayError(checkoutData.error || "Couldn't start checkout. Try Venmo or Zelle instead.");
-    } catch {
-      setPayError("Couldn't start checkout. Try Venmo or Zelle instead.");
+    } catch (e) {
+      setPayError(errorMessage(e, "Couldn't start checkout. Try Venmo or Zelle instead."));
     } finally {
       cardLoadingRef.current = false;
     }
@@ -403,7 +391,7 @@ export default function RSVPForm({
 
   function submitLabel(): string {
     if (isLoading) return "Reserving...";
-    return isMaybe ? "Keep me posted" : "I'll Be There";
+    return "Save your spot";
   }
 
   const adjustSupport = (deltaCents: number) => {
@@ -630,28 +618,6 @@ export default function RSVPForm({
     </div>
   );
 
-  const maybeSuccess = (
-    <div ref={successRef} className="scroll-mt-4 space-y-6">
-      <div>
-        <h2
-          className="font-extrabold uppercase leading-none text-[color:var(--z-fg)]"
-          style={{ ...parkinsans, fontSize: "clamp(2rem, 6cqi, 3rem)" }}
-        >
-          You're in.
-        </h2>
-        <p className="text-[color:var(--z-fg3)] mt-3 leading-snug" style={{ fontSize: TYPE.body }}>
-          You'll hear from me before {city}.
-        </p>
-      </div>
-      <div className="space-y-3">
-        {calendarRow}
-        {shareLink}
-      </div>
-    </div>
-  );
-
-  const successContent = submittedStatus === "maybe" ? maybeSuccess : goingSuccess;
-
   const buildClass = enter === "morph" ? "rsvp-build" : "";
   const buildStyle = (i: number) => (enter === "morph" ? ({ "--i": i } as React.CSSProperties) : undefined);
   const infoPrimary = "block font-semibold text-[color:var(--z-fg)] break-words leading-snug";
@@ -704,7 +670,7 @@ export default function RSVPForm({
             className={`relative z-[1] order-1 split:order-3 [container-type:inline-size] pt-6 split:pt-4 min-w-0 ${gutter} ${submitted ? "pb-8 split:pb-[max(2rem,var(--player-h,0px))]" : ""}`}
           >
             {submitted ? (
-              successContent
+              goingSuccess
             ) : (
               <div className="space-y-[clamp(1.25rem,2vw,2rem)] split:pb-6">
                 <div className="relative">
@@ -792,7 +758,7 @@ export default function RSVPForm({
                   className="w-full px-[var(--g)] split:pl-0 split:pr-[clamp(1.5rem,3vw,3rem)] pt-[clamp(1.25rem,3cqi,2.5rem)] pb-8 split:pb-[max(2rem,var(--player-h,0px))]"
                 >
                   <div className="mx-auto split:mx-0 w-full max-w-md split:max-w-none space-y-[clamp(1.25rem,2vw,2rem)]">
-                    <div ref={nameFieldRef} className="scroll-mt-4">
+                    <div>
                       <label htmlFor="rsvp-name" className={labelClass} style={labelStyle}>
                         Name *
                       </label>
@@ -842,26 +808,22 @@ export default function RSVPForm({
                       />
                     </div>
 
-                    {!isMaybe && (
-                      <>
-                        <div role="group" aria-labelledby={guestsLabelId} className="min-w-0">
-                          <span id={guestsLabelId} className={labelClass} style={labelStyle}>
-                            How many people? *
-                          </span>
-                          {renderStepper({
-                            value: formData.guests,
-                            onMinus: () => adjustGuests(-1),
-                            onPlus: () => adjustGuests(1),
-                            minusDisabled: formData.guests <= 1,
-                            plusDisabled: formData.guests >= 10,
-                            minusLabel: "Decrease guests",
-                            plusLabel: "Increase guests",
-                          })}
-                        </div>
-                        {supportGroup}
-                        {walkInButton}
-                      </>
-                    )}
+                      <div role="group" aria-labelledby={guestsLabelId} className="min-w-0">
+                        <span id={guestsLabelId} className={labelClass} style={labelStyle}>
+                          How many people? *
+                        </span>
+                        {renderStepper({
+                          value: formData.guests,
+                          onMinus: () => adjustGuests(-1),
+                          onPlus: () => adjustGuests(1),
+                          minusDisabled: formData.guests <= 1,
+                          plusDisabled: formData.guests >= 10,
+                          minusLabel: "Decrease guests",
+                          plusLabel: "Increase guests",
+                        })}
+                      </div>
+                      {supportGroup}
+                      {walkInButton}
 
                     {errors.form && <p className="text-red-500" style={{ fontSize: TYPE.body }}>{errors.form}</p>}
                     <button
@@ -872,17 +834,24 @@ export default function RSVPForm({
                     >
                       {submitLabel()}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        pendingScrollRef.current = isMaybe ? null : "name";
-                        setMode(isMaybe ? "going" : "maybe");
-                      }}
-                      className="!mt-3 mx-auto flex w-fit min-h-11 items-center px-3 text-neutral-500 dark:text-neutral-400 [@media(hover:hover)]:hover:text-neutral-900 dark:[@media(hover:hover)]:hover:text-[color:var(--z-fg)] transition-colors"
-                      style={pillText}
-                    >
-                      <span className="underline underline-offset-4">{isMaybe ? "I'll be there" : "Interested, keep me posted"}</span>
-                    </button>
+                    {declined ? (
+                      <SocialButtons
+                        showAppleMusic={!["samsung", "pixel"].includes(detectDevice())}
+                        onTap={(platform) => posthog.capture("rsvp_social_tap", { slug: eventId, platform })}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeclined(true);
+                          posthog.capture("rsvp_decline", { slug: eventId });
+                        }}
+                        className="!mt-3 mx-auto flex w-fit min-h-11 items-center px-3 text-neutral-500 dark:text-neutral-400 [@media(hover:hover)]:hover:text-neutral-900 dark:[@media(hover:hover)]:hover:text-[color:var(--z-fg)] transition-colors"
+                        style={pillText}
+                      >
+                        <span className="underline underline-offset-4">Can't make it? Find me on socials</span>
+                      </button>
+                    )}
                   </div>
                 </form>
               )}

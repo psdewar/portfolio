@@ -6,6 +6,7 @@ import FormInput from "./FormInput";
 import ContactFields from "./ContactFields";
 import { notifySessionChange } from "../hooks/useSession";
 import { serverFieldError } from "../lib/form-errors";
+import { errorMessage, postJson } from "../lib/network-error";
 
 interface SelectedTier {
   name: string;
@@ -121,13 +122,9 @@ export default function StayConnected({
     setErrors({});
 
     try {
-      const res = await fetch("/api/otp/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: signInEmail.trim() }),
-      });
+      const res = await postJson("/api/otp/request", { email: signInEmail.trim() });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setErrors({ email: data.error || "Failed to send code" });
@@ -138,8 +135,8 @@ export default function StayConnected({
       setOtpToken(data.token);
       setStep("code");
       setCountdown(120);
-    } catch {
-      setErrors({ email: "Failed to send code. Please try again." });
+    } catch (e) {
+      setErrors({ email: errorMessage(e, "Failed to send code. Please try again.") });
     } finally {
       setIsLoading(false);
     }
@@ -153,18 +150,14 @@ export default function StayConnected({
     setErrors({});
 
     try {
-      const res = await fetch("/api/otp/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: contactFormData.name,
-          email: contactFormData.email,
-          phone: contactFormData.phone,
-          tier: selectedTier?.name || "",
-        }),
+      const res = await postJson("/api/otp/signup", {
+        name: contactFormData.name,
+        email: contactFormData.email,
+        phone: contactFormData.phone,
+        tier: selectedTier?.name || "",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setErrors(serverFieldError(res.status, data.error, "Failed to send code"));
@@ -175,8 +168,8 @@ export default function StayConnected({
       setOtpToken(data.token);
       setStep("code");
       setCountdown(120);
-    } catch {
-      setErrors({ email: "Failed to send code. Please try again." });
+    } catch (e) {
+      setErrors({ email: errorMessage(e, "Failed to send code. Please try again.") });
     } finally {
       setIsLoading(false);
     }
@@ -195,13 +188,9 @@ export default function StayConnected({
     try {
       const endpoint = mode === "signup" ? "/api/otp/verify-signup" : "/api/otp/verify";
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: otpToken, code: otpCode }),
-      });
+      const res = await postJson(endpoint, { token: otpToken, code: otpCode });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setErrors({ otp: data.error || "Invalid code" });
@@ -212,8 +201,8 @@ export default function StayConnected({
       notifySessionChange();
       const verifiedEmail = mode === "signup" ? contactFormData.email : signInEmail;
       completeSuccess(verifiedEmail.trim().toLowerCase());
-    } catch {
-      setErrors({ otp: "Verification failed. Please try again." });
+    } catch (e) {
+      setErrors({ otp: errorMessage(e, "Verification failed. Please try again.") });
     } finally {
       setIsLoading(false);
     }

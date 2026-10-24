@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { errorMessage, postJson } from "../lib/network-error";
 
 type Props = {
   sessionId: string;
@@ -30,12 +31,8 @@ export function DownloadClient({ sessionId, productName, customerEmail, assets, 
   const handleSendEmail = async () => {
     setEmailStatus("sending");
     try {
-      const res = await fetch("/api/send-download-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      const data = await res.json();
+      const res = await postJson("/api/send-download-email", { sessionId });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setEmailStatus("sent");
         setEmailMessage(data.message);
@@ -43,9 +40,9 @@ export function DownloadClient({ sessionId, productName, customerEmail, assets, 
         setEmailStatus("error");
         setEmailMessage(data.error || "Failed to send email");
       }
-    } catch {
+    } catch (e) {
       setEmailStatus("error");
-      setEmailMessage("Network error. Try again.");
+      setEmailMessage(errorMessage(e, "Network error. Try again."));
     }
   };
 

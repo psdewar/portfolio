@@ -13,19 +13,25 @@ export const PAYMENT_OPTIONS_STYLE = `
   @keyframes cc-spin { to { transform: rotate(360deg); } }
   .cc-venmo { background: #008CFF; color: #fff; }
   .cc-venmo-logo { height: 22px; width: auto; filter: brightness(0) invert(1); }
+  .payment-options { container-type: inline-size; }
   .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
   .cc-venmo, .cc-zelle, .cc-interac, .cc-card { position: relative; }
   .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
   .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }
   .cc-zelle .cc-tag { background: rgba(109,30,212,0.12); color: #6D1ED4; }
-  .cc-copy { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 600; color: #6D1ED4; }
-  .cc-copied { font-size: 15px; font-weight: 600; color: #6D1ED4; }
-  .cc-rail-hint { margin: -2px 0 12px; text-align: center; font-size: 15px; line-height: 1.5; font-weight: 600; color: #6D1ED4; }
+  .cc-copy { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #6D1ED4; }
+  .cc-copy, .cc-card { font-variant-numeric: tabular-nums; }
+  .cc-copy, .cc-copied, .cc-rail-hint { font-size: var(--cc-fs, 17px); font-weight: 500; line-height: 1.25; }
+  .cc-venmo .cc-copy { color: #fff; }
+  .cc-copied { color: #6D1ED4; }
+  .cc-rail-hint { margin: -2px 0 12px; text-align: center; color: #6D1ED4; }
   .cc-rail-logo { height: 46px; width: auto; }
   .cc-interac { background: #FFBE00; }
   .cc-interac .cc-tag { background: rgba(0,0,0,0.12); color: #333; }
   .cc-interac .cc-copy, .cc-interac .cc-copied { color: #333; }
   .cc-interac-hint { color: #8a6d00; }
+  @container (max-width: 380px) { .cc-card:has(.cc-tag) { padding-left: 88px; padding-right: 12px; } }
+  @container (max-width: 320px) { .cc-copy { right: 12px; font-size: 14px; } }
 `;
 
 export default function PaymentOptions({
@@ -38,6 +44,7 @@ export default function PaymentOptions({
   zelle = true,
   zelleAmount,
   zelleNote,
+  venmoHint,
   interac = false,
   interacFirst = false,
   blocked = false,
@@ -52,6 +59,7 @@ export default function PaymentOptions({
   zelle?: boolean;
   zelleAmount?: string;
   zelleNote?: string;
+  venmoHint?: string;
   interac?: boolean;
   interacFirst?: boolean;
   blocked?: boolean;
@@ -107,6 +115,7 @@ export default function PaymentOptions({
       >
         <span className="cc-tag">no fees</span>
         <img className="cc-venmo-logo" src="/Venmo_Logo_Blue.png" alt="Venmo" />
+        {venmoHint && <span className="cc-copy cc-venmo-copy">{venmoHint}</span>}
       </a>
       {zelle && ZELLE_EMAIL && (
         <button

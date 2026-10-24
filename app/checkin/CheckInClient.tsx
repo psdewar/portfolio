@@ -1,16 +1,17 @@
 "use client";
 
-import type { StoryParagraph } from "../data/story";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import type { StoryParagraph } from "../data/story";
 import { useDocumentReady } from "../hooks/useDocumentReady";
 import { useScrollLock } from "../hooks/useScrollLock";
 import StatusShield from "../components/StatusShield";
 import TicketStub, { STAMP_TEXTURE } from "../components/TicketStub";
 import CheckinForm, { type FormPhase } from "./CheckinForm";
 import Road from "./Road";
+import type { TripExpensesData } from "../fund/TripExpenses";
 import { detectDevice, resolveDevice, type Device } from "./platform";
-import { isNetworkError, NO_CONNECTION } from "../lib/network-error";
+import { errorMessage } from "../lib/network-error";
 import { reducedMotion } from "./RoadParts";
 import { isCheckedIn, isValidCheckin, useCheckinState } from "./useCheckinState";
 import "./checkin.css";
@@ -35,16 +36,9 @@ interface Props {
   ticketNoOverride?: number | null;
   rsvpdOverride?: boolean;
   past?: boolean;
-  concertCount: number;
   storyParagraphs: StoryParagraph[];
+  expenses: TripExpensesData | null;
 }
-
-const messageOf = (e: unknown) =>
-  isNetworkError(e)
-    ? `${NO_CONNECTION} Try again.`
-    : e instanceof Error
-      ? e.message
-      : "Something went wrong. Try again.";
 
 export default function CheckInClient({
   slug,
@@ -56,10 +50,10 @@ export default function CheckInClient({
   ticketNoOverride = null,
   rsvpdOverride = false,
   past = false,
-  concertCount,
   storyParagraphs,
+  expenses,
 }: Props) {
-  const { stored, setFields, hydrated, restored, submit, skip, markStep } = useCheckinState({
+  const { stored, setFields, hydrated, restored, submit, markStep, track } = useCheckinState({
     slug,
     preview,
     capture,
@@ -67,15 +61,13 @@ export default function CheckInClient({
     rsvpdOverride,
   });
   const ready = useDocumentReady();
-  const [view, setView] = useState<"ticket" | "road">("ticket");
+  const [view, setView] = useState<"ticket" | "road">(capture ? "ticket" : "road");
   const [phase, setPhase] = useState<FormPhase>("idle");
   const [animate, setAnimate] = useState(false);
   const [error, setError] = useState("");
   const [inlinePhase, setInlinePhase] = useState<FormPhase>("idle");
   const [inlineError, setInlineError] = useState("");
-  const [skipping, setSkipping] = useState(false);
   const [flying, setFlying] = useState(false);
-  const [instant, setInstant] = useState(false);
   const [scale, setScale] = useState(1);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -153,7 +145,7 @@ export default function CheckInClient({
       window.removeEventListener("resize", fit);
       window.visualViewport?.removeEventListener("resize", fit);
     };
-  }, [ready, skipping]);
+  }, [ready]);
 
   const offsetIn = (node: HTMLElement, root: HTMLElement) => {
     let x = 0;
@@ -290,11 +282,7 @@ export default function CheckInClient({
 
   useEffect(() => {
     if (!hydrated || !restored) return;
-    setInstant(true);
-    setView("road");
     setPhase(isCheckedIn(storedRef.current) ? "stamped" : "idle");
-    const t = setTimeout(() => setInstant(false), 80);
-    return () => clearTimeout(t);
   }, [hydrated, restored]);
 
   const stampedBefore = useRef(checkedIn);
@@ -432,37 +420,18 @@ export default function CheckInClient({
     }
   }, [checkedIn, resumeSave]);
 
-  const onSubmit = async (website: string) => {
+  const onCapture = async (website: string) => {
     setError("");
     setPhase("loading");
     try {
-      await Promise.all([
-        submit(website),
-        new Promise((r) => setTimeout(r, reducedMotion() ? 0 : 600)),
-      ]);
+      await Promise.all([submit(website), new Promise((r) => setTimeout(r, 600))]);
     } catch (e) {
-      setError(messageOf(e));
+      setError(errorMessage(e));
       setPhase("idle");
       return;
     }
     setAnimate(true);
     setPhase("stamped");
-    if (capture) return;
-    after(reducedMotion() ? 300 : HOLD_MS, enterRoad);
-  };
-
-  const onSkip = async () => {
-    setError("");
-    setSkipping(true);
-    try {
-      await skip();
-    } catch (e) {
-      setError(messageOf(e));
-      setSkipping(false);
-      return;
-    }
-    setSkipping(false);
-    enterRoad();
   };
 
   const onInline = async (website: string) => {
@@ -474,7 +443,7 @@ export default function CheckInClient({
       await submit(website);
     } catch (e) {
       replaying.current = false;
-      setInlineError(messageOf(e));
+      setInlineError(errorMessage(e));
       setInlinePhase("idle");
       return;
     }
@@ -504,7 +473,7 @@ export default function CheckInClient({
         className={`tbtn${shaking ? " shake" : ""}`}
         disabled={!isValidCheckin(stored) || inlinePhase === "loading"}
       >
-        {inlinePhase === "loading" ? "Admitting…" : saveIntent ? "Keep your ticket" : "I’m Here"}
+        {inlinePhase === "loading" ? "Admitting…" : saveIntent ? "Keep your ticket" : "Check in"}
       </button>
     </CheckinForm>
   );
@@ -512,7 +481,7 @@ export default function CheckInClient({
   return (
     <div
       ref={rootRef}
-      className={`ci${flying ? " flying" : ""}${instant ? " instant" : ""}`}
+      className={`ci${flying ? " flying" : ""}`}
       data-view={view}
       style={{
         overflowY: keyboardOpen && view === "ticket" ? "auto" : "hidden",
@@ -535,7 +504,7 @@ export default function CheckInClient({
               <CheckinForm
                 values={stored}
                 onChange={setFields}
-                onSubmit={onSubmit}
+                onSubmit={onCapture}
                 phase={phase}
                 error={error}
                 hideEmptyPhone={capture}
@@ -549,25 +518,15 @@ export default function CheckInClient({
                   hidden={phase === "stamped"}
                   disabled={!valid || phase === "loading"}
                 >
-                  {phase === "loading" ? "Admitting…" : "I’m Here"}
+                  {phase === "loading" ? "Admitting…" : "Check in"}
                 </button>
-                {!capture && (
-                  <button
-                    type="button"
-                    className="skip"
-                    hidden={phase !== "idle"}
-                    disabled={skipping || !hydrated}
-                    onClick={onSkip}
-                  >
-                    Skip for now
-                  </button>
-                )}
               </CheckinForm>
             </TicketStub>
           </div>
         </div>
       </div>
       <Road
+        city={city}
         stored={stored}
         simulateUpload={preview}
         markStep={markStep}
@@ -595,8 +554,10 @@ export default function CheckInClient({
         }}
         saveError={saveError}
         past={past}
-        concertCount={concertCount}
         storyParagraphs={storyParagraphs}
+        expenses={expenses}
+        slug={slug}
+        track={track}
       />
     </div>
   );

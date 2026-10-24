@@ -19,7 +19,7 @@ import { MonthlySupporter } from "./SupportModal";
 import SupporterSignInForm from "./SupporterSignInForm";
 import { getJourneyEvents, formatEventDate, EventType } from "../data/timeline";
 import { TRACK_DATA } from "../data/tracks";
-import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW } from "../data/supporter-config";
+import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW, SUPPORTER_COPY } from "../data/supporter-config";
 import { useAudio } from "../contexts/AudioContext";
 import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -567,7 +567,8 @@ export function SupporterSection({
                 heading="h1"
                 source={isModal ? "modal" : "page"}
                 preview={EARLY_ACCESS_PREVIEW}
-                panelBleed="-mx-4 sm:mx-0 sm:rounded-lg [--tp-x:1rem] sm:[--tp-x:1.5rem]"
+                panelBleed="-mx-4 sm:mx-0 sm:rounded-lg"
+                gutter="[--tp-x:1rem] sm:[--tp-x:1.5rem]"
                 og={og}
                 onSignIn={og ? undefined : () => setShowVerifyForm(true)}
                 afterTiers={
@@ -594,7 +595,7 @@ export function SupporterSection({
                   Thank you for supporting my journey as an independent artist.
                 </p>
               </div>
-              {renderEarlyAccessTracks("Unlocked for you", (track) =>
+              {renderEarlyAccessTracks(SUPPORTER_COPY.yoursHeading, (track) =>
                 router.push(`/listen?play=${track.id}`),
               )}
               <div className="mb-4 split:mb-[clamp(0.25rem,calc(-50px_+_6vh),1rem)]">

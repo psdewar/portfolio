@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
 import { CHECKIN_STEPS, type CheckinStep } from "./steps";
-import { networkFetch } from "../lib/network-error";
+import { postJson } from "../lib/network-error";
 import { MAX_NAME_LENGTH } from "../lib/name";
 
 export type CheckinFields = { name: string; email: string; phone: string };
@@ -53,13 +53,6 @@ function write(slug: string, value: Stored) {
   } catch {}
 }
 
-const post = (url: string, body: unknown) =>
-  networkFetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
 export function useCheckinState({
   slug,
   preview,
@@ -81,7 +74,6 @@ export function useCheckinState({
   const [restored, setRestored] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const ref = useRef(stored);
-  const skipId = useRef<string | null>(null);
   ref.current = stored;
 
   const commit = useCallback(
@@ -146,7 +138,7 @@ export function useCheckinState({
     if (preview) {
       commit({ ...body, confirmed: true, checkinId: fields.checkinId ?? crypto.randomUUID() });
     } else {
-      const res = await post("/api/checkin", {
+      const res = await postJson("/api/checkin", {
         slug,
         ...body,
         website,
@@ -170,34 +162,16 @@ export function useCheckinState({
     track("checkin_step_done", { step: "checkin" });
   };
 
-  const skip = async () => {
-    if (preview) {
-      commit({ skipped: true, checkinId: crypto.randomUUID() });
-    } else {
-      skipId.current ??= crypto.randomUUID();
-      const res = await post("/api/checkin/skip", { slug, website: "", checkinId: skipId.current });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.");
-      commit({
-        skipped: true,
-        ticketNo: typeof data.ticketNo === "number" ? data.ticketNo : null,
-        checkinId: data.checkinId ?? null,
-        steps: data.steps ?? {},
-      });
-    }
-    track("checkin_skipped");
-  };
-
   const markStep = useCallback(
     (step: CheckinStep) => {
       if (!CHECKIN_STEPS.includes(step) || ref.current.steps[step]) return;
       commit({ steps: { ...ref.current.steps, [step]: new Date().toISOString() } });
       track("checkin_step_done", { step });
       const id = ref.current.checkinId;
-      if (id && !preview) post("/api/checkin/step", { checkinId: id, step }).catch(() => {});
+      if (id && !preview) postJson("/api/checkin/step", { checkinId: id, step }).catch(() => {});
     },
     [commit, preview, track],
   );
 
-  return { stored, setFields, hydrated, restored, submit, skip, markStep };
+  return { stored, setFields, hydrated, restored, submit, markStep, track };
 }

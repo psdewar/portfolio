@@ -17,3 +17,13 @@ export async function networkFetch(input: RequestInfo | URL, init?: RequestInit)
     throw e;
   }
 }
+
+export const errorMessage = (e: unknown, fallback = "Something went wrong. Try again.") =>
+  isNetworkError(e) ? `${NO_CONNECTION} Try again.` : e instanceof Error && e.message ? e.message : fallback;
+
+export const postJson = (url: string, body: unknown) =>
+  networkFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });

@@ -16,11 +16,11 @@ async function openLive(page: Page, token?: string) {
   const params = new URLSearchParams({ adlibDemo: "landscape" });
   if (token) params.set("adlibToken", token);
   await page.goto(`/live?${params.toString()}`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByPlaceholder("Send a message")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("textbox", { name: "Send a message" })).toBeVisible({ timeout: 10000 });
 }
 
 async function sendMessage(page: Page, text: string) {
-  await page.getByPlaceholder("Send a message").fill(text);
+  await page.getByRole("textbox", { name: "Send a message" }).fill(text);
   const send = page.getByRole("button", { name: "Send" });
   await expect(send).toBeEnabled({ timeout: 10000 });
   await send.click();
@@ -50,7 +50,7 @@ test.describe("Adlib chat", () => {
     await expect(hostPage.getByText(hostMessage)).toBeVisible();
 
     await viewerPage.reload({ waitUntil: "domcontentloaded" });
-    await expect(viewerPage.getByPlaceholder("Send a message")).toBeVisible({ timeout: 10000 });
+    await expect(viewerPage.getByRole("textbox", { name: "Send a message" })).toBeVisible({ timeout: 10000 });
     await expect(viewerPage.getByText(hostMessage)).toBeVisible({ timeout: 10000 });
 
     await hostCtx.close();
@@ -94,7 +94,7 @@ test.describe("Adlib chat", () => {
     const page = await ctx.newPage();
     await openLive(page, token);
 
-    const input = page.getByPlaceholder("Send a message");
+    const input = page.getByRole("textbox", { name: "Send a message" });
     const send = page.getByRole("button", { name: "Send" });
 
     await sendMessage(page, `first ${run}`);
@@ -105,7 +105,7 @@ test.describe("Adlib chat", () => {
     await expect(page.getByText("slow down a little")).toBeVisible({ timeout: 5000 });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByPlaceholder("Send a message")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Send a message" })).toBeVisible();
     await expect(page.getByText(`first ${run}`)).toBeVisible();
     await expect(page.getByText(`second ${run}`)).toBeHidden();
 
@@ -130,7 +130,7 @@ test.describe("Adlib chat", () => {
 
     await expect(anonPage.getByText(seedMessage)).toBeVisible({ timeout: 10000 });
 
-    const input = anonPage.getByPlaceholder("Send a message");
+    const input = anonPage.getByRole("textbox", { name: "Send a message" });
     await input.fill("hello");
     await anonPage.getByRole("button", { name: "Send" }).click();
 

@@ -66,6 +66,7 @@ export function AdlibChatOverlay({
               if (needsSignIn) socket.requestSignIn();
             }}
             readOnly={needsSignIn}
+            aria-label="Send a message"
             placeholder="Send a message"
             maxLength={ADLIB_MESSAGE_MAX_LENGTH}
             className="h-11 min-w-0 flex-1 rounded-full bg-black/40 px-4 text-[16px] text-white placeholder:text-white/70 backdrop-blur pointer-events-auto focus:outline-none"

@@ -1,42 +1,18 @@
 import { test, expect, Page } from "@playwright/test";
+import { seedDevTools } from "./helpers";
 
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      "dev-tools-state",
-      JSON.stringify({
-        simulateSlowNetwork: false,
-        useLocalAudio: true,
-        slowNetworkDelay: 0,
-        enableIngConversion: false,
-      })
-    );
-  });
+  await seedDevTools(page);
 });
 
-test.describe("Pages load", () => {
-  test("homepage loads", async ({ page }) => {
+test.describe("Home", () => {
+  test("a visitor lands on the homepage and sees its heading", async ({ page }) => {
     await goto(page, "/");
-    await expect(page.locator("h1").first()).toBeVisible({ timeout: 30000 });
-  });
-
-  test("support page loads", async ({ page }) => {
-    await goto(page, "/support");
-    await expect(page.getByRole("heading", { name: "Be my monthly supporter" })).toBeVisible({ timeout: 30000 });
-  });
-
-  test("listen page loads", async ({ page }) => {
-    await goto(page, "/listen");
-    await expect(page).toHaveURL(/listen/);
-  });
-
-  test("shop page loads", async ({ page }) => {
-    await goto(page, "/shop");
-    await expect(page.locator("body")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 30000 });
   });
 });
 

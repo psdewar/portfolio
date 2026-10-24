@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { SUPPORTER_COPY } from "../data/supporter-config";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/support" },
   title: "Support",
   description:
-    "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
+    SUPPORTER_COPY.metaDescription,
   openGraph: {
     title: "Support Peyt Spencer",
     description:
-      "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
+      SUPPORTER_COPY.metaDescription,
     images: [
       {
         url: "https://peytspencer.com/api/og/support",
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Support Peyt Spencer",
     description:
-      "Rapper and Microsoft alum. Think Patreon, but I receive 100% of your support. Monthly tiers unlock my unreleased songs.",
+      SUPPORTER_COPY.metaDescription,
     images: ["https://peytspencer.com/api/og/support"],
   },
 };

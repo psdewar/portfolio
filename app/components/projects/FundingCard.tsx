@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
 import { MAX_CARD_CENTS } from "app/lib/fees";
+import { errorMessage, postJson } from "app/lib/network-error";
 
 interface FundingCardProps {
   raisedCents: number;
@@ -50,22 +51,16 @@ export function FundingCard({
     setSelectedAmount(amountInCents);
 
     try {
-      const response = await fetch("/api/fund-project", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectTitle: title,
-          projectId,
-          amount: amountInCents,
-        }),
+      const response = await postJson("/api/fund-project", {
+        projectTitle: title,
+        projectId,
+        amount: amountInCents,
       });
 
-      const { url, error: serverError } = await response.json();
+      const { url, error: serverError } = await response.json().catch(() => ({}));
 
       if (serverError || !url) {
-        throw new Error(serverError || "Failed to create checkout");
+        throw new Error(serverError);
       }
 
       if (!url.startsWith("https://checkout.stripe.com/")) {
@@ -75,7 +70,7 @@ export function FundingCard({
       window.location.href = url;
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      alert("There was an error processing your request. Please try again.");
+      alert(errorMessage(error, "There was an error processing your request. Please try again."));
     } finally {
       setIsLoading(false);
       setSelectedAmount(null);

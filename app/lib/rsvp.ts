@@ -85,6 +85,16 @@ export async function markAttended({
     source: "checkin",
   });
 
+  const { checkinId, steps } = await attendanceView(slug, emailLower, carryFromId);
+
+  return { number: assignedNumber as number, rsvpd, checkinId, steps };
+}
+
+async function attendanceView(
+  slug: string,
+  emailLower: string,
+  carryFromId?: string | null,
+): Promise<{ checkinId: string | null; steps: Record<string, string> }> {
   const { data: attendanceRows } = await supabaseAdmin
     .from("attendances")
     .select("show_slug, public_id, steps")
@@ -104,12 +114,39 @@ export async function markAttended({
     Object.assign(carried, rest);
   }
 
-  return {
-    number: assignedNumber as number,
-    rsvpd,
-    checkinId: current?.public_id ?? null,
-    steps: { ...carried, ...(current?.steps ?? {}) },
-  };
+  return { checkinId: current?.public_id ?? null, steps: { ...carried, ...(current?.steps ?? {}) } };
+}
+
+export async function restoreCheckin({
+  email,
+  slug,
+  carryFromId,
+}: {
+  email: string;
+  slug: string;
+  carryFromId?: string | null;
+}): Promise<{ number: number; rsvpd: boolean; checkinId: string | null; steps: Record<string, string> } | null> {
+  const emailLower = email.trim().toLowerCase();
+
+  const { data: ranked, error } = await supabaseAdmin
+    .from("attendances")
+    .select("id, email")
+    .eq("show_slug", slug)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  const index = (ranked ?? []).findIndex((r) => r.email === emailLower);
+  if (index < 0) return null;
+
+  const { data: rsvpRow } = await supabaseAdmin
+    .from("rsvps")
+    .select("email")
+    .eq("show_slug", slug)
+    .eq("email", emailLower)
+    .maybeSingle();
+  const { checkinId, steps } = await attendanceView(slug, emailLower, carryFromId);
+
+  return { number: index + 1, rsvpd: !!rsvpRow, checkinId, steps };
 }
 
 export async function namesByEmail(emails: string[]): Promise<Map<string, string>> {

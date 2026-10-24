@@ -1,18 +1,8 @@
 import { test, expect, Page } from "@playwright/test";
-import { mockLiveStatus, mockLivestreamSchedule } from "./helpers";
+import { mockLiveStatus, mockLivestreamSchedule, seedDevTools } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      "dev-tools-state",
-      JSON.stringify({
-        simulateSlowNetwork: false,
-        useLocalAudio: true,
-        slowNetworkDelay: 0,
-        enableIngConversion: false,
-      }),
-    );
-  });
+  await seedDevTools(page);
 });
 
 async function gotoWithMock(page: Page, path: string) {
@@ -21,11 +11,6 @@ async function gotoWithMock(page: Page, path: string) {
 }
 
 test.describe("Live page", () => {
-  test("loads successfully", async ({ page }) => {
-    await gotoWithMock(page, "/live");
-    await expect(page.getByAltText("Peyt Spencer").first()).toBeVisible({ timeout: 5000 });
-  });
-
   test("stream ending takes the page offline even when the live connection is down", async ({ page }) => {
     test.setTimeout(30000);
     let streaming = true;

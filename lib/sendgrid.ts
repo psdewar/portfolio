@@ -1,6 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import type { EmailImage } from "./email-image";
 import { supporterPortalPath } from "../app/lib/confirm";
+import { SUPPORTER_COPY } from "../app/data/supporter-config";
 
 // SDK TS types declare `contentId` (camelCase) but the v3 API requires
 // `content_id` (snake_case). Bug: sendgrid-nodejs#1080, unfixed in 8.1.6.
@@ -144,14 +145,11 @@ export async function sendRsvpConfirmation(params: {
   venueName?: string;
   address?: string;
   ics: { filename: string; content: string };
-  maybe?: boolean;
 }): Promise<boolean> {
-  const { to, title, dateLabel, shortDate, city, region, doorLabel, venueName, address, ics, maybe } =
+  const { to, title, dateLabel, shortDate, city, region, doorLabel, venueName, address, ics } =
     params;
   const downloadUrl = `${SITE_URL}/2025/singles-and-16s`;
-  const subject = maybe
-    ? `Hope to see you ${shortDate} in ${city}`
-    : `You're in: ${shortDate} in ${city}`;
+  const subject = `You're in: ${shortDate} in ${city}`;
   const mapsUrl = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : "";
@@ -424,11 +422,11 @@ export async function sendSupporterWelcomeEmail(params: {
       to,
       from: FROM,
       subject: "You're in. Thank you.",
-      text: `You're in. Thank you.\n\nYour unreleased songs are unlocked. Hear them here:\n${claimUrl}\n\nThis link signs you in on any device.\n\nManage your subscription: ${portalUrl}\n\nPeyt`,
+      text: `You're in. Thank you.\n\n${SUPPORTER_COPY.welcomeLine}\n\n${claimUrl}\n\nThis link signs you in on any device.\n\nManage your subscription: ${portalUrl}\n\nPeyt`,
       html: emailWrapper(`
-      ${goldHeading("You're in. Thank you.", "Your unreleased songs are unlocked.")}
+      ${goldHeading("You're in. Thank you.", SUPPORTER_COPY.welcomeLine)}
 
-      <div style="margin-bottom:10px;">${ctaButton("Hear your unlocked songs", claimUrl)}</div>
+      <div style="margin-bottom:10px;">${ctaButton(SUPPORTER_COPY.welcomeCta, claimUrl)}</div>
       <div style="text-align:center;color:#9a9a95;font-size:12px;margin-bottom:28px;">This link signs you in on any device.</div>
 
       <div style="border-top:1px solid #ebebeb;padding-top:20px;">

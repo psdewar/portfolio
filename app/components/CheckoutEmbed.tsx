@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
@@ -38,6 +38,15 @@ export default function CheckoutEmbed({
       if (claimed) activeCheckouts -= 1;
     };
   }, []);
+
+  const guardedFetchClientSecret = useCallback(
+    () =>
+      fetchClientSecret().catch((e) => {
+        setLoadFailed(true);
+        throw e;
+      }),
+    [fetchClientSecret],
+  );
 
   useEffect(() => {
     let stale = false;
@@ -80,7 +89,7 @@ export default function CheckoutEmbed({
   return (
     <EmbeddedCheckoutProvider
       stripe={stripePromise}
-      options={{ fetchClientSecret, onComplete }}
+      options={{ fetchClientSecret: guardedFetchClientSecret, onComplete }}
     >
       <EmbeddedCheckout className="px-2" />
     </EmbeddedCheckoutProvider>

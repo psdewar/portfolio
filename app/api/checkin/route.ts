@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getShowBySlug } from "../../lib/shows";
 import { isEmailValid } from "../../lib/email";
 import { isNameTooLong } from "../../lib/name";
-import { markAttended } from "../../lib/rsvp";
+import { markAttended, restoreCheckin } from "../../lib/rsvp";
 import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import PostHogClient from "../../../lib/posthog";
 import {
@@ -47,26 +47,47 @@ export async function POST(request: NextRequest) {
 
     const show = await getShowBySlug(slug.trim());
     const claiming = isCheckinId(claimId);
-    if (!show || !isCheckinOpen(show) || !(claiming || isShowToday(show))) {
+    if (!show || !isCheckinOpen(show)) {
       return NextResponse.json({ error: "Check-in isn't open for this show." }, { status: 400 });
     }
 
-    const { number, rsvpd, checkinId, steps } = await markAttended({
-      email,
-      name,
-      phone,
-      slug: slug.trim(),
-      claimId: claiming ? claimId : null,
-      carryFromId: parseCheckinCookie(request.cookies.get(CHECKIN_COOKIE)?.value)?.checkinId ?? null,
-    });
+    const showDay = isShowToday(show);
+    const carryFromId = parseCheckinCookie(request.cookies.get(CHECKIN_COOKIE)?.value)?.checkinId ?? null;
+    const attend = (claim: string | null) =>
+      markAttended({ email, name, phone, slug: slug.trim(), claimId: claim, carryFromId });
 
-    const posthog = PostHogClient();
-    posthog.capture({
-      distinctId: email.trim().toLowerCase(),
-      event: "rsvp_attended",
-      properties: { event_id: slug.trim(), rsvpd },
-    });
-    await posthog.shutdown();
+    let result: Awaited<ReturnType<typeof markAttended>> | null = null;
+    let restored = false;
+    if (claiming) {
+      try {
+        result = await attend(claimId);
+      } catch (error) {
+        if (!(error instanceof Error && error.message.includes("unknown check-in"))) throw error;
+      }
+    }
+    if (!result && showDay) {
+      result = await attend(null);
+    } else if (!result) {
+      result = await restoreCheckin({ email, slug: slug.trim(), carryFromId });
+      restored = true;
+      if (!result) {
+        return NextResponse.json(
+          { error: "I don't have a check-in under that email for this show." },
+          { status: 400 },
+        );
+      }
+    }
+    const { number, rsvpd, checkinId, steps } = result;
+
+    if (!restored) {
+      const posthog = PostHogClient();
+      posthog.capture({
+        distinctId: email.trim().toLowerCase(),
+        event: "rsvp_attended",
+        properties: { event_id: slug.trim(), rsvpd },
+      });
+      await posthog.shutdown();
+    }
 
     const response = NextResponse.json({ success: true, ticketNo: number, rsvpd, checkinId, steps });
     if (checkinId) setCheckinCookie(response, slug.trim(), checkinId);

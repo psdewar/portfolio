@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { FUND_COPY } from "../data/supporter-config";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -17,10 +18,10 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   alternates: { canonical: "/fund" },
   title: "Fund",
-  description: "Back my next music project. Get early access, exclusive tracks, and limited merch.",
+  description: FUND_COPY.metaDescription,
   openGraph: {
     title: "Fund Peyt Spencer | Music",
-    description: "Back my next project. Early access, exclusive tracks, limited merch.",
+    description: FUND_COPY.metaDescription,
     images: [
       {
         url: "https://peytspencer.com/api/og/fund",
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Fund Peyt Spencer | Music",
-    description: "Back my next project. Early access, exclusive tracks, limited merch.",
+    description: FUND_COPY.metaDescription,
     images: ["https://peytspencer.com/api/og/fund"],
   },
 };

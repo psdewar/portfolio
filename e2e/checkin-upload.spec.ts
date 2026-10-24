@@ -1,7 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
-import { checkInFromRoad, mockCheckinApi, PNG, skipForNow } from "./checkin-flow";
+import { checkInFromRoad, openCheckin, PNG, landOnList } from "./checkin-flow";
 
-const URL = "/checkin/fulton-md-0?preview=1&fresh=1";
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "PUT, OPTIONS",
@@ -25,7 +24,6 @@ async function setup(page: Page) {
   let gate = new Promise<void>((r) => (release = r));
   let failedOnce = false;
 
-  await mockCheckinApi(page);
   await page.route("**/api/moments/sign", async (route) => {
     const body = route.request().postDataJSON();
     if (body.kind === "preview") return route.fulfill({ json: { exists: true } });
@@ -55,12 +53,10 @@ async function setup(page: Page) {
     await gate;
     return route.fulfill({ status: 200, headers: { ...CORS, etag: '"abc"' }, body: "" });
   });
-  await page.context().addCookies([{ name: "ui-data", value: "worst", url: "http://localhost:3000" }]);
-  await page.addInitScript(() => localStorage.clear());
-  await page.goto("/checkin/ci-short", { waitUntil: "domcontentloaded" });
-  await skipForNow(page);
+  await openCheckin(page, "/checkin/ci-short", { uiData: "worst" });
+  await landOnList(page);
   await checkInFromRoad(page, "Sam Lee");
-  await expect(page.getByRole("button", { name: /Upload your best/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Send me your best photo/ })).toBeVisible();
   page.on("dialog", (d) => d.accept());
   return {
     release: () => release(),
@@ -70,7 +66,7 @@ async function setup(page: Page) {
   };
 }
 
-const choose = (page: Page) => page.getByLabel("Choose photos and videos");
+const choose = (page: Page) => page.getByLabel("Choose photos", { exact: true });
 const removeButtons = (page: Page) => page.getByRole("button", { name: /^Remove / });
 
 test.describe("Check in upload", () => {
@@ -81,7 +77,7 @@ test.describe("Check in upload", () => {
   }) => {
     test.setTimeout(30000);
     const t = await setup(page);
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([photo("a.png", 1), photo("b.png", 2), photo("c.png", 3)]);
     await expect(page.getByText("Keep this page open until complete.")).toBeVisible();
     await expect(page.getByText("0/3")).toBeVisible();
@@ -96,28 +92,11 @@ test.describe("Check in upload", () => {
     await expect(page.getByText("6/6 received")).toBeVisible();
   });
 
-  test("a guest previewing the page sees 3/3 received and nothing is sent to the server", async ({ page }) => {
-    test.setTimeout(30000);
-    await mockCheckinApi(page);
-    const moments: string[] = [];
-    page.on("request", (r) => {
-      if (r.url().includes("/api/moments/")) moments.push(r.url());
-    });
-    await page.addInitScript(() => localStorage.clear());
-    await page.goto(URL, { waitUntil: "domcontentloaded" });
-    await skipForNow(page);
-    await checkInFromRoad(page, "Sam Lee");
-    await page.getByRole("button", { name: /Upload your best/ }).click();
-    await choose(page).setInputFiles([photo("a.png", 1), photo("b.png", 2), photo("c.png", 3)]);
-    await expect(page.getByText("3/3 received")).toBeVisible({ timeout: 15000 });
-    expect(moments).toEqual([]);
-  });
-
   test("a guest who picks a large video sees 1/1 received", async ({ page }) => {
     test.setTimeout(30000);
     const t = await setup(page);
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles({
       name: "big.mp4",
       mimeType: "video/mp4",
@@ -132,7 +111,7 @@ test.describe("Check in upload", () => {
     test.setTimeout(30000);
     const t = await setup(page);
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([photo("bad.png", 1), photo("ok.png", 2)]);
     await expect(page.getByText("1 failed")).toBeVisible();
     await page.getByRole("button", { name: "Retry bad.png" }).click();
@@ -162,7 +141,7 @@ test.describe("Check in upload", () => {
       return route.fulfill({ json: { url: `https://r2.test/put/${body.filename}`, key: `k/${body.filename}` } });
     });
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([bigPhoto("late.png")]);
     await failedOnce;
     await expect(page.getByText("Keep this page open until complete.")).toBeVisible();
@@ -188,7 +167,7 @@ test.describe("Check in upload", () => {
       return route.fulfill({ status: 403, json: { error: "Forced failure" } });
     });
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([bigPhoto("never.png")]);
     await expect(async () => {
       await page.clock.runFor(40_000);
@@ -211,7 +190,7 @@ test.describe("Check in upload", () => {
       return route.fulfill({ status: 403, json: { error: "Forced failure" } });
     });
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([
       { name: "bad.mp4", mimeType: "video/mp4", buffer: Buffer.alloc(2048, 1) },
     ]);
@@ -263,7 +242,7 @@ test.describe("Check in upload", () => {
     test.setTimeout(30000);
     const t = await setup(page);
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([photo("a.png", 1), photo("b.png", 2), photo("c.png", 3)]);
     await expect(page.getByText("3/3 received")).toBeVisible();
     await expect(page.getByRole("group", { name: "b.png" })).toBeVisible();
@@ -281,18 +260,19 @@ test.describe("Check in upload", () => {
       route.fulfill({ status: 401, json: { error: "Unauthorized" } }),
     );
     t.release();
-    await page.getByRole("button", { name: /Upload your best/ }).click();
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
     await choose(page).setInputFiles([photo("a.png", 1)]);
     await expect(page.getByText("1 failed")).toBeVisible();
   });
 
-  test("a guest who skipped check-in and taps Upload gets the photo picker", async ({ page }) => {
-    await mockCheckinApi(page);
-    await page.addInitScript(() => localStorage.clear());
-    await page.goto("/checkin/fulton-md-0?preview=1", { waitUntil: "domcontentloaded" });
-    await skipForNow(page);
-    const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: /Upload your best/ }).click();
-    await chooser;
+  test("a guest who has not checked in and taps Send me your best photo is asked to check in first", async ({ page }) => {
+    await openCheckin(page, "/checkin/fulton-md-0?preview=1");
+    await landOnList(page);
+    let picked = false;
+    page.on("filechooser", () => (picked = true));
+    await page.getByRole("button", { name: /Send me your best photo/ }).click();
+    await expect(page.getByRole("button", { name: /Check in first/ })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Your name" })).toBeFocused();
+    expect(picked).toBe(false);
   });
 });

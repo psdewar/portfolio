@@ -4,16 +4,24 @@ export default function CheckinPayRails({
   venmoUrl,
   zelle = true,
   zelleAmount,
+  venmoHint,
+  cardTotal,
+  cardLoading,
   onCard,
   cardNoFees = false,
   onExternal,
+  onTap,
 }: {
   venmoUrl: string;
   zelle?: boolean;
   zelleAmount?: string;
+  venmoHint?: string;
+  cardTotal?: string;
+  cardLoading?: boolean;
   onCard: () => void;
   cardNoFees?: boolean;
   onExternal: () => void;
+  onTap?: (target: "venmo" | "zelle" | "card") => void;
 }) {
   return (
     <div className="gut">
@@ -22,9 +30,13 @@ export default function CheckinPayRails({
         venmoUrl={venmoUrl}
         zelle={zelle}
         zelleAmount={zelleAmount}
+        venmoHint={venmoHint}
+        cardTotal={cardTotal}
         onCard={onCard}
+        cardLoading={cardLoading}
         cardNoFees={cardNoFees}
         onSelect={(method) => {
+          onTap?.(method);
           if (method !== "card") onExternal();
         }}
       />

@@ -6,7 +6,8 @@ import { useHydrated } from "../hooks/useHydrated";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useSession } from "../hooks/useSession";
 import { SUPPORTER_TIERS } from "../data/supporter-tiers";
-import { grossUpCents, formatCents, MAX_CARD_CENTS } from "../lib/fees";
+import { grossUpCents, cardPayLabel, MAX_CARD_CENTS } from "../lib/fees";
+import { errorMessage, postJson } from "../lib/network-error";
 
 export const PICKER_TIERS = [...SUPPORTER_TIERS].reverse();
 export const MAX_CUSTOM_AMOUNT = MAX_CARD_CENTS / 100;
@@ -42,7 +43,7 @@ export function useMonthlySupport({ source, checkinId }: { source: string; check
   const soulBelowMinimum = !(parseInt(customAmount, 10) >= soulMinimum);
   const soulAmountNum = parseInt(customAmount, 10) || 0;
   const selectedNetCents = selectedIsSoul ? soulAmountNum * 100 : periodNetCents(selectedTier.net, annual);
-  const payLabel = `Pay ${formatCents(grossUpCents(selectedNetCents))}/${annual ? "year" : "month"} with your card`;
+  const payLabel = cardPayLabel(selectedNetCents, `/${annual ? "year" : "month"}`);
 
   const startCheckout = async (netAmount: number, period: Period) => {
     setIsLoading(true);
@@ -59,29 +60,25 @@ export function useMonthlySupport({ source, checkinId }: { source: string; check
     });
 
     try {
-      const response = await fetch("/api/fund-project", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectTitle: `$${displayAmount}/${interval} - ${period === "annually" ? "Annual" : "Monthly"} Support`,
-          projectId: period === "annually" ? "annual-support" : "monthly-support",
-          amount: finalAmount,
-          interval,
-          embedded: true,
-          ...(checkinId ? { checkinId } : {}),
-        }),
+      const response = await postJson("/api/fund-project", {
+        projectTitle: `$${displayAmount}/${interval} - ${period === "annually" ? "Annual" : "Monthly"} Support`,
+        projectId: period === "annually" ? "annual-support" : "monthly-support",
+        amount: finalAmount,
+        interval,
+        embedded: true,
+        ...(checkinId ? { checkinId } : {}),
       });
 
-      const { clientSecret, error: serverError } = await response.json();
+      const { clientSecret, error: serverError } = await response.json().catch(() => ({}));
 
       if (serverError || !clientSecret) {
-        throw new Error(serverError || "Failed to create checkout");
+        throw new Error(serverError);
       }
 
       setCheckoutSecret(clientSecret);
     } catch (error) {
       console.error("Error creating checkout:", error);
-      alert("There was an error. Please try again.");
+      alert(errorMessage(error));
     } finally {
       setIsLoading(false);
     }

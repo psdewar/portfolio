@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-const REGION_NAMES: Record<string, string> = {
+export const REGION_NAMES: Record<string, string> = {
   AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado",
   CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii",
   ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana",
@@ -19,9 +19,17 @@ interface GeoResult {
   admin1?: string;
   population?: number;
   timezone?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
-const lookup = cache(async (city: string, region: string, country: string): Promise<string | null> => {
+export interface CityGeo {
+  timezone: string;
+  latitude: number;
+  longitude: number;
+}
+
+const lookup = cache(async (city: string, region: string, country: string): Promise<CityGeo | null> => {
   const regionName = REGION_NAMES[region.trim().toUpperCase()];
   if (!city.trim() || !regionName) return null;
   try {
@@ -32,7 +40,8 @@ const lookup = cache(async (city: string, region: string, country: string): Prom
     const match = (data.results ?? [])
       .filter((r) => r.timezone && r.admin1?.toLowerCase() === regionName.toLowerCase())
       .sort((a, b) => (b.population ?? 0) - (a.population ?? 0))[0];
-    return match?.timezone ?? null;
+    if (!match?.timezone || match.latitude == null || match.longitude == null) return null;
+    return { timezone: match.timezone, latitude: match.latitude, longitude: match.longitude };
   } catch {
     return null;
   }
@@ -40,7 +49,19 @@ const lookup = cache(async (city: string, region: string, country: string): Prom
 
 const CANADIAN_REGIONS = new Set(["AB", "BC", "MB", "NB", "NL", "NS", "ON", "PE", "QC", "SK"]);
 
-export function getCityZone(city?: string | null, region?: string | null, country?: string): Promise<string | null> {
+function lookupCity(city?: string | null, region?: string | null, country?: string) {
   const code = (region ?? "").trim().toUpperCase();
   return lookup(city ?? "", code, country ?? (CANADIAN_REGIONS.has(code) ? "CA" : "US"));
+}
+
+export async function getCityZone(city?: string | null, region?: string | null, country?: string): Promise<string | null> {
+  return (await lookupCity(city, region, country))?.timezone ?? null;
+}
+
+export async function getCityCoords(
+  city?: string | null,
+  region?: string | null,
+  country?: string,
+): Promise<{ latitude: number; longitude: number } | null> {
+  return lookupCity(city, region, country);
 }

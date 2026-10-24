@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { NEAR_SHOW_KM, distanceKm, pickTodayShow } from "../lib/checkin-show";
 import TipsAndSocials from "./TipsAndSocials";
 import { SupporterSection } from "../components/SupporterSection";
 import {
@@ -12,7 +15,7 @@ import {
 } from "../lib/shows";
 import { tourMomentum } from "../lib/tour-momentum";
 import { confirmPath } from "../lib/confirm";
-import { getCityZone } from "../lib/city-zone";
+import { getCityCoords, getCityZone } from "../lib/city-zone";
 import { storyParagraphs } from "../data/story";
 
 function getTodayInTz(tz: string): string {
@@ -22,11 +25,28 @@ function getTodayInTz(tz: string): string {
 export default async function SupportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ now?: string; og?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined> & { now?: string; og?: string }>;
 }) {
   const params = await searchParams;
   const og = params.og === "true";
   const shows = await getShows();
+  if (!og && !params.now) {
+    const nearShow = pickTodayShow(shows);
+    const h = await headers();
+    const lat = parseFloat(h.get("x-vercel-ip-latitude") ?? "");
+    const lon = parseFloat(h.get("x-vercel-ip-longitude") ?? "");
+    const coords =
+      nearShow && !Number.isNaN(lat) && !Number.isNaN(lon)
+        ? await getCityCoords(nearShow.city, nearShow.region, nearShow.country)
+        : null;
+    if (nearShow && coords && distanceKm({ latitude: lat, longitude: lon }, coords) <= NEAR_SHOW_KM) {
+      const slug = nearShow.slug;
+      const query = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) for (const x of [v ?? []].flat()) query.append(k, x);
+      query.set("open", "fund");
+      redirect(`/checkin/${slug}?${query}`);
+    }
+  }
   const paragraphs = storyParagraphs(await getTourCounts());
   const liveShows = listableShows(shows);
   const upcomingShows = liveShows.filter(isShowUpcoming);

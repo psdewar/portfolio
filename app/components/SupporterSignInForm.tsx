@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { notifySessionChange } from "../hooks/useSession";
+import { errorMessage, networkFetch, postJson } from "../lib/network-error";
 import {
   activateSupporterStatus,
   storeSupporterEmail,
@@ -21,16 +22,9 @@ export default function SupporterSignInForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const post = (url: string, body: object) =>
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
   const claimSupporter = async () => {
-    const res = await post("/api/verify-supporter", {});
-    const data = await res.json();
+    const res = await postJson("/api/verify-supporter", {});
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setError(
         res.status === 404
@@ -52,18 +46,18 @@ export default function SupporterSignInForm({
     setLoading(true);
     setError("");
     try {
-      const me = await fetch("/api/me");
-      const session = me.ok ? await me.json() : null;
+      const me = await networkFetch("/api/me");
+      const session = me.ok ? await me.json().catch(() => null) : null;
       if (session?.email?.toLowerCase() === typed) {
         await claimSupporter();
         return;
       }
-      const res = await post("/api/otp/request", { email: typed });
-      const data = await res.json();
+      const res = await postJson("/api/otp/request", { email: typed });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) setOtpToken(data.token);
       else setError(res.status === 404 ? "No account found for this email" : "Could not send a code");
-    } catch {
-      setError("Something went wrong");
+    } catch (e) {
+      setError(errorMessage(e, "Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -74,16 +68,16 @@ export default function SupporterSignInForm({
     setLoading(true);
     setError("");
     try {
-      const res = await post("/api/otp/verify", { token: otpToken, code: code.trim() });
+      const res = await postJson("/api/otp/verify", { token: otpToken, code: code.trim() });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setError(data.error || "Invalid code");
         return;
       }
       notifySessionChange();
       await claimSupporter();
-    } catch {
-      setError("Something went wrong");
+    } catch (e) {
+      setError(errorMessage(e, "Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -108,6 +102,7 @@ export default function SupporterSignInForm({
         <input
           type="email"
           autoFocus
+          aria-label="Your email"
           placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

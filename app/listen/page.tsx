@@ -13,7 +13,7 @@ import BlockVisualizer from "app/components/BlockVisualizer";
 import { useAudio } from "../contexts/AudioContext";
 import { useSimulatedLoading } from "../contexts/DevToolsContext";
 import { TRACK_DATA } from "../data/tracks";
-import { SUPPORTER_CONFIG, SUPPORTER_EXCLUSIVE_TRACKS } from "../data/supporter-config";
+import { SUPPORTER_CONFIG, SUPPORTER_COPY, SUPPORTER_EXCLUSIVE_TRACKS } from "../data/supporter-config";
 import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { claimSupporterSession, claimSupporterLink } from "../lib/supporter";
 import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
@@ -189,13 +189,13 @@ export default function Page() {
             <div className="flex items-baseline justify-between mb-4">
               <div>
                 <h2 className="font-bebas text-2xl text-white">
-                  {supporterWelcome ? "You're in. Thank you." : "Your Exclusive Content"}
+                  {supporterWelcome ? "You're in. Thank you." : SUPPORTER_COPY.yoursHeading}
                 </h2>
                 {supporterWelcome && (
                   <p className="text-neutral-400 text-sm mt-1">
                     {welcomeFromCheckout
-                      ? "Tap a lock to unlock your song. A welcome email is on its way."
-                      : "Tap a lock to unlock your song."}
+                      ? "Tap a lock to open your song. A welcome email is on its way."
+                      : "Tap a lock to open your song."}
                   </p>
                 )}
               </div>
@@ -316,7 +316,7 @@ export default function Page() {
                   )}
                   <span className="text-sm font-medium text-white/90">{t.title}</span>
                   <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
-                    {isUnlocking ? "Unlocking" : "Tap to unlock"}
+                    {isUnlocking ? "Opening" : "Tap to open"}
                   </span>
                 </div>
               )}

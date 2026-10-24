@@ -26,6 +26,11 @@ export function formatDollars(cents: number): string {
   }).format(cents / 100);
 }
 
+export const cardTotalLabel = (netCents: number) => formatDollars(grossUpCents(netCents));
+
+export const cardPayLabel = (netCents: number, suffix = "") =>
+  `Pay ${cardTotalLabel(netCents)}${suffix} with your card`;
+
 export function formatFee(cents: number): string {
   return `+$${(cents / 100).toFixed(2)} card fee`;
 }

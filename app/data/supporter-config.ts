@@ -3,9 +3,30 @@ import { TRACK_DATA, type TrackData } from "./tracks";
 export const SUPPORTER_CONFIG = {
   earlyAccess: {
     name: "Early Access",
-    description: "Exclusive tracks, yours now",
+    description: "New songs, yours first",
     trackIds: ["best-foot-forward", "crg-freestyle", "so-good", "see-this-through"] as string[],
   },
+};
+
+const MONTHLY_PERK = "my new songs before anyone else";
+
+export const SUPPORTER_COPY = {
+  promise: "Monthly supporters hear my new songs before anyone else.",
+  pitch: `Your monthly support covers my tour and what it takes to be an artist: recording, releasing, and running this site. While keeping me independent, you also get ${MONTHLY_PERK}. Like Patreon without the cut, only your card fee is added, so I receive 100%. Cancel anytime.`,
+  metaDescription:
+    "Rapper and Microsoft alum. Like Patreon without the cut, only your card fee is added, so I receive 100%. Monthly supporters hear my new songs before anyone else.",
+  yoursHeading: "Yours before anyone else",
+  welcomeLine: "You hear my new songs before anyone else.",
+  welcomeCta: "Hear my new songs",
+  stripeLine: "Your support keeps me independent",
+};
+
+export const FUND_COPY = {
+  title: "Fund my tour",
+  sub: "Give once, any amount",
+  costsSub: "Here are my costs. Any amount helps.",
+  metaDescription: "Fund my tour. Here are my costs. Give once, any amount.",
+  stripeLine: "Fund my tour",
 };
 
 export const SUPPORTER_EXCLUSIVE_TRACKS = new Set<string>(SUPPORTER_CONFIG.earlyAccess.trackIds);

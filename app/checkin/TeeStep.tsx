@@ -2,12 +2,12 @@
 
 import { venmoPayUrl } from "../components/PaymentModal";
 import CheckinPayRails from "./CheckinPayRails";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import dynamic from "next/dynamic";
 import { TShirtIcon } from "@phosphor-icons/react";
 import { ColorSwatches, SizeGrid, TEE_COLORS, TEE_DEFAULT_SIZE, TEE_SIZES } from "../components/TeePickers";
-import { Lead, StepShell, motion, reducedMotion } from "./RoadParts";
+import { Lead, StepShell, motion, reducedMotion, runRowMotion, useIsoLayoutEffect } from "./RoadParts";
 
 const EmbeddedTeeCheckout = dynamic(() => import("../components/EmbeddedTeeCheckout"), { ssr: false });
 
@@ -16,7 +16,6 @@ const PRICE = "45";
 const COLORS = TEE_COLORS;
 const SIZES = TEE_SIZES;
 const src = (id: string) => `/images/merch/checkin/patience-${id}.webp`;
-const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 const HERO_RATIO = 1018 / 1080;
 
 type Intent = "open" | "close";
@@ -48,7 +47,6 @@ export default function TeeStep({
   const wasOpen = useRef(false);
   const anims = useRef<Animation[]>([]);
   const intent = useRef<Intent>("open");
-  const pin = useRef<number | null>(null);
   const closed = useRef<Closed | null>(null);
   const el = <T extends HTMLElement>(sel: string) => rootRef.current?.querySelector<T>(sel) ?? null;
 
@@ -67,24 +65,12 @@ export default function TeeStep({
     rootRef.current?.removeAttribute("data-flying");
   };
 
-  const ensureVisible = () => {
-    const row = el(".srow");
-    const body = el(".body");
-    const sheet = rootRef.current?.closest<HTMLElement>(".ci-sheet");
-    if (!row || !body || !sheet) return;
-    const sr = sheet.getBoundingClientRect();
-    const need = body.getBoundingClientRect().bottom - sr.bottom + 16;
-    const room = row.getBoundingClientRect().top - sr.top;
-    if (need > 0) sheet.scrollBy({ top: Math.min(need, room), behavior: "smooth" });
-  };
-
   const finish = () => {
     if (intent.current === "close") {
       flushSync(onToggle);
       clear();
     } else {
       clear();
-      ensureVisible();
     }
   };
 
@@ -144,11 +130,11 @@ export default function TeeStep({
     if (anims.current.length) {
       intent.current = intent.current === "open" ? "close" : "open";
       anims.current.forEach((a) => a.reverse());
+      if (rootRef.current) runRowMotion(rootRef.current, intent.current);
       return;
     }
     if (!open) {
       measureClosed();
-      pin.current = el(".srow")?.getBoundingClientRect().top ?? null;
       intent.current = "open";
       await heroRef.current?.decode().catch(() => {});
       onToggle();
@@ -156,6 +142,7 @@ export default function TeeStep({
     }
     intent.current = "close";
     run("reverse");
+    if (rootRef.current) runRowMotion(rootRef.current, "close");
   };
 
   useIsoLayoutEffect(() => {
@@ -166,10 +153,6 @@ export default function TeeStep({
       return;
     }
     if (!opened) return;
-    const sheet = rootRef.current?.closest<HTMLElement>(".ci-sheet");
-    const top = el(".srow")?.getBoundingClientRect().top;
-    if (sheet && pin.current !== null && top !== undefined) sheet.scrollTop += top - pin.current;
-    pin.current = null;
     if (reducedMotion()) return;
     if (!closed.current) measureClosed();
     intent.current = "open";
@@ -197,8 +180,8 @@ export default function TeeStep({
   return (
     <StepShell
       rootRef={rootRef}
-      n={3}
-      id="st-3"
+      n={5}
+      id="st-5"
       open={open}
       linked={linked}
       done={done}

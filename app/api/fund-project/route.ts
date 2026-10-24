@@ -4,7 +4,7 @@ import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
 import { extractIpAddress } from "../shared/audio-utils";
 import { checkinMetadata } from "../shared/checkin-metadata";
 import { stripeFeeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
-import { SUPPORTER_TIER_BASE } from "../../data/supporter-config";
+import { FUND_COPY, SUPPORTER_COPY, SUPPORTER_TIER_BASE } from "../../data/supporter-config";
 
 // Map project slug -> Stripe product (or price) id
 const PROJECT_PRODUCT_MAP: Record<string, string> = {
@@ -171,8 +171,8 @@ export async function POST(request: NextRequest) {
             ? "Support My Independence"
             : "Peyt Spencer: Independent Artist",
           description: isSupporterSupport
-            ? "Your support funds my music"
-            : "Fund my next single",
+            ? SUPPORTER_COPY.stripeLine
+            : FUND_COPY.stripeLine,
           amountCents: amount,
           quantity: 1,
         },

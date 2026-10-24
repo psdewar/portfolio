@@ -1,4 +1,5 @@
 import { expect, Page } from "@playwright/test";
+import { setUiData } from "./helpers";
 
 export const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -12,10 +13,6 @@ export async function mockCheckinApi(page: Page) {
     route.fulfill({ status: 200, contentType: "image/png", body: PNG }),
   );
   await page.route("**/api/checkin/step**", (route) => route.fulfill({ json: { steps: {} } }));
-  await page.route("**/api/checkin/skip", (route) => {
-    const { checkinId } = route.request().postDataJSON();
-    return route.fulfill({ json: { success: true, ticketNo: 7, checkinId, steps: {} } });
-  });
   await page.route("**/api/checkin", (route) => {
     const { checkinId } = route.request().postDataJSON();
     return route.fulfill({
@@ -24,17 +21,31 @@ export async function mockCheckinApi(page: Page) {
   });
 }
 
-export async function skipForNow(page: Page) {
-  const button = page.getByRole("button", { name: "Skip for now" });
-  await expect(button).toBeEnabled({ timeout: 20000 });
-  await button.click();
-  await expect(page.getByText(/^Thank you for being (here|there)/)).toBeVisible();
+export const checkInSubmit = (page: Page) => page.locator("form").getByRole("button", { name: /^(Check in|Keep your ticket)$/ });
+
+export async function openCheckin(page: Page, url: string, { uiData }: { uiData?: string } = {}) {
+  if (uiData) await setUiData(page, uiData);
+  await mockCheckinApi(page);
+  await page.addInitScript(() => localStorage.clear());
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+}
+
+export async function landOnList(page: Page) {
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("textbox", { name: "Your name" })).toBeVisible({ timeout: 20000 });
+  await expect(checkInSubmit(page).first()).toBeVisible();
+}
+
+export async function fillGuest(page: Page, name: string, email = "sam@example.test") {
+  await expect(async () => {
+    await page.getByRole("textbox", { name: "Your name" }).fill(name);
+    await page.getByRole("textbox", { name: "Email" }).fill(email);
+    await expect(checkInSubmit(page).first()).toBeEnabled({ timeout: 500 });
+  }).toPass();
 }
 
 export async function checkInFromRoad(page: Page, name: string) {
-  await page.getByRole("button", { name: "Check in", exact: true }).click();
-  await page.getByRole("textbox", { name: "Your name" }).fill(name);
-  await page.getByRole("textbox", { name: "Email" }).fill("sam@example.test");
-  await page.getByRole("button", { name: "I’m Here" }).first().click();
-  await expect(page.getByText("Checked in", { exact: true })).toBeVisible();
+  await fillGuest(page, name);
+  await checkInSubmit(page).first().click();
+  await expect(page.getByText("Checked in", { exact: true })).toBeVisible({ timeout: 10000 });
 }

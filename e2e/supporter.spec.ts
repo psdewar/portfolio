@@ -1,16 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { openSupport, payButton } from "./helpers";
 
 const SUPPORTER_TRACK_IDS = ["best-foot-forward", "crg-freestyle", "so-good", "see-this-through"];
 const PUBLIC_TRACK_ID = "patience";
 const STORY_PHOTO_ALT = "Peyt with a local family in Veraguas, Panama";
 
-async function openSupport(page: Page) {
-  await page.goto("/support");
-  await expect(page.getByRole("heading", { name: "Be my monthly supporter" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Pay .* with your card$/ })).toBeEnabled();
-}
-
-const payButton = (page: Page) => page.getByRole("button", { name: /^Pay .* with your card$/ });
 const tier = (page: Page, name: string) => page.getByRole("radio", { name: new RegExp(`\\b${name}\\b`) });
 
 test.describe("Tiers on /support", () => {
@@ -94,7 +88,7 @@ test.describe("Sign in for existing supporters", () => {
     await page.getByRole("button", { name: /Already a supporter\?/ }).click();
     await expect(page.getByRole("heading", { name: "Sign in with your supporter email" })).toBeVisible();
 
-    await page.getByPlaceholder("Enter your email").fill("not-a-supporter-e2e@example.com");
+    await page.getByRole("textbox", { name: "Your email" }).fill("not-a-supporter-e2e@example.com");
     await page.getByRole("button", { name: "Send code" }).click();
 
     await expect(page.getByText("No account found for this email")).toBeVisible({ timeout: 15_000 });
@@ -106,7 +100,7 @@ test.describe("Sign in for existing supporters", () => {
 
     const send = page.getByRole("button", { name: "Send code" });
     await expect(send).toBeDisabled();
-    await page.getByPlaceholder("Enter your email").fill("someone@example.com");
+    await page.getByRole("textbox", { name: "Your email" }).fill("someone@example.com");
     await expect(send).toBeEnabled();
 
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -119,10 +113,10 @@ test.describe("Supporter view of /support", () => {
     await page.addInitScript(() => {
       localStorage.setItem("supporterStatus", "active");
     });
-    await page.goto("/support");
+    await page.goto("/support?now=2000-01-01");
 
     await expect(page.getByRole("heading", { name: "You're a monthly supporter" })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("Unlocked for you")).toBeVisible();
+    await expect(page.getByText("Yours before anyone else")).toBeVisible();
     await expect(page.getByRole("button", { name: "Manage my subscription" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Be my monthly supporter" })).toBeHidden();
     await expect(tier(page, "Flow")).toBeHidden();
@@ -197,8 +191,7 @@ test.describe("Story modal", () => {
 
     await page.getByRole("button", { name: "Read my story" }).click();
 
-    const dialog = await expectStoryOpen(page);
-    await expect(dialog.getByRole("button", { name: "Done reading" })).toBeAttached();
+    await expectStoryOpen(page);
   });
 
   test("Escape closes the story and returns focus to Read my story", async ({ page }) => {

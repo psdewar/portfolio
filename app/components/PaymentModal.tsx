@@ -5,7 +5,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import PaymentOptions from "./PaymentOptions";
 
 export function venmoPayUrl(amount: number | string, note: string) {
-  return `https://venmo.com/psdewar?txn=pay&audience=private&amount=${amount}&note=${encodeURIComponent(note)}`;
+  return `https://venmo.com/psdewar?txn=pay&audience=private${amount === "" ? "" : `&amount=${amount}`}&note=${encodeURIComponent(note)}`;
 }
 
 export default function PaymentModal({

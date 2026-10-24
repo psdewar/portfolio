@@ -6,7 +6,6 @@ import { getDoorLabel, getShows, isShowUpcoming, publicVenueName } from "../../l
 import { buildIcs } from "../../lib/ics";
 import { isEmailValid } from "../../lib/email";
 import { upsertRsvp, getRsvpCounts } from "../../lib/rsvp";
-import { upsertIdentity } from "../../lib/identity";
 import { sendMetaLead } from "../../lib/meta-capi";
 import { sanitizeUtm } from "../../lib/utm";
 import { isAdminAuthorized } from "../shared/admin-auth";
@@ -41,7 +40,6 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { name, email, phone, guests, eventId } = body;
-    const isMaybe = body.intent === "maybe";
 
     console.log("[RSVP API] Received:", { name, email, phone, guests, eventId });
 
@@ -59,17 +57,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid event" }, { status: 400 });
     }
 
-    if (isMaybe && !name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-
     const guestCount = Math.max(1, Math.min(10, parseInt(guests, 10) || 1));
     try {
-      if (isMaybe) {
-        await upsertIdentity({ email, name, phone, source: `rsvp-maybe:${eventId.trim()}` });
-      } else {
-        await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount, utm: sanitizeUtm(body.utm) });
-      }
+      await upsertRsvp({ email, name, phone, slug: eventId, guests: guestCount, utm: sanitizeUtm(body.utm) });
     } catch (saveError) {
       console.error("[RSVP] Save error:", saveError);
       return NextResponse.json(
@@ -130,7 +120,6 @@ export async function POST(request: Request) {
         venueName: venueName || undefined,
         address,
         ics: { filename: `${show.slug}.ics`, content: ics },
-        maybe: isMaybe,
       });
       console.log("[RSVP API] Confirmation email sent to", email.trim());
     } catch (emailError) {

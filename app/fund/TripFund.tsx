@@ -10,7 +10,8 @@ import {
 } from "react";
 import posthog from "posthog-js";
 import PaymentOptions from "../components/PaymentOptions";
-import { grossUpCents, formatCents, MAX_CARD_CENTS } from "../lib/fees";
+import { cardTotalLabel, MAX_CARD_CENTS } from "../lib/fees";
+import { errorMessage, postJson } from "../lib/network-error";
 import CheckoutPanel, { CHECKOUT_CARD } from "../components/CheckoutPanel";
 import { venmoPayUrl } from "../components/PaymentModal";
 import GalleryPlayer from "../moments/GalleryPlayer";
@@ -35,6 +36,8 @@ import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 import { useScrollLock } from "../hooks/useScrollLock";
 import StatusShield from "../components/StatusShield";
+import { ExpenseHead,
+  displayLabel, ExpenseTotal, fundVenmoNote, flightByLabel, lineNote, money, sumLines } from "./TripExpenses";
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 
@@ -45,10 +48,6 @@ function isShowPast(dateStr: string): boolean {
 function wholeDollars(raw: string): string {
   const n = Math.floor(parseFloat(raw));
   return n >= 1 ? String(Math.min(n, MAX_CARD_CENTS / 100)) : "";
-}
-
-function money(n: number): string {
-  return "$" + Math.round(n).toLocaleString("en-US");
 }
 
 function ChevronIcon() {
@@ -166,17 +165,6 @@ function RouteList({ stops, cols }: { stops: RouteStop[]; cols?: 1 | 2 }) {
   return <RouteOl stops={stops} />;
 }
 
-function LinePrice({ amount, gifted }: { amount: number; gifted: boolean }) {
-  return (
-    <span
-      className={gifted ? "p-price p-price--gifted" : "p-price"}
-      aria-label={gifted ? `${money(amount)}, covered` : undefined}
-    >
-      {money(amount)}
-    </span>
-  );
-}
-
 const QUICK_PICKS = [25, 50];
 
 function LineMatchControl({
@@ -273,17 +261,12 @@ function ContributeOverlay({
     setCreating(true);
     setError("");
     try {
-      const res = await fetch("/api/contribution-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, trip }),
-      });
-      if (!res.ok) throw new Error("failed");
-      const { clientSecret } = await res.json();
-      if (!clientSecret) throw new Error("failed");
+      const res = await postJson("/api/contribution-checkout", { items, trip });
+      const { clientSecret } = await res.json().catch(() => ({}));
+      if (!res.ok || !clientSecret) throw new Error();
       setSecret(clientSecret);
-    } catch {
-      setError("Checkout couldn't open. Try again.");
+    } catch (e) {
+      setError(errorMessage(e, "Checkout couldn't open. Try again."));
     } finally {
       setCreating(false);
     }
@@ -347,7 +330,7 @@ function ContributeOverlay({
                 venmoUrl={venmoUrl}
                 onCard={startCheckout}
                 cardLoading={creating}
-                cardTotal={formatCents(grossUpCents(amountCents))}
+                cardTotal={cardTotalLabel(amountCents)}
                 onSelect={(method) =>
                   posthog.capture("fund_payment_method", {
                     trip,
@@ -513,13 +496,8 @@ export function TripFund({
       : []),
   ];
 
-  const flightBy = leg.flightBy
-    ? new Date(`${leg.flightBy}T00:00:00`).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-      })
-    : "";
-  const tripTotal = LINES.reduce((sum, line) => sum + line.amount, 0);
+  const flightBy = flightByLabel(leg.flightBy);
+  const tripTotal = sumLines(LINES);
 
   const navItems = [
     ...(showsVisible ? [{ id: "schedule", label: "Schedule" }] : []),
@@ -568,12 +546,12 @@ export function TripFund({
   const total = lineTotal + honorariumAmt;
 
   const items: { key: string; amountCents: number }[] = [];
-  const venmoParts: string[] = [];
+  const venmoLabels: string[] = [];
   for (const line of LINES) {
     const n = parseFloat(lineVals[line.key] ?? "");
     if (!isNaN(n) && n > 0) {
       items.push({ key: line.key, amountCents: Math.round(n * 100) });
-      venmoParts.push(`${line.label} $${n}`);
+      venmoLabels.push(line.label);
     }
   }
   if (honorariumAmt > 0) {
@@ -581,9 +559,9 @@ export function TripFund({
       key: "honorarium",
       amountCents: Math.round(honorariumAmt * 100),
     });
-    venmoParts.push(`Honorarium $${honorariumAmt}`);
+    venmoLabels.push("Honorarium");
   }
-  const venmoNote = `From The Ground Up ${leg.shortName}${venmoParts.length ? ": " + venmoParts.join(", ") : ""}`;
+  const venmoNote = fundVenmoNote(leg.shortName, venmoLabels);
   const venmoUrl = venmoPayUrl(total, venmoNote);
   const amountCents = items.reduce((sum, it) => sum + it.amountCents, 0);
 
@@ -897,7 +875,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .p-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
 .p-note { color: var(--ink-dim); font-size: var(--fs-base); }
 .inkind-cta { color: var(--paper); text-decoration: underline; }
-.p-price--gifted { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
+.p-price--gifted { color: var(--ink-dim); }
 .lodging-or { display: block; padding: 0 0 16px; font-size: var(--fs-base); color: var(--ink-dim); text-decoration: none; }
 .bf-root a.next-trip { margin-top: 48px; display: inline-flex; align-items: baseline; gap: 14px; font-size: var(--fs-head); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--gold); text-decoration: none; }
 .next-trip:hover .next-trip-title, .next-trip:focus-visible .next-trip-title { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
@@ -1230,23 +1208,15 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
             </p>
             <ul className="pieces">
               {LINES.map((line) => {
-                const note =
-                  line.key === "flight" && flightBy
-                    ? `${line.note} · booked by ${flightBy}`
-                    : line.note;
                 return (
                   <li key={line.key} className="piece">
                     <div className="piece-row">
-                      <div className="p-head">
-                        <div className="p-text">
-                          <span className="p-label">{line.label}</span>{" "}
-                          {note ? <span className="p-note">{note}</span> : null}
-                        </div>
-                        <LinePrice
-                          amount={line.amount}
-                          gifted={coveredKeys.has(line.key)}
-                        />
-                      </div>
+                      <ExpenseHead
+                        label={displayLabel(line.label)}
+                        note={lineNote(line, flightBy)}
+                        amount={line.amount}
+                        gifted={coveredKeys.has(line.key)}
+                      />
                       {!coveredKeys.has(line.key) && (
                         <LineMatchControl
                           value={lineVals[line.key]}
@@ -1293,10 +1263,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                 </div>
               </li>
             </ul>
-            <div className="total-box">
-              <div className="total-label">Total</div>
-              <div className="total-amount">~{money(tripTotal)}</div>
-            </div>
+            <ExpenseTotal total={tripTotal} />
             <p className="bf-footer" style={{ marginTop: 8 }}>
               Estimates from my previous tour stops, subject to change. I also
               bring merch and a donation box to every concert.
