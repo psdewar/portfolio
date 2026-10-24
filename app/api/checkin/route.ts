@@ -68,6 +68,16 @@ export async function POST(request: NextRequest) {
     if (!result && showDay) {
       result = await attend(null);
     } else if (!result) {
+      const restoreRate = checkRateLimit(getClientIP(request), "checkin-restore", {
+        windowMs: 60 * 60 * 1000,
+        maxRequests: 10,
+      });
+      if (!restoreRate.allowed) {
+        return NextResponse.json(
+          { error: "Too many tries. Try again later." },
+          { status: 429, headers: { "Retry-After": String(Math.ceil(restoreRate.resetIn / 1000)) } },
+        );
+      }
       result = await restoreCheckin({ email, slug: slug.trim(), carryFromId });
       restored = true;
       if (!result) {
