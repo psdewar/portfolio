@@ -19,6 +19,10 @@ export const CITY_LEVEL_PLACE_TYPES = [
   "country",
 ];
 
+const COUNTRY = /^(us|usa|u\.s\.|u\.s\.a\.|united states|united states of america)$/i;
+const ZIP_ONLY = /^\d{5}(-\d{4})?$/;
+const ZIP_SUFFIX = /\s+\d{5}(-\d{4})?$/;
+
 // "Bwe Kafe, West Palm Beach, FL" → parts, when the typer never picked a
 // suggestion. Two- or three-plus-part comma form only.
 export function parseTypedLocation(raw: string): LocationFields | null {
@@ -26,6 +30,9 @@ export function parseTypedLocation(raw: string): LocationFields | null {
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
+  if (COUNTRY.test(parts[parts.length - 1] ?? "")) parts.pop();
+  if (parts.length > 2 && ZIP_ONLY.test(parts[parts.length - 1])) parts.pop();
+  if (parts.length) parts[parts.length - 1] = parts[parts.length - 1].replace(ZIP_SUFFIX, "");
   if (parts.length < 2) return null;
   if (parts.length === 2) {
     return { venue: "", address: "", city: parts[0], region: parts[1] };
