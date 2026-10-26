@@ -105,7 +105,7 @@ export function todayIn(timeZone: string): string {
 }
 
 export function isDatePast(iso: string): boolean {
-  return new Date(iso + "T23:59:59") <= new Date();
+  return iso < todayIn("Pacific/Honolulu");
 }
 
 export function formatCombinedDates(dates: string[]): string {

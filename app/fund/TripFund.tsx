@@ -19,6 +19,7 @@ import SectionNav from "./SectionNav";
 import { preloadGoogleMaps } from "../lib/maps";
 import {
   formatEventDateShort,
+  isDatePast,
   formatShortMonthDay,
   seasonLabel,
 } from "../lib/dates";
@@ -40,10 +41,6 @@ import { ExpenseHead,
   displayLabel, ExpenseTotal, fundVenmoNote, flightByLabel, lineNote, money, sumLines } from "./TripExpenses";
 
 const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
-
-function isShowPast(dateStr: string): boolean {
-  return new Date(`${dateStr}T23:59:59`) < new Date();
-}
 
 function wholeDollars(raw: string): string {
   const n = Math.floor(parseFloat(raw));
@@ -340,7 +337,7 @@ export function TripFund({
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
   const LINES = (leg.lines ?? []).filter((l) => l.amount > 0);
-  const isPastStop = (b: FundBooked) => Boolean(b.date && isShowPast(b.date));
+  const isPastStop = (b: FundBooked) => Boolean(b.date && isDatePast(b.date));
   const allBooked = leg.booked ?? [];
   const upcoming = allBooked.filter((b) => !isPastStop(b));
   const past = allBooked.filter(isPastStop);

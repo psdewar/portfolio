@@ -83,6 +83,7 @@ export const metadata: Metadata = {
   keywords: siteConfig.keywords,
   authors: [{ name: siteConfig.name, url: siteConfig.url }],
   creator: siteConfig.name,
+  formatDetection: { telephone: false },
   openGraph: {
     type: "website",
     locale: "en_US",

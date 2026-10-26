@@ -1,3 +1,5 @@
+import { isDatePast } from "../lib/dates";
+
 export type EventType =
   | "show"
   | "single"
@@ -20,11 +22,6 @@ export interface TimelineEvent {
   artist?: string; // For features - the artist who made the original song
   media?: string; // URL to image/video for this event (displayed in journey view)
 }
-
-const isPast = (dateStr: string): boolean => {
-  const eventDate = new Date(dateStr + "T23:59:59").getTime();
-  return Date.now() > eventDate;
-};
 
 // Shows from March 2026 on live in chorus (see getShowHistory in lib/shows); this list keeps everything else.
 export const TIMELINE: TimelineEvent[] = [
@@ -240,7 +237,7 @@ const NAW_RUZ_2025 = "2025-03-20";
 const parseDate = (dateStr: string) => new Date(dateStr + "T12:00:00").getTime();
 
 export const getJourneyEvents = () =>
-  TIMELINE.filter((e) => isPast(e.date) && parseDate(e.date) >= parseDate(NAW_RUZ_2025)).sort(
+  TIMELINE.filter((e) => isDatePast(e.date) && parseDate(e.date) >= parseDate(NAW_RUZ_2025)).sort(
     (a, b) => parseDate(b.date) - parseDate(a.date),
   );
 
