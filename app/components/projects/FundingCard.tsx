@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { ProgressBar } from "app/components/ProgressBar";
 import { VideoPlayButtonWithContext } from "app/components/VideoPlayButtonWithContext";
-import { MAX_CARD_CENTS } from "app/lib/fees";
-import { errorMessage, postJson } from "app/lib/network-error";
+import { MAX_CARD_CENTS, MAX_CARD_DOLLARS } from "app/lib/fees";
+import { errorMessage, postJsonField } from "app/lib/network-error";
 
 interface FundingCardProps {
   raisedCents: number;
@@ -51,17 +51,11 @@ export function FundingCard({
     setSelectedAmount(amountInCents);
 
     try {
-      const response = await postJson("/api/fund-project", {
+      const url = await postJsonField("/api/fund-project", {
         projectTitle: title,
         projectId,
         amount: amountInCents,
-      });
-
-      const { url, error: serverError } = await response.json().catch(() => ({}));
-
-      if (serverError || !url) {
-        throw new Error(serverError);
-      }
+      }, "url");
 
       if (!url.startsWith("https://checkout.stripe.com/")) {
         throw new Error("Invalid checkout URL");
@@ -204,7 +198,7 @@ export function FundingCard({
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
                 min="10"
-                max={MAX_CARD_CENTS / 100}
+                max={MAX_CARD_DOLLARS}
                 step="5"
                 disabled={isLoading}
                 className="text-2xl lg:text-3xl font-medium w-full pl-5 lg:pl-6 pr-10 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-green-500 dark:focus:border-green-400 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50 tabular-nums"

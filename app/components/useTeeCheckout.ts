@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import posthog from "posthog-js";
-import { errorMessage, postJson } from "../lib/network-error";
+import { errorMessage, postJsonField } from "../lib/network-error";
 
 export const SIZE_LABELS: Record<string, string> = {
   XS: "Extra Small",
@@ -154,13 +154,11 @@ export function useTeeCheckout({
     setLoading(true);
     setError("");
     try {
-      const res = await postJson("/api/create-checkout-session", {
-        productId,
-        metadata: { color: sel.colorId, size: sizeLabel },
-      });
-      const { url, error: serverError } = await res.json().catch(() => ({}));
-      if (serverError || !url) throw new Error(serverError);
-      window.location.href = url;
+      window.location.href = await postJsonField(
+        "/api/create-checkout-session",
+        { productId, metadata: { color: sel.colorId, size: sizeLabel } },
+        "url",
+      );
     } catch (e) {
       setError(errorMessage(e, errorText));
       setLoading(false);

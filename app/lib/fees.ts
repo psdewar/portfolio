@@ -12,11 +12,8 @@ export function feeCents(netCents: number): number {
 }
 
 export const MAX_CARD_CENTS = 1_000_000;
+export const MAX_CARD_DOLLARS = MAX_CARD_CENTS / 100;
 export const MAX_CARD_GROSS_CENTS = grossUpCents(MAX_CARD_CENTS);
-
-export function formatCents(cents: number): string {
-  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export function formatDollars(cents: number): string {
   return new Intl.NumberFormat("en-US", {

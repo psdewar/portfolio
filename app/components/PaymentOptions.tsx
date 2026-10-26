@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cardPayLabel } from "../lib/fees";
 
 const ZELLE_EMAIL = process.env.NEXT_PUBLIC_ZELLE_EMAIL ?? "";
 const INTERAC_EMAIL = process.env.NEXT_PUBLIC_INTERAC_EMAIL ?? "";
@@ -34,10 +35,14 @@ export const PAYMENT_OPTIONS_STYLE = `
   @container (max-width: 320px) { .cc-copy { right: 12px; font-size: 14px; } }
 `;
 
+export function venmoPayUrl(amount: number | string, note: string) {
+  return `https://venmo.com/psdewar?txn=pay&audience=private${amount === "" ? "" : `&amount=${amount}`}&note=${encodeURIComponent(note)}`;
+}
+
 export default function PaymentOptions({
   venmoUrl,
   onCard,
-  cardTotal,
+  cardNetCents,
   cardLoading = false,
   cardNoFees = false,
   onSelect,
@@ -52,7 +57,7 @@ export default function PaymentOptions({
 }: {
   venmoUrl: string;
   onCard?: () => void;
-  cardTotal?: string;
+  cardNetCents?: number;
   cardLoading?: boolean;
   cardNoFees?: boolean;
   onSelect?: (method: "venmo" | "zelle" | "card") => void;
@@ -173,8 +178,8 @@ export default function PaymentOptions({
               <span className="cc-spinner" />
               Opening checkout
             </>
-          ) : cardTotal ? (
-            `Pay ${cardTotal} with your card`
+          ) : cardNetCents !== undefined ? (
+            cardPayLabel(cardNetCents)
           ) : (
             "Pay with your card"
           )}

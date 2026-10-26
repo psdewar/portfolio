@@ -6,7 +6,7 @@ import { XIcon } from "@phosphor-icons/react";
 import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
 import CheckoutSheet from "./CheckoutSheet";
 import { useScrollLock } from "../hooks/useScrollLock";
-import { postJson } from "../lib/network-error";
+import { errorMessage, postJsonField } from "../lib/network-error";
 
 const GOLD = "#d4a553";
 
@@ -45,16 +45,21 @@ export default function EmbeddedTeeCheckout({
 
   useScrollLock();
 
-  const fetchClientSecret = useCallback(async () => {
-    const res = await postJson("/api/create-checkout-session", {
-      productId,
-      embedded: true,
-      metadata: { color, size, ...(checkinId ? { checkinId } : {}) },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.clientSecret) throw new Error(data.error || "Checkout unavailable");
-    return data.clientSecret as string;
-  }, [productId, color, size, checkinId]);
+  const fetchClientSecret = useCallback(
+    () =>
+      postJsonField(
+        "/api/create-checkout-session",
+        {
+          productId,
+          embedded: true,
+          metadata: { color, size, ...(checkinId ? { checkinId } : {}) },
+        },
+        "clientSecret",
+      ).catch((e) => {
+        throw new Error(errorMessage(e, "Checkout unavailable"));
+      }),
+    [productId, color, size, checkinId],
+  );
 
   return (
     <CheckoutSheet

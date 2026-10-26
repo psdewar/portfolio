@@ -6,11 +6,11 @@ import { useHydrated } from "../hooks/useHydrated";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useSession } from "../hooks/useSession";
 import { SUPPORTER_TIERS } from "../data/supporter-tiers";
-import { grossUpCents, cardPayLabel, MAX_CARD_CENTS } from "../lib/fees";
-import { errorMessage, postJson } from "../lib/network-error";
+import { grossUpCents, cardPayLabel, MAX_CARD_DOLLARS } from "../lib/fees";
+import { errorMessage, postJsonField } from "../lib/network-error";
 
 export const PICKER_TIERS = [...SUPPORTER_TIERS].reverse();
-export const MAX_CUSTOM_AMOUNT = MAX_CARD_CENTS / 100;
+export const MAX_CUSTOM_AMOUNT = MAX_CARD_DOLLARS;
 export const MIN_CUSTOM_AMOUNT = SUPPORTER_TIERS[SUPPORTER_TIERS.length - 1].net;
 
 const periodNetCents = (monthlyNetDollars: number, annual: boolean) =>
@@ -60,20 +60,18 @@ export function useMonthlySupport({ source, checkinId }: { source: string; check
     });
 
     try {
-      const response = await postJson("/api/fund-project", {
-        projectTitle: `$${displayAmount}/${interval} - ${period === "annually" ? "Annual" : "Monthly"} Support`,
-        projectId: period === "annually" ? "annual-support" : "monthly-support",
-        amount: finalAmount,
-        interval,
-        embedded: true,
-        ...(checkinId ? { checkinId } : {}),
-      });
-
-      const { clientSecret, error: serverError } = await response.json().catch(() => ({}));
-
-      if (serverError || !clientSecret) {
-        throw new Error(serverError);
-      }
+      const clientSecret = await postJsonField(
+        "/api/fund-project",
+        {
+          projectTitle: `$${displayAmount}/${interval} - ${period === "annually" ? "Annual" : "Monthly"} Support`,
+          projectId: period === "annually" ? "annual-support" : "monthly-support",
+          amount: finalAmount,
+          interval,
+          embedded: true,
+          ...(checkinId ? { checkinId } : {}),
+        },
+        "clientSecret",
+      );
 
       setCheckoutSecret(clientSecret);
     } catch (error) {

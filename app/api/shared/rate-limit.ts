@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 interface RateLimitEntry {
   count: number;
   resetTime: number;
@@ -130,6 +132,15 @@ export function createRateLimitHeaders(
     "X-RateLimit-Remaining": String(remaining),
     "X-RateLimit-Reset": String(Math.ceil(Date.now() / 1000 + resetIn / 1000)),
   };
+}
+
+export function rateLimited(request: Request, category: RateLimitCategory): NextResponse | null {
+  const rate = checkRateLimit(getClientIP(request), category);
+  if (rate.allowed) return null;
+  return NextResponse.json(
+    { error: "Too many requests. Please try again later." },
+    { status: 429, headers: { "Retry-After": String(Math.ceil(rate.resetIn / 1000)) } },
+  );
 }
 
 export function getClientIP(request: Request): string {

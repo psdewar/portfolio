@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { sendRsvpConfirmation } from "../../../lib/sendgrid";
-import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { rateLimited, getClientIP } from "../shared/rate-limit";
 import { getDoorLabel, getShows, isShowUpcoming, publicVenueName } from "../../lib/shows";
 import { buildIcs } from "../../lib/ics";
 import { isEmailValid } from "../../lib/email";
@@ -25,18 +25,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const ip = getClientIP(request);
-    const rateCheck = checkRateLimit(ip, "rsvp");
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
-          },
-        },
-      );
-    }
+    const limited = rateLimited(request, "rsvp");
+    if (limited) return limited;
 
     const body = await request.json();
     const { name, email, phone, guests, eventId } = body;

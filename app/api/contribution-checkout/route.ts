@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
 import { getBaseUrl, createBaseMetadata } from "../shared/stripe-utils";
-import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { rateLimited, getClientIP } from "../shared/rate-limit";
 import { feeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import { getLeg } from "../../fund/legs";
 import { checkinMetadata } from "../shared/checkin-metadata";
@@ -36,18 +36,8 @@ export async function POST(request: NextRequest) {
   try {
     const ip = getClientIP(request);
 
-    const rateCheck = checkRateLimit(ip, "checkout");
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
-          },
-        },
-      );
-    }
+    const limited = rateLimited(request, "checkout");
+    if (limited) return limited;
 
     const body = await request.json();
     const { items, trip, feeIncluded, checkinId } = body;

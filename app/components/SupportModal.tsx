@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { XIcon, CheckIcon, CaretDownIcon } from "@phosphor-icons/react";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useEscape } from "../hooks/useEscape";
 import { useSwipeToDismiss } from "../lib/useSwipeToDismiss";
 import { useAudio } from "../contexts/AudioContext";
 import { PlayCircle } from "./PlayCircle";
@@ -15,7 +16,7 @@ import {
   SUPPORT_AMOUNTS,
   useMonthlySupport,
 } from "./useMonthlySupport";
-import CheckoutPanel, { CHECKOUT_CARD } from "./CheckoutPanel";
+import CheckoutPanel, { CHECKOUT_SCROLL_CARD } from "./CheckoutPanel";
 import SupporterSignInForm from "./SupporterSignInForm";
 import { PAYMENT_OPTIONS_STYLE } from "./PaymentOptions";
 import { GRADIENT_CTA_OVERRIDE } from "../lib/cta";
@@ -96,14 +97,7 @@ export function ModalShell({
     backdropRef: backdropStage.ref,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  useEscape(onClose, open);
 
   if (!backdropStage.mounted) return null;
 
@@ -420,6 +414,7 @@ export function TierPicker({
     checkoutSecret,
     closeCheckout,
   } = monthly;
+  useEscape(closeCheckout, !!checkoutSecret);
   const soulInputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -533,7 +528,7 @@ export function TierPicker({
             onClick={() => closeCheckout()}
           >
             <div
-              className={`${CHECKOUT_CARD} max-h-full overflow-y-auto`}
+              className={CHECKOUT_SCROLL_CARD}
               onClick={(e) => e.stopPropagation()}
             >
               <CheckoutPanel

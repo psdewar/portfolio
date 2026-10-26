@@ -23,7 +23,7 @@ import { useRoadGaps } from "./useRoadGaps";
 import { FUND_COPY } from "../data/supporter-config";
 import { isCheckedIn, type Stored } from "./useCheckinState";
 import { createContributionSecret } from "../lib/contribution-checkout";
-import { errorMessage } from "../lib/network-error";
+import { CHECKOUT_OPEN_ERROR, errorMessage } from "../lib/network-error";
 
 const ContributeCardModal = dynamic(() => import("../components/ContributeCardModal"), { ssr: false });
 
@@ -545,7 +545,7 @@ export default function Road({
                 setCardSecret(secret);
                 setCardOpen(true);
               } catch (e) {
-                setCardError(errorMessage(e, "Checkout couldn't open. Try again."));
+                setCardError(errorMessage(e, CHECKOUT_OPEN_ERROR));
                 setCardLoading(false);
               }
             }}

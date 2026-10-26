@@ -7,6 +7,7 @@ import posthog from "posthog-js";
 import { RSVP_INTRO } from "../lib/videos.config";
 import { captureUtm } from "../lib/utm";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useEscape } from "../hooks/useEscape";
 
 const MILESTONES = [25, 50, 75] as const;
 
@@ -122,21 +123,15 @@ function IntroVideoEl({
 // Phones: fullscreen overlay. Portaled to body because the list sits inside a stacking context
 // that the site header paints over.
 export function IntroModal({ onClose }: { onClose: () => void }) {
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   useScrollLock();
+  useEscape(onClose);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     const onHidden = () => {
       if (document.hidden) document.querySelector("video")?.pause();
     };
-    window.addEventListener("keydown", onKey);
     document.addEventListener("visibilitychange", onHidden);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("visibilitychange", onHidden);
-    };
+    return () => document.removeEventListener("visibilitychange", onHidden);
   }, []);
 
   return createPortal(

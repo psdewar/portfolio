@@ -55,7 +55,7 @@ export default function SupporterSignInForm({
       const res = await postJson("/api/otp/request", { email: typed });
       const data = await res.json().catch(() => ({}));
       if (res.ok) setOtpToken(data.token);
-      else setError(res.status === 404 ? "No account found for this email" : "Could not send a code");
+      else setError(res.status === 404 ? "No account found for this email" : data.error || "Could not send a code");
     } catch (e) {
       setError(errorMessage(e, "Something went wrong"));
     } finally {

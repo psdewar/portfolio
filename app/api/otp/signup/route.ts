@@ -1,25 +1,14 @@
 import { NextResponse } from "next/server";
 import { createOtpToken, generateOtpCode } from "../../../../lib/otp-token";
 import { sendOtpEmail } from "../../../../lib/sendgrid";
-import { checkRateLimit, getClientIP } from "../../shared/rate-limit";
+import { rateLimited } from "../../shared/rate-limit";
 
 const OTP_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes
 
 export async function POST(request: Request) {
   try {
-    const ip = getClientIP(request);
-    const rateCheck = checkRateLimit(ip, "otpRequest");
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
-          },
-        },
-      );
-    }
+    const limited = rateLimited(request, "otpRequest");
+    if (limited) return limited;
 
     const body = await request.json();
     const { name, email, phone, tier } = body;

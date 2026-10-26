@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIP } from "../../shared/rate-limit";
 import {
   checkStreamRateLimit,
   sanitizeTrackId,
-  extractIpAddress,
   validateOrigin,
   validateTrackId,
   generateETag,
@@ -31,7 +31,7 @@ export async function GET(
 ) {
   try {
     const { trackId: rawTrackId } = await params;
-    const ip = extractIpAddress(request);
+    const ip = getClientIP(request);
     const isDev = process.env.NODE_ENV === "development";
 
     // Dev tools: check for local audio and delay flags

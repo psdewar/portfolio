@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { PlayIcon } from "@phosphor-icons/react";
 import { ColorSwatches, SizeGrid } from "./TeePickers";
 import { useTeeCheckout } from "./useTeeCheckout";
-import { venmoPayUrl } from "./PaymentModal";
-import PaymentOptions from "./PaymentOptions";
+import PaymentOptions, { venmoPayUrl } from "./PaymentOptions";
+import { feeCents } from "../lib/fees";
 import { EXHIBIT_STORY } from "../data/exhibit-psd";
 
 const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), {
@@ -26,7 +26,7 @@ const COLORS = [
 const SIZES = ["S", "M", "L"] as const;
 
 const FINE_PRINT = [
-  "$1.21 processing fee with card",
+  `$${(feeCents(Number(PRICE) * 100) / 100).toFixed(2)} processing fee with card`,
   "Available when you attend From The Ground Up",
 ];
 

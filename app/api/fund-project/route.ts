@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCheckout } from "../../../lib/tiger";
 import { getBaseUrl, createBaseMetadata, stripe } from "../shared/stripe-utils";
-import { extractIpAddress } from "../shared/audio-utils";
+import { getClientIP, rateLimited } from "../shared/rate-limit";
 import { checkinMetadata } from "../shared/checkin-metadata";
 import { stripeFeeCents, MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import { FUND_COPY, SUPPORTER_COPY, SUPPORTER_TIER_BASE } from "../../data/supporter-config";
@@ -43,7 +43,9 @@ const DEFAULT_MINIMUM = 1000; // $10 for project funding
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = extractIpAddress(request);
+    const limited = rateLimited(request, "funding");
+    if (limited) return limited;
+    const ip = getClientIP(request);
     const body = await request.json();
     const {
       amount,

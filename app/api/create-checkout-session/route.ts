@@ -10,7 +10,8 @@ import {
   shouldCollectPhone,
   type Product,
 } from "../shared/products";
-import { checkRateLimit, getClientIP } from "../shared/rate-limit";
+import { rateLimited, getClientIP } from "../shared/rate-limit";
+import { checkinMetadata } from "../shared/checkin-metadata";
 import { MAX_CARD_GROSS_CENTS } from "../../lib/fees";
 import {
   getBaseUrl,
@@ -74,8 +75,9 @@ function buildSessionMetadata(
 
   if (customMetadata) {
     Object.entries(customMetadata).forEach(([key, value]) => {
-      if (typeof value === "string") base[key] = sanitizeInput(value);
+      if (key !== "checkinId" && typeof value === "string") base[key] = sanitizeInput(value);
     });
+    Object.assign(base, checkinMetadata(customMetadata.checkinId));
   }
 
   return base;
@@ -85,18 +87,8 @@ export async function POST(request: NextRequest) {
   try {
     const ip = getClientIP(request);
 
-    const rateCheck = checkRateLimit(ip, "checkout");
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil(rateCheck.resetIn / 1000)),
-          },
-        },
-      );
-    }
+    const limited = rateLimited(request, "checkout");
+    if (limited) return limited;
 
     const body = await request.json();
     const {

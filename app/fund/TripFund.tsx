@@ -9,11 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import posthog from "posthog-js";
-import PaymentOptions from "../components/PaymentOptions";
-import { cardTotalLabel, MAX_CARD_CENTS } from "../lib/fees";
-import { errorMessage, postJson } from "../lib/network-error";
-import CheckoutPanel, { CHECKOUT_CARD } from "../components/CheckoutPanel";
-import { venmoPayUrl } from "../components/PaymentModal";
+import PaymentOptions, { venmoPayUrl } from "../components/PaymentOptions";
+import { MAX_CARD_DOLLARS } from "../lib/fees";
+import { postJsonField } from "../lib/network-error";
+import ContributeSheet, { useContributeCheckout } from "../components/ContributeSheet";
 import GalleryPlayer from "../moments/GalleryPlayer";
 import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
@@ -35,6 +34,7 @@ import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useEscape } from "../hooks/useEscape";
 import StatusShield from "../components/StatusShield";
 import { ExpenseHead,
   displayLabel, ExpenseTotal, fundVenmoNote, flightByLabel, lineNote, money, sumLines } from "./TripExpenses";
@@ -47,7 +47,7 @@ function isShowPast(dateStr: string): boolean {
 
 function wholeDollars(raw: string): string {
   const n = Math.floor(parseFloat(raw));
-  return n >= 1 ? String(Math.min(n, MAX_CARD_CENTS / 100)) : "";
+  return n >= 1 ? String(Math.min(n, MAX_CARD_DOLLARS)) : "";
 }
 
 function ChevronIcon() {
@@ -191,7 +191,7 @@ function LineMatchControl({
             inputMode="numeric"
             min="1"
             step="1"
-            max={MAX_CARD_CENTS / 100}
+            max={MAX_CARD_DOLLARS}
             placeholder="0"
             value={value}
             onChange={(e) => onChange(wholeDollars(e.target.value))}
@@ -233,118 +233,41 @@ function ContributeOverlay({
   amountCents: number;
   onClose: () => void;
 }) {
-  const [complete, setComplete] = useState(false);
-  const [secret, setSecret] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
-
-  useScrollLock();
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!complete) return;
-    const t = setTimeout(() => {
-      window.location.href = "/support?thanks=tip";
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [complete]);
-
-  const startCheckout = async () => {
-    if (creating) return;
-    setCreating(true);
-    setError("");
-    try {
-      const res = await postJson("/api/contribution-checkout", { items, trip });
-      const { clientSecret } = await res.json().catch(() => ({}));
-      if (!res.ok || !clientSecret) throw new Error();
-      setSecret(clientSecret);
-    } catch (e) {
-      setError(errorMessage(e, "Checkout couldn't open. Try again."));
-    } finally {
-      setCreating(false);
-    }
-  };
+  const checkout = useContributeCheckout({
+    onClose,
+    onPaid: () =>
+      posthog.capture("fund_contribution_completed", {
+        trip,
+        method: "card",
+        amount_cents: amountCents,
+      }),
+    redirect: true,
+  });
 
   return (
-    <div className="contribute-overlay" onClick={onClose}>
-      {secret && !complete ? (
-        <div
-          className={`${CHECKOUT_CARD} m-auto`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Contribute"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CheckoutPanel
-            onBack={() => setSecret(null)}
-            fetchClientSecret={() => Promise.resolve(secret)}
-            onComplete={() => {
-              posthog.capture("fund_contribution_completed", {
-                trip,
-                method: "card",
-                amount_cents: amountCents,
-              });
-              setComplete(true);
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          className="contribute-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Contribute"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="contribute-header">
-            {!complete && (
-              <span className="contribute-title">
-                Send {money(amountCents / 100)} with
-              </span>
-            )}
-            <button
-              className="contribute-close"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              &#x2715;
-            </button>
-          </div>
-          {complete ? (
-            <div className="contribute-thanks">
-              <div className="contribute-thanks-title">
-                Thank you, find me on socials
-              </div>
-              <div className="contribute-thanks-spinner" aria-label="Loading" />
-            </div>
-          ) : (
-            <div className="contribute-choice">
-              <PaymentOptions
-                venmoUrl={venmoUrl}
-                onCard={startCheckout}
-                cardLoading={creating}
-                cardTotal={cardTotalLabel(amountCents)}
-                onSelect={(method) =>
-                  posthog.capture("fund_payment_method", {
-                    trip,
-                    method,
-                    amount_cents: amountCents,
-                  })
-                }
-              />
-              {error && <p className="contribute-error">{error}</p>}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <ContributeSheet
+      checkout={checkout}
+      title={`Send ${money(amountCents / 100)} with`}
+      label="Contribute"
+      onClose={onClose}
+      onBack={() => checkout.setSecret(null)}
+    >
+      <PaymentOptions
+        venmoUrl={venmoUrl}
+        onCard={() =>
+          checkout.start(() => postJsonField("/api/contribution-checkout", { items, trip }, "clientSecret"))
+        }
+        cardLoading={checkout.creating}
+        cardNetCents={amountCents}
+        onSelect={(method) =>
+          posthog.capture("fund_payment_method", {
+            trip,
+            method,
+            amount_cents: amountCents,
+          })
+        }
+      />
+    </ContributeSheet>
   );
 }
 
@@ -529,14 +452,7 @@ export function TripFund({
   const [modal, setModal] = useState<"shop" | null>(null);
   useScrollLock(modal === "shop");
 
-  useEffect(() => {
-    if (!modal) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setModal(null);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [modal]);
+  useEscape(() => setModal(null), !!modal);
 
   const lineTotal = LINES.reduce((sum, line) => {
     const n = parseFloat(lineVals[line.key] ?? "");
@@ -1015,51 +931,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .contribute-fab:active { transform: translateX(-50%) translateY(1px); }
 .fab-split { font-size: var(--fs-xs); font-weight: 600; opacity: 0.85; letter-spacing: 0; }
 
-.contribute-overlay {
-  position: fixed; inset: 0; z-index: 950;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex; align-items: flex-start; justify-content: center;
-  overflow-y: auto; padding: 24px 16px;
-}
-.contribute-modal {
-  position: relative;
-  width: 100%; max-width: 480px;
-  background: #fff; border-radius: 20px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-  margin: auto;
-  overflow: hidden;
-}
-.contribute-error { margin: 12px 0 0; color: #dc2626; font-size: var(--fs-sm); }
-.contribute-header { display: flex; align-items: center; padding: 10px 10px 0 28px; }
-.contribute-title { font-family: var(--font-outfit), system-ui, -apple-system, sans-serif; font-size: var(--fs-xl); font-weight: 500; color: #1a1915; letter-spacing: -0.01em; }
-.contribute-close {
-  margin-left: auto;
-  background: rgba(0,0,0,0.06);
-  border: none; border-radius: 50%;
-  width: 44px; height: 44px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: var(--fs-xs); color: #555;
-  transition: color 0.15s ease;
-}
-.contribute-close:hover { color: #000; }
-
-.contribute-thanks {
-  padding: 20px 32px 48px; text-align: center;
-}
-.contribute-thanks-title {
-  font-size: var(--fs-2xl); font-weight: 700; color: #1a1915; letter-spacing: -0.02em; margin-bottom: 12px;
-}
-.contribute-thanks-spinner {
-  width: 28px; height: 28px; margin: 22px auto 0;
-  border: 3px solid var(--rule); border-top-color: var(--paper);
-  border-radius: 50%; animation: cspin 0.7s linear infinite;
-}
-@keyframes cspin { to { transform: rotate(360deg); } }
-
-.contribute-choice { padding: 6px 28px 30px; }
-
 .camp-intro {
   display: block; position: relative; width: 100%; aspect-ratio: 16 / 9;
   margin-bottom: 40px; padding: 0; border: 1px solid var(--rule); border-radius: 12px;
@@ -1109,7 +980,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 @media print {
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
-  .match-ctrl, .other-action, .cta-row, .progress .bar, .contribute-fab, .contribute-overlay { display: none; }
+  .match-ctrl, .other-action, .cta-row, .progress .bar, .contribute-fab { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-root *, .bf-root *::before, .bf-root *::after {

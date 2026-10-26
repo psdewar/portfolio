@@ -11,8 +11,7 @@ import {
   TEE_SIZES,
 } from "./TeePickers";
 import { useTeeCheckout } from "./useTeeCheckout";
-import { venmoPayUrl } from "./PaymentModal";
-import PaymentOptions from "./PaymentOptions";
+import PaymentOptions, { venmoPayUrl } from "./PaymentOptions";
 
 const EmbeddedTeeCheckout = dynamic(() => import("./EmbeddedTeeCheckout"), {
   ssr: false,

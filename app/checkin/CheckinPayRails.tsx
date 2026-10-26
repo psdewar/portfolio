@@ -5,7 +5,7 @@ export default function CheckinPayRails({
   zelle = true,
   zelleAmount,
   venmoHint,
-  cardTotal,
+  cardNetCents,
   cardLoading,
   onCard,
   cardNoFees = false,
@@ -16,7 +16,7 @@ export default function CheckinPayRails({
   zelle?: boolean;
   zelleAmount?: string;
   venmoHint?: string;
-  cardTotal?: string;
+  cardNetCents?: number;
   cardLoading?: boolean;
   onCard: () => void;
   cardNoFees?: boolean;
@@ -31,7 +31,7 @@ export default function CheckinPayRails({
         zelle={zelle}
         zelleAmount={zelleAmount}
         venmoHint={venmoHint}
-        cardTotal={cardTotal}
+        cardNetCents={cardNetCents}
         onCard={onCard}
         cardLoading={cardLoading}
         cardNoFees={cardNoFees}

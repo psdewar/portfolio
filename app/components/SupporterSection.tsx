@@ -23,6 +23,7 @@ import { EARLY_ACCESS_TRACKS, EARLY_ACCESS_PREVIEW, SUPPORTER_COPY } from "../da
 import { useAudio } from "../contexts/AudioContext";
 import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useEscape } from "../hooks/useEscape";
 import { type Show, showsToTimelineEvents } from "../lib/shows-shared";
 import { PlayCircle } from "./PlayCircle";
 import { ReadMyStory } from "./ReadMyStory";
@@ -119,6 +120,8 @@ export function SupporterSection({
   const [showVerifyForm, setShowVerifyForm] = useState(false);
   const [verifyRedirectToPortal, setVerifyRedirectToPortal] = useState(false);
   useScrollLock(showVerifyForm);
+  useEscape(closeVerifyForm, showVerifyForm);
+  useEscape(() => setShowCalendarInfo(false), showCalendarInfo);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const tierSectionRef = useRef<HTMLElement>(null);

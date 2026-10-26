@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { venmoPayUrl } from "../components/PaymentModal";
-import { cardTotalLabel } from "../lib/fees";
+import { venmoPayUrl } from "../components/PaymentOptions";
 import { CompactExpenses, displayLabel, fundVenmoNote, money, sumLines, type TripExpensesData } from "../fund/TripExpenses";
 import CheckinPayRails from "./CheckinPayRails";
 import "./FundBody.css";
@@ -50,7 +49,7 @@ export default function FundBody({
         venmoUrl={venmoPayUrl(amount ?? "", note)}
         zelleAmount={amount === null ? undefined : money(amount)}
         venmoHint={amount === null ? undefined : `Send ${money(amount)}`}
-        cardTotal={amount === null ? undefined : cardTotalLabel(amount * 100)}
+        cardNetCents={amount === null ? undefined : amount * 100}
         cardLoading={cardLoading}
         onCard={() => onCard(amount)}
         onTap={onTap}

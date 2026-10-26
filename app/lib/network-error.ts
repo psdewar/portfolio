@@ -27,3 +27,12 @@ export const postJson = (url: string, body: unknown) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+export async function postJsonField<T = string>(url: string, body: unknown, key: string): Promise<T> {
+  const res = await postJson(url, body);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data[key]) throw new Error(data.error);
+  return data[key] as T;
+}
+
+export const CHECKOUT_OPEN_ERROR = "Checkout couldn't open. Try again.";

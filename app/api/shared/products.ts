@@ -258,7 +258,7 @@ export const PRODUCTS: Record<string, Product> = {
     name: "From The Archives: Exhibit PSD",
     description: "100% cotton t-shirt with original PSD logo",
     type: "physical",
-    basePriceCents: calculateStripeFee(3000),
+    basePriceCents: grossUpCents(3000),
     images: ["https://peytspencer.com/images/merch/exhibit-psd-merch.JPG"],
     successPath: "/shop/success",
     cancelPath: "/shop?canceled=true",
@@ -596,22 +596,6 @@ export function getTestProductIds(): string[] {
  */
 export function getAssetBlobPrefix(assetId: string): string | undefined {
   return DIGITAL_ASSETS[assetId]?.blobPrefix;
-}
-
-/**
- * Calculate Stripe processing fee (2.9% + $0.30)
- */
-export function calculateStripeFee(baseCents: number): number {
-  return grossUpCents(baseCents);
-}
-
-/**
- * Get product with fees included
- */
-export function getProductPriceWithFees(productId: string): number {
-  const product = getProduct(productId);
-  if (!product) return 0;
-  return calculateStripeFee(product.basePriceCents);
 }
 
 /**

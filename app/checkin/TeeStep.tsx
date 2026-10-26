@@ -1,6 +1,6 @@
 "use client";
 
-import { venmoPayUrl } from "../components/PaymentModal";
+import { venmoPayUrl } from "../components/PaymentOptions";
 import CheckinPayRails from "./CheckinPayRails";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";

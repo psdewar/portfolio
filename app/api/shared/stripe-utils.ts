@@ -54,10 +54,6 @@ export function sanitizeInput(input: unknown): string {
   return input.trim().replace(/[<>"/\\&]/g, "");
 }
 
-export function validateAmount(amount: unknown): boolean {
-  return typeof amount === "number" && amount >= 50 && amount <= 100000;
-}
-
 interface SessionVerificationResult {
   success: boolean;
   error?: string;

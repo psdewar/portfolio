@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { list } from "@vercel/blob";
-import { checkRateLimit, getClientIP } from "./rate-limit";
+import { checkRateLimit } from "./rate-limit";
 import { isValidAsset, isTestAsset, DIGITAL_ASSETS } from "./products";
 
 export const ALLOWED_ORIGINS = [
@@ -10,10 +10,6 @@ export const ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "https://peytspencer.vercel.app",
 ];
-
-export function extractIpAddress(request: NextRequest): string {
-  return getClientIP(request);
-}
 
 export function checkStreamRateLimit(ip: string): boolean {
   return checkRateLimit(ip, "stream").allowed;

@@ -23,14 +23,14 @@ import { SPLIT_QUERY, prefersReducedMotion } from "../flip";
 import ShowPoster from "../ShowPoster";
 import PosterSlot from "../PosterSlot";
 import SplitFlapText from "../../components/SplitFlapText";
-import PaymentModal, { venmoPayUrl } from "../../components/PaymentModal";
+import PaymentModal from "../../components/PaymentModal";
+import { venmoPayUrl } from "../../components/PaymentOptions";
 import { formatEventDateShort } from "../../lib/dates";
 import { captureUtm } from "../../lib/utm";
 import { buildIcs, downloadIcs } from "../../lib/ics";
 import { routeFormError } from "../../lib/form-errors";
 import { errorMessage, postJson } from "../../lib/network-error";
-import { formatDollars, MAX_CARD_CENTS } from "../../lib/fees";
-import { calculateStripeFee } from "../../api/shared/products";
+import { formatDollars, grossUpCents, MAX_CARD_DOLLARS } from "../../lib/fees";
 
 const TYPE = {
   display: "clamp(2.5rem, 10cqi, 6rem)",
@@ -41,7 +41,7 @@ const TYPE = {
   button: "clamp(1.25rem, 0.8vw + 1rem, 1.75rem)",
 };
 
-const MAX_SUPPORT_DOLLARS = MAX_CARD_CENTS / 100;
+const MAX_SUPPORT_DOLLARS = MAX_CARD_DOLLARS;
 
 const parseSupportDollars = (draft: string) =>
   Math.min(MAX_SUPPORT_DOLLARS, Math.round((parseInt(draft, 10) || 0) / 5) * 5);
@@ -190,7 +190,7 @@ export default function RSVPForm({
   const supportCents = supportDraft === null ? committedCents : parseSupportDollars(supportDraft) * 100;
   const [showPay, setShowPay] = useState(false);
   const [payError, setPayError] = useState("");
-  const totalWithFeesCents = supportCents > 0 ? calculateStripeFee(supportCents) : 0;
+  const totalWithFeesCents = supportCents > 0 ? grossUpCents(supportCents) : 0;
 
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
