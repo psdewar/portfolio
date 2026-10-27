@@ -106,7 +106,7 @@
 .ci .stnote::before { content: ""; position: absolute; left: var(--road-x); top: calc(100% + var(--road-gap)); bottom: calc(-20 * var(--u)); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st:has(+ .stnote)::before { bottom: calc(-20 * var(--u) + var(--road-gap)); }
 .ci .st:has(+ .stnote)::after { bottom: calc(-20 * var(--u) + var(--road-gap)); }
-.ci .st.open:last-child::after { display: none; }
+.ci .st.open:last-child::before, .ci .st.open:last-child::after, .ci .st.open:last-child .lead::after { display: none; }
 .ci .st.open .lead::after { content: ""; position: absolute; left: calc(50% - 1px); top: calc(50% + var(--th) / 2); bottom: calc(-6 * var(--u)); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st.open.linked .lead::after { border-left: 2px solid var(--mustard); }
 .ci .st.open .lead.plain::after { top: calc(var(--lh) / 2 + 13 * var(--u)); }
@@ -124,13 +124,6 @@
 .ci button.srow:active { background: rgba(38,43,63,0.07); }
 @media (hover: hover) and (pointer: fine) { .ci button.srow:hover { background: rgba(38,43,63,0.07); } }
 .ci .srow.two { align-items: center; }
-.ci .st.off > .srow { cursor: default; background: transparent; --ring: var(--paper); }
-.ci .st.off > .srow > :not(.t):not(.lead), .ci .st.off > .srow .lead > .thumbwrap > img, .ci .st.off > .srow .lead > :not(.thumbwrap):not(.mk), .ci .st.off > .srow .mk svg > * { opacity: 0.4; }
-.ci .st.off > .srow .mk svg { background: var(--paper); }
-.ci .st.off > .srow .t { color: rgba(38,43,63,0.4); }
-.ci .st.off > .srow .chev { visibility: hidden; }
-.ci .st.off > .srow .m { color: rgba(38,43,63,0.25); }
-.ci .st.off > .srow .m a.lnk { color: var(--ink); }
 .ci .lead { position: relative; flex: none; align-self: stretch; width: var(--th); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ci .lead.plain { justify-content: flex-start; }
 .ci .mk { flex: none; width: calc(20 * var(--u)); height: var(--lh); display: flex; align-items: center; justify-content: center; }
@@ -183,6 +176,17 @@
 .ci .figcap [role=listitem]::before { content: counter(s) ". "; display: inline-block; width: 1.4em; text-indent: 0; }
 .ci .thumbwrap { position: relative; width: var(--th); height: var(--th); flex: none; isolation: isolate; background: var(--ring); }
 .ci .thumbwrap img { width: var(--th); height: var(--th); object-fit: contain; display: block; }
+.ci .stp.soc { display: grid; grid-template-columns: 24px minmax(0, 1fr); grid-auto-rows: 1fr; align-items: center; gap: 8px; }
+.ci .soc.stp .soc-btn, .ci .soc.stp .tx b, .ci .soc.stp .cp-a, .ci .soc.stp .stt { font-size: var(--fs-body); font-weight: 400; color: var(--ink); }
+.ci .stn { box-sizing: border-box; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--ink); border-radius: 50%; font-size: 13px; font-weight: 400; line-height: 1; }
+.ci .stn.ok { border: 0; }
+.ci .stn .mk, .ci .stn .mk svg { width: 24px; height: 24px; }
+.ci .stp .soc-btn { align-self: stretch; width: 100%; white-space: normal; cursor: pointer; }
+.ci .soc.stp button.soc-btn { justify-content: space-between; text-align: left; font-family: var(--font-epunda), system-ui, sans-serif; font-size: var(--fs-body); font-weight: 400; line-height: 1.3; }
+.ci .stp .nb { white-space: nowrap; }
+.ci .stp .tx { flex: 1 1 0; }
+.ci .stp .cp-a { flex: none; min-width: 4.4em; text-align: right; text-decoration: underline; text-underline-offset: 2px; }
+.ci .stt { line-height: 1.3; padding-left: calc(2px + clamp(3px, 2.4cqw, 10px)); }
 .ci .soc { padding: calc(10 * var(--u)) var(--gut) calc(6 * var(--u)); }
 .ci .pad { padding: 8px var(--gut) 6px; }
 .ci .gut { padding: 8px var(--gut) 0; }

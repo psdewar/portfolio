@@ -2,7 +2,7 @@
 
 import { useId, type ReactNode } from "react";
 import { TICKET_INK as INK, TICKET_MUSTARD as MUSTARD, TICKET_PAPER as PAPER } from "../components/TicketStub";
-import { InstagramGlyph, SpotifyGlyph, YouTubeGlyph } from "./BrandGlyphs";
+import { InstagramGlyph } from "./BrandGlyphs";
 
 
 function Art({ children }: { children: ReactNode }) {
@@ -105,40 +105,10 @@ export function PhotoArt() {
   );
 }
 
-const TILE = 18.5;
-const TILE_RX = 4.3;
-const GAP = 3;
-const GLYPH_SIZE = TILE * 0.6;
-const GLYPH_INSET = (TILE - GLYPH_SIZE) / 2;
-
-function AppTile({ col, row, fill, children }: { col: number; row: number; fill: string; children: (x: number, y: number) => ReactNode }) {
-  const x = col * (TILE + GAP);
-  const y = row * (TILE + GAP);
-  return (
-    <>
-      <rect x={x} y={y} width={TILE} height={TILE} rx={TILE_RX} fill={fill} stroke={INK} strokeOpacity=".2" strokeWidth=".75" filter="url(#tile-shadow)" />
-      {children(x + GLYPH_INSET, y + GLYPH_INSET)}
-    </>
-  );
-}
-
-export function SocialsArt() {
+export function InstagramArt() {
   return (
     <Art>
-      <defs>
-        <filter id="tile-shadow" x="-20%" y="-20%" width="140%" height="150%">
-          <feDropShadow dx="-0.8" dy="0.8" stdDeviation="1" floodColor={INK} floodOpacity=".35" />
-        </filter>
-      </defs>
-      <AppTile col={0} row={1} fill="#fff">
-        {(x, y) => <YouTubeGlyph x={x} y={y} size={GLYPH_SIZE} />}
-      </AppTile>
-      <AppTile col={1} row={0} fill="#121212">
-        {(x, y) => <SpotifyGlyph x={x} y={y} size={GLYPH_SIZE} />}
-      </AppTile>
-      <AppTile col={0} row={0} fill="url(#ig-glyph)">
-        {(x, y) => <InstagramGlyph x={x} y={y} size={GLYPH_SIZE} fill="#fff" />}
-      </AppTile>
+      <InstagramGlyph x={2} y={2} size={36} />
     </Art>
   );
 }

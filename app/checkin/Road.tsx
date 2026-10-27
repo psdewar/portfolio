@@ -167,10 +167,12 @@ export default function Road({
   const isDone = (n: number) => (n === 5 && merchOff) || (!windowOpen && (n === 1 || n === 2 || n === 4)) || (done[n] ?? true);
   const allDone = [1, 2, 3, 4, 5, 6, 7].every(isDone);
 
+  const order = past ? [1, 2, 4, 5, 6, 7, 3] : [1, 2, 3, 4, 5, 6, 7];
   let ok = true;
-  const linked = [1, 2, 3, 4, 5, 6, 7].map((i) => {
-    ok = ok && isDone(i) && isDone(i + 1);
-    return ok;
+  const linked: boolean[] = [];
+  order.forEach((n, i) => {
+    ok = ok && isDone(n) && isDone(order[i + 1] ?? 8);
+    linked[n - 1] = ok;
   });
 
   const openStep = useCallback((n: Open, force = false) => {
@@ -280,15 +282,29 @@ export default function Road({
   const uploadDone = !!stored.steps.upload;
   const showUpThumb = uploadDone || upThumb !== undefined;
 
+  const socialsStep = (
+    <SocialsStep
+      open={open === 3}
+      onToggle={() => {
+        if (open !== 3) track("checkin_row_tap", { row: "follow" });
+        toggle(3);
+      }}
+      linked={linked[2]}
+      done={done[3]}
+      onTap={(target: SocialTarget) => {
+        track("checkin_row_tap", { row: "follow", target });
+        if (!doneRef.current[3]) external.current = 3;
+      }}
+    />
+  );
+
   const teeStep = (
     <TeeStep
       open={open === 5}
       linked={linked[4]}
       done={done[5]}
-      disabled={merchOff}
       checkinId={stored.checkinId}
       onToggle={() => {
-        if (merchOff) return;
         if (open !== 5) track("checkin_row_tap", { row: "tee" });
         openStep(open === 5 ? 0 : 5);
       }}
@@ -447,19 +463,7 @@ export default function Road({
           </div>
         )}
 
-        <SocialsStep
-          open={open === 3}
-          onToggle={() => {
-            if (open !== 3) track("checkin_row_tap", { row: "follow" });
-            toggle(3);
-          }}
-          linked={linked[2]}
-          done={done[3]}
-          onTap={(target: SocialTarget) => {
-            track("checkin_row_tap", { row: "follow", target });
-            if (!doneRef.current[3]) external.current = 3;
-          }}
-        />
+        {!past && socialsStep}
 
         {windowOpen && !missedView && (
           <div ref={upRef} className={`st${open === 4 ? " open" : ""}${linked[3] ? " linked" : ""}`} data-n="4" id="st-4">
@@ -483,7 +487,7 @@ export default function Road({
                 </span>
               </Lead>
               <span className="t">
-                Send me your best photo
+                Send me our selfie
                 <span className="m">
                   I pick some for <span className="lnk">/moments</span>
                 </span>
@@ -588,7 +592,7 @@ export default function Road({
           />
         </StepShell>
 
-        {merchOff && teeStep}
+        {past && socialsStep}
       </div>
       {cardOpen && (
         <ContributeCardModal

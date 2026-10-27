@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getShowBySlug, getTourCounts } from "../../lib/shows";
 import { todayIn } from "../../lib/dates";
-import { CHECKIN_START, isCheckinOpen, isRunnable, isShowToday } from "../../lib/checkin-show";
+import { CHECKIN_START, isRunnable, isShowToday } from "../../lib/checkin-show";
 import { storyParagraphs } from "../../data/story";
 import { getFeaturedGalleryItemsForShow } from "../../api/shared/moments";
 import CheckInClient from "../CheckInClient";
@@ -39,7 +39,7 @@ export default async function CheckinPage({ params, searchParams }: Props) {
       ticketNoOverride={ticketNoOverride}
       rsvpdOverride={rsvpd === "1"}
       past={past}
-      open={isCheckinOpen(show) || preview === "1"}
+      open={isShowToday(show) || preview === "1"}
       moments={moments}
       storyParagraphs={storyParagraphs(await getTourCounts())}
       expenses={show.leg ? tripExpensesOf(toFundView(await getLeg(show.leg))) : null}
