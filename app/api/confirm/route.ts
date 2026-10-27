@@ -12,6 +12,7 @@ import { isEmailValid } from "../../lib/email";
 import { locationError } from "../../lib/location";
 import { isAdminAuthorized } from "../shared/admin-auth";
 import { CHORUS_TOKEN, chorusFetch } from "../../lib/chorus";
+import { checkSpacing, conflictBody, deleteSponsors, loadBookingContext, resolveLeg } from "../../lib/booking";
 
 export const maxDuration = 30;
 
@@ -80,16 +81,7 @@ async function upsertHost(
 }
 
 async function retireDraft(slug: string) {
-  const res = await chorusFetch("sponsors", { cache: "no-store" });
-  const sponsors: Sponsor[] = res.ok ? await res.json() : [];
-  for (const s of sponsors) {
-    if (s.showSlug !== slug || !s.submittedAt) continue;
-    await chorusFetch("sponsors", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ showSlug: slug, submittedAt: s.submittedAt }),
-    });
-  }
+  await deleteSponsors(slug).catch((e) => console.error("[confirm] sponsor cleanup failed:", e));
   await chorusFetch("shows", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
@@ -137,6 +129,7 @@ export async function POST(request: NextRequest) {
     const nextDate = typeof date === "string" && date.trim() ? date.trim() : show.date;
     const nextDoorTime =
       typeof doorTime === "string" && doorTime.trim() ? doorTime.trim() : show.doorTime;
+    const { shows, legs } = await loadBookingContext();
     const contact = { name: name.trim(), email: email.trim(), phone: (phone || "").trim() };
 
     // A location-less draft (opaque "draft-N" slug): the host supplies the location,
@@ -154,8 +147,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error }, { status: 400 });
       }
 
+      const placed = {
+        ...loc,
+        country: (country || show.country || "US").trim(),
+        date: nextDate,
+        doorTime: nextDoorTime,
+        leg: show.leg,
+      };
+      const spacing = await checkSpacing(placed, shows);
+      if (!spacing.ok) return NextResponse.json(conflictBody(spacing), { status: 409 });
+
       const spawned: Show = {
         ...show,
+        leg: await resolveLeg(placed, shows, legs),
         city: loc.city,
         region: loc.region,
         country: (country || show.country || "US").trim(),
@@ -200,6 +204,9 @@ export async function POST(request: NextRequest) {
     }
 
     const booked = { ...show, date: nextDate, doorTime: nextDoorTime };
+
+    const spacing = await checkSpacing(booked, shows);
+    if (!spacing.ok) return NextResponse.json(conflictBody(spacing), { status: 409 });
 
     await upsertHost(slug, contact, booked, nextItems);
 

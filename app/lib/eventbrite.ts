@@ -26,7 +26,7 @@ function tzOffsetMs(timeZone: string, at: Date): number {
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - at.getTime();
 }
 
-function wallTimeToUtcIso(date: string, h: number, m: number, timeZone: string): string {
+export function wallTimeToUtcIso(date: string, h: number, m: number, timeZone: string): string {
   const [y, mo, d] = date.split("-").map(Number);
   const guess = Date.UTC(y, mo - 1, d, h, m, 0);
   const corrected = new Date(guess - tzOffsetMs(timeZone, new Date(guess)));
@@ -47,12 +47,20 @@ async function eb(path: string, init?: RequestInit) {
   return data;
 }
 
-async function ensureTickets(eventId: string, startUtc: string) {
+type TicketClass = { id: string; free?: boolean; donation?: boolean };
+
+async function listTicketClasses(eventId: string): Promise<TicketClass[]> {
   const existing = await eb(`/events/${eventId}/ticket_classes/`);
-  const list: Array<{ id: string; free?: boolean; donation?: boolean }> = existing.ticket_classes || [];
+  return existing.ticket_classes || [];
+}
+
+const isGeneralAdmission = (t: TicketClass) => t.free && !t.donation;
+
+async function ensureTickets(eventId: string, startUtc: string) {
+  const list = await listTicketClasses(eventId);
 
   // Sales run to the start time (Eventbrite defaults to an hour before); 50 seats.
-  if (!list.some((t) => t.free && !t.donation)) {
+  if (!list.some(isGeneralAdmission)) {
     await eb(`/events/${eventId}/ticket_classes/`, {
       method: "POST",
       body: JSON.stringify({
@@ -76,6 +84,25 @@ async function ensureTickets(eventId: string, startUtc: string) {
       body: JSON.stringify({ ticket_class: { hidden: true } }),
     });
   }
+}
+
+// all-ages + doors=start (door_time must be UTC), stored on music_properties not the event.
+async function pushMusicProperties(eventId: string, startUtc: string) {
+  await eb(`/events/${eventId}/music_properties/`, {
+    method: "POST",
+    body: JSON.stringify({ music_properties: { age_restriction: "all_ages", door_time: startUtc } }),
+  });
+}
+
+async function showWindow(show: Show) {
+  const timezone = await getCityZone(show.city, show.region, show.country || undefined);
+  if (!timezone) throw new Error(`Could not resolve time zone for ${show.city}, ${show.region}`);
+  const { h, m } = parseDoorTime(show.doorTime);
+  return {
+    timezone,
+    startUtc: wallTimeToUtcIso(show.date, h, m, timezone),
+    endUtc: wallTimeToUtcIso(show.date, h + 3, m, timezone),
+  };
 }
 
 interface TemplateMeta {
@@ -196,10 +223,7 @@ export async function cloneEventForShow(show: Show): Promise<string> {
 
   const tpl = await getTemplate();
   const venueId = await createVenue(show);
-  const timezone = await getCityZone(show.city, show.region, show.country || undefined);
-  if (!timezone) throw new Error(`Could not resolve time zone for ${show.city}, ${show.region}`);
-  const { h, m } = parseDoorTime(show.doorTime);
-  const startUtc = wallTimeToUtcIso(show.date, h, m, timezone);
+  const { timezone, startUtc, endUtc } = await showWindow(show);
 
   const created = await eb(`/organizations/${ORG_ID}/events/`, {
     method: "POST",
@@ -208,7 +232,7 @@ export async function cloneEventForShow(show: Show): Promise<string> {
         name: { html: tpl.name },
         description: { html: tpl.description },
         start: { utc: startUtc, timezone },
-        end: { utc: wallTimeToUtcIso(show.date, h + 3, m, timezone), timezone },
+        end: { utc: endUtc, timezone },
         currency: tpl.currency,
         online_event: false,
         listed: true,
@@ -226,14 +250,60 @@ export async function cloneEventForShow(show: Show): Promise<string> {
   await applyOverview(eventId, tpl).catch((e) =>
     console.error("[eventbrite] overview push failed:", e),
   );
-  // all-ages + doors=start (door_time must be UTC), stored on music_properties not the event.
-  await eb(`/events/${eventId}/music_properties/`, {
-    method: "POST",
-    body: JSON.stringify({ music_properties: { age_restriction: "all_ages", door_time: startUtc } }),
-  }).catch((e) => console.error("[eventbrite] music_properties push failed:", e));
+  await pushMusicProperties(eventId, startUtc).catch((e) =>
+    console.error("[eventbrite] music_properties push failed:", e),
+  );
   await eb(`/events/${eventId}/publish/`, { method: "POST" });
 
   return eventId;
+}
+
+const sameText = (a?: string | null, b?: string | null) =>
+  (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+
+export async function updateEventbriteForShow(show: Show): Promise<{ error?: string }> {
+  if (!show.eventbriteId) return {};
+  try {
+    if (!TOKEN) throw new Error("EVENTBRITE_TOKEN not set");
+    const eventId = show.eventbriteId;
+    const { timezone, startUtc, endUtc } = await showWindow(show);
+
+    const current = await eb(`/events/${eventId}/?expand=venue`);
+    const venue = current.venue;
+    const venueChanged =
+      !venue ||
+      !sameText(venue.name, show.venue || `${show.city}, ${show.region}`) ||
+      !sameText(venue.address?.address_1, show.address) ||
+      !sameText(venue.address?.city, show.city) ||
+      !sameText(venue.address?.region, show.region);
+    const venueId = venueChanged ? await createVenue(show) : undefined;
+
+    await eb(`/events/${eventId}/`, {
+      method: "POST",
+      body: JSON.stringify({
+        event: {
+          start: { utc: startUtc, timezone },
+          end: { utc: endUtc, timezone },
+          ...(venueId ? { venue_id: venueId } : {}),
+        },
+      }),
+    });
+
+    const general = (await listTicketClasses(eventId)).find(isGeneralAdmission);
+    if (general) {
+      await eb(`/events/${eventId}/ticket_classes/${general.id}/`, {
+        method: "POST",
+        body: JSON.stringify({ ticket_class: { sales_end: startUtc } }),
+      });
+    } else {
+      await ensureTickets(eventId, startUtc);
+    }
+    await pushMusicProperties(eventId, startUtc);
+    return {};
+  } catch (e) {
+    console.error("[eventbrite] update failed:", e);
+    return { error: e instanceof Error ? e.message : "Eventbrite update failed" };
+  }
 }
 
 export async function publishEventbrite(

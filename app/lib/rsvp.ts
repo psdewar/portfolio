@@ -197,3 +197,12 @@ export async function skipCheckin(
   const row = (data as { public_id: string; number: number; steps: Record<string, string> }[])[0];
   return { number: row.number, checkinId: row.public_id, steps: row.steps ?? {} };
 }
+
+export async function hasRsvps(slug: string): Promise<boolean> {
+  const { count, error } = await supabaseAdmin
+    .from("rsvps")
+    .select("id", { count: "exact", head: true })
+    .eq("show_slug", slug);
+  if (error) throw new Error(error.message);
+  return (count ?? 0) > 0;
+}

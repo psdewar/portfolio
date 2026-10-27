@@ -2599,6 +2599,7 @@ function ManageModal({
   onDateSync: (date: string) => void;
 }) {
   const [askingReschedule, setAskingReschedule] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -2683,6 +2684,50 @@ function ManageModal({
         cancelEventbrite: cancelEb,
       }),
     });
+  };
+
+  const reopenSlot = async () => {
+    if (!show?.slug || reopening) return;
+    setReopening(true);
+    setConfirmError(null);
+    try {
+      const res = await fetch("/api/shows", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: show.slug, reopen: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConfirmError(data.error || "Couldn't reopen the slot.");
+        return;
+      }
+      onShowUpdate(show.slug, {
+        slug: data.slug,
+        stage: "intent",
+        city: "",
+        region: "",
+        country: "",
+        venue: null,
+        venueLabel: null,
+        address: null,
+        tags: null,
+        posterImg: null,
+        doorLabel: null,
+        visibility: undefined,
+        eventbriteId: null,
+      });
+      [host, ...supporters].forEach((s) => {
+        if (s.submittedAt) onRemoveSponsor(s.submittedAt, s.showSlug);
+      });
+      setAskingReschedule(false);
+      onClose();
+      onMessage(`${show.slug} reopened as ${data.slug}`);
+      onRefresh();
+    } catch {
+      setConfirmError("Couldn't reopen the slot.");
+    } finally {
+      setReopening(false);
+    }
   };
 
   const copyConfirmLink = async () => {
@@ -3078,7 +3123,8 @@ function ManageModal({
               {askingReschedule ? (
                 <div className="px-6 py-3 space-y-2.5">
                   <p className="text-sm text-neutral-800 dark:text-neutral-200">
-                    Revert to draft? Keeps the poster.
+                    Revert to draft? Keeps the poster. Reopen slot if the host
+                    dropped out.
                   </p>
                   {hasEb && (
                     <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
@@ -3105,6 +3151,15 @@ function ManageModal({
                     >
                       Confirm
                     </button>
+                    {show.leg && show.date && (
+                      <button
+                        onClick={reopenSlot}
+                        disabled={reopening}
+                        className="text-sm font-medium text-amber-600 dark:text-amber-500 hover:text-amber-700 disabled:opacity-50"
+                      >
+                        Reopen slot
+                      </button>
+                    )}
                     <button
                       onClick={() => setAskingReschedule(false)}
                       className="text-sm text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
@@ -3112,6 +3167,11 @@ function ManageModal({
                       Cancel
                     </button>
                   </div>
+                  {confirmError && (
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      {confirmError}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <button
@@ -3742,6 +3802,21 @@ function ShowGroupCard({
                       weight="fill"
                       className="text-green-500"
                     />
+                  )}
+                  {(dateSave.state === "error" ||
+                    dateSave.state === "conflict") && (
+                    <span className="text-xs text-red-500">
+                      {dateSave.message || "Not saved"}
+                    </span>
+                  )}
+                  {dateSave.state === "conflict" && (
+                    <button
+                      type="button"
+                      onClick={dateSave.saveAnyway}
+                      className="text-xs text-red-500 underline"
+                    >
+                      Save anyway
+                    </button>
                   )}
                 </div>
               ) : (
