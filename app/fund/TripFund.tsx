@@ -1,6 +1,6 @@
 "use client";
 
-import { Social } from "../components/Social";
+import SocialButtons from "../components/SocialButtons";
 import {
   useEffect,
   useLayoutEffect,
@@ -16,7 +16,6 @@ import ContributeSheet, { useContributeCheckout } from "../components/Contribute
 import GalleryPlayer from "../moments/GalleryPlayer";
 import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
-import { preloadGoogleMaps } from "../lib/maps";
 import {
   formatEventDateShort,
   isDatePast,
@@ -33,11 +32,8 @@ import {
   type FundNote,
 } from "./legs-shared";
 import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
-import { ShopTabs } from "../components/ShopTabs";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
-import { useScrollLock } from "../hooks/useScrollLock";
-import { useEscape } from "../hooks/useEscape";
 import StatusShield from "../components/StatusShield";
 import { ExpenseHead,
   displayLabel, ExpenseTotal, fundVenmoNote, flightByLabel, lineNote, money, sumLines } from "./TripExpenses";
@@ -309,7 +305,6 @@ export function TripFund({
   pastNotes,
   soFar,
   galleryItems,
-  hostHref,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
@@ -334,7 +329,6 @@ export function TripFund({
     since?: string;
   };
   galleryItems: GalleryItem[];
-  hostHref?: string;
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
@@ -343,7 +337,6 @@ export function TripFund({
   const allBooked = leg.booked ?? [];
   const upcoming = allBooked.filter((b) => !isPastStop(b));
   const past = allBooked.filter(isPastStop);
-  const hasBooked = allBooked.length > 0;
   const displayPast = past.length > 0 ? past : (prevTrip?.stops ?? []);
   const showsVisible = upcoming.length > 0 || displayPast.length > 0;
   const pastDestination = past.length > 0 ? leg.shortName : prevTrip?.shortName;
@@ -428,17 +421,6 @@ export function TripFund({
     ...(showsVisible ? [{ id: "schedule", label: "Schedule" }] : []),
     { id: "cover", label: "Cover my trip" },
     ...(intro ? [{ id: "who", label: "Who you're funding" }] : []),
-    { id: "help", label: "You can also" },
-  ];
-
-  const otherWays = [
-    {
-      key: "host",
-      label: hasBooked
-        ? "Host another concert"
-        : "Host a concert in your living room",
-      note: hasBooked ? "in your living room or local venue" : "or local venue",
-    },
   ];
 
   const [lineVals, setLineVals] = useState<Record<string, string>>(() =>
@@ -451,11 +433,6 @@ export function TripFund({
     if (!introOpen) posthog.capture("fund_intro_opened", { trip: leg.slug });
     setIntroOpen(true);
   };
-  const [modal, setModal] = useState<"shop" | null>(null);
-  useScrollLock(modal === "shop");
-
-  useEscape(() => setModal(null), !!modal);
-
   const lineTotal = LINES.reduce((sum, line) => {
     const n = parseFloat(lineVals[line.key] ?? "");
     return sum + (isNaN(n) ? 0 : n);
@@ -483,12 +460,6 @@ export function TripFund({
   const venmoUrl = venmoPayUrl(total, venmoNote);
   const amountCents = items.reduce((sum, it) => sum + it.amountCents, 0);
 
-  const slugged = upcoming.filter((b): b is FundBooked & { slug: string } =>
-    Boolean(b.slug),
-  );
-  const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
-  const shareable = slugged.filter((b) => !b.private);
-  const [shareHint, setShareHint] = useState("");
   const [openStat, setOpenStat] = useState<number | null>(vertical ? 0 : null);
   useLayoutEffect(() => {
     if (openStat === null || vertical) return;
@@ -513,51 +484,6 @@ export function TripFund({
     };
   }, [openStat]);
 
-  const inviteFor = (b: FundBooked) => {
-    const city = (b.place ?? "").split(", ")[0];
-    const inCity =
-      city && !b.venue.toLowerCase().includes(city.toLowerCase())
-        ? ` in ${city}`
-        : "";
-    const where = b.eventName
-      ? `the ${b.eventName} at ${b.venue}${inCity}`
-      : `at ${b.venue}${inCity}`;
-    const d = b.date ? new Date(`${b.date}T00:00:00`) : null;
-    const n = d?.getDate() ?? 0;
-    const suffix =
-      n % 100 >= 11 && n % 100 <= 13
-        ? "th"
-        : (["th", "st", "nd", "rd"][n % 10] ?? "th");
-    const day = d
-      ? ` this ${d.toLocaleDateString("en-US", { weekday: "long" })} the ${n}${suffix}`
-      : "";
-    const time = b.doorTime
-      ? `, ${b.doorTime.toLowerCase().replace(":00", "")}`
-      : "";
-    return {
-      text: `Come to Peyt's rap concert with me${day}! It's ${where}${time}.`,
-      url: `${window.location.origin}/rsvp/${b.slug}`,
-    };
-  };
-
-  const shareInvite = (
-    e: React.MouseEvent<HTMLAnchorElement>,
-    b: FundBooked,
-  ) => {
-    const invite = inviteFor(b);
-    if (typeof navigator.share === "function") {
-      e.preventDefault();
-      navigator.share(invite).catch(() => {});
-      return;
-    }
-    if (!navigator.clipboard) return;
-    e.preventDefault();
-    navigator.clipboard.writeText(`${invite.text} ${invite.url}`).then(
-      () => setShareHint("Message copied."),
-      () => setShareHint(""),
-    );
-    window.setTimeout(() => setShareHint(""), 5000);
-  };
 
   const gallery = (
     <div
@@ -665,7 +591,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .masthead { width: 100%; margin-top: 28px; }
 .bf-brand { font-family: var(--font-bebas), sans-serif; font-size: 24px; letter-spacing: -0.025em; line-height: 1; text-decoration: none; }
 @media (min-width: 640px) { .bf-brand { font-size: 30px; } }
-.tail { display: flex; flex-direction: column; min-height: calc(100vh - 18px); }
+.tail { display: flex; flex-direction: column; }
 .bf-root > .wrap { padding-bottom: 0; }
 .bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail { display: none; }
 .bf-root--og .masthead { margin-top: 12px; }
@@ -677,16 +603,10 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .site-foot { margin-top: auto; border-top: 1px solid var(--surface-2); padding-bottom: 120px; }
 .site-foot-inner { max-width: 780px; margin: 0 auto; padding: 20px 16px 0; }
 @media (min-width: 640px) { .site-foot-inner { padding: 20px 40px 0; } }
-.site-foot-row { display: flex; flex-direction: column; gap: 8px; }
-@media (min-width: 640px) { .site-foot-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; } }
+.site-foot-row { display: flex; flex-direction: column; gap: 16px; }
 .site-foot .bf-brand { color: var(--paper); align-self: flex-start; }
-@media (min-width: 640px) { .site-foot .bf-brand { align-self: center; } }
-.site-foot-social { margin-left: -12px; }
-@media (min-width: 640px) { .site-foot-social { margin-left: 0; margin-right: -12px; } }
-.site-foot-social a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; padding: 0; color: var(--ink-dim); }
-.site-foot-social a:hover { color: var(--paper); }
-.site-foot-social svg { width: 28px; height: 28px; }
-@media (max-width: 359px) { .site-foot-social .gap-4 { gap: 4px; } }
+.site-foot .soc .soc-btn { color: var(--paper); background: var(--surface); border-color: var(--rule-strong); }
+@media (prefers-color-scheme: light) { .site-foot .soc .soc-btn { color: #262b3f; background: #fff; border-color: rgba(38,43,63,0.16); } }
 .bf-h1 {
   font-size: var(--fs-hero); line-height: 0.98; text-align: left;
   letter-spacing: -0.025em; color: var(--paper); margin: 10px 0 0; font-weight: 600;
@@ -852,53 +772,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
   .match-full, .match-chip { width: 52px; }
   .match-input-row { gap: 5px; }
 }
-.other-ways { list-style: none; margin: 0; padding: 0; }
-.other-item {
-  padding: 22px 0; display: flex; gap: 12px 16px; align-items: center; min-width: 0;
-}
-@media (min-width: 640px) {
-  .other-ways + .other-ways { border-top: 1px solid var(--rule); }
-}
-.other-body { flex: 1 1 auto; min-width: 0; }
-.other-label { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
-.other-note { color: var(--ink-dim); font-size: var(--fs-base); margin-top: 4px; }
-.other-action {
-  flex: 0 0 auto; cursor: pointer; text-decoration: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--act-bg); color: var(--act-text); font: inherit; font-weight: 600; font-size: var(--fs-base);
-  border: 1.5px solid var(--act-border); border-radius: var(--btn-r); min-height: 48px; padding: 10px 18px; white-space: nowrap;
-  max-width: 100%; min-width: 0; transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-.other-action:hover { background: var(--navy); border-color: var(--navy); color: var(--gold); }
-.other-action:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.poster-menu { position: relative; flex: 0 0 auto; }
-.poster-hint { flex-basis: 100%; margin: 0; color: var(--ink-dim); font-size: var(--fs-sm); line-height: 20px; }
-@media (min-width: 561px) {
-  .other-item { position: relative; }
-  .poster-hint { position: absolute; right: 0; bottom: 1px; flex-basis: auto; white-space: nowrap; }
-}
-.poster-menu summary { list-style: none; gap: 10px; }
-.poster-menu summary::-webkit-details-marker { display: none; }
-.poster-menu-caret { display: inline-flex; transition: transform 0.2s ease; }
-.poster-menu-caret svg { width: 20px; height: 20px; }
-.poster-menu[open] .poster-menu-caret { transform: rotate(180deg); }
-.poster-menu-list {
-  margin-top: 6px; background: var(--surface); border: 1.5px solid var(--act-border); border-radius: 8px; overflow: hidden;
-}
-.poster-menu-list a {
-  display: flex; align-items: center; min-height: 48px; padding: 0 18px; color: var(--paper); font-weight: 600; text-decoration: none; white-space: nowrap;
-}
-.poster-menu-list a + a { border-top: 1px solid var(--rule); }
-.poster-menu-list a:hover { background: var(--navy); color: var(--gold); }
-@media (min-width: 561px) {
-  .poster-menu-list { position: absolute; right: 0; top: 100%; min-width: 100%; width: max-content; z-index: 5; }
-}
-@media (max-width: 560px) {
-  .other-item { flex-wrap: wrap; }
-  .other-action, .other-soon, .poster-menu { flex-basis: 100%; width: 100%; text-align: center; }
-  .poster-menu summary { width: 100%; }
-}
-
 .intro-row {
   display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; cursor: pointer;
   padding: 16px 18px; border: 0; border-radius: 12px; background: var(--act-bg);
@@ -993,7 +866,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 @media print {
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
-  .match-ctrl, .other-action, .cta-row, .progress .bar, .contribute-fab { display: none; }
+  .match-ctrl, .cta-row, .progress .bar, .contribute-fab { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-root *, .bf-root *::before, .bf-root *::after {
@@ -1191,112 +1064,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 
         <div className="tail">
           <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
-            <section id="help" className="bf-section">
-              <div className="section-head">You can also</div>
-              {posterSlugs.length > 0 && (
-                <ul className="other-ways">
-                  <li className="other-item">
-                    <div className="other-body">
-                      <div className="other-label">Spread the word</div>
-                      <div className="other-note">
-                        personal texts work best, group chats help too
-                        {slugged.length === 1 && (
-                          <>
-                            {" · "}
-                            <a
-                              href={`/api/poster/${posterSlugs[0]}?format=pdf`}
-                              className="inkind-cta"
-                            >
-                              print version
-                            </a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {shareable.length === 1 ? (
-                      <a
-                        className="other-action"
-                        href={`/rsvp/${shareable[0].slug}`}
-                        onClick={(e) => shareInvite(e, shareable[0])}
-                      >
-                        Invite a friend
-                      </a>
-                    ) : (
-                      <details className="poster-menu">
-                        <summary className="other-action">
-                          Invite a friend
-                          <span
-                            className="poster-menu-caret"
-                            aria-hidden="true"
-                          >
-                            <ChevronIcon />
-                          </span>
-                        </summary>
-                        <div className="poster-menu-list">
-                          {shareable.map((b) => (
-                            <a
-                              key={b.slug}
-                              href={`/rsvp/${b.slug}`}
-                              onClick={(e) => shareInvite(e, b)}
-                            >
-                              {b.eventName || b.venue}
-                            </a>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                    {shareHint && <p className="poster-hint">{shareHint}</p>}
-                  </li>
-                </ul>
-              )}
-              <ul className="other-ways">
-                <li className="other-item">
-                  <div className="other-body">
-                    <div className="other-label">Donate in person</div>
-                    <div className="other-note">
-                      find me at one of my concerts
-                    </div>
-                  </div>
-                  <a
-                    className="other-action"
-                    href="/shop"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setModal("shop");
-                    }}
-                  >
-                    Or buy merch
-                  </a>
-                </li>
-              </ul>
-
-              {hostHref && (
-                <ul className="other-ways">
-                  {otherWays.map((item) => (
-                    <li key={item.key} className="other-item">
-                      <div className="other-body">
-                        <div className="other-label">{item.label}</div>
-                        {item.note ? (
-                          <div className="other-note">{item.note}</div>
-                        ) : null}
-                      </div>
-                      {item.key === "host" && (
-                        <a
-                          className="other-action"
-                          href={hostHref}
-                          onMouseEnter={preloadGoogleMaps}
-                          onFocus={preloadGoogleMaps}
-                          onTouchStart={preloadGoogleMaps}
-                        >
-                          Become concert host
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
             {nextTrip && (
               <a className="next-trip" href={`/fund/${nextTrip.slug}`}>
                 <span className="next-trip-title">
@@ -1314,9 +1081,10 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                 <a href="/" className="bf-brand">
                   Peyt Spencer
                 </a>
-                <div className="site-foot-social">
-                  <Social isHorizontal />
-                </div>
+                <SocialButtons
+                  showAppleMusic
+                  onTap={(platform) => posthog.capture("fund_social_tap", { trip: leg.slug, platform })}
+                />
               </div>
             </div>
           </footer>
@@ -1355,35 +1123,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
           amountCents={amountCents}
           onClose={() => setCheckoutOpen(false)}
         />
-      )}
-
-      {modal === "shop" && (
-        <div
-          className="fixed inset-0 z-[950] flex items-start justify-center overflow-y-auto bg-black/65 backdrop-blur-sm p-0 sm:p-4"
-          onClick={() => setModal(null)}
-        >
-          <div
-            className="relative my-auto w-full bg-white shadow-2xl min-h-full sm:min-h-0 max-w-2xl rounded-none sm:rounded-2xl p-4 sm:p-6 dark:bg-gray-900"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Shop"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-2 flex justify-between items-center">
-              <h1 className="text-2xl sm:text-[40px] lg:text-5xl font-medium leading-tight tracking-tight">
-                Shop
-              </h1>
-              <button
-                onClick={() => setModal(null)}
-                aria-label="Close"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-neutral-500 transition-colors hover:text-neutral-900 dark:bg-white/10 dark:hover:text-white"
-              >
-                &#x2715;
-              </button>
-            </div>
-            <ShopTabs initialTab="patience" syncUrl={false} stacked />
-          </div>
-        </div>
       )}
     </>
   );

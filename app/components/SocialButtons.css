@@ -1,7 +1,7 @@
 .soc { container-type: inline-size; }
 .soc .soc-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .soc .soc-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-.soc .soc-btn { box-sizing: border-box; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: clamp(3px, 2cqw, 10px); padding: clamp(4px, 1.6cqw, 8px) clamp(3px, 2.4cqw, 10px); border: 2px solid; border-radius: var(--btn-r, 0px); font-family: var(--font-epunda), system-ui, sans-serif; font-size: max(13px, var(--fs-small, 13px)); line-height: 1.15; white-space: nowrap; text-decoration: none; text-align: left; }
+.soc .soc-btn { box-sizing: border-box; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: clamp(3px, 2cqw, 10px); padding: clamp(4px, 1.6cqw, 8px) clamp(3px, 2.4cqw, 10px); border: 2px solid; border-radius: var(--btn-r, 0px); font-family: var(--font-epunda), system-ui, sans-serif; font-size: max(13px, var(--fs-small, 13px)); line-height: 1.15; white-space: nowrap; text-decoration: none; text-align: left; min-height: 44px; }
 .soc .soc-btn .tx { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 .soc .soc-btn .tx b { font-weight: 700; }
 .soc .soc-btn img, .soc .soc-btn svg { display: block; flex: none; width: 28px; height: 28px; }
