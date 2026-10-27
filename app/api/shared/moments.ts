@@ -412,15 +412,9 @@ export function rotateToLeg(
   cities: Record<string, string>,
   leg: string,
 ): string[] {
-  let i = keys.findIndex((k) => stops[k]?.leg === leg);
-  if (i >= 0) {
-    const inLeg = (k: string) => stops[k]?.leg === leg;
-    const legKeys = keys
-      .filter(inLeg)
-      .sort((a, b) => stops[a].visit.localeCompare(stops[b].visit));
-    const rest = [...keys.slice(i), ...keys.slice(0, i)].filter((k) => !inLeg(k));
-    return [...legKeys, ...rest];
-  }
+  let target = leg;
+  const inLeg = (k: string) => stops[k]?.leg === target;
+  let i = keys.findIndex(inLeg);
   if (i < 0) {
     let bestVisit = "";
     for (let j = 0; j < keys.length; j++) {
@@ -431,6 +425,18 @@ export function rotateToLeg(
       }
     }
     if (i < 0) return keys;
+    const newestLeg = stops[keys[i]].leg;
+    if (newestLeg) {
+      target = newestLeg;
+      i = keys.findIndex(inLeg);
+    }
+  }
+  if (inLeg(keys[i])) {
+    const legKeys = keys
+      .filter(inLeg)
+      .sort((a, b) => stops[a].visit.localeCompare(stops[b].visit));
+    const rest = [...keys.slice(i), ...keys.slice(0, i)].filter((k) => !inLeg(k));
+    return [...legKeys, ...rest];
   }
   const groupOf = (k: string) => `${cities[k] ?? ""}|${stops[k]?.visit ?? ""}`;
   while (i > 0 && groupOf(keys[i - 1]) === groupOf(keys[i])) i--;
