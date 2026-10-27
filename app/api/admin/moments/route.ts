@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import {
   GetObjectCommand,
   DeleteObjectCommand,
@@ -14,6 +14,7 @@ import {
   getOgKey,
   setOgKey,
   getThumbs,
+  getDims,
   sanitizeFilename,
   deleteMomentArtifacts,
   renameMomentArtifacts,
@@ -22,9 +23,12 @@ import {
   listMomentSources,
   objectExists,
   deleteMoment,
+  queueProcessing,
 } from "../../shared/moments";
 
 const URL_TTL = 3600;
+const BACKFILL_CAP = 6;
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 
 function nameFromKey(key: string) {
   return key.replace(/^drops\//, "");
@@ -58,13 +62,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [sources, featuredKeys, thumbs, ogKey] = await Promise.all([
+  const [sources, featuredKeys, thumbs, ogKey, dims] = await Promise.all([
     listMomentSources(),
     getFeatured(),
     getThumbs(),
     getOgKey(),
+    getDims(),
   ]);
-  const featured = new Set(featuredKeys);
   sources.sort((a, b) => (a.lastModified?.getTime() || 0) - (b.lastModified?.getTime() || 0));
   const keys = sources.map((src) => src.key);
   const cities = await resolveCities(keys);
@@ -72,22 +76,32 @@ export async function GET(request: Request) {
 
   const items = await Promise.all(
     sources.map(async (src) => {
-      const thumbKey = thumbs[src.key]?.key ?? src.previewKey;
+      const entry = thumbs[src.key];
+      const sizes = [...(entry?.sizes ?? [])].sort((a, b) => a.w - b.w);
+      const fallbackKey = entry?.key ?? src.previewKey;
+      const thumbKey = sizes[0]?.key ?? fallbackKey;
+      const largeKey = sizes[sizes.length - 1]?.key ?? fallbackKey;
       return {
         key: src.key,
         size: src.size,
         lastModified: src.lastModified?.toISOString() || null,
         url: await signView(src.viewKey),
         thumb: thumbKey ? await signView(thumbKey) : undefined,
+        large: largeKey ? await signView(largeKey) : undefined,
         downloadUrl: await signDownload(src.viewKey, src.key),
-        featured: featured.has(src.key),
         city: cities[src.key],
         visit: stops[src.key]?.visit,
         leg: stops[src.key]?.leg,
         hasOriginal: !!src.originalKey,
+        dims: dims[src.key],
       };
     }),
   );
+
+  const unthumbed = items
+    .filter((it) => !it.thumb && !VIDEO_EXT.test(it.key))
+    .map((it) => it.key);
+  if (unthumbed.length) after(() => queueProcessing(unthumbed, BACKFILL_CAP));
 
   return NextResponse.json({ items, featuredKeys, ogKey });
 }

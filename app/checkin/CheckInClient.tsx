@@ -14,6 +14,7 @@ import { detectDevice, resolveDevice, type Device } from "./platform";
 import { errorMessage } from "../lib/network-error";
 import { reducedMotion } from "./RoadParts";
 import { isCheckedIn, isValidCheckin, useCheckinState } from "./useCheckinState";
+import type { GalleryItem } from "../api/shared/moments";
 import "./checkin.css";
 
 const TICKET_W = 300;
@@ -36,6 +37,8 @@ interface Props {
   ticketNoOverride?: number | null;
   rsvpdOverride?: boolean;
   past?: boolean;
+  open?: boolean;
+  moments?: GalleryItem[];
   storyParagraphs: StoryParagraph[];
   expenses: TripExpensesData | null;
 }
@@ -50,6 +53,8 @@ export default function CheckInClient({
   ticketNoOverride = null,
   rsvpdOverride = false,
   past = false,
+  open = true,
+  moments = [],
   storyParagraphs,
   expenses,
 }: Props) {
@@ -554,6 +559,8 @@ export default function CheckInClient({
         }}
         saveError={saveError}
         past={past}
+        open={open}
+        moments={moments}
         storyParagraphs={storyParagraphs}
         expenses={expenses}
         slug={slug}

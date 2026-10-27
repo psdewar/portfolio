@@ -22,6 +22,8 @@ import { lineCount, shrinkToFit, useFontFit } from "../components/fitText";
 import { useRoadGaps } from "./useRoadGaps";
 import { FUND_COPY } from "../data/supporter-config";
 import { isCheckedIn, type Stored } from "./useCheckinState";
+import GalleryPlayer from "../moments/GalleryPlayer";
+import type { GalleryItem } from "../api/shared/moments";
 import { createContributionSecret } from "../lib/contribution-checkout";
 import { CHECKOUT_OPEN_ERROR, errorMessage } from "../lib/network-error";
 
@@ -56,6 +58,8 @@ export default function Road({
   onNudge,
   saveError,
   past,
+  open: windowOpen,
+  moments,
   city,
   storyParagraphs,
   expenses,
@@ -77,6 +81,8 @@ export default function Road({
   onNudge: () => void;
   saveError: string;
   past: boolean;
+  open: boolean;
+  moments: GalleryItem[];
   city: string;
   storyParagraphs: StoryParagraph[];
   expenses: TripExpensesData | null;
@@ -102,6 +108,7 @@ export default function Road({
       else localStorage.removeItem(missedKey);
     } catch {}
   };
+  const momentsShown = past && moments.length > 0;
   const missedView = past && !checkedIn && missed;
   const headline = missedView ? "I missed you this time" : past ? (checkedIn ? "Thank you for being there" : `Thank you, ${city}`) : "Thank you for being here";
   const [cardOpen, setCardOpen] = useState(false);
@@ -157,7 +164,7 @@ export default function Road({
   ];
   doneRef.current = done;
   const hideMerch = past && !done[5];
-  const isDone = (n: number) => (n === 5 && hideMerch) || (done[n] ?? true);
+  const isDone = (n: number) => (n === 5 && hideMerch) || (!windowOpen && (n === 1 || n === 2 || n === 4)) || (done[n] ?? true);
   const allDone = [1, 2, 3, 4, 5, 6, 7].every(isDone);
 
   let ok = true;
@@ -276,6 +283,11 @@ export default function Road({
   return (
     <div className="ci-sheet" ref={sheetRef}>
       <div className="sup" ref={supRef}>
+        {momentsShown && (
+          <div className="mb-[calc(24*var(--u))] -mt-[calc(22*var(--u))]">
+            <GalleryPlayer items={moments} />
+          </div>
+        )}
         <div className="thanks-row">
           <img className="avatar" src="/images/checkin/peyt.webp" alt="Peyt Spencer" width={150} height={150} />
           <p ref={thanksRef} className={`thanks${allDone ? " all" : ""}`}>
@@ -288,7 +300,7 @@ export default function Road({
           </p>
         </div>
 
-        {checkedIn ? (
+        {!windowOpen ? null : checkedIn ? (
           <div className={`st${linked[0] ? " linked" : ""}`} data-n="1" id="st-1">
             <div className="srow two">
               <Lead done pop={stored.skipped}>
@@ -358,7 +370,7 @@ export default function Road({
           </StepShell>
         )}
 
-        {!missedView && (
+        {windowOpen && !missedView && (
           <div className={`st${linked[1] ? " linked" : ""}`} data-n="2" id="st-2">
             <button
               type="button"
@@ -430,7 +442,7 @@ export default function Road({
           }}
         />
 
-        {!missedView && (
+        {windowOpen && !missedView && (
           <div ref={upRef} className={`st${open === 4 ? " open" : ""}${linked[3] ? " linked" : ""}`} data-n="4" id="st-4">
             <button
               type="button"

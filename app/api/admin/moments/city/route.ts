@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { s3, s3Bucket } from "../../../shared/s3";
 import { isAdminAuthorized } from "../../../shared/admin-auth";
-import { setCity, purgeFeatured } from "../../../shared/moments";
+import { setCity, purgeFeatured, resolveStops } from "../../../shared/moments";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthorized(request))) {
@@ -22,5 +22,11 @@ export async function POST(request: Request) {
   const trimmed = typeof city === "string" ? city.trim().slice(0, 80) : "";
   await setCity(key, trimmed || null);
   purgeFeatured();
-  return NextResponse.json({ ok: true, city: trimmed || null });
+  const stop = trimmed ? (await resolveStops([key], { [key]: trimmed }))[key] : undefined;
+  return NextResponse.json({
+    ok: true,
+    city: trimmed || null,
+    visit: stop?.visit ?? null,
+    leg: stop?.leg ?? null,
+  });
 }

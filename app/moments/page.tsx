@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import MomentsClient from "./MomentsClient";
 import { getFundingLegSlug } from "../fund/legs";
 import { getFeaturedGalleryItems } from "../api/shared/moments";
+import { getShows } from "../lib/shows";
+import { CHECKIN_COOKIE, isRunnable, pickCheckinSlug } from "../lib/checkin-show";
+import { todayIn } from "../lib/dates";
 
 const title = "Moments from the concert";
 const description =
@@ -34,5 +38,14 @@ export const metadata: Metadata = {
 export default async function MomentsPage() {
   const fundSlug = await getFundingLegSlug().catch(() => undefined);
   const items = await getFeaturedGalleryItems(fundSlug);
-  return <MomentsClient fundSlug={fundSlug} items={items} />;
+  const cookieValue = (await cookies()).get(CHECKIN_COOKIE)?.value;
+  const shows = await getShows();
+  const checkinSlug = pickCheckinSlug(shows, cookieValue);
+  const today = todayIn("America/New_York");
+  const pastShows = shows
+    .filter(isRunnable)
+    .filter((s) => s.date <= today)
+    .map((s) => ({ slug: s.slug, date: s.date }));
+  const checkinHref = checkinSlug ? `/checkin/${checkinSlug}` : "/listen";
+  return <MomentsClient checkinHref={checkinHref} pastShows={pastShows} items={items} />;
 }

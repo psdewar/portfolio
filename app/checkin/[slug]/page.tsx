@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getShowBySlug, getTourCounts } from "../../lib/shows";
 import { todayIn } from "../../lib/dates";
-import { isCheckinOpen } from "../../lib/checkin-show";
+import { isCheckinOpen, isRunnable, isShowToday } from "../../lib/checkin-show";
 import { storyParagraphs } from "../../data/story";
+import { getFeaturedGalleryItemsForShow } from "../../api/shared/moments";
 import CheckInClient from "../CheckInClient";
 import { getLeg, toFundView } from "../../fund/legs";
 import { tripExpensesOf } from "../../fund/TripExpenses";
@@ -19,9 +20,12 @@ export default async function CheckinPage({ params, searchParams }: Props) {
   const { preview, no, capture, rsvpd } = await searchParams;
   const show = await getShowBySlug(slug);
   if (!show) redirect("/support");
-  if (!isCheckinOpen(show) && preview !== "1") redirect("/support");
+  const past = show.date < todayIn("Pacific/Honolulu");
+  if (preview !== "1" && (!isRunnable(show) || !(past || isShowToday(show)))) redirect("/support");
 
   const ticketNoOverride = no && /^\d+$/.test(no) ? parseInt(no, 10) : null;
+
+  const moments = past ? await getFeaturedGalleryItemsForShow(show) : [];
 
   return (
     <CheckInClient
@@ -33,7 +37,9 @@ export default async function CheckinPage({ params, searchParams }: Props) {
       capture={capture === "1"}
       ticketNoOverride={ticketNoOverride}
       rsvpdOverride={rsvpd === "1"}
-      past={show.date < todayIn("Pacific/Honolulu")}
+      past={past}
+      open={isCheckinOpen(show) || preview === "1"}
+      moments={moments}
       storyParagraphs={storyParagraphs(await getTourCounts())}
       expenses={show.leg ? tripExpensesOf(toFundView(await getLeg(show.leg))) : null}
     />

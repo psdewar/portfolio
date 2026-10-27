@@ -21,7 +21,9 @@ import {
   formatEventDateShort,
   isDatePast,
   formatShortMonthDay,
+  formatMonthDayLong,
   seasonLabel,
+  formatDateRange,
 } from "../lib/dates";
 import {
   type FundLeg,
@@ -345,9 +347,12 @@ export function TripFund({
   const displayPast = past.length > 0 ? past : (prevTrip?.stops ?? []);
   const showsVisible = upcoming.length > 0 || displayPast.length > 0;
   const pastDestination = past.length > 0 ? leg.shortName : prevTrip?.shortName;
-  const pastSeason = seasonLabel(
-    displayPast.flatMap((b) => (b.date ? [b.date] : [])),
-  );
+  const pastDates = displayPast.flatMap((b) => (b.date ? [b.date] : []));
+  const legComplete = past.length > 0 && upcoming.length === 0;
+  const pastSeason = legComplete
+    ? `, ${formatDateRange(pastDates)}`
+    : ` ${seasonLabel(pastDates)}`;
+  const vertical = legComplete && !og;
   const displayNotes = (past.length > 0 ? pastNotes : prevTrip?.notes) ?? [];
   const stats: {
     n: number;
@@ -358,7 +363,7 @@ export function TripFund({
       ? [
           {
             n: displayPast.filter((b) => !b.guestSet).length,
-            label: `concerts in ${pastDestination} ${pastSeason}`.trim(),
+            label: `concerts in ${pastDestination}${pastSeason}`.trimEnd(),
             pop: (
               <>
                 {displayNotes.map((t) => (
@@ -368,11 +373,11 @@ export function TripFund({
                   </p>
                 ))}
                 <RouteList
-                  cols={2}
+                  cols={vertical ? 1 : 2}
                   stops={displayPast.map((b, i) => ({
                     key: `${b.slug ?? b.venue}-${i}`,
-                    place: b.city || b.venue,
-                    time: b.date ? formatShortMonthDay(b.date) : "",
+                    place: vertical ? (b.date ? formatMonthDayLong(b.date) : "") : b.city || b.venue,
+                    time: vertical ? (b.city || b.venue) : b.date ? formatShortMonthDay(b.date) : "",
                     detail: b.venue !== b.city ? b.venue : undefined,
                     guest: b.guestSet,
                   }))}
@@ -484,9 +489,9 @@ export function TripFund({
   const posterSlugs = slugged.filter((b) => !b.private).map((b) => b.slug);
   const shareable = slugged.filter((b) => !b.private);
   const [shareHint, setShareHint] = useState("");
-  const [openStat, setOpenStat] = useState<number | null>(null);
+  const [openStat, setOpenStat] = useState<number | null>(vertical ? 0 : null);
   useLayoutEffect(() => {
-    if (openStat === null) return;
+    if (openStat === null || vertical) return;
     const stat = document.querySelector(".stat--open")!;
     const pop = stat.querySelector<HTMLElement>(".stat-pop")!;
     const range = document.createRange();
@@ -494,9 +499,9 @@ export function TripFund({
     const digits = range.getBoundingClientRect();
     const x = digits.left + digits.width / 2 - pop.getBoundingClientRect().left;
     pop.style.setProperty("--arrow-x", `${x}px`);
-  }, [openStat]);
+  }, [openStat, vertical]);
   useEffect(() => {
-    if (openStat === null) return;
+    if (openStat === null || vertical) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpenStat(null);
     const onPointer = (e: PointerEvent) =>
       !(e.target as Element).closest(".stat--open") && setOpenStat(null);
@@ -739,6 +744,17 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .stats .stat-pop { position: absolute; z-index: 6; top: calc(100% + 14px); left: 0; right: 0; margin: 0; padding: 18px; background: var(--navy); border-radius: 12px; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s ease, visibility 0s linear 0.2s; }
 .stat--open .stat-pop { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.2s ease; }
 .stat-pop::before { content: ""; position: absolute; top: -6px; left: calc(var(--arrow-x) - 6px); width: 12px; height: 12px; background: var(--navy); transform: rotate(45deg); }
+.stats .stat--flow .stat-pop { position: static; max-width: none; width: auto; margin-top: 14px; display: none; }
+.stats .stat--flow.stat--open .stat-pop { display: block; }
+.stat--flow .stat-pop::before { display: none; }
+.stat--flow.stat--open .route-stop { animation: route-reveal 180ms ease-out both; }
+.stat--flow .route-stop:nth-child(2) { animation-delay: 70ms; }
+.stat--flow .route-stop:nth-child(3) { animation-delay: 140ms; }
+.stat--flow .route-stop:nth-child(4) { animation-delay: 210ms; }
+.stat--flow .route-stop:nth-child(5) { animation-delay: 280ms; }
+.stat--flow .route-stop:nth-child(n+6) { animation-delay: 350ms; }
+@keyframes route-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .stat--flow.stat--open .route-stop { animation: none; } }
 .stat-note { margin: 0 0 4px; font-family: var(--font-fraunces), Georgia, serif; font-size: var(--fs-md); line-height: 1.5; color: #ece9e0; }
 .stat-note-label { display: block; margin-bottom: 4px; font-family: inherit; font-style: italic; color: var(--gold); }
 .route { list-style: none; margin: 0; padding: 0; min-width: 0; }
@@ -1029,6 +1045,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
                           "stat",
                           i > 0 ? "stat--right" : "",
                           openStat === i ? "stat--open" : "",
+                          vertical && i === 0 ? "stat--flow" : "",
                         ]
                           .filter(Boolean)
                           .join(" ")}

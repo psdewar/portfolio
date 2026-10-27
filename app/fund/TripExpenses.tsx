@@ -70,14 +70,6 @@ export function ExpenseTotal({ total }: { total: number }) {
   );
 }
 
-const COMPACT_MAX = 4;
-
-export function compactLines(lines: FundLine[], covered: string[] = []): FundLine[] {
-  const open = lines.filter((l) => !covered.includes(l.key));
-  const keep = new Set([...open].sort((a, b) => b.amount - a.amount).slice(0, COMPACT_MAX).map((l) => l.key));
-  return open.filter((l) => keep.has(l.key));
-}
-
 const LABELS: Record<string, string> = { GPT: "Gas, parking, tolls" };
 
 export function displayLabel(label: string): string {
@@ -106,7 +98,7 @@ export function CompactExpenses({
   cash?: boolean;
 }) {
   const coveredLines = lines.filter((l) => covered.includes(l.key));
-  const shown = compactLines(lines, covered);
+  const shown = lines.filter((l) => !covered.includes(l.key));
   return (
     <div className="xp">
       {shown.map((line) => (

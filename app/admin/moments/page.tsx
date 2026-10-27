@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PlayIcon } from "@phosphor-icons/react";
 import { uploadFile } from "../../moments/upload";
 
 interface MomentItem {
@@ -9,12 +10,13 @@ interface MomentItem {
   lastModified: string | null;
   url: string;
   thumb?: string;
+  large?: string;
   downloadUrl: string;
-  featured: boolean;
   city?: string;
   visit?: string;
   leg?: string;
   hasOriginal: boolean;
+  dims?: [number, number];
 }
 
 type State =
@@ -49,11 +51,8 @@ function takenAt(key: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
-function formatBytes(bytes: number) {
-  if (!bytes) return "";
-  const mb = bytes / (1024 * 1024);
-  if (mb >= 1) return `${mb.toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+function clampIndex(value: number, total: number) {
+  return Math.min(Math.max(Math.round(value), 1), total);
 }
 
 function groupOf(item: { city?: string; visit?: string } | undefined) {
@@ -62,25 +61,71 @@ function groupOf(item: { city?: string; visit?: string } | undefined) {
 
 function formatVisit(visit: string) {
   return new Date(`${visit}T12:00:00`).toLocaleDateString(undefined, {
-    month: "short",
+    month: "long",
     day: "numeric",
   });
 }
 
-function formatDuration(s: number) {
-  if (!Number.isFinite(s)) return "";
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return `${m}:${sec < 10 ? "0" : ""}${sec}`;
+const HOLD_MS = 350;
+const HOLD_SLOP = 8;
+
+interface Section {
+  id: string;
+  city: string;
+  visit?: string;
+  items: MomentItem[];
 }
 
-function videoQuality(w: number, h: number) {
-  const p = Math.min(w, h);
-  if (p >= 2160) return { label: "4K", tier: 4 };
-  if (p >= 1440) return { label: "1440p", tier: 3 };
-  if (p >= 1080) return { label: "1080p", tier: 2 };
-  if (p >= 720) return { label: "720p", tier: 1 };
-  return { label: "SD", tier: 0 };
+function capturedAt(item: MomentItem) {
+  return takenAt(item.key) ?? (item.lastModified ? Date.parse(item.lastModified) : 0);
+}
+
+function buildSections(items: MomentItem[]): Section[] {
+  const byId = new Map<string, Section>();
+  for (const it of items) {
+    const id = groupOf(it);
+    const section = byId.get(id) ?? { id, city: it.city ?? "", visit: it.visit, items: [] };
+    section.items.push(it);
+    byId.set(id, section);
+  }
+  const sections = [...byId.values()];
+  for (const s of sections) s.items.sort((a, b) => capturedAt(b) - capturedAt(a));
+  const newest = (s: Section) => capturedAt(s.items[0]);
+  return sections.sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : newest(b) - newest(a)));
+}
+
+async function saveCity(key: string, city: string): Promise<Partial<MomentItem>> {
+  const r = await fetch("/api/admin/moments/city", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, city }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Could not save city");
+  return { city: d.city || undefined, visit: d.visit || undefined, leg: d.leg || undefined };
+}
+
+async function deleteFile(key: string) {
+  const r = await fetch("/api/admin/moments", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error(d.error || "Delete failed");
+  }
+}
+
+async function renameFile(key: string, name: string): Promise<Partial<MomentItem>> {
+  const r = await fetch("/api/admin/moments", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, name }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Rename failed");
+  return { key: d.key, url: d.url, downloadUrl: d.downloadUrl };
 }
 
 export default function MomentsAdminPage() {
@@ -88,16 +133,28 @@ export default function MomentsAdminPage() {
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const [videoIndex, setVideoIndex] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const keysRef = useRef<string[]>([]);
+  const savedKeys = useRef<string[]>([]);
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
+  const saveSeq = useRef(0);
 
   const load = useCallback(async (initial: boolean) => {
     try {
+      await saveChain.current;
+      const seq = saveSeq.current;
       const r = await fetch("/api/admin/moments");
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || `Failed (${r.status})`);
+      await saveChain.current;
+      const serverKeys: string[] = Array.isArray(data.featuredKeys) ? data.featuredKeys : [];
+      if (saveSeq.current === seq) {
+        keysRef.current = serverKeys;
+        savedKeys.current = serverKeys;
+        setFeaturedKeys(serverKeys);
+      }
       setItems(Array.isArray(data.items) ? data.items : []);
-      setFeaturedKeys(Array.isArray(data.featuredKeys) ? data.featuredKeys : []);
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
       if (initial) setState({ kind: "ready" });
     } catch (err) {
@@ -119,15 +176,18 @@ export default function MomentsAdminPage() {
     if (patch.key && patch.key !== key) {
       setFeaturedKeys((prev) => prev.map((k) => (k === key ? patch.key! : k)));
       setOgKeyState((prev) => (prev === key ? patch.key! : prev));
+      setSelected((prev) => prev.map((k) => (k === key ? patch.key! : k)));
+      setPreviewKey((prev) => (prev === key ? patch.key! : prev));
     }
   }
   function removeItem(key: string) {
     setItems((prev) => prev.filter((it) => it.key !== key));
     setFeaturedKeys((prev) => prev.filter((k) => k !== key));
     setOgKeyState((prev) => (prev === key ? null : prev));
+    setSelected((prev) => prev.filter((k) => k !== key));
+    setPreviewKey((prev) => (prev === key ? null : prev));
   }
 
-  const featuredSet = useMemo(() => new Set(featuredKeys), [featuredKeys]);
   const itemByKey = useMemo(
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
@@ -135,39 +195,80 @@ export default function MomentsAdminPage() {
   const featuredItems = featuredKeys
     .map((k) => itemByKey.get(k))
     .filter((it): it is MomentItem => Boolean(it));
+  const sections = useMemo(() => buildSections(items), [items]);
+  const orderByKey = useMemo(
+    () => new Map(selected.map((k, i) => [k, i + 1] as const)),
+    [selected],
+  );
+  const slotByKey = useMemo(
+    () => new Map(featuredKeys.map((k, i) => [k, i + 1] as const)),
+    [featuredKeys],
+  );
+  const cityLabels = useMemo(
+    () =>
+      [...new Set(items.map((it) => it.city).filter((c): c is string => Boolean(c)))].sort(),
+    [items],
+  );
+  const previewItem = previewKey ? itemByKey.get(previewKey) : undefined;
 
-  async function toggleFeatured(key: string, next: boolean) {
-    if (next && featuredKeys.includes(key)) return;
-    const r = await fetch("/api/admin/moments/feature", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, featured: next }),
+  const [slot, setSlot] = useState<number | null>(null);
+  const maxSlot = featuredKeys.length + 1;
+  const shownSlot = clampIndex(slot ?? maxSlot, maxSlot);
+
+  const toggleSelected = useCallback((key: string) => {
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }, []);
+  const openPreview = useCallback((key: string) => setPreviewKey(key), []);
+  const closePreview = useCallback(() => setPreviewKey(null), []);
+
+  function saveKeys(nextKeys: string[]) {
+    keysRef.current = nextKeys;
+    setFeaturedKeys(nextKeys);
+    const seq = ++saveSeq.current;
+    saveChain.current = saveChain.current.then(async () => {
+      try {
+        const r = await fetch("/api/admin/moments/feature", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keys: nextKeys }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Could not save the slideshow.");
+        savedKeys.current = nextKeys;
+      } catch (e) {
+        if (seq === saveSeq.current) {
+          keysRef.current = savedKeys.current;
+          setFeaturedKeys(savedKeys.current);
+        }
+        window.alert(e instanceof Error ? e.message : "Could not save the slideshow.");
+      }
     });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      throw new Error(
-        d.error || (next ? "Could not add to slideshow." : "Could not remove from slideshow."),
-      );
-    }
-    setFeaturedKeys(d.keys);
-    if (d.thumb) updateItem(key, { thumb: d.thumb });
   }
 
-  async function persistOrder(nextKeys: string[]) {
-    const prevKeys = featuredKeys;
-    setFeaturedKeys(nextKeys);
-    try {
-      const r = await fetch("/api/admin/moments/feature", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keys: nextKeys }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || "Could not save the new order.");
-    } catch (e) {
-      setFeaturedKeys(prevKeys);
-      window.alert(e instanceof Error ? e.message : "Could not save the new order.");
+  function removeFromSlideshow(key: string) {
+    saveKeys(keysRef.current.filter((k) => k !== key));
+  }
+
+  function addSelected() {
+    if (!selected.length) return;
+    const next = keysRef.current.filter((k) => !selected.includes(k));
+    const at = clampIndex(shownSlot, next.length + 1) - 1;
+    next.splice(at, 0, ...selected);
+    saveKeys(next);
+    setSlot(at + 1 + selected.length);
+    setSelected([]);
+  }
+
+  async function setCityForSelected(city: string) {
+    for (const key of selected) {
+      try {
+        updateItem(key, await saveCity(key, city));
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "Could not save city");
+        return false;
+      }
     }
+    return true;
   }
 
   async function setOg(key: string) {
@@ -186,9 +287,6 @@ export default function MomentsAdminPage() {
       window.alert("Could not set the link preview.");
     }
   }
-
-  const photos = items.filter((it) => !VIDEO_EXT.test(it.key));
-  const videos = items.filter((it) => VIDEO_EXT.test(it.key));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -213,389 +311,465 @@ export default function MomentsAdminPage() {
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
-              onReorder={persistOrder}
-              onRemove={(key) =>
-                toggleFeatured(key, false).catch(() =>
-                  window.alert("Could not remove from slideshow."),
-                )
-              }
+              onReorder={saveKeys}
+              onRemove={removeFromSlideshow}
             />
           )}
-          <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-            <Lane
-              label="Photos"
-              items={photos}
-              index={photoIndex}
-              featuredSet={featuredSet}
-              ogKey={ogKey}
-              onSetOg={setOg}
-              onPrev={() => setPhotoIndex((i) => i - 1)}
-              onNext={() => setPhotoIndex((i) => i + 1)}
-              onRemove={removeItem}
-              onUpdate={updateItem}
-              onToggleFeatured={toggleFeatured}
+          <section className={`-mx-4 sm:mx-0 ${selected.length ? "pb-36" : ""}`}>
+            {sections.length === 0 && (
+              <p className="px-4 sm:px-0 text-sm text-neutral-400 dark:text-neutral-500">
+                Nothing uploaded yet.
+              </p>
+            )}
+            {sections.map((section) => (
+              <div key={section.id || "unlabeled"}>
+                <h2 className="flex items-baseline gap-2 px-4 sm:px-0 pb-1.5 pt-4">
+                  <span
+                    className={`text-sm font-semibold ${
+                      section.city
+                        ? "text-neutral-700 dark:text-neutral-200"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {section.city || "Unlabeled"}
+                  </span>
+                  {section.visit && (
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {formatVisit(section.visit)}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+                    {section.items.length}
+                  </span>
+                </h2>
+                <div
+                  className="grid gap-[2px]"
+                  style={{ gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))" }}
+                >
+                  {section.items.map((item) => (
+                    <PickerCell
+                      key={item.key}
+                      item={item}
+                      order={orderByKey.get(item.key) ?? 0}
+                      slotPos={slotByKey.get(item.key) ?? 0}
+                      onToggle={toggleSelected}
+                      onOpen={openPreview}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+          {selected.length > 0 && (
+            <SelectionBar
+              count={selected.length}
+              slot={shownSlot}
+              maxSlot={maxSlot}
+              cityLabels={cityLabels}
+              onSlotChange={setSlot}
+              onAdd={addSelected}
+              onSetCity={setCityForSelected}
+              onClear={() => setSelected([])}
             />
-            <Lane
-              label="Videos"
-              items={videos}
-              index={videoIndex}
-              featuredSet={featuredSet}
-              ogKey={ogKey}
+          )}
+          {previewItem && (
+            <PreviewOverlay
+              item={previewItem}
+              order={orderByKey.get(previewItem.key) ?? 0}
+              isOg={ogKey === previewItem.key}
+              onToggle={toggleSelected}
               onSetOg={setOg}
-              onPrev={() => setVideoIndex((i) => i - 1)}
-              onNext={() => setVideoIndex((i) => i + 1)}
-              onRemove={removeItem}
               onUpdate={updateItem}
-              onToggleFeatured={toggleFeatured}
+              onRemove={removeItem}
+              onClose={closePreview}
             />
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function Lane({
-  label,
-  items,
-  index,
-  featuredSet,
-  ogKey,
-  onSetOg,
-  onPrev,
-  onNext,
-  onRemove,
-  onUpdate,
-  onToggleFeatured,
+const PickerCell = memo(function PickerCell({
+  item,
+  order,
+  slotPos,
+  onToggle,
+  onOpen,
 }: {
-  label: string;
-  items: MomentItem[];
-  index: number;
-  featuredSet: Set<string>;
-  ogKey: string | null;
-  onSetOg: (key: string) => void;
-  onPrev: () => void;
-  onNext: () => void;
-  onRemove: (key: string) => void;
-  onUpdate: (key: string, patch: Partial<MomentItem>) => void;
-  onToggleFeatured: (key: string, next: boolean) => Promise<void>;
+  item: MomentItem;
+  order: number;
+  slotPos: number;
+  onToggle: (key: string) => void;
+  onOpen: (key: string) => void;
 }) {
-  const total = items.length;
-  const effectiveIndex = total ? ((index % total) + total) % total : 0;
-  const item = items[effectiveIndex];
+  const hold = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const held = useRef(false);
+  const isVideo = VIDEO_EXT.test(item.key);
+  const cellSrc = item.thumb ?? (isVideo ? undefined : item.url);
+
+  function cancel() {
+    if (hold.current) {
+      clearTimeout(hold.current.timer);
+      hold.current = null;
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (hold.current) clearTimeout(hold.current.timer);
+    },
+    [],
+  );
 
   return (
-    <section className="flex-1 min-w-0 space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          {label}
-        </h2>
-        <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
-          {item ? `${effectiveIndex + 1} / ${total}` : "0"}
+    <button
+      type="button"
+      aria-pressed={order > 0}
+      aria-label={`Select ${filename(item.key)}`}
+      onPointerDown={(e) => {
+        held.current = false;
+        cancel();
+        hold.current = {
+          x: e.clientX,
+          y: e.clientY,
+          timer: window.setTimeout(() => {
+            hold.current = null;
+            held.current = true;
+            onOpen(item.key);
+          }, HOLD_MS),
+        };
+      }}
+      onPointerMove={(e) => {
+        if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > HOLD_SLOP) {
+          cancel();
+        }
+      }}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={() => {
+        if (held.current) {
+          held.current = false;
+          return;
+        }
+        onToggle(item.key);
+      }}
+      className="relative block aspect-square w-full select-none overflow-hidden bg-neutral-100 dark:bg-neutral-900 [-webkit-touch-callout:none] [-webkit-user-select:none]"
+    >
+      {isVideo && !cellSrc && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-800 dark:bg-neutral-800">
+          <PlayIcon size={22} weight="fill" className="text-white/70" />
         </span>
-      </div>
-
-      {item ? (
-        <ReviewCard
-          key={item.key}
-          item={item}
-          featured={featuredSet.has(item.key)}
-          isOg={ogKey === item.key}
-          onSetOg={onSetOg}
-          onPrev={onPrev}
-          onNext={onNext}
-          onRemove={onRemove}
-          onUpdate={onUpdate}
-          onToggleFeatured={onToggleFeatured}
-        />
-      ) : (
-        <div className="aspect-square flex items-center justify-center rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 text-sm text-neutral-400 dark:text-neutral-500">
-          No {label.toLowerCase()} left.
-        </div>
       )}
-    </section>
+      {cellSrc && (
+        <img
+          src={cellSrc}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
+        />
+      )}
+      {order > 0 && (
+        <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#d4a553]" />
+      )}
+      {order > 0 && (
+        <span className="pointer-events-none absolute top-1 left-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d4a553] px-1 text-[11px] font-bold tabular-nums text-[#0a0a0a]">
+          {order}
+        </span>
+      )}
+      {slotPos > 0 && order === 0 && (
+        <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-white/70" />
+      )}
+      {slotPos > 0 && (
+        <span className="pointer-events-none absolute top-1 right-1 flex h-5 min-w-5 items-center justify-center rounded-md bg-white px-1 text-[11px] font-bold tabular-nums text-[#0a0a0a] shadow-sm">
+          #{slotPos}
+        </span>
+      )}
+      {isVideo && item.thumb && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <PlayIcon size={22} weight="fill" className="text-white/70 drop-shadow" />
+        </span>
+      )}
+    </button>
+  );
+});
+
+function SelectionBar({
+  count,
+  slot,
+  maxSlot,
+  cityLabels,
+  onSlotChange,
+  onAdd,
+  onSetCity,
+  onClear,
+}: {
+  count: number;
+  slot: number;
+  maxSlot: number;
+  cityLabels: string[];
+  onSlotChange: (slot: number) => void;
+  onAdd: () => void;
+  onSetCity: (city: string) => Promise<boolean>;
+  onClear: () => void;
+}) {
+  const [slotDraft, setSlotDraft] = useState<string | null>(null);
+  const [cityDraft, setCityDraft] = useState("");
+  const [working, setWorking] = useState(false);
+  const city = cityDraft.trim();
+
+  async function applyCity() {
+    if (!city) return;
+    setWorking(true);
+    const ok = await onSetCity(city);
+    setWorking(false);
+    if (ok) setCityDraft("");
+  }
+
+  return (
+    <div
+      style={{ bottom: "max(0px, var(--player-h, 0px))" }}
+      className="fixed inset-x-0 z-40 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95"
+    >
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center rounded-full bg-gradient-to-r from-[#d4a553] to-[#e0b860] px-4 py-2 text-sm font-medium text-[#0a0a0a] shadow-sm transition-all active:scale-95"
+        >
+          Add {count} to slideshow
+        </button>
+        <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+          at
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={maxSlot}
+            value={slotDraft ?? slot}
+            aria-label="Slideshow position"
+            onChange={(e) => {
+              setSlotDraft(e.target.value);
+              const n = parseInt(e.target.value, 10);
+              if (Number.isFinite(n)) onSlotChange(clampIndex(n, maxSlot));
+            }}
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={() => setSlotDraft(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-14 rounded border border-neutral-300 bg-transparent px-1.5 py-1.5 text-right text-base tabular-nums text-neutral-700 dark:border-neutral-700 dark:text-neutral-200 sm:text-sm"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onClear}
+          className="ml-auto inline-flex items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all hover:border-[#d4a553] hover:text-[#d4a553] active:scale-95 dark:border-neutral-700 dark:text-neutral-300"
+        >
+          Clear
+        </button>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyCity();
+          }}
+          className="flex w-full items-center gap-2"
+        >
+          <input
+            type="text"
+            list="moment-cities"
+            value={cityDraft}
+            onChange={(e) => setCityDraft(e.target.value)}
+            placeholder="City, ST"
+            aria-label="City for selected"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 py-1.5 text-base text-neutral-700 dark:border-neutral-700 dark:text-neutral-200 sm:text-sm"
+          />
+          <datalist id="moment-cities">
+            {cityLabels.map((label) => (
+              <option key={label} value={label} />
+            ))}
+          </datalist>
+          <button
+            type="submit"
+            disabled={!city || working}
+            className="inline-flex shrink-0 items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all hover:border-[#d4a553] hover:text-[#d4a553] active:scale-95 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300"
+          >
+            {working ? "Saving..." : "Set city"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
-function ReviewCard({
+function PreviewOverlay({
   item,
-  featured,
+  order,
   isOg,
+  onToggle,
   onSetOg,
-  onPrev,
-  onNext,
-  onRemove,
   onUpdate,
-  onToggleFeatured,
+  onRemove,
+  onClose,
 }: {
   item: MomentItem;
-  featured: boolean;
+  order: number;
   isOg: boolean;
+  onToggle: (key: string) => void;
   onSetOg: (key: string) => void;
-  onPrev: () => void;
-  onNext: () => void;
-  onRemove: (key: string) => void;
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
-  onToggleFeatured: (key: string, next: boolean) => Promise<void>;
+  onRemove: (key: string) => void;
+  onClose: () => void;
 }) {
-  const isVideo = VIDEO_EXT.test(item.key);
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
-  const [broken, setBroken] = useState(false);
-
-  const quality = isVideo && dims ? videoQuality(dims.w, dims.h) : null;
+  const [videoInfo, setVideoInfo] = useState<{ w: number; h: number; duration: number } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isVideo = VIDEO_EXT.test(item.key);
   const taken = takenAt(item.key);
+  const dims = item.dims ?? (videoInfo && videoInfo.w ? [videoInfo.w, videoInfo.h] : null);
+  const duration =
+    isVideo && videoInfo && Number.isFinite(videoInfo.duration)
+      ? `${Math.floor(videoInfo.duration / 60)}:${String(Math.floor(videoInfo.duration % 60)).padStart(2, "0")}`
+      : "";
+  const meta = [
+    taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : `Uploaded ${formatDate(item.lastModified)}`,
+    dims ? `${dims[0]}×${dims[1]}` : "",
+    duration,
+    item.city ? [item.city, item.visit ? formatVisit(item.visit) : ""].filter(Boolean).join(" ") : "No city",
+  ].filter(Boolean);
 
-  const meta: string[] = [];
-  if (dims) meta.push(`${dims.w}×${dims.h}`);
-  if (isVideo && duration) meta.push(formatDuration(duration));
-  if (!isVideo && dims) meta.push(`${((dims.w * dims.h) / 1e6).toFixed(1)}MP`);
-  if (item.size) meta.push(formatBytes(item.size));
-  if (isVideo && duration && item.size) {
-    meta.push(`${((item.size * 8) / duration / 1e6).toFixed(1)} Mbps`);
-  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-  async function remove() {
-    if (!window.confirm("Delete this file forever?")) return;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/admin/moments", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: item.key }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        window.alert(d.error || "Delete failed");
-        setBusy(false);
-        return;
-      }
-      onRemove(item.key);
-    } catch {
-      window.alert("Delete failed");
-      setBusy(false);
-    }
-  }
-
-  async function editCity() {
-    const city = window.prompt('City shown on the slider (e.g. "Fulton, MD"):', item.city || "");
-    if (city === null) return;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/admin/moments/city", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: item.key, city }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        window.alert(d.error || "Could not save city");
-        return;
-      }
-      onUpdate(item.key, { city: d.city || undefined });
-    } catch {
-      window.alert("Could not save city");
-    } finally {
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.play().catch(() => {
+      el.muted = true;
+      el.play().catch(() => {});
+    });
+    return () => el.pause();
+  }, []);
 
   async function rename() {
     const name = window.prompt("Rename to:", bareName(item.key));
     if (name === null || !name.trim()) return;
     setBusy(true);
     try {
-      const r = await fetch("/api/admin/moments", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: item.key, name }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        window.alert(d.error || "Rename failed");
-        return;
-      }
-      onUpdate(item.key, { key: d.key, url: d.url, downloadUrl: d.downloadUrl });
-    } catch {
-      window.alert("Rename failed");
+      onUpdate(item.key, await renameFile(item.key, name));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Rename failed");
     } finally {
       setBusy(false);
     }
   }
 
-  async function toggleFeatured() {
+  async function remove() {
+    if (!window.confirm("Delete this file forever?")) return;
     setBusy(true);
     try {
-      await onToggleFeatured(item.key, !featured);
+      await deleteFile(item.key);
+      onRemove(item.key);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Failed");
-    } finally {
+      window.alert(e instanceof Error ? e.message : "Delete failed");
       setBusy(false);
     }
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onPrev}
-          aria-label="Previous"
-          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553] transition-all active:scale-95"
-        >
-          <ChevronLeftIcon />
-        </button>
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            {filename(item.key)}
-          </p>
-          <p className="truncate text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">
-            {[
-              taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : "",
-              `Uploaded ${formatDate(item.lastModified)}`,
-              ...meta,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onNext}
-          aria-label="Next"
-          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553] transition-all active:scale-95"
-        >
-          <ChevronRightIcon />
-        </button>
-      </div>
+  const pill =
+    "inline-flex items-center rounded-full border border-white/30 px-3 py-2 text-sm font-medium text-white/90 transition-all active:scale-95 disabled:opacity-50";
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleFeatured}
-          disabled={busy}
-          aria-pressed={featured}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
-            featured
-              ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-sm hover:shadow"
-              : "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
-          }`}
-        >
-          <StarIcon filled={featured} />
-          {featured ? "In slideshow" : "Add to slideshow"}
-        </button>
-        {!isVideo && (
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex flex-col bg-black/90"
+    >
+      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+        {isVideo ? (
+          <video
+            ref={videoRef}
+            src={item.url}
+            poster={item.thumb}
+            autoPlay
+            controls
+            playsInline
+            preload="auto"
+            onLoadedMetadata={(e) =>
+              setVideoInfo({
+                w: e.currentTarget.videoWidth,
+                h: e.currentTarget.videoHeight,
+                duration: e.currentTarget.duration,
+              })
+            }
+            onClick={(e) => e.stopPropagation()}
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <img
+            src={item.large ?? item.thumb ?? item.url}
+            alt=""
+            decoding="async"
+            className="max-h-full max-w-full object-contain"
+          />
+        )}
+      </div>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="space-y-3 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <p className="text-xs tabular-nums text-white/70">{meta.join(" · ")}</p>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => onSetOg(item.key)}
-            disabled={busy}
-            aria-pressed={isOg}
-            title="Use this photo as the link preview for /moments and /fund"
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
-              isOg
-                ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-sm hover:shadow"
-                : "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
+            onClick={() => onToggle(item.key)}
+            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 ${
+              order > 0
+                ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a]"
+                : "border border-white/30 text-white"
             }`}
           >
-            {isOg ? "Link preview" : "Set as link preview"}
+            {order > 0 ? `Deselect (${order})` : "Select"}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={editCity}
-          disabled={busy}
-          title="City flashed on the public slider"
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
-            item.city
-              ? "border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-[#d4a553] hover:text-[#d4a553]"
-              : "border border-dashed border-amber-500/70 text-amber-600 dark:text-amber-400 hover:border-amber-500"
-          }`}
-        >
-          {item.city || "Set city"}
-        </button>
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconButton href={item.downloadUrl} label="Download">
-            <DownloadIcon />
-          </IconButton>
-          {item.hasOriginal && (
-            <IconButton onClick={rename} disabled={busy} label="Rename">
-              <PencilIcon />
-            </IconButton>
+          {!isVideo && (
+            <button type="button" onClick={() => onSetOg(item.key)} aria-pressed={isOg} className={pill}>
+              {isOg ? "Link preview" : "Set as link preview"}
+            </button>
           )}
-          <IconButton
+          <a href={item.downloadUrl} className={pill}>
+            Download
+          </a>
+          {item.hasOriginal && (
+            <button type="button" onClick={rename} disabled={busy} className={pill}>
+              Rename
+            </button>
+          )}
+          <button
+            type="button"
             onClick={remove}
             disabled={busy}
-            label="Delete forever"
-            className="text-red-600 dark:text-red-400 hover:text-red-700"
+            className={`${pill} !border-red-400/60 !text-red-300`}
           >
-            <TrashIcon />
-          </IconButton>
+            Delete
+          </button>
+          <button type="button" onClick={onClose} className={`${pill} ml-auto`}>
+            Close
+          </button>
         </div>
-      </div>
-
-
-      <div className="relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-        <div className="aspect-square flex items-center justify-center">
-          {isVideo ? (
-            <video
-              key={item.key}
-              src={item.url}
-              controls
-              preload="metadata"
-              playsInline
-              onLoadedMetadata={(e) => {
-                setDims({
-                  w: e.currentTarget.videoWidth,
-                  h: e.currentTarget.videoHeight,
-                });
-                setDuration(e.currentTarget.duration);
-              }}
-              className="max-h-full max-w-full"
-            />
-          ) : broken ? (
-            <p className="text-sm text-neutral-400 dark:text-neutral-500">
-              Preview unavailable for this file.
-            </p>
-          ) : (
-            <img
-              key={item.key}
-              src={fallbackSrc ?? (/\.hei[cf]$/i.test(item.key) && item.thumb ? item.thumb : item.url)}
-              alt={bareName(item.key)}
-              decoding="async"
-              onLoad={(e) =>
-                setDims({
-                  w: e.currentTarget.naturalWidth,
-                  h: e.currentTarget.naturalHeight,
-                })
-              }
-              onError={() => {
-                if (item.thumb && !fallbackSrc) setFallbackSrc(item.thumb);
-                else setBroken(true);
-              }}
-              className="max-h-full max-w-full object-contain"
-            />
-          )}
-        </div>
-
-        {featured && (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider bg-[#d4a553] text-[#0a0a0a]">
-            Slideshow
-          </span>
-        )}
-        {quality && (
-          <span
-            className={`absolute top-2 right-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${
-              quality.tier === 4
-                ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-[0_0_14px_rgba(212,165,83,0.55)]"
-                : "bg-black/55 text-white"
-            }`}
-          >
-            {quality.tier === 4 && <SparkIcon />}
-            {quality.label}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -827,6 +1001,9 @@ function SlideshowReorder({
           const item = byKey.get(key);
           if (!item) return null;
           const city = item.city;
+          const detail = [item.visit ? formatVisit(item.visit) : "", item.leg]
+            .filter(Boolean)
+            .join(" ");
           const group = groupKeyOf(key);
           const groupDragging = drag?.kind === "group" && drag.group === group;
           const dragging = groupDragging || (drag?.kind === "tile" && drag.key === key);
@@ -841,26 +1018,15 @@ function SlideshowReorder({
                 >
                   <span
                     style={{ writingMode: "vertical-rl" }}
-                    className={`max-h-28 rotate-180 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                    className={`block max-h-32 rotate-180 overflow-hidden text-ellipsis text-[10px] font-semibold uppercase tracking-[0.14em] ${
                       city ? "text-neutral-400 dark:text-neutral-500" : "text-amber-500"
                     }`}
                   >
                     {city || "No city"}
-                    {item.visit && (
-                      <>
-                        {" "}
-                        <span className="font-normal normal-case tracking-normal opacity-70">
-                          {formatVisit(item.visit)}
-                        </span>
-                      </>
-                    )}
-                    {item.leg && (
-                      <>
-                        {" "}
-                        <span className="font-normal normal-case tracking-normal opacity-70">
-                          {item.leg}
-                        </span>
-                      </>
+                    {detail && (
+                      <span className="block font-normal normal-case tracking-normal opacity-70">
+                        {detail}
+                      </span>
                     )}
                   </span>
                 </div>
@@ -930,7 +1096,9 @@ function SlideThumb({ item, index, ready }: { item: MomentItem; index: number; r
     : { opacity: 0 };
   if (VIDEO_EXT.test(item.key) && !item.thumb) {
     return (
-      <video src={item.url} muted playsInline preload="metadata" className={cls} style={style} />
+      <div className="flex h-full w-full items-center justify-center bg-neutral-800" style={style}>
+        <PlayIcon size={22} weight="fill" className="text-white/70" />
+      </div>
     );
   }
   return (
@@ -988,122 +1156,6 @@ function CloseIcon() {
       aria-hidden="true"
     >
       <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  );
-}
-
-function IconButton({
-  href,
-  onClick,
-  disabled,
-  label,
-  className,
-  children,
-}: {
-  href?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const cls = `inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition-all active:scale-90 disabled:opacity-40 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-white/10 dark:hover:text-white${
-    className ? ` ${className}` : ""
-  }`;
-  if (href) {
-    return (
-      <a href={href} aria-label={label} title={label} className={cls}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={cls}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StarIcon({ filled }: { filled?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-3.5 w-3.5"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 2.6l2.7 5.9 6.4.6-4.8 4.3 1.4 6.3L12 16.9 6.3 19.7l1.4-6.3L2.9 9.1l6.4-.6z" />
-    </svg>
-  );
-}
-
-function SparkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true">
-      <path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m1 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }

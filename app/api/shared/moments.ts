@@ -291,13 +291,12 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
   try {
     const shows = await getShows();
     const days = new Map<string, string>();
-    for (const s of shows) {
-      const t = new Date(s.date).getTime();
-      if (!Number.isFinite(t) || !s.city) continue;
-      const label = s.region ? `${s.city}, ${s.region}` : s.city;
-      for (const off of [0, 1]) {
+    for (const off of [0, 1]) {
+      for (const s of shows) {
+        const t = new Date(s.date).getTime();
+        if (!Number.isFinite(t) || !s.city) continue;
         const day = new Date(t + off * 86400000).toISOString().slice(0, 10);
-        if (!days.has(day)) days.set(day, label);
+        if (!days.has(day)) days.set(day, showLabel(s));
       }
     }
     for (const k of need) {
@@ -386,8 +385,27 @@ export async function resolveStops(
   return out;
 }
 
-// Rotates the admin order so the loop starts at the given leg's first stop.
-// Falls back to the newest stop when the leg has no moments yet.
+async function visitOfShow(label: string, date: string): Promise<string | null> {
+  const shows = await getShows();
+  const days = shows
+    .filter((s) => s.city && isShowOnTrip(s) && showLabel(s) === label)
+    .map((s) => new Date(s.date).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const t = new Date(date).getTime();
+  let start: number | null = null;
+  let prev = 0;
+  for (const d of days) {
+    if (start === null || d - prev > 7 * 86400000) start = d;
+    prev = d;
+    if (d === t) return new Date(start).toISOString().slice(0, 10);
+  }
+  return null;
+}
+
+// Puts the given leg's moments first, in show order (oldest visit first), then
+// the older tours, then wrapping to newer ones. Falls back to rotating to the
+// newest stop when the leg has no moments yet.
 export function rotateToLeg(
   keys: string[],
   stops: Record<string, { visit: string; leg?: string }>,
@@ -395,6 +413,14 @@ export function rotateToLeg(
   leg: string,
 ): string[] {
   let i = keys.findIndex((k) => stops[k]?.leg === leg);
+  if (i >= 0) {
+    const inLeg = (k: string) => stops[k]?.leg === leg;
+    const legKeys = keys
+      .filter(inLeg)
+      .sort((a, b) => stops[a].visit.localeCompare(stops[b].visit));
+    const rest = [...keys.slice(i), ...keys.slice(0, i)].filter((k) => !inLeg(k));
+    return [...legKeys, ...rest];
+  }
   if (i < 0) {
     let bestVisit = "";
     for (let j = 0; j < keys.length; j++) {
@@ -693,9 +719,34 @@ export async function generateThumb(originalKey: string): Promise<ThumbEntry | n
       }
       const largest = sizes[sizes.length - 1];
       return { key: largest.key, w: largest.w, h: largest.h, sizes };
-    } catch {}
+    } catch (err) {
+      console.error(`thumb failed for ${originalKey} from ${source}:`, err);
+    }
   }
+  failedThumbs.set(originalKey, Date.now());
   return null;
+}
+
+const FAILED_RETRY_MS = 10 * 60 * 1000;
+const failedThumbs = new Map<string, number>();
+const inFlightThumbs = new Set<string>();
+let processing: Promise<void> = Promise.resolve();
+
+export function queueProcessing(keys: string[], limit = Infinity): Promise<void> {
+  const fresh = [...new Set(keys)]
+    .filter((k) => !inFlightThumbs.has(k) && Date.now() - (failedThumbs.get(k) ?? 0) >= FAILED_RETRY_MS)
+    .slice(0, limit);
+  if (!fresh.length) return processing;
+  for (const k of fresh) inFlightThumbs.add(k);
+  processing = processing
+    .then(() => ensureProcessed(fresh))
+    .then(() => undefined)
+    .catch((err) => console.error("thumb processing failed:", err))
+    .then(() => {
+      for (const k of fresh) inFlightThumbs.delete(k);
+      purgeFeatured();
+    });
+  return processing;
 }
 
 export async function ensureProcessed(keys: string[]): Promise<{ missing: string[] }> {
@@ -831,8 +882,25 @@ type CoreItem = {
   h?: number;
 };
 
+const getMomentsVersion = unstable_cache(
+  async (): Promise<string> => {
+    if (!s3 || !s3Bucket) return "";
+    const etags = await Promise.all(
+      [FEATURED_KEY, CITIES_KEY, THUMBS_KEY].map((key) =>
+        s3!
+          .send(new HeadObjectCommand({ Bucket: s3Bucket!, Key: key }))
+          .then((res) => res.ETag ?? "")
+          .catch(() => ""),
+      ),
+    );
+    return etags.join("|");
+  },
+  ["moments-version"],
+  { tags: ["moments-featured"], revalidate: 60 },
+);
+
 const getCore = unstable_cache(
-  async (leg: string | undefined): Promise<CoreItem[]> => {
+  async (leg: string | undefined, _version: string): Promise<CoreItem[]> => {
     const featured = await getFeatured();
     const [dims, thumbs, previewList, cities] = await Promise.all([
       getDims(),
@@ -875,13 +943,45 @@ export type GalleryItem = {
   h?: number;
 };
 
+export async function getFeaturedGalleryItemsForShow(show: {
+  city: string;
+  region?: string | null;
+  date: string;
+}): Promise<GalleryItem[]> {
+  const items = await getFeaturedGalleryItems();
+  const label = showLabel({ city: show.city, region: show.region ?? "" });
+  const visit = await visitOfShow(label, show.date);
+  if (!visit) return [];
+  const own = items.filter((i) => i.city === label && i.visit === visit);
+  const leg =
+    own.find((i) => i.leg)?.leg ??
+    (await getShows()).find((s) => s.leg && s.date === show.date && showLabel(s) === label)?.leg ??
+    undefined;
+  if (!leg) return own;
+  const groups = new Map<string, GalleryItem[]>();
+  for (const i of items) {
+    if (i.leg !== leg || !i.city || !i.visit) continue;
+    const id = `${i.visit}|${i.city}`;
+    groups.set(id, [...(groups.get(id) ?? []), i]);
+  }
+  const ordered = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  let start = ordered.findIndex(([id]) => id === `${visit}|${label}`);
+  if (start < 0) {
+    start = ordered.findIndex(([id]) => id.split("|")[0] > visit);
+    if (start < 0) start = 0;
+  }
+  return [...ordered.slice(start), ...ordered.slice(0, start)].flatMap(([, g]) => g);
+}
+
 export async function getFeaturedGalleryItems(leg?: string): Promise<GalleryItem[]> {
   if (!s3 || !s3Bucket) return [];
 
-  const core = await getCore(leg);
+  const core = await getCore(leg, await getMomentsVersion());
+
+  const ready = core.filter((c) => c.thumbKey || c.previewKey || OG_VIDEO_EXT.test(c.key));
 
   return Promise.all(
-    core.map(async (c) => {
+    ready.map(async (c) => {
       const thumb = c.thumbKey
         ? MEDIA_BASE
           ? `${MEDIA_BASE}/${c.thumbKey}`

@@ -23,7 +23,7 @@ function shiftDate(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function isRunnable(show: Show): boolean {
+export function isRunnable(show: Show): boolean {
   return show.status !== "cancelled" && !isShowDraft(show);
 }
 
@@ -65,6 +65,12 @@ export function distanceKm(a: { latitude: number; longitude: number }, b: { lati
   return 12742 * Math.asin(Math.sqrt(h));
 }
 
+export function recentRunnableShows(shows: Show[]): Show[] {
+  const floor = shiftDate(todayIn("Pacific/Honolulu"), -REOPEN_DAYS);
+  const ceiling = todayIn("America/New_York");
+  return shows.filter(isRunnable).filter((s) => s.date >= floor && s.date <= ceiling);
+}
+
 export function pickCheckinSlug(shows: Show[], cookieValue?: string): string | null {
   const runnable = shows.filter(isRunnable);
   const own = parseCheckinCookie(cookieValue);
@@ -78,9 +84,8 @@ export function pickCheckinSlug(shows: Show[], cookieValue?: string): string | n
   if (ownShow && isCheckinOpen(ownShow)) return ownShow.slug;
 
   const earliestToday = todayIn("Pacific/Honolulu");
-  const floor = shiftDate(earliestToday, -REOPEN_DAYS);
-  const recent = runnable
-    .filter((s) => s.date < earliestToday && s.date >= floor)
+  const recent = recentRunnableShows(shows)
+    .filter((s) => s.date < earliestToday)
     .sort((a, b) =>
       a.date === b.date
         ? doorTimeMinutes(b.doorTime) - doorTimeMinutes(a.doorTime)

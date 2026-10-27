@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Images, ArrowRight } from "@phosphor-icons/react";
 import FormInput from "../components/FormInput";
 import MomentsGallery from "./MomentsGallery";
@@ -15,11 +15,22 @@ const mono = { fontFamily: '"Space Mono", monospace' } as const;
 const epunda = { fontFamily: "var(--font-epunda)" } as const;
 const gold = "linear-gradient(to right, #d4a553, #e0b860)";
 
+const NIGHT_SHIFT_MS = 4 * 60 * 60 * 1000;
+const CAPTURE_MS = /^drops\/[0-9a-f]{64}-(\d+)(?:\.[a-z0-9]+)?$/;
+
+function localDate(ms: number): string {
+  const d = new Date(ms - NIGHT_SHIFT_MS);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function MomentsClient({
-  fundSlug,
+  checkinHref,
+  pastShows,
   items,
 }: {
-  fundSlug?: string;
+  checkinHref: string;
+  pastShows: { slug: string; date: string }[];
   items: GalleryItem[];
 }) {
   const [passcode, setPasscode] = useState("");
@@ -32,6 +43,21 @@ export default function MomentsClient({
   const passcodeRef = useRef<HTMLInputElement>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
   const prevJobCount = useRef(0);
+
+  const ctaHref = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const job of jobs) {
+      if (job.status !== "done" || !job.key) continue;
+      const ms = Number(CAPTURE_MS.exec(job.key)?.[1]);
+      if (!Number.isFinite(ms) || ms <= 0) continue;
+      const date = localDate(ms);
+      counts.set(date, (counts.get(date) ?? 0) + 1);
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const matches = pastShows.filter((s) => s.date === top);
+    const show = matches.find((s) => `/checkin/${s.slug}` === checkinHref) ?? matches[0];
+    return show ? `/checkin/${show.slug}` : checkinHref;
+  }, [jobs, pastShows, checkinHref]);
 
   useEffect(() => {
     if (!unlocked) passcodeRef.current?.focus();
@@ -77,7 +103,6 @@ export default function MomentsClient({
     prevJobCount.current = jobs.length;
   }, [jobs.length]);
 
-  const fundName = fundSlug ? fundSlug.charAt(0).toUpperCase() + fundSlug.slice(1) : "";
 
   async function tryUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -148,13 +173,11 @@ export default function MomentsClient({
                       !uploading && doneCount > 0 && failedJobs.length === 0 ? (
                         <div className="px-4 py-4 sm:px-6">
                           <a
-                            href="/fund"
+                            href={ctaHref}
                             className="flex w-full items-center justify-center gap-2 rounded-btn py-4 text-lg font-medium text-[#0a0a0a] transition-all hover:scale-[1.01]"
                             style={{ background: gold }}
                           >
-                            {fundName
-                              ? `Help me cover my ${fundName} tour`
-                              : "Help me cover my tour"}
+                            {ctaHref === "/listen" ? "Listen to my music" : "See photos from our night"}
                             <ArrowRight size={20} weight="bold" />
                           </a>
                         </div>

@@ -51,6 +51,13 @@ export function formatDayMonthDay(iso: string): string {
   });
 }
 
+export function formatMonthDayLong(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export function formatLongDate(iso: string): string {
   return parseLocalDate(iso).toLocaleDateString("en-US", {
     month: "long",
@@ -209,4 +216,18 @@ export function seasonLabel(dates: string[], today = new Date()): string {
   if (first.year === now.year) return `this ${first.name}`;
   if (first.year === now.year - 1) return `last ${first.name}`;
   return `in ${first.name} ${first.year}`;
+}
+
+export function formatDateRange(dates: string[], today = new Date()): string {
+  const sorted = [...dates].sort();
+  if (sorted.length === 0) return "";
+  const [first, last] = [sorted[0], sorted[sorted.length - 1]].map(parseLocalDate);
+  const month = (d: Date) => d.toLocaleDateString("en-US", { month: "long" });
+  const year = last.getFullYear() === today.getFullYear() ? "" : `, ${last.getFullYear()}`;
+  if (first.getTime() === last.getTime()) return `${month(first)} ${first.getDate()}${year}`;
+  const end =
+    month(first) === month(last) && first.getFullYear() === last.getFullYear()
+      ? `${last.getDate()}`
+      : `${month(last)} ${last.getDate()}`;
+  return `${month(first)} ${first.getDate()} to ${end}${year}`;
 }
