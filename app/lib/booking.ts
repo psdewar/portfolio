@@ -53,11 +53,13 @@ const slugify = (v: string) =>
 const addressOf = (p: Place) =>
   [p.address || p.venue, p.city, p.region, p.country || "US"].filter(Boolean).join(", ");
 
+const pairKey = (a: Place, b: Place) => [addressOf(a), addressOf(b)].sort().join("|");
+
 const driveCache = new Map<string, number>();
 
 export async function driveMinutes(a: Place, b: Place): Promise<number | null> {
   if (sameTown(a, b) && !a.address && !b.address) return SAME_TOWN_DRIVE_MINUTES;
-  const key = [addressOf(a), addressOf(b)].sort().join("|");
+  const key = pairKey(a, b);
   const cached = driveCache.get(key);
   if (cached !== undefined) return cached;
 
@@ -184,6 +186,12 @@ export async function checkSpacing(
     if (!zones.has(key)) zones.set(key, zoneFor(p));
     return zones.get(key)!;
   };
+  const drives = new Map<string, Promise<number | null>>();
+  const driveBetween = (a: Place, b: Place) => {
+    const key = pairKey(a, b);
+    if (!drives.has(key)) drives.set(key, drive(a, b));
+    return drives.get(key)!;
+  };
   const startMinute = async (p: Place & Pick<Show, "date" | "doorTime">) => {
     const { h, m } = parseDoorTime(p.doorTime);
     return Date.parse(wallTimeToUtcIso(p.date, h, m, await zoneOf(p))) / 60000;
@@ -198,7 +206,7 @@ export async function checkSpacing(
     for (const o of others) {
       if (Math.abs(dayNumber(o.date) - dayNumber(c.date)) > 1) continue;
       const gap = Math.abs((await startMinute(o)) - cStart) - SHOW_MINUTES;
-      const driving = await drive(c, o);
+      const driving = await driveBetween(c, o);
       if (driving === null) {
         if (o.date === c.date && !sameTown(c, o)) return o;
         if (gap < MIN_GAP_MINUTES) return o;
