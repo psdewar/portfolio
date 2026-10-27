@@ -31,7 +31,7 @@ const ContributeCardModal = dynamic(() => import("../components/ContributeCardMo
 
 type Open = 0 | 1 | 3 | 4 | 5 | 6 | 7;
 
-const STEP_OF = { 2: "save", 3: "follow", 4: "upload", 5: "tee", 6: "support", 7: "monthly" } as const;
+const STEP_OF = { 2: "save", 3: "follow", 4: "upload", 5: "tee", 6: "monthly", 7: "support" } as const;
 
 const SAVE_BEFORE = "Proof you attended";
 
@@ -143,7 +143,7 @@ export default function Road({
   }, [fitThanks]);
   useRoadGaps(supRef);
   const fileRef = useRef<HTMLInputElement>(null);
-  const external = useRef<0 | 3 | 5 | 6>(0);
+  const external = useRef<0 | 3 | 5 | 7>(0);
   const doneRef = useRef<boolean[]>([]);
 
   const upload = useMomentsUpload(`checkin:${stored.checkinId ?? ""}`, () => markStep("upload"), {
@@ -159,16 +159,16 @@ export default function Road({
     !!stored.steps.follow,
     !!stored.steps.upload,
     !!stored.steps.tee,
-    !!stored.steps.support,
     !!stored.steps.monthly,
+    !!stored.steps.support,
   ];
   doneRef.current = done;
-  const hideMerch = past && !done[5];
-  const isDone = (n: number) => (n === 5 && hideMerch) || (!windowOpen && (n === 1 || n === 2 || n === 4)) || (done[n] ?? true);
+  const merchOff = past && !done[5];
+  const isDone = (n: number) => (n === 5 && merchOff) || (!windowOpen && (n === 1 || n === 2 || n === 4)) || (done[n] ?? true);
   const allDone = [1, 2, 3, 4, 5, 6, 7].every(isDone);
 
   let ok = true;
-  const linked = [1, 2, 3, 4, 5, 6].map((i) => {
+  const linked = [1, 2, 3, 4, 5, 6, 7].map((i) => {
     ok = ok && isDone(i) && isDone(i + 1);
     return ok;
   });
@@ -229,7 +229,7 @@ export default function Road({
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("open") !== "fund") return;
-    setOpen(6);
+    setOpen(7);
   }, []);
 
   useEffect(() => {
@@ -279,6 +279,25 @@ export default function Road({
 
   const uploadDone = !!stored.steps.upload;
   const showUpThumb = uploadDone || upThumb !== undefined;
+
+  const teeStep = (
+    <TeeStep
+      open={open === 5}
+      linked={linked[4]}
+      done={done[5]}
+      disabled={merchOff}
+      checkinId={stored.checkinId}
+      onToggle={() => {
+        if (merchOff) return;
+        if (open !== 5) track("checkin_row_tap", { row: "tee" });
+        openStep(open === 5 ? 0 : 5);
+      }}
+      onDone={() => complete(5)}
+      onExternal={() => {
+        external.current = 5;
+      }}
+    />
+  );
 
   return (
     <div className="ci-sheet" ref={sheetRef}>
@@ -496,43 +515,44 @@ export default function Road({
           </div>
         )}
 
-        {!hideMerch && (
-          <TeeStep
-            open={open === 5}
-            linked={linked[4]}
-            done={done[5]}
-            checkinId={stored.checkinId}
-            onToggle={() => {
-              if (open !== 5) track("checkin_row_tap", { row: "tee" });
-              openStep(open === 5 ? 0 : 5);
-            }}
-            onDone={() => complete(5)}
-            onExternal={() => {
-              external.current = 5;
-            }}
-          />
-        )}
+        {!merchOff && teeStep}
 
-        <StepShell
+        <MonthlyStep
           n={6}
-          id="st-6"
           done={done[6]}
-          open={open === 6}
           linked={linked[5]}
+          checkinId={stored.checkinId}
+          storyParagraphs={storyParagraphs}
+          onDone={() => complete(6)}
+          open={open === 6}
           onToggle={() => {
-            if (open !== 6) track("checkin_row_tap", { row: "support" });
+            if (open !== 6) track("checkin_row_tap", { row: "monthly" });
             toggle(6);
           }}
+        />
+
+        <p className="stnote">OR</p>
+
+        <StepShell
+          n={7}
+          id="st-7"
+          done={done[7]}
+          open={open === 7}
+          linked={linked[6]}
+          onToggle={() => {
+            if (open !== 7) track("checkin_row_tap", { row: "support" });
+            toggle(7);
+          }}
           lead={
-            <Lead done={done[6]} pop>
-              <FundArt open={open === 6} />
+            <Lead done={done[7]} pop>
+              <FundArt open={open === 7} />
             </Lead>
           }
           title={FUND_COPY.title}
           sub={
             <span className="swap">
-              <span className={open === 6 ? undefined : "on"}>{FUND_COPY.sub}</span>
-              <span className={open === 6 ? "on" : undefined}>{FUND_COPY.costsSub}</span>
+              <span className={open === 7 ? undefined : "on"}>{FUND_COPY.sub}</span>
+              <span className={open === 7 ? "on" : undefined}>{FUND_COPY.costsSub}</span>
             </span>
           }
         >
@@ -563,32 +583,19 @@ export default function Road({
             }}
             onTap={(target) => track("checkin_row_tap", { row: "support", target })}
             onExternal={() => {
-              external.current = 6;
+              external.current = 7;
             }}
           />
         </StepShell>
 
-        <p className="stnote">OR</p>
-
-        <MonthlyStep
-          done={done[7]}
-          linked={linked[5]}
-          checkinId={stored.checkinId}
-          storyParagraphs={storyParagraphs}
-          onDone={() => complete(7)}
-          open={open === 7}
-          onToggle={() => {
-            if (open !== 7) track("checkin_row_tap", { row: "monthly" });
-            toggle(7);
-          }}
-        />
+        {merchOff && teeStep}
       </div>
       {cardOpen && (
         <ContributeCardModal
           checkinId={stored.checkinId}
           presetSecret={cardSecret}
           onClose={() => setCardOpen(false)}
-          onComplete={() => complete(6)}
+          onComplete={() => complete(7)}
         />
       )}
     </div>

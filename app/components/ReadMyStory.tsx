@@ -19,16 +19,18 @@ const STORY_PANEL = [
 const STORY_CLOSE_WRAPPER =
   "contents [@media(max-width:639px)]:!block [@media(max-width:639px)]:sticky [@media(max-width:639px)]:top-[calc(-1.5rem-env(safe-area-inset-top))] [@media(max-width:639px)]:z-20 [@media(max-width:639px)]:h-0 [@media(max-width:639px)]:-mx-6 [@media(max-width:639px)]:-mt-[calc(1.5rem+env(safe-area-inset-top))] [@media(max-width:639px)]:mb-[calc(1.5rem+env(safe-area-inset-top))] [@media(max-width:639px)]:[&>button]:!top-[max(1rem,env(safe-area-inset-top))]";
 
-type StoryTone = "neutral" | "ink";
+type StoryTone = "neutral" | "paper";
 
-const STORY_TONES: Record<StoryTone, { button: string }> = {
+const STORY_TONES: Record<StoryTone, { button: string; font: string }> = {
   neutral: {
     button:
       "w-full min-h-[54px] rounded-btn border-2 border-neutral-900 dark:border-white bg-transparent text-neutral-900 dark:text-white hover:bg-neutral-900/[0.05] dark:hover:bg-white/[0.08] active:bg-neutral-900/[0.05] dark:active:bg-white/[0.08] transition-colors",
+    font: STORY_FONT,
   },
-  ink: {
+  paper: {
     button:
-      "block min-h-[var(--ck-control-h)] w-[calc(100%-2*var(--gut))] mx-[var(--gut)] px-2 bg-transparent border-2 border-[#f4f1ea] rounded-btn text-[#f4f1ea] text-center active:bg-[rgba(244,241,234,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+      "tbtn !w-[calc(100%-2*var(--gut))] mx-[var(--gut)] !bg-transparent !text-[var(--ink)] active:!bg-[rgba(38,43,63,0.07)]",
+    font: "",
   },
 };
 
@@ -126,7 +128,7 @@ export function ReadMyStory({
       <button
         ref={buttonRef}
         type="button"
-        className={`cursor-pointer ${STORY_FONT} ${t.button}`}
+        className={`cursor-pointer ${t.font} ${t.button}`}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >

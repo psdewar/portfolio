@@ -56,7 +56,7 @@ import {
 import { buildZip } from "../../lib/zip";
 import { useDebouncedSave } from "../../hooks/useDebouncedSave";
 import {
-  PAY_WHAT_YOU_WANT_TAG,
+  PAY_WHAT_YOU_CAN_TAG,
   DEFAULT_TAGLINE,
 } from "../../lib/poster-defaults";
 import {
@@ -1382,8 +1382,8 @@ function PosterEditor({
   );
   const [tags, setTags] = useState(
     isSingle
-      ? (soloShow?.tags ?? PAY_WHAT_YOU_WANT_TAG)
-      : (matchedPamphlet?.tags ?? PAY_WHAT_YOU_WANT_TAG),
+      ? (soloShow?.tags ?? PAY_WHAT_YOU_CAN_TAG)
+      : (matchedPamphlet?.tags ?? PAY_WHAT_YOU_CAN_TAG),
   );
   const [venueImg, setVenueImg] = useState(
     isSingle ? (soloShow?.venueImg ?? "") : (matchedPamphlet?.venueImg ?? ""),
@@ -1845,7 +1845,7 @@ function PosterEditor({
 
   // Reset poster styling to defaults — auto-save then persists the cleared state.
   const handleReset = () => {
-    setTags(PAY_WHAT_YOU_WANT_TAG);
+    setTags(PAY_WHAT_YOU_CAN_TAG);
     setTagline("");
     setRsvpLabel("");
     setTaglineAlign("left");

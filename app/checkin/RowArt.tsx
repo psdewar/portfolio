@@ -13,6 +13,21 @@ function Art({ children }: { children: ReactNode }) {
   );
 }
 
+export function RecordArt() {
+  return (
+    <Art>
+      <circle cx="20" cy="21.2" r="17" fill={INK} opacity=".18" />
+      <circle cx="20" cy="20" r="17" fill={INK} />
+      <circle cx="20" cy="20" r="14" fill="none" stroke={PAPER} strokeWidth=".5" opacity=".16" />
+      <circle cx="20" cy="20" r="11.5" fill="none" stroke={PAPER} strokeWidth=".5" opacity=".16" />
+      <circle cx="20" cy="20" r="9.2" fill="none" stroke={PAPER} strokeWidth=".5" opacity=".16" />
+      <path d="M9.5 12A12.5 12.5 0 0 1 16 7.4" fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity=".4" />
+      <circle cx="20" cy="20" r="6.2" fill={MUSTARD} />
+      <circle cx="20" cy="20" r="1.3" fill={PAPER} />
+    </Art>
+  );
+}
+
 export function PinArt() {
   const id = useId().replace(/:/g, "");
   const body =

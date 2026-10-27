@@ -97,7 +97,7 @@ function ActionRow({
   );
 }
 
-const ADDRESS_HIDDEN_COPY = "RSVP to get address";
+const ADDRESS_HIDDEN_COPY = "RSVP for your ticket with the address";
 
 interface RSVPFormProps {
   eventId: string;
@@ -607,7 +607,7 @@ export default function RSVPForm({
           YOU'RE CONFIRMED
         </h2>
         <p className="text-[color:var(--z-fg3)] mt-3 leading-snug" style={{ fontSize: TYPE.body }}>
-          I sent my 2025 Singles & 16s Pack to your inbox as a thank you.
+          Your ticket with the address is in your inbox, plus my 2025 Singles & 16s Pack as a thank you.
         </p>
       </div>
       <div className="space-y-3">

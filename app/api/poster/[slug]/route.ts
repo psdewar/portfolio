@@ -4,7 +4,7 @@ import { posterLineForShow } from "../../../fund/legs";
 import { takePdf, takeScreenshot } from "../../../lib/screenshot";
 import { posterHtml, inlineVenueImg, printBgSrc, posterPdfOptions, POSTER_DIMS, type PosterFormat } from "../html";
 import { posterFileName, POSTER_SCALE } from "../../../lib/poster-formats";
-import { PAY_WHAT_YOU_WANT_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
+import { PAY_WHAT_YOU_CAN_TAG, DEFAULT_TAGLINE } from "../../../lib/poster-defaults";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const html = posterHtml(effShow, {
       format,
       label: sp.get("label") || show.taglineSuffix || DEFAULT_TAGLINE,
-      tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_WANT_TAG,
+      tags: sp.get("tags") ?? show.tags ?? PAY_WHAT_YOU_CAN_TAG,
       doorsOpenOverride: sp.get("doorsOpen") ?? "",
       posterLine: venueLabelParam !== null ? venueLabelParam : posterLabel,
       posterImgSrc: await inlineVenueImg(sp.get("posterImg") ?? show.posterImg ?? ""),

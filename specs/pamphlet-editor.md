@@ -79,7 +79,7 @@ Already installed (verify with `grep konva package.json`):
 - **Tagline:** "My path of growth" / "and the principles" / "that connect us [first word of label]" + label rest, all Space Mono gold uppercase 10px tracking 0.06em
 - **Tagline image** (optional, e.g. `/tcc.webp`), `display: block; height: 120px; width: auto`
 - **Theme top-right:** "a rap concert by / microsoft engineer / peyt spencer", Space Mono 9px muted cream uppercase tracking 0.06em with text-shadow
-- **Bottom utility row:** "PAY WHAT YOU WANT · [location]" left, "PEYTSPENCER.COM/RSVP" right (Space Mono 10px tracking 0.08em uppercase)
+- **Bottom utility row:** "PAY WHAT YOU CAN · [location]" left, "PEYTSPENCER.COM/RSVP" right (Space Mono 10px tracking 0.08em uppercase)
 - **Show rows:** date (Parkinsans 15px bold cream `#f0ede6`) + optional doors + optional venue
   - Two modes: `compact` (date + doors inline, gold dividers) when all shows share venue; `full` (stacked date/venue/doors per row) when venues differ.
 - **Optional QR code** (bottom-right): static PNG at `https://assets.peytspencer.com/images/rsvp-qr-s10.png`. 92×92 (standard/ig), 72×72 (yt).
@@ -302,7 +302,7 @@ The output should be visually identical to the current `pamphletHtml()` output w
 - `id: "tagline-suffix-rest"`, type `text`, bind `label.rest`.
 - `id: "tagline-image"`, type `image`, bind `taglineImage` (resolves to e.g. `/tcc.webp`).
 - `id: "theme-1"`, `theme-2`, `theme-3` for the rap-concert hook (Space Mono 9px muted cream).
-- `id: "free-admission"`, type `text`, bind `free-tag` (composes "Pay what you want · [location]").
+- `id: "free-admission"`, type `text`, bind `free-tag` (composes "Pay what you can · [location]").
 - `id: "url"`, type `text`, text "peytspencer.com/rsvp", Space Mono 10px cream.
 - For each show in `shows[]`: `id: "show-N-date"` text bound to `shows.N.date`, `id: "show-N-doors"` bound to `shows.N.doors` (only if `showDoors` true).
 - `id: "qr"`, type `image`, src `https://assets.peytspencer.com/images/rsvp-qr-s10.png`, 92×92 (or 72×72 for yt) — only if `showQr` true.

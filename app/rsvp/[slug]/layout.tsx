@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getShowBySlug, isResidence, isShowUpcoming } from "../../lib/shows";
 import { musicEventSchema } from "../../lib/schema";
-import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
+import { PAY_WHAT_YOU_CAN_TAG } from "../../lib/poster-defaults";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!show) return {};
 
   const title = `RSVP - ${show.city}, ${show.region} | From The Ground Up`;
-  const tail = show.tags ?? PAY_WHAT_YOU_WANT_TAG;
+  const tail = show.tags ?? PAY_WHAT_YOU_CAN_TAG;
   const description = `RSVP for From The Ground Up in ${show.city}, ${show.region}. A rap concert and a conversation by Microsoft alum Peyt Spencer. ${tail}.`;
 
   return {

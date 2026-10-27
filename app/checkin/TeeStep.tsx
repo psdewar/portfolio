@@ -25,6 +25,7 @@ export default function TeeStep({
   open,
   linked,
   done,
+  disabled = false,
   checkinId,
   onToggle,
   onDone,
@@ -33,6 +34,7 @@ export default function TeeStep({
   open: boolean;
   linked: boolean;
   done: boolean;
+  disabled?: boolean;
   checkinId: string | null;
   onToggle: () => void;
   onDone: () => void;
@@ -170,12 +172,13 @@ export default function TeeStep({
   useEffect(() => clear, []);
 
   useEffect(() => {
+    if (disabled) return;
     COLORS.forEach((c) => {
       const img = new Image();
       img.src = src(c.id);
       img.decode().catch(() => {});
     });
-  }, []);
+  }, [disabled]);
 
   return (
     <StepShell
@@ -185,6 +188,7 @@ export default function TeeStep({
       open={open}
       linked={linked}
       done={done}
+      disabled={disabled}
       onToggle={toggle}
       lead={
         <Lead done={done} pop>
@@ -197,7 +201,7 @@ export default function TeeStep({
         </Lead>
       }
       title="Grab merch"
-      sub={`“All I Need Is Patience” Tee, $${PRICE}`}
+      sub={disabled ? "Only at my shows" : `“All I Need Is Patience” Tee, $${PRICE}`}
       after={
         paying && (
           <EmbeddedTeeCheckout

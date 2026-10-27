@@ -1,5 +1,5 @@
 import Poster from "../components/Poster";
-import { PAY_WHAT_YOU_WANT_TAG } from "../lib/poster-defaults";
+import { PAY_WHAT_YOU_CAN_TAG } from "../lib/poster-defaults";
 import { POSTER_DIMS } from "../lib/poster-formats";
 
 const FILL_MAX_WIDTH = `min(100cqw, calc(100cqh * 1.3 * ${POSTER_DIMS.pdf.W} / ${POSTER_DIMS.pdf.H}))`;
@@ -30,7 +30,7 @@ export default function ShowPoster({ show, fill = false }: { show: PosterShow; f
       venue={show.venue}
       venueLabel={show.venueLabel}
       address={show.address}
-      tags={show.tags ?? PAY_WHAT_YOU_WANT_TAG}
+      tags={show.tags ?? PAY_WHAT_YOU_CAN_TAG}
       posterLine={show.posterLine}
       posterImg={show.posterImg ?? undefined}
       bgImg={show.bgImg ?? undefined}

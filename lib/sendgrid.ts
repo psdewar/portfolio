@@ -149,7 +149,7 @@ export async function sendRsvpConfirmation(params: {
   const { to, title, dateLabel, shortDate, city, region, doorLabel, venueName, address, ics } =
     params;
   const downloadUrl = `${SITE_URL}/2025/singles-and-16s`;
-  const subject = `You're in: ${shortDate} in ${city}`;
+  const subject = `Your ticket: ${shortDate} in ${city}`;
   const mapsUrl = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : "";
@@ -164,12 +164,15 @@ export async function sendRsvpConfirmation(params: {
       to,
       from: FROM,
       subject,
-      text: `Thanks for RSVPing to my rap concert for all ages,\n\n${title}\n\n${dateLabel}\n${doorLabel}\n${venueText}${address ?? `${city}, ${region}`}\n\nI sent you my 2025 Singles & 16s Pack: 6 songs and a lyricbook!\nDownload my music: ${downloadUrl}\n\npeytspencer.com`,
+      text: `Thanks for RSVPing to my rap concert for all ages.\n\n${title}\n\n${dateLabel}\n${doorLabel}\n${venueText}${address ?? `${city}, ${region}`}\n\nI sent you my 2025 Singles & 16s Pack: 6 songs and a lyricbook!\nDownload my music: ${downloadUrl}\n\npeytspencer.com`,
       html: emailWrapper(`
       <div style="font-size:16px;line-height:1.55;color:#1a1a1a;">
-        <p style="margin:0 0 6px;">Thanks for RSVPing to my rap concert for all ages,</p>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.3;margin-top:4px;margin-bottom:20px;">${title}</div>
-        <p style="margin:0 0 24px;"><b>${dateLabel}</b><br>${doorLabel}<br>${venueHtml}${placeHtml}</p>
+        <p style="margin:0 0 6px;">Thanks for RSVPing to my rap concert for all ages.</p>
+        <div style="border:1px dashed #d4a553;border-radius:6px;padding:18px 20px;margin-bottom:24px;">
+          <div style="color:#d4a553;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Your ticket</div>
+          <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.3;margin-bottom:16px;">${title}</div>
+          <p style="margin:0;"><b>${dateLabel}</b><br>${doorLabel}<br>${venueHtml}${placeHtml}</p>
+        </div>
         <p style="margin:0 0 16px;">I sent you my 2025 Singles &amp; 16s Pack: 6 songs and a lyricbook!</p>
         ${ctaButton("Download my music", downloadUrl)}
       </div>

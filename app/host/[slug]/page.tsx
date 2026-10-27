@@ -5,7 +5,7 @@ import { getShowBySlug, isShowDraft, isResidence, needsHostLocation } from "../.
 import { getHostForShow } from "../../lib/sponsors";
 import { posterLineForShow } from "../../fund/legs";
 import { verifySlug } from "../../lib/confirm";
-import { PAY_WHAT_YOU_WANT_TAG } from "../../lib/poster-defaults";
+import { PAY_WHAT_YOU_CAN_TAG } from "../../lib/poster-defaults";
 import ConfirmForm from "./ConfirmForm";
 import ArtistIntro from "../../components/ArtistIntro";
 import ScrollToTarget from "../../components/ScrollToTarget";
@@ -71,7 +71,7 @@ export default async function ConfirmPage({
       doorLabel={show.doorLabel}
       address={show.address}
       taglineSuffix={show.taglineSuffix ?? undefined}
-      tags={show.tags || PAY_WHAT_YOU_WANT_TAG}
+      tags={show.tags || PAY_WHAT_YOU_CAN_TAG}
       posterImg={show.posterImg ?? undefined}
       bgImg={show.bgImg ?? undefined}
       venueImg={show.venueImg ?? undefined}

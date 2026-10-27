@@ -317,7 +317,7 @@ export function MonthlySupporter({
   );
 }
 
-type TierTone = "neutral" | "ink";
+type TierTone = "neutral" | "paper";
 
 interface ToneClasses {
   panel: string;
@@ -329,6 +329,18 @@ interface ToneClasses {
   previewBar: string;
   togglePlaying: string;
   card: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  checkInk: string;
+  soulHint: string;
+  soulInput: string;
+  toggleOn: string;
+  toggleOff: string;
+  toggleKnob: string;
+  free: string;
+  progress: string;
+  playCircle: "gradient" | "gold";
 }
 
 const TIER_TONES: Record<TierTone, ToneClasses> = {
@@ -345,22 +357,44 @@ const TIER_TONES: Record<TierTone, ToneClasses> = {
     previewBar:
       "bg-neutral-100/80 dark:bg-neutral-900/80 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/40 active:bg-neutral-200/50 dark:active:bg-neutral-800/40",
     card: GRADIENT_CTA_OVERRIDE,
+    ink: "text-neutral-900 dark:text-white",
+    muted: "text-neutral-600 dark:text-neutral-300",
+    accent: "",
+    checkInk: "white",
+    soulHint: "rounded-md bg-pink-500/15 py-0.5 text-pink-600 dark:text-pink-300 min-w-0 px-2",
+    soulInput: "border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white",
+    toggleOn: "bg-orange-500",
+    toggleOff: "bg-neutral-300 dark:bg-neutral-700",
+    toggleKnob: "text-orange-500",
+    free: "rounded-md bg-green-500/15 font-normal whitespace-nowrap text-green-700 dark:text-green-400 px-2 py-0.5",
+    progress: "bg-gradient-to-r from-orange-400 to-pink-500",
+    playCircle: "gradient",
   },
-  ink: {
+  paper: {
     panel: "",
-    group: "border-[rgba(244,241,234,0.18)]",
+    group: "!border-t-0",
     rowIdle:
-      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+      "bg-transparent active:bg-[rgba(38,43,63,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ink)]",
     rowSelected:
-      "bg-[rgba(244,241,234,0.14)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
+      "bg-[rgba(38,43,63,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ink)]",
     rowPlaying:
-      "bg-[rgba(244,241,234,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f4f1ea]",
-    toggleIdle:
-      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)]",
-    togglePlaying: "bg-[rgba(244,241,234,0.06)]",
-    previewBar:
-      "bg-[rgba(244,241,234,0.06)] hover:bg-[rgba(244,241,234,0.12)] active:bg-[rgba(244,241,234,0.12)]",
-    card: `!w-[calc(100%-2*var(--gut))] !mx-[var(--gut)] !mt-[calc(14*var(--u))] !mb-[calc(10*var(--u))] ${GRADIENT_CTA_OVERRIDE}`,
+      "bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ink)]",
+    toggleIdle: "bg-transparent active:bg-[rgba(38,43,63,0.07)]",
+    togglePlaying: "bg-transparent",
+    previewBar: "bg-transparent active:bg-[rgba(38,43,63,0.07)]",
+    card: "!bg-[var(--ink)] !text-[var(--paper)] !shadow-none !w-[calc(100%-2*var(--gut))] !mx-[var(--gut)] !mt-[calc(14*var(--u))] !mb-[calc(10*var(--u))] enabled:active:opacity-90 disabled:opacity-60",
+    ink: "text-[var(--ink)]",
+    muted: "text-[rgba(38,43,63,0.62)]",
+    accent: "#d4a553",
+    checkInk: "#262b3f",
+    soulHint: "min-w-0 text-[rgba(38,43,63,0.62)]",
+    soulInput: "border-[rgba(38,43,63,0.25)] focus:border-[var(--ink)]",
+    toggleOn: "bg-[var(--ink)]",
+    toggleOff: "bg-[rgba(38,43,63,0.25)]",
+    toggleKnob: "text-[var(--ink)]",
+    free: "font-normal whitespace-nowrap text-[#d4a553]",
+    progress: "bg-[#d4a553]",
+    playCircle: "gold",
   },
 };
 
@@ -377,7 +411,6 @@ interface TierPickerProps {
   checkinId?: string | null;
   onCheckoutComplete?: () => void;
   showImage?: boolean;
-  descriptionOnOwnLine?: boolean;
   preloadAudio?: "auto" | "none";
 }
 
@@ -394,7 +427,6 @@ export function TierPicker({
   checkinId,
   onCheckoutComplete,
   showImage = true,
-  descriptionOnOwnLine = false,
   preloadAudio = "auto",
 }: TierPickerProps) {
   const t = TIER_TONES[tone];
@@ -576,8 +608,8 @@ export function TierPicker({
               aria-label={previewPlaying ? "Pause preview" : "Play preview"}
               className={`tp-preview min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex px-[var(--tp-x,1.5rem)] items-center gap-3 text-left py-3 cursor-pointer ${t.previewBar} transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white`}
             >
-              <PlayCircle playing={previewPlaying} />
-              <span className="truncate text-base font-medium text-neutral-900 dark:text-white">
+              <PlayCircle playing={previewPlaying} tone={t.playCircle} />
+              <span className={`truncate text-base font-medium ${t.ink}`}>
                 {previewStarted ? "Previewing" : "Preview"} &quot;
                 {currentPreview.title}&quot;
               </span>
@@ -606,7 +638,7 @@ export function TierPicker({
           {currentPreview && (
             <div
               aria-hidden
-              className="absolute top-0 left-0 z-10 h-0.5 bg-gradient-to-r from-orange-400 to-pink-500"
+              className={`absolute top-0 left-0 z-10 h-0.5 ${t.progress}`}
               style={{ width: `${Math.min(100, progress * 100)}%` }}
             />
           )}
@@ -614,12 +646,16 @@ export function TierPicker({
             role="radiogroup"
             aria-label="Monthly support amount"
             data-playing={previewPlaying || undefined}
-            className={`border-t-2 ${t.group} ${isLoading ? "opacity-60 pointer-events-none" : ""}`}
+            className={`tier-list border-t-2 ${t.group} ${isLoading ? "opacity-60 pointer-events-none" : ""}`}
           >
             <style>{`
               @keyframes tierCheckDraw {
                 from { stroke-dashoffset: 15.26; }
                 to { stroke-dashoffset: 0; }
+              }
+              .tier-list { container-type: inline-size; }
+              @container (max-width: 430px) {
+                .tier-price { margin-right: 100%; }
               }
               .tier-check-path {
                 stroke-dasharray: 15.26;
@@ -645,7 +681,7 @@ export function TierPicker({
                 billingPeriod === "annually" ? tier.net * 10 : tier.net;
               const period = billingPeriod === "annually" ? "yr" : "mo";
               const tierColor = TIER_COLORS[index];
-              const rowSurface = previewPlaying
+              const rowSurface = previewPlaying && !(tone === "paper" && isSelected)
                 ? t.rowPlaying
                 : isSelected
                   ? t.rowSelected
@@ -663,9 +699,9 @@ export function TierPicker({
                   onKeyDown={(e) => handleRowKeyDown(e, index)}
                   className={`relative z-10 w-full flex px-[var(--tp-x,1.5rem)] items-center min-h-11 gap-4 py-4 cursor-pointer transition-colors duration-300 motion-reduce:transition-none ${rowSurface}`}
                 >
-                  <p className="flex-1 min-w-0 flex items-center gap-x-1 leading-snug text-neutral-600 dark:text-neutral-300 flex-wrap text-base">
+                  <p className={`flex-1 min-w-0 flex items-center gap-x-1 leading-snug ${t.muted} flex-wrap text-base`}>
                     <span
-                      className={`${descriptionOnOwnLine ? "mr-[100%] " : ""}inline-flex items-center gap-x-0.5 whitespace-nowrap ${isSoul && isSelected ? "cursor-text" : ""}`}
+                      className={`tier-price inline-flex items-center gap-x-0.5 whitespace-nowrap ${isSoul && isSelected ? "cursor-text" : ""}`}
                       onClick={
                         isSoul && isSelected
                           ? (e) => {
@@ -676,8 +712,8 @@ export function TierPicker({
                       }
                     >
                       <span
-                        className="inline-flex items-center gap-x-0.5 whitespace-nowrap font-medium leading-none tabular-nums text-3xl text-neutral-900 dark:text-white"
-                        style={isSelected ? { color: tierColor } : undefined}
+                        className={`inline-flex items-center gap-x-0.5 whitespace-nowrap font-medium leading-none tabular-nums text-3xl ${t.ink}`}
+                        style={isSelected ? { color: t.accent || tierColor } : undefined}
                       >
                         {isSoul ? (
                           isSelected ? (
@@ -732,7 +768,7 @@ export function TierPicker({
                                     e.currentTarget.blur();
                                     handleSupportClick();
                                   }}
-                                  className="col-start-1 row-start-1 w-full min-w-0 font-medium tabular-nums p-0 bg-transparent outline-none border-b-2 border-neutral-300 dark:border-neutral-600 focus:border-neutral-900 dark:focus:border-white h-9 text-3xl"
+                                  className={`col-start-1 row-start-1 w-full min-w-0 font-medium tabular-nums p-0 bg-transparent outline-none border-b-2 ${t.soulInput} h-9 text-3xl`}
                                 />
                               </span>
                             </>
@@ -746,11 +782,7 @@ export function TierPicker({
                       <span>/{period}</span>
                     </span>
                     <span
-                      className={
-                        isSoul
-                          ? "rounded-md bg-pink-500/15 py-0.5 text-pink-600 dark:text-pink-300 min-w-0 px-2"
-                          : "text-balance"
-                      }
+                      className={isSoul ? t.soulHint : "text-balance"}
                     >
                       {isSoul && soulBelowMinimum
                         ? `starts at $${soulMinimum.toLocaleString()}/${period}`
@@ -763,14 +795,14 @@ export function TierPicker({
                         data-icon
                         size={24}
                         weight="regular"
-                        style={{ color: tierColor }}
+                        style={{ color: t.accent ? "var(--ink)" : tierColor }}
                       />
-                      <span className="w-[2.1em] text-neutral-900 dark:text-white font-medium leading-none text-xl">
+                      <span className={`w-[2.1em] ${t.ink} font-medium leading-none text-xl`}>
                         {tier.name}
                       </span>
                       <span
-                        className={`w-4 h-4 shrink-0 rounded-full flex items-center justify-center ${isSelected ? "" : "border border-current text-neutral-900 dark:text-white opacity-40"}`}
-                        style={isSelected ? { backgroundColor: tierColor } : undefined}
+                        className={`w-4 h-4 shrink-0 rounded-full flex items-center justify-center ${isSelected ? "" : `border border-current ${t.ink} opacity-40`}`}
+                        style={isSelected ? { backgroundColor: t.accent || tierColor } : undefined}
                         aria-hidden
                       >
                         {isSelected && (
@@ -784,7 +816,7 @@ export function TierPicker({
                             <polyline
                               className="tier-check-path"
                               points="3,9 6.5,12.5 13,4.5"
-                              stroke="white"
+                              stroke={t.checkInk}
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -801,13 +833,11 @@ export function TierPicker({
           <div className="flex items-center justify-start text-base">
             <button
               onClick={monthly.toggleBilling}
-              className={`relative z-10 w-full px-[var(--tp-x,1.5rem)] font-medium text-neutral-900 dark:text-white flex items-center gap-2 min-h-11 py-4 transition-colors duration-300 motion-reduce:transition-none ${previewPlaying ? t.togglePlaying : t.toggleIdle}`}
+              className={`relative z-10 w-full px-[var(--tp-x,1.5rem)] font-medium ${t.ink} flex items-center gap-2 min-h-11 py-4 transition-colors duration-300 motion-reduce:transition-none ${previewPlaying ? t.togglePlaying : t.toggleIdle}`}
             >
               <span
                 className={`relative shrink-0 rounded-full transition-colors w-12 h-7 ${
-                  billingPeriod === "annually"
-                    ? "bg-orange-500"
-                    : "bg-neutral-300 dark:bg-neutral-700"
+                  billingPeriod === "annually" ? t.toggleOn : t.toggleOff
                 }`}
               >
                 <span
@@ -816,14 +846,14 @@ export function TierPicker({
                   }`}
                 >
                   {billingPeriod === "annually" && (
-                    <CheckIcon size={16} weight="bold" className="text-orange-500" />
+                    <CheckIcon size={16} weight="bold" className={t.toggleKnob} />
                   )}
                 </span>
               </span>
               <span className="leading-none whitespace-nowrap">
                 Pay annually
               </span>
-              <span className="rounded-md bg-green-500/15 font-normal whitespace-nowrap text-green-700 dark:text-green-400 px-2 py-0.5">
+              <span className={t.free}>
                 2 months free
               </span>
             </button>

@@ -13,7 +13,7 @@ import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "..
 import { sendDownloadEmail, sendSupporterWelcomeEmail } from "../../../../lib/sendgrid";
 import { supporterClaimPath } from "../../../lib/confirm";
 import PostHogClient from "../../../../lib/posthog";
-import { isSupporterSession } from "../../shared/supporter-lookup";
+import { isSupporterSession, tierFromSession } from "../../shared/supporter-lookup";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -131,6 +131,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
+  await trackCheckoutCompleted(session);
+
   const supporterEmail = session.customer_details?.email || session.customer_email;
   if (isSupporterSession(session) && supporterEmail) {
     await sendSupporterWelcomeEmail({ to: supporterEmail, claimPath: supporterClaimPath(supporterEmail) });
@@ -159,6 +161,41 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (productId === "support-next-concert") {
     await trackRsvpSupportPaid(session);
+  }
+}
+
+function checkoutProduct(session: Stripe.Checkout.Session) {
+  if (isSupporterSession(session)) return "monthly";
+  if (session.metadata?.productId === "tee-patience") return "tee";
+  if (session.metadata?.type === "contribution") return "fund";
+  return null;
+}
+
+async function trackCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const product = checkoutProduct(session);
+  if (!product) return;
+  try {
+    const metadata = session.metadata || {};
+    const posthog = PostHogClient();
+    posthog.capture({
+      distinctId: session.customer_details?.email || session.customer_email || session.id,
+      event: "checkout_completed",
+      properties: {
+        $insert_id: `${session.id}-checkout_completed`,
+        product,
+        amount: (session.amount_total || 0) / 100,
+        checkin_id: metadata.checkinId,
+        ...(product === "monthly" && {
+          source: metadata.checkinId ? "checkin" : "support",
+          tier: tierFromSession(session),
+          billing_period: metadata.projectId === "annual-support" ? "annually" : "monthly",
+        }),
+        ...(product === "tee" && { color: metadata.color, size: metadata.size }),
+      },
+    });
+    await posthog.shutdown();
+  } catch (error) {
+    console.error("Error tracking checkout completion:", error);
   }
 }
 

@@ -159,7 +159,7 @@ const sheetState = (sheet: HTMLElement) => {
 
 export function runRowMotion(root: HTMLElement, dir: "open" | "close") {
   const sheet = root.closest<HTMLElement>(".ci-sheet");
-  const head = root.querySelector<HTMLElement>(".srow, .fin-head");
+  const head = root.querySelector<HTMLElement>(".srow");
   if (!sheet || !head) return;
   const s = sheetState(sheet);
   if (s.run?.root === root && s.run.dir === dir) return;
@@ -290,6 +290,15 @@ export function NoteIcon() {
   );
 }
 
+function Row({ disabled, children, ...props }: React.ComponentProps<"button">) {
+  if (disabled) return <div className={props.className}>{children}</div>;
+  return (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  );
+}
+
 export function StepShell({
   id,
   n,
@@ -304,6 +313,7 @@ export function StepShell({
   two = true,
   rootRef,
   after,
+  disabled = false,
   children,
 }: {
   id?: string;
@@ -319,6 +329,7 @@ export function StepShell({
   two?: boolean;
   rootRef?: Ref<HTMLDivElement>;
   after?: React.ReactNode;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const own = useRef<HTMLDivElement | null>(null);
@@ -334,11 +345,11 @@ export function StepShell({
   return (
     <div
       ref={setRoot}
-      className={`${stop ? "stop" : "st"}${open ? " open" : ""}${linked ? " linked" : ""}`}
+      className={`${stop ? "stop" : "st"}${open ? " open" : ""}${linked ? " linked" : ""}${disabled ? " off" : ""}`}
       data-n={n}
       id={id}
     >
-      <button type="button" className={`srow${two ? " two" : ""}`} aria-expanded={open} onClick={onToggle}>
+      <Row className={`srow${two ? " two" : ""}`} aria-expanded={open} disabled={disabled} onClick={onToggle}>
         {lead}
         <span className="t">
           {title}
@@ -352,7 +363,7 @@ export function StepShell({
         </span>
         <Chev />
         <DoneText done={done} />
-      </button>
+      </Row>
       <div className="body">
         <div className="inner">{children}</div>
       </div>

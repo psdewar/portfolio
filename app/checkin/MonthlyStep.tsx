@@ -4,12 +4,11 @@ import type { StoryParagraph } from "../data/story";
 import { ReadMyStory } from "../components/ReadMyStory";
 import { MONTHLY_PITCH, TierPicker } from "../components/SupportModal";
 import { EARLY_ACCESS_PREVIEW } from "../data/supporter-config";
-import { useRef } from "react";
-import { Chev, DoneText, useRowMotion } from "./RoadParts";
-
-const LABEL = "Be my monthly supporter";
+import { RecordArt } from "./RowArt";
+import { Lead, StepShell } from "./RoadParts";
 
 export default function MonthlyStep({
+  n,
   done,
   linked,
   checkinId,
@@ -18,6 +17,7 @@ export default function MonthlyStep({
   open,
   onToggle,
 }: {
+  n: number;
   done: boolean;
   linked: boolean;
   checkinId: string | null;
@@ -26,42 +26,34 @@ export default function MonthlyStep({
   open: boolean;
   onToggle: () => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  useRowMotion(rootRef, open);
   return (
-    <div
-      ref={rootRef}
-      className={`fin${open ? " open" : ""}${linked ? " linked" : ""}`}
-      data-n="7"
-      id="st-7"
-      data-scheme="dark"
+    <StepShell
+      n={n}
+      id={`st-${n}`}
+      done={done}
+      open={open}
+      linked={linked}
+      onToggle={onToggle}
+      lead={
+        <Lead done={done} pop>
+          <RecordArt />
+        </Lead>
+      }
+      title="Be my monthly supporter"
     >
-      <button
-        type="button"
-        className="fin-head"
-        aria-expanded={open}
-        onClick={onToggle}
-      >
-        <span className="t">
-          <span className="fin-title">{LABEL}</span>
-        </span>
-        <DoneText done={done} />
-        <Chev />
-      </button>
-      <div hidden={!open}>
-        <p className="fin-sub">{MONTHLY_PITCH}</p>
-        <div className="fin-tiers">
-          <TierPicker
-            source="checkin"
-            preview={EARLY_ACCESS_PREVIEW}
-            preloadAudio="none"
-            checkinId={checkinId}
-            onCheckoutComplete={onDone}
-            tone="ink"
-          />
-          <ReadMyStory paragraphs={storyParagraphs} tone="ink" />
-        </div>
+      <div className="mbody">
+        <p className="mpitch">{MONTHLY_PITCH}</p>
+        <TierPicker
+          source="checkin"
+          preview={EARLY_ACCESS_PREVIEW}
+          preloadAudio="none"
+          showImage={false}
+          checkinId={checkinId}
+          onCheckoutComplete={onDone}
+          tone="paper"
+        />
+        <ReadMyStory paragraphs={storyParagraphs} tone="paper" />
       </div>
-    </div>
+    </StepShell>
   );
 }

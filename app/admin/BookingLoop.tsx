@@ -7,7 +7,7 @@ export default function BookingLoop({ actions }: { actions: ReactNode }) {
   const notes = [
     "I'm a rapper from Bellevue, Washington. In August I left Microsoft to be a full-time artist, now touring North America to share my concert-conversation From The Ground Up, introducing the Faith to an audience that is not youth-only nor Baha'i-only. Since March I've done 20.",
     "All I need is one friend in your community to host a gathering in their living room, a coffee shop, Center, or any venue you suggest. I bring my own equipment, and hosting is low-maintenance: under half an hour for setup, an hour of music, then another hour to connect and take photos.",
-    "The honorarium is a gift that recognizes the concert, separate from expenses. Admission is pay what you want and defaults to free.",
+    "The honorarium is a gift that recognizes the concert, separate from expenses. Admission is pay what you can and defaults to free.",
   ];
   return (
     <div className="mb-12">

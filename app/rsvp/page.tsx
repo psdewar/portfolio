@@ -9,7 +9,7 @@ import RSVPShell from "./RSVPShell";
 
 const title = "RSVP | From The Ground Up";
 const description =
-  "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft alum Peyt Spencer. Pay what you want.";
+  "RSVP for From The Ground Up - a rap concert and a conversation by Microsoft alum Peyt Spencer. Pay what you can.";
 
 // SoCal intro texts get a video-frame preview; every other /rsvp request keeps the layout's poster.
 export async function generateMetadata({

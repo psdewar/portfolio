@@ -4,6 +4,7 @@
   --paper: #eef0f3;
   --layer-sticky: 5;
   --ring: var(--paper);
+  --sub: rgba(38,43,63,0.62);
   --press: color-mix(in srgb, #262b3f 7%, #eef0f3);
   --ink: #262b3f;
   --mustard: #d4a553;
@@ -48,7 +49,7 @@
 .ci[data-view="road"]::before, .ci.flying::before { opacity: 0; }
 .ci *, .ci *::before, .ci *::after { box-sizing: border-box; }
 .ci [hidden] { display: none !important; }
-.ci button:not(.cc-btn):not(.tee-size) { font: inherit; }
+.ci button:not(.cc-btn):not(.tee-size):not(.tbtn) { font: inherit; }
 .ci .cc-btn, .ci button.tbtn { font: inherit; font-family: var(--font-epunda); font-size: var(--pay-btn-size); font-weight: var(--pay-btn-weight); line-height: 1.5; letter-spacing: normal; }
 .ci button:focus-visible, .ci a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .ci input:focus-visible { outline: none; box-shadow: 0 1px 0 0 var(--ink); border-bottom-color: var(--ink); }
@@ -93,7 +94,7 @@
 .ci .thanks.all .a { opacity: 0; }
 .ci .thanks.all .b { opacity: 1; }
 .ci .st, .ci .stop { position: relative; margin-bottom: calc(20 * var(--u)); }
-.ci .st:last-child { margin-bottom: 0; }
+.ci .st:last-child { margin-bottom: calc(20 * var(--u) + env(safe-area-inset-bottom)); }
 .ci .st::before, .ci .st::after, .ci .stop::before { content: ""; position: absolute; left: var(--road-x); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st:not(:last-child)::before, .ci .stop::before { top: calc(6 * var(--u) + var(--th) / 2); bottom: calc(-1 * var(--road-skip)); }
 .ci .st:not(.open):not(:last-child):has(> .srow .lead.plain)::before { top: calc(6 * var(--u) + var(--lh) / 2 + 13 * var(--u)); }
@@ -123,6 +124,13 @@
 .ci button.srow:active { background: rgba(38,43,63,0.07); }
 @media (hover: hover) and (pointer: fine) { .ci button.srow:hover { background: rgba(38,43,63,0.07); } }
 .ci .srow.two { align-items: center; }
+.ci .st.off > .srow { cursor: default; background: transparent; --ring: var(--paper); }
+.ci .st.off > .srow > :not(.t):not(.lead), .ci .st.off > .srow .lead > .thumbwrap > img, .ci .st.off > .srow .lead > :not(.thumbwrap):not(.mk), .ci .st.off > .srow .mk svg > * { opacity: 0.4; }
+.ci .st.off > .srow .mk svg { background: var(--paper); }
+.ci .st.off > .srow .t { color: rgba(38,43,63,0.4); }
+.ci .st.off > .srow .chev { visibility: hidden; }
+.ci .st.off > .srow .m { color: rgba(38,43,63,0.25); }
+.ci .st.off > .srow .m a.lnk { color: var(--ink); }
 .ci .lead { position: relative; flex: none; align-self: stretch; width: var(--th); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ci .lead.plain { justify-content: flex-start; }
 .ci .mk { flex: none; width: calc(20 * var(--u)); height: var(--lh); display: flex; align-items: center; justify-content: center; }
@@ -138,7 +146,7 @@
 .ci .msub { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--ck-dur) var(--ck-ease), visibility 0s linear var(--ck-dur); }
 .ci .msub.on { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--ck-dur) var(--ck-ease), visibility 0s; }
 .ci .msub > .mi { overflow: hidden; min-height: 0; }
-.ci .srow .m { display: block; margin-top: calc(4 * var(--u)); font-size: var(--fs-body); font-weight: 400; line-height: 1.3; color: rgba(38,43,63,0.62); text-wrap: pretty; }
+.ci .srow .m { display: block; margin-top: calc(4 * var(--u)); font-size: var(--fs-body); font-weight: 400; line-height: 1.3; color: var(--sub); text-wrap: pretty; }
 .ci .swap { display: grid; }
 .ci .swap > span { grid-area: 1 / 1; transition: opacity calc(var(--ck-dur) * 0.6) var(--ck-ease); }
 .ci .swap > span:not(.on) { opacity: 0; visibility: hidden; transition: opacity calc(var(--ck-dur) * 0.6) var(--ck-ease), visibility 0s linear calc(var(--ck-dur) * 0.6); }
@@ -221,19 +229,5 @@
 @keyframes ci-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
 
 .ci .ups { --ups-line: rgba(38,43,63,0.14) !important; }
-
-.ci .fin { --ring: var(--ink); --fin-pt: calc(22 * var(--u)); position: relative; padding: var(--fin-pt) 0 calc(28 * var(--u) + env(safe-area-inset-bottom)); background: var(--ink); color: #f4f1ea; }
-.ci .fin-head { position: relative; display: flex; align-items: flex-start; gap: var(--gap); width: 100%; margin: 0; padding: calc(6 * var(--u)) var(--gut); background: transparent; border: 0; border-radius: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
-.ci .fin-head .t { flex: 1; min-width: 0; container-type: inline-size; padding-top: 0; }
-.ci .fin-head .chev { color: rgba(244,241,234,0.6); transition: transform var(--ck-dur) var(--ck-ease); }
-.ci .fin.open { min-height: 100dvh; }
-.ci .fin.open .chev { transform: rotate(90deg); }
-.ci .fin-head .t { position: relative; }
-.ci .fin-title { --cap: 0.103; --lsb: 0.04em; margin-left: calc(-1 * var(--lsb)); position: relative; text-align: left; display: block; font-family: var(--font-bebas), var(--park); font-weight: 400; --ft: min(calc(var(--fs-head) * 1.1), calc(100cqi / 9.6)); font-size: var(--ft); margin-top: calc((var(--th) - var(--ft)) / 2); white-space: nowrap; line-height: 1; letter-spacing: 0.01em; color: var(--mustard); }
-.ci .fin-tiers > :first-child { margin-top: 0; }
-.ci .fin-sub { display: block; margin: calc(16px - 6 * var(--u)) 0 16px; padding: 0 var(--gut); font-size: var(--fs-body); line-height: 1.3; color: rgba(244,241,234,0.92); }
-.ci .fin { --tp-x: var(--gut); }
-.ci .fin button:focus-visible { outline: 2px solid #f4f1ea; outline-offset: 2px; }
-
-.ci .fin-title::before { content: ""; position: absolute; left: calc(var(--th) / 2 - 1px + var(--lsb)); top: calc(-1 * (var(--fin-pt) + 6 * var(--u) + (var(--th) - var(--ft)) / 2)); height: calc(var(--fin-pt) + 6 * var(--u) + (var(--th) - var(--ft)) / 2 + var(--cap) * var(--ft) - var(--road-gap)); border-left: 2px dashed rgba(244,241,234,0.45); }
-.ci .fin.linked .fin-title::before { border-left: 2px solid var(--mustard); }
+.ci .mbody { --tp-x: var(--gut); }
+.ci .mpitch { display: block; margin: calc(8 * var(--u)) 0 calc(14 * var(--u)); padding: 0 var(--gut); font-size: var(--fs-body); line-height: 1.3; color: var(--sub); }

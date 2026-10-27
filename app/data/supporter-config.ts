@@ -8,11 +8,10 @@ export const SUPPORTER_CONFIG = {
   },
 };
 
-const MONTHLY_PERK = "my new songs before anyone else";
 
 export const SUPPORTER_COPY = {
   promise: "Monthly supporters hear my new songs before anyone else.",
-  pitch: `Your monthly support covers my tour and what it takes to be an artist: recording, releasing, and running this site. While keeping me independent, you also get ${MONTHLY_PERK}. Like Patreon without the cut, only your card fee is added, so I receive 100%. Cancel anytime.`,
+  pitch: "Monthly support covers my tour, recording and releasing, and keeps me independent. Get access to new songs before anyone else! Like Patreon without the cut: I receive 100%. Cancel anytime.",
   metaDescription:
     "Rapper and Microsoft alum. Like Patreon without the cut, only your card fee is added, so I receive 100%. Monthly supporters hear my new songs before anyone else.",
   yoursHeading: "Yours before anyone else",
@@ -22,8 +21,8 @@ export const SUPPORTER_COPY = {
 };
 
 export const FUND_COPY = {
-  title: "Fund my tour",
-  sub: "Give once, any amount",
+  title: "Fund my tour once",
+  sub: "Any amount helps",
   costsSub: "Here are my costs. Any amount helps.",
   metaDescription: "Fund my tour. Here are my costs. Give once, any amount.",
   stripeLine: "Fund my tour",

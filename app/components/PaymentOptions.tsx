@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { cardPayLabel } from "../lib/fees";
 
@@ -18,6 +19,8 @@ export const PAYMENT_OPTIONS_STYLE = `
   .cc-card { background: #1a1915; color: #fff; font-size: 20px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
   .cc-venmo, .cc-zelle, .cc-interac, .cc-card { position: relative; }
   .cc-tag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .cc-venmo-last4 { position: absolute; right: 10px; bottom: 4px; display: inline-flex; align-items: center; gap: 0.35em; font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.02em; white-space: nowrap; opacity: 0.85; font-variant-numeric: tabular-nums; }
+  .cc-venmo-avatar { width: 1.1em; height: 1.1em; flex: none; border-radius: 50%; object-fit: cover; }
   .cc-zelle { background: #fff; border: 2px solid #6D1ED4; }
   .cc-zelle .cc-tag { background: rgba(109,30,212,0.12); color: #6D1ED4; }
   .cc-copy { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #6D1ED4; }
@@ -34,6 +37,8 @@ export const PAYMENT_OPTIONS_STYLE = `
   @container (max-width: 380px) { .cc-card:has(.cc-tag) { padding-left: 88px; padding-right: 12px; } }
   @container (max-width: 320px) { .cc-copy { right: 12px; font-size: 14px; } }
 `;
+
+export const VENMO_LAST4 = "8620";
 
 export function venmoPayUrl(amount: number | string, note: string) {
   return `https://venmo.com/psdewar?txn=pay&audience=private${amount === "" ? "" : `&amount=${amount}`}&note=${encodeURIComponent(note)}`;
@@ -121,6 +126,10 @@ export default function PaymentOptions({
         <span className="cc-tag">no fees</span>
         <img className="cc-venmo-logo" src="/Venmo_Logo_Blue.png" alt="Venmo" />
         {venmoHint && <span className="cc-copy cc-venmo-copy">{venmoHint}</span>}
+        <span className="cc-venmo-last4">
+          <Image className="cc-venmo-avatar" src="/images/printouts/support.jpg" alt="" width={24} height={24} sizes="24px" />
+          Last 4: {VENMO_LAST4}
+        </span>
       </a>
       {zelle && ZELLE_EMAIL && (
         <button
