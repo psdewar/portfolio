@@ -107,6 +107,7 @@
 .ci .st:has(+ .stnote)::before { bottom: calc(-20 * var(--u) + var(--road-gap)); }
 .ci .st:has(+ .stnote)::after { bottom: calc(-20 * var(--u) + var(--road-gap)); }
 .ci .st.open:last-child::before, .ci .st.open:last-child::after, .ci .st.open:last-child .lead::after { display: none; }
+.ci .st:not(.open):has(+ .st[data-n="3"]:last-child)::before, .ci .st.open:has(+ .st[data-n="3"]:last-child)::after { display: none; }
 .ci .st.open .lead::after { content: ""; position: absolute; left: calc(50% - 1px); top: calc(50% + var(--th) / 2); bottom: calc(-6 * var(--u)); border-left: 2px dashed rgba(38,43,63,0.35); }
 .ci .st.open.linked .lead::after { border-left: 2px solid var(--mustard); }
 .ci .st.open .lead.plain::after { top: calc(var(--lh) / 2 + 13 * var(--u)); }

@@ -108,6 +108,7 @@ export function PhotoArt() {
 export function InstagramArt() {
   return (
     <Art>
+      <rect x="2.5" y="2.5" width="35" height="35" rx="9" fill={PAPER} />
       <InstagramGlyph x={2} y={2} size={36} />
     </Art>
   );
