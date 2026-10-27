@@ -79,11 +79,12 @@ function MomentsGallery({
   const lastTs = useRef(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const motionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialized = useRef(false);
   const firstReady = useRef(false);
   const lightboxOpen = useRef(false);
-  const inView = useRef(true);
+  const inView = useRef(false);
   const openedAt = useRef<number | null>(null);
   const groups: Array<{
     stop?: { city: string; visit?: string };
@@ -110,13 +111,26 @@ function MomentsGallery({
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        inView.current = entry.isIntersecting;
-        if (entry.isIntersecting) lastTs.current = 0;
+        if (entry.intersectionRatio >= 0.5) {
+          if (inView.current || focusTimer.current) return;
+          focusTimer.current = setTimeout(() => {
+            focusTimer.current = null;
+            inView.current = true;
+            lastTs.current = 0;
+          }, 1500);
+          return;
+        }
+        if (focusTimer.current) clearTimeout(focusTimer.current);
+        focusTimer.current = null;
+        inView.current = false;
       },
-      { threshold: 0.15 },
+      { threshold: 0.5 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -339,7 +353,7 @@ function MomentsGallery({
   const mediaOrigin = items[0].src ? new URL(items[0].src).origin : null;
 
   return (
-    <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0">
+    <section aria-label="Moments from the night" className="relative mx-[calc(50%-50vw)] w-screen shrink-0 overflow-x-clip">
       {mediaOrigin && <link rel="preconnect" href={mediaOrigin} crossOrigin="" />}
       <style>{`@keyframes momentRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}@keyframes momentFade{from{opacity:0}to{opacity:1}}@keyframes momentNote{0%{opacity:0;transform:translateY(4px) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-14px) scale(1.05)}}.moments-strip::-webkit-scrollbar{display:none}@media (prefers-reduced-motion: reduce){.moments-note{animation:none!important;opacity:1}}`}</style>
 
