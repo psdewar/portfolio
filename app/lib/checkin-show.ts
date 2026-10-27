@@ -4,6 +4,7 @@ import { getShows, isShowDraft, type Show } from "./shows";
 
 export const CHECKIN_COOKIE = "checkin";
 export const CHECKIN_COOKIE_MAX_AGE = 14 * 24 * 60 * 60;
+export const CHECKIN_START = "2026-10-22";
 const REOPEN_DAYS = 7;
 
 export function formatCheckinCookie(slug: string, checkinId: string): string {

@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import PostHogClient from "../../../lib/posthog";
 import {
   CHECKIN_COOKIE,
+  CHECKIN_START,
   isCheckinOpen,
   isShowToday,
   parseCheckinCookie,
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const show = await getShowBySlug(slug.trim());
     const claiming = isCheckinId(claimId);
-    if (!show || !isCheckinOpen(show)) {
+    if (!show || show.date < CHECKIN_START || !isCheckinOpen(show)) {
       return NextResponse.json({ error: "Check-in isn't open for this show." }, { status: 400 });
     }
 

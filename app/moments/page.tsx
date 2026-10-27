@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 import MomentsClient from "./MomentsClient";
 import { getFundingLegSlug } from "../fund/legs";
 import { getFeaturedGalleryItems } from "../api/shared/moments";
-import { getShows } from "../lib/shows";
-import { CHECKIN_COOKIE, isRunnable, pickCheckinSlug } from "../lib/checkin-show";
+import { getShows, isShowListed } from "../lib/shows";
+import { CHECKIN_COOKIE, CHECKIN_START, isRunnable, pickCheckinSlug } from "../lib/checkin-show";
 import { todayIn } from "../lib/dates";
 
 const title = "Moments from the concert";
@@ -44,7 +44,8 @@ export default async function MomentsPage() {
   const today = todayIn("America/New_York");
   const pastShows = shows
     .filter(isRunnable)
-    .filter((s) => s.date <= today)
+    .filter(isShowListed)
+    .filter((s) => s.date >= CHECKIN_START && s.date <= today)
     .map((s) => ({ slug: s.slug, date: s.date }));
   const checkinHref = checkinSlug ? `/checkin/${checkinSlug}` : "/listen";
   return <MomentsClient checkinHref={checkinHref} pastShows={pastShows} items={items} />;

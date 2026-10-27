@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getShowBySlug, getTourCounts } from "../../lib/shows";
 import { todayIn } from "../../lib/dates";
-import { isCheckinOpen, isRunnable, isShowToday } from "../../lib/checkin-show";
+import { CHECKIN_START, isCheckinOpen, isRunnable, isShowToday } from "../../lib/checkin-show";
 import { storyParagraphs } from "../../data/story";
 import { getFeaturedGalleryItemsForShow } from "../../api/shared/moments";
 import CheckInClient from "../CheckInClient";
@@ -20,6 +20,7 @@ export default async function CheckinPage({ params, searchParams }: Props) {
   const { preview, no, capture, rsvpd } = await searchParams;
   const show = await getShowBySlug(slug);
   if (!show) redirect("/support");
+  if (show.date < CHECKIN_START) redirect("/listen");
   const past = show.date < todayIn("Pacific/Honolulu");
   if (preview !== "1" && (!isRunnable(show) || !(past || isShowToday(show)))) redirect("/support");
 
