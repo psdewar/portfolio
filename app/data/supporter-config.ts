@@ -11,7 +11,7 @@ export const SUPPORTER_CONFIG = {
 
 export const SUPPORTER_COPY = {
   promise: "Monthly supporters hear my new songs before anyone else.",
-  pitch: "Monthly support covers my tour, recording and releasing, and keeps me independent. Get access to new songs before anyone else! Like Patreon without the cut: I receive 100%. Cancel anytime.",
+  pitch: "Your monthly support covers my tour, recording and releasing, and keeps me independent. Get access to new songs before anyone else! Like Patreon without the cut: I receive 100%. Cancel anytime.",
   metaDescription:
     "Rapper and Microsoft alum. Like Patreon without the cut, only your card fee is added, so I receive 100%. Monthly supporters hear my new songs before anyone else.",
   yoursHeading: "Yours before anyone else",

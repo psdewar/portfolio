@@ -456,6 +456,7 @@ export function TierPicker({
   }, [onRegisterSilence]);
   const { pause: pauseTrack } = useAudio();
   const previewPlayedRef = useRef<string | null>(null);
+  const skipAutoplayRef = useRef(false);
   const [progress, setProgress] = useState(0);
   const [previewStarted, setPreviewStarted] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -480,6 +481,10 @@ export function TierPicker({
     previewPlayedRef.current = currentPreview.src;
     setProgress(0);
     el.currentTime = 0;
+    if (skipAutoplayRef.current) {
+      skipAutoplayRef.current = false;
+      return;
+    }
     if (pickedSrc === null && preview?.autoplay === false) return;
     el.play().catch(() => {});
   }, [active, preview, currentPreview, pickedSrc]);
@@ -492,8 +497,18 @@ export function TierPicker({
   }, [active]);
 
   const nextPreview = () => {
-    if (previewIndex < previewList.length - 1)
+    if (previewIndex < previewList.length - 1) {
       setPickedSrc(previewList[previewIndex + 1].src);
+      return;
+    }
+    setPreviewStarted(false);
+    setProgress(0);
+    if (previewIndex === 0) {
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      return;
+    }
+    skipAutoplayRef.current = true;
+    setPickedSrc(previewList[0].src);
   };
 
   const togglePreview = () => {
@@ -501,10 +516,6 @@ export function TierPicker({
     if (!el) return;
     if (!el.paused) {
       el.pause();
-      return;
-    }
-    if (el.ended && previewIndex > 0) {
-      setPickedSrc(previewList[0].src);
       return;
     }
     if (el.ended) el.currentTime = 0;

@@ -7,26 +7,27 @@ import {
   SpotifyLogoIcon,
   type Icon,
 } from "@phosphor-icons/react";
+import { APPLE_MUSIC_URL, INSTAGRAM_URL, SPOTIFY_URL, YOUTUBE_URL } from "../lib/socials";
 
-export const APPLE_MUSIC_URL = "https://music.apple.com/us/artist/peyt-spencer/1361786209";
+export { APPLE_MUSIC_URL };
 
 export const SOCIAL_LINKS: { href: string; label: string; username: string; icon: Icon; color: string }[] = [
   {
-    href: "https://open.spotify.com/artist/2i77XjQtnVre1eS46M2ZlN",
+    href: SPOTIFY_URL,
     label: "Spotify",
     username: "Peyt Spencer",
     icon: SpotifyLogoIcon,
     color: "#1DB954",
   },
   {
-    href: "https://instagram.com/peytspencer",
+    href: INSTAGRAM_URL,
     label: "Instagram",
     username: "@peytspencer",
     icon: InstagramLogoIcon,
     color: "#E4405F",
   },
   {
-    href: "https://youtube.com/@peytspencer",
+    href: YOUTUBE_URL,
     label: "YouTube",
     username: "@peytspencer",
     icon: YoutubeLogoIcon,
