@@ -13,6 +13,7 @@ import {
   isShowCompleted,
   listableShows,
 } from "../lib/shows";
+import { getLegs } from "../fund/legs";
 import { tourMomentum } from "../lib/tour-momentum";
 import { confirmPath } from "../lib/confirm";
 import { getCityCoords, getCityZone } from "../lib/city-zone";
@@ -29,7 +30,7 @@ export default async function SupportPage({
 }) {
   const params = await searchParams;
   const og = params.og === "true";
-  const shows = await getShows();
+  const [shows, legs] = await Promise.all([getShows(), getLegs()]);
   if (!og && !params.now) {
     const nearShow = pickTodayShow(shows);
     const h = await headers();
@@ -53,7 +54,7 @@ export default async function SupportPage({
   const pastShows = liveShows.filter(
     (s) => isShowCompleted(s) && !isShowUpcoming(s),
   );
-  const { concertCount, nextStop } = tourMomentum(shows);
+  const { concertCount, cityCount, nextStop } = tourMomentum(shows, legs);
   const draft = shows.find((s) => isShowDraft(s) && needsHostLocation(s));
   const sponsorHref = draft ? confirmPath(draft.slug) : undefined;
   const caShows = await Promise.all(
@@ -81,6 +82,7 @@ export default async function SupportPage({
             <TipsAndSocials
               interacFirst={!!todayShow}
               concertCount={concertCount}
+              cityCount={cityCount}
               nextStop={nextStop}
             />
           </Suspense>

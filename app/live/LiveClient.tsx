@@ -33,6 +33,7 @@ export default function LiveClient({
   nextStream,
   upcomingShows,
   concertCount,
+  cityCount,
   tripLeg,
   path = "live",
 }: {
@@ -41,6 +42,7 @@ export default function LiveClient({
   nextStream: string | null;
   upcomingShows: TimelineEvent[];
   concertCount: number;
+  cityCount: number;
   tripLeg?: string | null;
   path?: StreamPath;
 }) {
@@ -400,6 +402,7 @@ export default function LiveClient({
         source="live"
         showFundSection
         concertCount={concertCount}
+        cityCount={cityCount}
         preview={EARLY_ACCESS_PREVIEW}
         onLoudPlay={handlePreviewLoudStart}
         onLoudEnd={handlePreviewLoudEnd}

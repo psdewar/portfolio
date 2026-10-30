@@ -12,11 +12,13 @@ export function TipsSection({
   interacFirst = false,
   isOg = false,
   concertCount = 0,
+  cityCount = 0,
   nextStop,
 }: {
   interacFirst?: boolean;
   isOg?: boolean;
   concertCount?: number;
+  cityCount?: number;
   nextStop?: string | null;
 }) {
   const [cardOpen, setCardOpen] = useState(false);
@@ -30,7 +32,7 @@ export function TipsSection({
       </h2>
       {!isOg && (
         <p className="text-neutral-500 dark:text-neutral-400 text-base mb-4 split:mb-[clamp(0.5rem,calc(-28px_+_4vh),1rem)]">
-          {concertLine(concertCount)}
+          {concertLine(concertCount, cityCount)}
           {nextStop && (
             <>
               <br />
@@ -57,10 +59,12 @@ const SUCCESS_MESSAGES: Record<string, string> = {
 export default function TipsAndSocials({
   interacFirst = false,
   concertCount,
+  cityCount,
   nextStop,
 }: {
   interacFirst?: boolean;
   concertCount: number;
+  cityCount: number;
   nextStop?: string | null;
 }) {
   const searchParams = useSearchParams();
@@ -103,6 +107,7 @@ export default function TipsAndSocials({
             interacFirst={interacFirst}
             isOg={searchParams.get("og") === "true"}
             concertCount={concertCount}
+            cityCount={cityCount}
             nextStop={nextStop}
           />
         )}

@@ -149,6 +149,7 @@ interface SupportModalProps {
   source: string;
   showFundSection?: boolean;
   concertCount?: number;
+  cityCount?: number;
   onLoudPlay?: () => void;
   onLoudEnd?: () => void;
   onRegisterSilence?: (silence: () => void) => void;
@@ -164,6 +165,7 @@ export default function SupportModal({
   source,
   showFundSection = false,
   concertCount = 0,
+  cityCount = 0,
   onLoudPlay,
   onLoudEnd,
   onRegisterSilence,
@@ -204,7 +206,7 @@ export default function SupportModal({
         <>
           {showFundSection && (
             <div className="mb-8">
-              <TipsSection concertCount={concertCount} />
+              <TipsSection concertCount={concertCount} cityCount={cityCount} />
             </div>
           )}
           <MonthlySupporter

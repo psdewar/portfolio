@@ -192,6 +192,10 @@ export function getTourConcertCount(shows: Show[]): number {
   return shows.filter(isTourConcert).length;
 }
 
+export function getTourCityCount(shows: Show[]): number {
+  return new Set(shows.filter(isTourConcert).map((s) => `${s.city}|${s.region}`)).size;
+}
+
 export function showToTimelineEvent(show: Show, sameDayIndex = 0): TimelineEvent {
   const upcoming = isShowUpcoming(show);
   return {

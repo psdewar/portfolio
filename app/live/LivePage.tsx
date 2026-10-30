@@ -3,6 +3,7 @@ import {
   getShowHistory,
   getShows,
   getTourConcertCount,
+  getTourCityCount,
   isShowUpcoming,
   listableShows,
   needsHostLocation,
@@ -29,6 +30,7 @@ export default async function LivePage({ path }: { path: StreamPath }) {
     : listableUpcomingShows.slice(0, 3);
 
   const concertCount = getTourConcertCount(shows);
+  const cityCount = getTourCityCount(shows);
 
   const tourPastShows = history.filter((e) => e.date >= CHORUS_ERA_START);
 
@@ -40,6 +42,7 @@ export default async function LivePage({ path }: { path: StreamPath }) {
       nextStream={nextStream}
       upcomingShows={orderedShowsToTimelineEvents(upcomingShows)}
       concertCount={concertCount}
+      cityCount={cityCount}
       tripLeg={firstLeg}
     />
   );
