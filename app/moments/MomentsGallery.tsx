@@ -179,7 +179,7 @@ function MomentsGallery({
     }
 
     const step = (ts: number) => {
-      const delta = lastTs.current ? Math.min(ts - lastTs.current, 16) : 16;
+      const delta = lastTs.current ? Math.min(ts - lastTs.current, 100) : 16;
       lastTs.current = ts;
 
       const el = scrollRef.current;
