@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { PendingRsvpProvider, ShowRow } from "../components/ShowRow";
+import { PendingRsvpProvider, ShowRow, isRsvpEvent } from "../components/ShowRow";
 import type { TimelineEvent } from "../data/timeline";
 import { LIVE_STRIP_ROW_PX } from "./useLiveLayout";
 
@@ -60,8 +60,10 @@ export function LiveSupportAsk({
   const mobileHeadingSize = { fontSize: MOBILE_SHEET_HEADING_FONT };
   const headingRowClass = `mt-3 mb-2 px-4 w-fit shrink-0 ${cityHeadingClass}`;
   const headingText = place ? `Pull up in ${place}` : null;
-
-  const firstFour = upcomingShows.slice(0, 4);
+  const picked = new Set(
+    [...upcomingShows.filter(isRsvpEvent), ...upcomingShows.filter((event) => !isRsvpEvent(event))].slice(0, 4),
+  );
+  const firstFour = upcomingShows.filter((event) => picked.has(event));
   const firstScreenClone = (
     <div
       ref={firstScreenRef}
@@ -74,7 +76,7 @@ export function LiveSupportAsk({
         </div>
       )}
       <div className="px-4 flex flex-col">
-        {firstFour.map((event) => (
+        {upcomingShows.slice(0, 4).map((event) => (
           <ShowRow key={`measure-${event.id}`} event={event} tone="dark" quietRsvp />
         ))}
       </div>

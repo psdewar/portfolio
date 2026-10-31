@@ -60,6 +60,10 @@ export function DateStack({
   );
 }
 
+export function isRsvpEvent(event: TimelineEvent) {
+  return !!event.url && event.urlLabel === "RSVP";
+}
+
 export function ShowRow({
   event,
   tone = "auto",
@@ -75,7 +79,7 @@ export function ShowRow({
 }) {
   const lg = size === "lg";
   const dateInfo = formatEventDate(event.date);
-  const isRsvp = !!event.url && event.urlLabel === "RSVP";
+  const isRsvp = isRsvpEvent(event);
   const isFGTU = event.title.includes("From The Ground Up");
   const RowTag = (isRsvp ? Link : "div") as React.ElementType;
 
