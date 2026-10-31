@@ -4,6 +4,8 @@ import { checkRateLimit, getClientIP } from "../shared/rate-limit";
 import { ALLOWED_ORIGINS } from "../shared/audio-utils";
 import { isNameTooLong } from "../../lib/name";
 
+export const maxDuration = 30;
+
 // Renders the ticket in a headless browser, clipped to just the ticket (straight, no backdrop); name/email typed into the form, never the URL.
 export async function POST(request: NextRequest) {
   const rate = checkRateLimit(getClientIP(request), "ticket-image", {
