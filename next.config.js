@@ -18,7 +18,6 @@ const nextConfig = {
   allowedDevOrigins: ["dev.peytspencer.com"],
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
   outputFileTracingIncludes: {
-    "/api/og": chromiumBin,
     "/api/og/listen": chromiumBin,
     "/api/og/live": chromiumBin,
     "/api/og/support": chromiumBin,
