@@ -7,8 +7,10 @@ import { ArrowIcon } from "./ArrowIcon";
 import { Social, SOCIAL_LINKS } from "./components/Social";
 import { useSupporterStatus, useSupporterTier } from "./hooks/useSupporterStatus";
 import { SUPPORTER_TIERS } from "./data/supporter-tiers";
-import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
-import { isFundPath, isLivePath } from "./lib/route-checks";
+import { LIVE_DESKTOP_HIDDEN, MENU_HEADER_PX } from "./live/live-breakpoint";
+import { hidesDesktopHeader, isFundPath, isLivePath, reservesRailHeader } from "./lib/route-checks";
+import { FEATURE_LINK } from "./lib/socials";
+import BrandWordmark from "./components/BrandWordmark";
 
 export const navItems = [
   { href: "/support", label: "Support" },
@@ -32,13 +34,6 @@ export const NAV_COLOR: Record<string, string> = {
   "/shop": "#a78bfa",
   "/live": "#ff3b5c",
   "/rsvp": "#38bdf8",
-};
-
-export const BRAND_SWEEP_STYLE: React.CSSProperties = {
-  WebkitTextFillColor: "transparent",
-  backgroundImage: "linear-gradient(to right, #fb923c 0%, #ec4899 50%, currentColor 50% 100%)",
-  backgroundSize: "200% 100%",
-  transition: "background-position 400ms ease",
 };
 
 const HIRE_LINKS = [
@@ -125,14 +120,15 @@ export function Navbar() {
     }
     const shown = !hidden || menuOpen;
     const setHeaderHeight = () => {
-      document.documentElement.style.setProperty("--header-h", `${header.offsetHeight}px`);
-      document.documentElement.style.setProperty("--header-offset", shown ? `${header.offsetHeight}px` : "0px");
+      const height = header.offsetHeight || (reservesRailHeader(pathname) ? MENU_HEADER_PX : 0);
+      document.documentElement.style.setProperty("--header-h", `${height}px`);
+      document.documentElement.style.setProperty("--header-offset", shown ? `${height}px` : "0px");
     };
     setHeaderHeight();
     const observer = new ResizeObserver(setHeaderHeight);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [isFundPage, hidden, menuOpen]);
+  }, [isFundPage, hidden, menuOpen, pathname]);
 
   if (isFundPage) return null;
 
@@ -140,7 +136,7 @@ export function Navbar() {
     <header
       ref={headerRef}
       className={`${isFundPage ? "" : `sticky ${hidden && !menuOpen ? "-top-16" : "top-0"}`} w-full z-40 bg-white dark:bg-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 transition-[top] duration-300 [container-type:inline-size] ${
-        isLivePage ? LIVE_DESKTOP_HIDDEN : ""
+        hidesDesktopHeader(pathname) ? LIVE_DESKTOP_HIDDEN : ""
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -151,11 +147,7 @@ export function Navbar() {
                 href="/"
                 className="group min-h-11 font-bebas text-2xl sm:text-3xl tracking-tight leading-none whitespace-nowrap text-gray-900 dark:text-white flex items-center -mb-1"
               >
-                <span>Peyt</span>
-                <span aria-hidden>&nbsp;</span>
-                <span className="bg-clip-text bg-[position:100%_0%] group-hover:bg-[position:0%_0%]" style={BRAND_SWEEP_STYLE}>
-                  Spencer
-                </span>
+                <BrandWordmark />
               </Link>
               {isSupporter && tierDef && (
                 <Link
@@ -222,12 +214,12 @@ export function Navbar() {
               })}
               {isMusicPage && (
                 <Link
-                  href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                  href={FEATURE_LINK.href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="min-h-11 flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
-                  Feature me
+                  {FEATURE_LINK.label}
                   <ArrowIcon />
                 </Link>
               )}
@@ -339,17 +331,17 @@ export function Navbar() {
               ))}
             {isMusicPage && (
               <a
-                href="https://soundbetter.com/profiles/630479-peyt-spencer"
+                href={FEATURE_LINK.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMenuOpen(false)}
-                style={{ "--row": "#737373" } as React.CSSProperties}
+                style={{ "--row": FEATURE_LINK.color } as React.CSSProperties}
                 className={`group flex h-14 items-center gap-2 pr-4 sm:pr-6 ${DRAWER_ICON_GUTTER} text-[17px] font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)] text-gray-600 dark:text-gray-400 hover:text-[var(--row)] hover:bg-gray-100 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800/60`}
               >
                 <span className="grid h-10 w-10 shrink-0 place-items-center">
                   <StarIcon size={22} />
                 </span>
-                <span className="min-w-0 truncate">Feature me</span>
+                <span className="min-w-0 truncate">{FEATURE_LINK.label}</span>
                 <ArrowIcon />
               </a>
             )}

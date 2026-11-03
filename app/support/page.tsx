@@ -70,7 +70,7 @@ export default async function SupportPage({
   )?.show;
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-950">
+    <div className="bg-neutral-50 dark:bg-gray-900">
       <SupporterSection
         upcomingShows={upcomingShows}
         pastShows={pastShows}

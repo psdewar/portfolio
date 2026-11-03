@@ -16,7 +16,9 @@ import { TRACK_DATA } from "../data/tracks";
 import { SUPPORTER_CONFIG, SUPPORTER_COPY, SUPPORTER_EXCLUSIVE_TRACKS } from "../data/supporter-config";
 import { useSupporterStatus } from "../hooks/useSupporterStatus";
 import { claimSupporterSession, claimSupporterLink } from "../lib/supporter";
-import StayConnected, { shouldShowStayConnected } from "app/components/StayConnected";
+import posthog from "posthog-js";
+import StayConnected, { FORM_SURFACE, shouldShowStayConnected } from "app/components/StayConnected";
+import SocialButtons from "app/components/SocialButtons";
 import SupportModal from "app/components/SupportModal";
 import { useToast } from "../contexts/ToastContext";
 import ListenLoading from "./loading";
@@ -79,7 +81,13 @@ const ARTWORK_PENDING = new Set(
 );
 const WELCOME_PACK_IDS = SUPPORTER_EXCLUSIVE_TRACKS;
 
-const ALL_TRACKS: TrackCard[] = [...SUPPORTER_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
+const UNSORTED_TRACKS: TrackCard[] = [...SUPPORTER_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
+const BEST_FOOT_FORWARD_TRACK = UNSORTED_TRACKS.find((t) => t.id === "best-foot-forward");
+const ALL_TRACKS: TrackCard[] = BEST_FOOT_FORWARD_TRACK
+  ? UNSORTED_TRACKS.filter((t) => t !== BEST_FOOT_FORWARD_TRACK).flatMap((t) =>
+      t.id === "mula-freestyle" ? [BEST_FOOT_FORWARD_TRACK, t] : [t],
+    )
+  : UNSORTED_TRACKS;
 const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
 
 const PLAYABLE_TRACK_IDS = new Set(
@@ -174,6 +182,8 @@ export default function Page() {
     return <ListenLoading />;
   }
 
+  const stayConnectedVisible = showStayConnected && !isSupporter;
+
   return (
     <>
       <SupportModal
@@ -219,7 +229,8 @@ export default function Page() {
         </div>
       )}
 
-      <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className={`w-full ${stayConnectedVisible ? "lg:grid lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]" : ""}`}>
+      <div className={`w-full isolate grid grid-cols-2 md:grid-cols-3 ${stayConnectedVisible ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         {visibleTracks.map((t, i) => {
           const isCurrent = currentTrack?.id === t.id;
           const isLoadingThis = loadingTrack?.id === t.id;
@@ -271,7 +282,7 @@ export default function Page() {
                   fill
                   className="object-cover absolute inset-0"
                   loading={supporterWelcome && WELCOME_PACK_IDS.has(t.id) ? "eager" : "lazy"}
-                  sizes="(max-width: 768px) 50vw, 25vw"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                   onError={() => setBrokenImages((prev) => new Set(prev).add(t.id))}
                 />
               )}
@@ -279,7 +290,7 @@ export default function Page() {
               {(brokenImages.has(t.id) || ARTWORK_PENDING.has(t.id)) && (
                 <div className="absolute inset-x-2 bottom-2 z-40 flex flex-col items-start gap-1">
                   {brokenImages.has(t.id) && (
-                    <span className="text-sm font-medium text-white/80">{t.title}</span>
+                    <span className="text-sm font-medium text-white/80 line-clamp-2">{t.title}</span>
                   )}
                   {ARTWORK_PENDING.has(t.id) && (
                     <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] text-white/80 uppercase tracking-wide">
@@ -305,16 +316,16 @@ export default function Page() {
                     <LockSimpleOpenIcon
                       size={64}
                       weight="bold"
-                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                      className="w-16 h-16 text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
                     />
                   ) : (
                     <LockSimpleIcon
                       size={64}
                       weight="bold"
-                      className="text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
+                      className="w-16 h-16 text-[#d4a553] drop-shadow-[0_0_20px_rgba(212,165,83,0.6)]"
                     />
                   )}
-                  <span className="text-sm font-medium text-white/90">{t.title}</span>
+                  <span className="text-sm font-medium text-white/90 line-clamp-2">{t.title}</span>
                   <span className="text-xs uppercase tracking-widest text-white/70 font-medium">
                     {isUnlocking ? "Opening" : "Tap to open"}
                   </span>
@@ -323,11 +334,29 @@ export default function Page() {
             </button>
           );
         })}
-        {showStayConnected && !isSupporter && (
-          <section className="col-span-2 md:col-span-full xl:col-span-2 3xl:col-span-1 flex justify-center bg-neutral-900 order-[13] lg:order-[17] xl:order-[13]">
+        {stayConnectedVisible && (
+          <section className="col-span-2 md:col-span-full flex justify-center bg-neutral-900 order-[13] lg:hidden">
             <StayConnected onClose={() => setShowStayConnected(false)} />
           </section>
         )}
+      </div>
+      {stayConnectedVisible && (
+        <aside className="hidden lg:block [contain:size]">
+          <div
+            className="sticky flex flex-col [container-type:inline-size]"
+            style={{
+              top: "var(--header-h, 0px)",
+              width: "min(100%, calc((100dvh - var(--header-h, 0px) - var(--player-h, 0px)) / 2.3))",
+              height: "min(100%, calc(100dvh - var(--header-h, 0px)))",
+            }}
+          >
+            <StayConnected onClose={() => setShowStayConnected(false)} />
+            <div className="soc-fill flex-1 min-h-0 px-[5.78cqw] pb-[5.78cqw]" style={{ background: FORM_SURFACE }}>
+              <SocialButtons showAppleMusic onTap={(platform) => posthog.capture("listen_social_tap", { platform })} />
+            </div>
+          </div>
+        </aside>
+      )}
       </div>
     </>
   );

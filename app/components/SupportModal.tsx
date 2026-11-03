@@ -309,7 +309,7 @@ export function MonthlySupporter({
         <button
           type="button"
           onClick={onSignIn}
-          className="min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex items-center px-[var(--tp-x,1.5rem)] py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] mt-1 text-left text-base text-neutral-500 dark:text-neutral-400 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white"
+          className="min-h-11 -mx-[var(--tp-x,1.5rem)] w-[calc(100%+2*var(--tp-x,1.5rem))] flex items-center px-[var(--tp-x,1.5rem)] py-3 split:py-[clamp(0.625rem,calc(-32px_+_4vh),0.75rem)] mt-1 text-left text-base text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-900 dark:focus-visible:outline-white"
         >
           Already a supporter?&nbsp;
           <span className="underline underline-offset-4 text-neutral-900 dark:text-white">Sign in</span>

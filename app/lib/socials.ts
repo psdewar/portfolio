@@ -11,3 +11,4 @@ export const CHECKIN_SOCIALS: Record<SocialTarget, string> = {
   youtube: `${YOUTUBE_URL}?sub_confirmation=1`,
   apple_music: APPLE_MUSIC_URL,
 };
+export const FEATURE_LINK = { href: "https://soundbetter.com/profiles/630479-peyt-spencer", label: "Book a guest verse", color: "#a05f7e" };

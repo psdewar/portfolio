@@ -15,6 +15,7 @@ interface ContactFieldsProps {
   scale?: Scale;
   namePlaceholder?: string;
   hidePhone?: boolean;
+  nameId?: string;
 }
 
 const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
@@ -31,6 +32,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
       scale,
       namePlaceholder = "Name *",
       hidePhone,
+      nameId,
     },
     ref,
   ) => {
@@ -38,6 +40,7 @@ const ContactFields = forwardRef<HTMLInputElement, ContactFieldsProps>(
       <>
         <FormInput
           ref={ref}
+          id={nameId}
           type="text"
           placeholder={namePlaceholder}
           value={name}

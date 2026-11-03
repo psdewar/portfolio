@@ -27,6 +27,7 @@ import { useEscape } from "../hooks/useEscape";
 import { type Show, showsToTimelineEvents } from "../lib/shows-shared";
 import { PlayCircle } from "./PlayCircle";
 import { ReadMyStory } from "./ReadMyStory";
+import { RAIL_BUTTON_INSET, RAIL_ROW_TOP } from "../live/live-breakpoint";
 import { DateStack, PendingRsvpProvider, ShowRow } from "./ShowRow";
 
 const formatDuration = (s: number) =>
@@ -281,7 +282,7 @@ export function SupporterSection({
           className="mb-16"
         >
           <div
-            className={`flex items-end justify-between gap-3 sticky ${isModal ? "top-0" : "top-16 split:top-0"} backdrop-blur-md ${isModal ? "bg-white/80 dark:bg-neutral-900/80" : "bg-neutral-50/80 dark:bg-neutral-950/80 split:backdrop-blur-none split:bg-neutral-50 dark:split:bg-neutral-950"} z-10 py-3`}
+            className={`flex items-end justify-between gap-3 sticky ${isModal ? "top-0" : "top-16 split:top-0"} backdrop-blur-md ${isModal ? "bg-white/80 dark:bg-neutral-900/80" : "bg-neutral-50/80 dark:bg-gray-900/80 split:backdrop-blur-none split:bg-neutral-50 dark:split:bg-gray-900"} z-10 py-3`}
             style={{ alignItems: "last baseline" }}
           >
             <h2
@@ -449,25 +450,26 @@ export function SupporterSection({
                             {style.label}
                           </span>
                           {event.location && (
-                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate">
+                            <span title={event.location} className="min-w-0 break-words text-neutral-500 text-base split:line-clamp-2">
                               {event.location}
                             </span>
                           )}
                           {isContent && event.relatedSong && (
-                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate">
+                            <span title={event.relatedSong} className="min-w-0 break-words text-neutral-500 text-base split:line-clamp-2">
                               {event.relatedSong}
                             </span>
                           )}
                           {isFeature && event.artist && (
-                            <span className="min-w-0 break-words text-neutral-500 text-base split:truncate flex items-center gap-1">
-                              <UserIcon className="w-3 h-3" />
-                              {event.artist}
+                            <span title={event.artist} className="flex items-center gap-1 min-w-0 text-neutral-500 text-base">
+                              <UserIcon className="w-3 h-3 shrink-0" />
+                              <span className="min-w-0 break-words split:line-clamp-2">{event.artist}</span>
                             </span>
                           )}
                         </div>
                       )}
                       <h3
-                        className={`${isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg leading-tight"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:truncate`}
+                        title={event.title}
+                        className={`${isMusic ? "font-bebas text-2xl leading-none" : isFGTU ? "font-bold text-lg uppercase tracking-wide" : "font-medium text-lg leading-tight"} text-neutral-900 dark:text-white ${style ? "mt-1.5" : ""} mb-0.5 break-words split:line-clamp-2`}
                         style={
                           isFGTU
                             ? { fontFamily: '"Parkinsans", sans-serif' }
@@ -538,7 +540,7 @@ export function SupporterSection({
   return (
     <div
       ref={containerRef}
-      className={`bg-neutral-50 dark:bg-neutral-950 relative ${isModal ? "h-full overflow-y-auto" : "split:h-[calc(100dvh-4rem-1px-var(--player-h,0px))] split:overflow-hidden split:grid split:grid-cols-2 split:gap-x-0 split:max-w-7xl split:mx-auto split:px-8"}${og ? " supporter--og" : ""}`}
+      className={`bg-neutral-50 relative ${isModal ? "dark:bg-neutral-950 h-full overflow-y-auto" : "dark:bg-gray-900 split:h-[calc(100dvh-var(--header-h,65px)-var(--player-h,0px))] split:overflow-hidden split:grid split:grid-cols-2 split:gap-x-0 split:max-w-7xl split:mx-auto split:px-8 " + RAIL_BUTTON_INSET}${og ? " supporter--og" : ""}`}
     >
       {og && (
         <style>{`
@@ -624,7 +626,7 @@ export function SupporterSection({
           ref={timelineRef}
           className="split:flex-1 split:min-h-0 split:overflow-y-auto split:[scrollbar-width:none] split:[&::-webkit-scrollbar]:hidden split:pb-8"
         >
-          <div className="max-w-lg mx-auto w-full split:max-w-none split:mx-0 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)]">
+          <div className={`max-w-lg mx-auto w-full split:max-w-none split:mx-0 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] ${isModal ? "" : RAIL_ROW_TOP}`}>
             <h1 className="font-bebas text-3xl text-neutral-900 dark:text-white">
               Stacking the Days
             </h1>

@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ContactFormData } from "../actions";
 import FormInput from "./FormInput";
 import ContactFields from "./ContactFields";
@@ -34,6 +34,7 @@ interface FormErrors {
 type Mode = "signup" | "signin";
 type Step = "form" | "code";
 
+export const FORM_SURFACE = "#1a1a1d";
 const now = () => Date.now();
 
 function formatCountdown(seconds: number): string {
@@ -74,6 +75,7 @@ export default function StayConnected({
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const nameId = useId();
   const focusRef = useRef<HTMLInputElement | null>(null);
   const otpRef = useRef<HTMLInputElement | null>(null);
 
@@ -225,21 +227,23 @@ export default function StayConnected({
 
   if (!componentShouldShow) return null;
 
+  const surfaceStyle = { "--sc-surface": FORM_SURFACE } as import("react").CSSProperties;
   const containerClass = isModal
-    ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4"
-    : "bg-white dark:bg-neutral-800 p-4 sm:p-6 w-full h-full flex flex-col";
+    ? "bg-white dark:bg-neutral-800 rounded-2xl p-6 max-w-sm sm:max-w-md w-full mx-4 shadow-2xl"
+    : "bg-[var(--sc-surface)] w-full relative overflow-hidden";
 
-  const primaryButtonClass = `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-btn`;
-  const formLayoutClass = isModal
-    ? ""
-    : " md:grid md:grid-cols-[1fr_2fr] xl:grid-cols-2 md:gap-x-6 xl:p-4 3xl:flex";
-  const fieldsClass = `space-y-3 sm:space-y-4${
-    isModal
-      ? ""
-      : " md:row-span-2 md:self-center md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:block xl:gap-0 xl:space-y-2 3xl:self-stretch 3xl:flex 3xl:flex-col 3xl:flex-1 3xl:space-y-2"
-  }`;
-  const modeSwitchClass = `${MODE_SWITCH_BUTTON_CLASS}${isModal ? "" : " md:col-span-2 md:py-0 min-h-11 3xl:flex-1"}`;
-  const stepWrapperClass = `space-y-3 sm:space-y-4${isModal ? "" : " md:row-span-2 md:self-center 3xl:self-stretch"}`;
+  const primaryButtonClass = isModal
+    ? `${PRIMARY_BUTTON_CLASS} min-h-11 py-3 text-base rounded-btn`
+    : "w-full min-h-[54px] !mt-1 px-4 py-1.5 text-xl font-semibold shrink-0 rounded-btn bg-white text-neutral-900 hover:bg-neutral-200 disabled:bg-gray-400 transition-colors disabled:cursor-not-allowed";
+  const formLayoutClass = isModal ? "" : " grid grid-cols-1 grid-rows-[auto_auto]";
+  const fieldsClass = isModal
+    ? "space-y-3 sm:space-y-4"
+    : "relative z-[2] flex flex-col self-stretch gap-1.5 px-4 pt-4 pb-4 lg:px-[5.78cqw] lg:pb-[5.78cqw] lg:pt-[calc(5.88cqw-5px)] lg:min-h-[100cqw] lg:[&>div]:flex-1 lg:[&>div]:min-h-11 lg:[&>div]:max-h-14 lg:[&>div>input]:h-full";
+  const modeSwitchClass = isModal
+    ? MODE_SWITCH_BUTTON_CLASS
+    : "w-full min-h-11 !-mt-1.5 !-mb-[11px] py-0 text-left text-base shrink-0 text-white/60 hover:text-neutral-100 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white";
+  const signLinkClass = isModal ? "" : "text-white underline underline-offset-4";
+  const stepWrapperClass = `space-y-3 sm:space-y-4${isModal ? "" : " p-4 lg:p-0 md:row-span-2 md:self-center"}`;
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -271,7 +275,7 @@ export default function StayConnected({
 
   if (isSuccess) {
     return (
-      <div className={`${containerClass} shadow-2xl text-center${isModal ? "" : " justify-center"}`}>
+      <div style={surfaceStyle} className={`${containerClass} text-center${isModal ? "" : " flex flex-col justify-center"}`}>
         <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-green-100 dark:bg-green-900 rounded-full mx-auto mb-3 sm:mb-4">
           <svg
             className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400"
@@ -282,7 +286,7 @@ export default function StayConnected({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2">
+        <h3 className={`text-lg sm:text-xl font-medium mb-2 ${isModal ? "text-gray-900 dark:text-white" : "text-white"}`}>
           {mode === "signin"
             ? "Welcome back!"
             : purpose === "chat"
@@ -291,7 +295,7 @@ export default function StayConnected({
                 ? "You're on the list!"
                 : "Thanks for your support!"}
         </h3>
-        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+        <p className={`text-sm sm:text-base ${isModal ? "text-gray-600 dark:text-gray-300" : "text-white/70"}`}>
           {mode === "signin"
             ? "You're signed in"
             : purpose === "chat"
@@ -331,12 +335,24 @@ export default function StayConnected({
           : "Enter your email to get a verification code.";
 
   return (
-    <div className={`${containerClass} shadow-2xl${formLayoutClass}`}>
-      <div className={`flex items-start justify-between gap-3 mb-4${isModal ? "" : " md:row-span-2 md:self-center md:mb-0 3xl:self-stretch 3xl:mb-3"}`}>
+    <div style={surfaceStyle} className={`${containerClass}${formLayoutClass}`}>
+      <div className={isModal ? "flex items-start justify-between gap-3 mb-4" : "relative w-full self-stretch aspect-[2/1] lg:aspect-square overflow-hidden [container-type:inline-size] flex flex-col items-start justify-end px-4 pt-4 pb-[11.5px] lg:px-[5.6cqw] lg:pt-[5.6cqw] lg:pb-[calc(6.39cqw-4.5px)]"}>
+        {!isModal && (
+          <label htmlFor={nameId} className="block absolute inset-0 cursor-text" aria-hidden>
+            <Image
+              src="/images/home/openmic-square.jpeg"
+              alt=""
+              fill
+              sizes="(min-width: 1024px) 20vw, 100vw"
+              className="object-cover object-[50%_24%] lg:object-center brightness-110 contrast-105"
+            />
+            <span className="absolute inset-0 block bg-[linear-gradient(to_top,var(--sc-surface)_0%,color-mix(in_srgb,var(--sc-surface)_85%,transparent)_12%,transparent_45%)]" />
+          </label>
+        )}
         <div
-          className="grid grid-cols-[4.25rem_1fr] gap-3 min-w-0"
+          className={isModal ? "grid grid-cols-[4.25rem_1fr] gap-3 min-w-0" : "relative z-10 pointer-events-none grid grid-cols-1 min-w-0 max-w-full"}
         >
-          {!(selectedTier && step !== "code") && (
+          {isModal && !(selectedTier && step !== "code") && (
             <div
               className="relative w-full aspect-square self-center rounded-full overflow-hidden"
             >
@@ -350,10 +366,10 @@ export default function StayConnected({
             </div>
           )}
           <div className="min-w-0 self-center">
-            <h3 className={`font-bebas text-2xl leading-none text-neutral-900 dark:text-white${isModal ? "" : " md:text-3xl"}`}>
+            <h3 className={isModal ? "font-bebas text-2xl leading-none text-neutral-900 dark:text-white" : "font-bebas text-[22px] leading-none whitespace-nowrap text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.6)]"}>
               {headerTitle}
             </h3>
-            <p className={`text-sm text-neutral-500 dark:text-neutral-400 mt-1`}>
+            <p className={isModal ? "text-sm text-neutral-500 dark:text-neutral-400 mt-1" : "hidden"}>
               {selectedTier && step === "form" ? (
                 <>
                   ${selectedTier.amount}
@@ -451,8 +467,10 @@ export default function StayConnected({
         </div>
       ) : mode === "signup" ? (
         <form onSubmit={handleSubmit} className={fieldsClass}>
+          {!isModal && <p className="mb-auto pb-1.5 text-[17px] font-medium leading-snug text-white/90">{headerSub}</p>}
           <ContactFields
             ref={focusRef}
+            nameId={nameId}
             email={contactFormData.email}
             name={contactFormData.name}
             phone={contactFormData.phone}
@@ -478,11 +496,13 @@ export default function StayConnected({
                   : "Stay connected"}
           </button>
           <button type="button" onClick={() => switchMode("signin")} className={modeSwitchClass}>
-            Already signed up? Sign in
+            Already signed up?{" "}
+            <span className={signLinkClass}>Sign in</span>
           </button>
         </form>
       ) : (
         <div className={fieldsClass}>
+          {!isModal && <p className="mb-auto text-[17px] font-medium leading-snug text-white/90">{headerSub}</p>}
           <FormInput
             ref={focusRef}
             type="email"
@@ -505,7 +525,8 @@ export default function StayConnected({
             {isLoading ? "Sending..." : "Send code"}
           </button>
           <button type="button" onClick={() => switchMode("signup")} className={modeSwitchClass}>
-            New here? Sign up
+            New here?{" "}
+            <span className={signLinkClass}>Sign up</span>
           </button>
         </div>
       )}

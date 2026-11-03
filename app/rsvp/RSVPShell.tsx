@@ -25,6 +25,9 @@ import RSVPForm from "./[slug]/RSVPForm";
 import PosterSlot, { PosterHostContext } from "./PosterSlot";
 import ZoneGrain from "./ZoneGrain";
 import SubmittedToast from "./SubmittedToast";
+import { usePathname } from "next/navigation";
+import { reservesRailHeader } from "../lib/route-checks";
+import { RAIL_HEADER_BLEED } from "../live/live-breakpoint";
 
 const subscribeSplit = (cb: () => void) => {
   const mq = window.matchMedia(SPLIT_QUERY);
@@ -45,6 +48,7 @@ export default function RSVPShell({
     ? (shows.find((s) => s.slug === initialSlug) ?? null)
     : null;
   const [selected, setSelected] = useState<RsvpShow | null>(initial);
+  const railBleed = reservesRailHeader(usePathname() ?? "") ? RAIL_HEADER_BLEED : "";
   const [toastDismissed, setToastDismissed] = useState(false);
   const [fromList, setFromList] = useState(false);
   const [hovered, setHovered] = useState<RsvpShow | null>(null);
@@ -205,7 +209,7 @@ export default function RSVPShell({
     <PosterHostContext.Provider value={host}>
       {mobilePoster}
       {intro && !isSplit && <IntroModal onClose={closeIntro} />}
-      <div className="rsvp-root fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible">
+      <div className={`rsvp-root fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible ${railBleed}`}>
         <ZoneGrain />
         {toast}
         <div className="relative h-full flex min-w-0 split:flex-row-reverse split:h-auto split:min-h-[calc(100dvh-var(--header-h,65px))] split:mx-auto split:max-w-7xl split:px-8">

@@ -16,7 +16,8 @@ import { TRACK_DATA } from "./data/tracks";
 import { isSupporterTrack } from "./data/supporter-config";
 import { useSupporterStatus } from "./hooks/useSupporterStatus";
 import SingleOverlay from "./components/SingleOverlay";
-import { isFundPath, isLivePath } from "./lib/route-checks";
+import { SiteRail } from "./components/SiteRail";
+import { hidesDesktopHeader, isFundPath } from "./lib/route-checks";
 import { LIVE_DESKTOP_HIDDEN } from "./live/live-breakpoint";
 
 const RELOAD_KEY = "chunk-reloaded";
@@ -43,7 +44,7 @@ function NavbarPlaceholder() {
   return (
     <div
       aria-hidden
-      className={`w-full h-[65px] shrink-0 ${isLivePath(pathname) ? LIVE_DESKTOP_HIDDEN : ""}`}
+      className={`w-full h-[65px] shrink-0 ${hidesDesktopHeader(pathname) ? LIVE_DESKTOP_HIDDEN : ""}`}
     />
   );
 }
@@ -182,6 +183,7 @@ function SiteShell({ children, mainClassName, showFooter, bare, clearPlayer }: S
     return (
       <>
         <Navbar />
+        <SiteRail />
         <Suspense>{children}</Suspense>
         <GlobalAudioPlayer />
         <SiteTools />
@@ -191,6 +193,7 @@ function SiteShell({ children, mainClassName, showFooter, bare, clearPlayer }: S
   return (
     <>
       <Navbar />
+      <SiteRail />
       <main className={base} style={clearPlayer ? { paddingBottom: "var(--player-h, 0px)" } : undefined}>
         <Suspense>{children}</Suspense>
       </main>
@@ -244,7 +247,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   if (pathname === "/listen") {
-    return <SiteShell clearPlayer>{children}</SiteShell>;
+    return <SiteShell clearPlayer mainClassName="flex-auto min-w-0 flex flex-col bg-neutral-900">{children}</SiteShell>;
   }
 
   if (pathname === "/live") {

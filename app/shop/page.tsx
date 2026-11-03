@@ -24,7 +24,7 @@ export default async function Page({
   const initialTab: ShopTab = tab === "exhibit" ? "exhibit" : "patience";
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pt-3 pb-8 sm:px-6 lg:px-8 lg:pt-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pt-3 pb-8 sm:px-6 lg:px-8 lg:pt-6">
       <ShopTabs initialTab={initialTab} initialColor={color} />
     </div>
   );

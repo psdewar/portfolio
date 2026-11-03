@@ -6,7 +6,7 @@ export type Scale = "page" | "tile" | "compact";
 
 const scaleClasses: Record<Scale, string> = {
   page: "px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 text-base md:text-2xl rounded-xl",
-  tile: "px-3 sm:px-4 py-2 sm:py-3 text-base rounded-xl",
+  tile: "px-3 py-1.5 min-h-11 text-base rounded-btn bg-white/[0.07] text-white placeholder-white/55 border-transparent focus:border-transparent focus:bg-white/[0.12] focus:ring-1 focus:ring-white/40 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_#25262b] [&:-webkit-autofill]:[-webkit-text-fill-color:#fff]",
   compact: "px-4 py-3 text-base rounded-lg",
 };
 
@@ -34,8 +34,8 @@ const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
       <div>
         <input
           ref={ref}
-          className={`w-full ${scaleClasses[scale]} border-2 transition-colors bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none ${
-            error ? "border-red-500 focus:border-red-500" : `${v.base} ${v.focus}`
+          className={`w-full ${scaleClasses[scale]} border-2 transition-colors ${scale === "tile" ? "" : "bg-white dark:bg-neutral-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"} focus:outline-none ${
+            error ? "border-red-500 focus:border-red-500 !border-red-500" : scale === "tile" ? "" : `${v.base} ${v.focus}`
           } ${className ?? ""}`}
           {...props}
         />

@@ -7,6 +7,7 @@ import { useToast } from "../contexts/ToastContext";
 import PaymentOptions from "../components/PaymentOptions";
 import ContributeCardModal from "../components/ContributeCardModal";
 import { concertLine, nextStopLine } from "../lib/tour-momentum";
+import { RAIL_ROW_TOP } from "../live/live-breakpoint";
 
 export function TipsSection({
   interacFirst = false,
@@ -93,7 +94,7 @@ export default function TipsAndSocials({
   }, [toast]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-8 md:pt-12 md:pb-10 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0">
+    <div className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-8 md:pt-12 md:pb-10 split:pt-[clamp(1.5rem,calc(-84px_+_12vh),3rem)] split:pb-[clamp(0.5rem,calc(-136px_+_16vh),2.5rem)] split:px-0 split:max-w-none split:mx-0 ${RAIL_ROW_TOP}`}>
       <div className="flex flex-col gap-8 max-w-lg mx-auto split:max-w-none split:mx-0">
         {thanked ? (
           <div className="flex-1 min-w-0">

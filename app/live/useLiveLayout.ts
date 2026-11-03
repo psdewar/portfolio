@@ -9,7 +9,7 @@ import { LIVE_DESKTOP_MEDIA_QUERY } from "./live-breakpoint";
 export const PHOTO_NAT_W = 3953;
 export const PHOTO_NAT_H = 5507;
 const PHOTO_HAIR_FRAC = 0.259;
-const PHOTO_TARGET_PX = 48;
+const PHOTO_TARGET_PX = 68;
 function computePhotoFit(boxW: number, boxH: number) {
   if (!boxW || !boxH) return 0;
   const s = boxW / PHOTO_NAT_W;
@@ -20,14 +20,15 @@ function computePhotoFit(boxW: number, boxH: number) {
 const RAIL_ROW_COMPACT_PX = 52;
 export const RAIL_ROW_COMPACT_HEIGHT_PX = 44;
 export const MENU_PANEL_WIDTH_PX = 288;
-export const MENU_HEADER_PX = 44;
 const LIVE_STRIP_HEADING_PX = 56;
 export const LIVE_STRIP_ROW_PX = 56;
 const LIVE_STRIP_PAD_PX = 12;
 const LIVE_STRIP_WIDE_PX = 960;
 const LIVE_STRIP_MAX_SHOWS = 4;
-export const MENU_SOCIAL_PX = 64;
-export const MENU_NAV_ITEMS = navItems.filter((item) => item.href !== "/live");
+// Menu rows are the whole site nav; the row for the page you are on is marked, not hidden.
+export const MENU_NAV_ITEMS = navItems;
+// Nav rows plus the external "Book a guest verse" row.
+export const MENU_ROW_COUNT = MENU_NAV_ITEMS.length + 1;
 const CHAT_RAIL_MIN_PX = 280;
 const RAIL_MAX_PX = 400;
 const RAIL_PCT = 0.24;
@@ -62,7 +63,7 @@ export function useLiveLayout({
 
   const fullBleedDesktop = isDesktop === true;
 
-  const railRowCount = MENU_NAV_ITEMS.length;
+  const railRowCount = MENU_ROW_COUNT;
   const railNavRef = useRef<HTMLElement>(null);
   const [railCompact, setRailCompact] = useState(false);
   useLayoutEffect(() => {

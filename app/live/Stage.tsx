@@ -446,30 +446,35 @@ export function Stage({
           : ""
       }`
     : "I AM OFFLINE";
-  const marqueeCopyPx = marqueeText.length * 7.6 + 50;
-  const marqueeCopies = Math.max(10, Math.ceil(MARQUEE_MIN_HALF_PX / marqueeCopyPx));
-  const marqueeDurationS = Math.round((marqueeCopies * marqueeCopyPx) / MARQUEE_SPEED_PX_S);
-  const marqueeRow = (
-    <div
-      key={"marquee-row"}
-      className="flex h-9 w-max items-center will-change-transform"
-      style={{ animation: `marquee ${marqueeDurationS}s linear infinite` }}
-    >
-      {[...Array(2)].map((_, j) => (
-        <div key={j} className="flex h-9 shrink-0 items-center">
-          {[...Array(marqueeCopies)].map((_, i) => (
-            <span
-              key={i}
-              className="translate-y-px font-bebas text-black text-xl tracking-wide whitespace-nowrap leading-none"
-            >
-              {marqueeText}
-              <span aria-hidden className="inline-block w-[2.5em]" />
-            </span>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+  // Copy width is estimated at 20px Bebas and scales with the font, so speed stays constant.
+  const marqueeRow = (mobile: boolean) => {
+    const fontPx = mobile ? 20 : 26;
+    const marqueeCopyPx = (marqueeText.length * 7.6 + 50) * (fontPx / 20);
+    const marqueeCopies = Math.max(10, Math.ceil(MARQUEE_MIN_HALF_PX / marqueeCopyPx));
+    const marqueeDurationS = Math.round((marqueeCopies * marqueeCopyPx) / MARQUEE_SPEED_PX_S);
+    return (
+      <div
+        key={"marquee-row"}
+        className="flex h-9 w-max items-center will-change-transform"
+        style={{ animation: `marquee ${marqueeDurationS}s linear infinite` }}
+      >
+        {[...Array(2)].map((_, j) => (
+          <div key={j} className="flex h-9 shrink-0 items-center">
+            {[...Array(marqueeCopies)].map((_, i) => (
+              <span
+                key={i}
+                className={`${mobile ? "translate-y-px" : "translate-y-[1.5px]"} font-bebas text-black tracking-wide whitespace-nowrap leading-none`}
+                style={{ fontSize: fontPx }}
+              >
+                {marqueeText}
+                <span aria-hidden className="inline-block w-[2.5em]" />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderOfflineState = (mobile: boolean) => {
     const notifyPill = !isSupporter && (
@@ -526,11 +531,11 @@ export function Stage({
       <>
         {photo}
         <div
-          className="absolute inset-x-0 top-0 h-9 z-10 flex"
+          className={`absolute inset-x-0 top-0 z-10 flex ${mobile ? "h-9" : "h-14"}`}
           style={{ backgroundImage: "linear-gradient(#facc15, #facc15)" }}
         >
           {!mobile && menuBlock}
-          <div className="flex min-w-0 flex-1 items-center overflow-hidden">{marqueeRow}</div>
+          <div className="flex min-w-0 flex-1 items-center overflow-hidden">{marqueeRow(mobile)}</div>
         </div>
         <div
           aria-hidden
