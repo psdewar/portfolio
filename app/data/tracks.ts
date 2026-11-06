@@ -57,7 +57,6 @@ export const TRACK_DATA: TrackData[] = [
     duration: 134,
     releaseDate: "2026-09-16",
     label: "Lyrist Records",
-    artworkPending: true,
   },
   {
     id: "see-this-through",
