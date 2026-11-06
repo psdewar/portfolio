@@ -145,7 +145,13 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; nudge?: string; og?: string }>;
+  searchParams: Promise<{
+    success?: string;
+    nudge?: string;
+    og?: string;
+    utm_source?: string;
+    utm_content?: string;
+  }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -343,6 +349,18 @@ export default async function Page({
             label: "Before this" as const,
           }
         : undefined;
+    const bookedNights = new Set(legShows.map((s) => s.date));
+    const openNights = new Set(
+      openInvites
+        .map((i) => i.date)
+        .filter((d): d is string => !!d && !bookedNights.has(d)),
+    );
+    const needsHosts =
+      openNights.size > 0 && openNights.size >= bookedNights.size;
+    const hostCommunity =
+      sp.utm_source === "email" && needsHosts && sp.og !== "true"
+        ? sp.utm_content || undefined
+        : undefined;
     return (
       <>
         {sp?.nudge === "private" && (
@@ -358,6 +376,7 @@ export default async function Page({
           pastNotes={pageDone ? legNotes(slug) : undefined}
           soFar={soFar}
           galleryItems={galleryItems}
+          hostCommunity={hostCommunity}
         />
       </>
     );

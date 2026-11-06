@@ -16,6 +16,7 @@ import ContributeSheet, { useContributeCheckout } from "../components/Contribute
 import GalleryPlayer from "../moments/GalleryPlayer";
 import type { GalleryItem } from "../api/shared/moments";
 import SectionNav from "./SectionNav";
+import HostFollowUp from "./HostFollowUp";
 import {
   formatEventDateShort,
   isDatePast,
@@ -35,6 +36,7 @@ import { ArrowRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { useVideo } from "../contexts/VideoContext";
 import { getVideoMetadata, LEG_INTRO_VIDEOS } from "../lib/videos.config";
 import StatusShield from "../components/StatusShield";
+import BrandWordmark from "../components/BrandWordmark";
 import { ExpenseHead,
   displayLabel, ExpenseTotal, fundVenmoNote, flightByLabel, lineNote, money, sumLines } from "./TripExpenses";
 
@@ -305,6 +307,7 @@ export function TripFund({
   pastNotes,
   soFar,
   galleryItems,
+  hostCommunity,
 }: {
   leg: FundLeg;
   intro?: ReactNode;
@@ -329,6 +332,7 @@ export function TripFund({
     since?: string;
   };
   galleryItems: GalleryItem[];
+  hostCommunity?: string;
 }) {
   const introVideoId = og ? undefined : LEG_INTRO_VIDEOS[leg.slug];
   const coveredKeys = new Set(leg.coveredInKind ?? []);
@@ -593,7 +597,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 @media (min-width: 640px) { .bf-brand { font-size: 30px; } }
 .tail { display: flex; flex-direction: column; }
 .bf-root > .wrap { padding-bottom: 0; }
-.bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail { display: none; }
+.bf-root--og #cover, .bf-root--og #who, .bf-root--og .tail, .bf-root--og .site-foot { display: none; }
 .bf-root--og .masthead { margin-top: 12px; }
 .bf-root--og > .wrap { height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column; }
 .bf-root--og .gallery-slot { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -789,6 +793,27 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 .bf-footer { margin-top: 44px; font-size: var(--fs-base); color: var(--ink-dim); line-height: 1.65; }
 .bf-footer b { color: var(--ink-dim); font-weight: 600; }
 
+.host-bar { position: sticky; bottom: 0; z-index: 40; background: var(--navy); border-top: 3px solid var(--gold); padding-bottom: env(safe-area-inset-bottom, 0px); opacity: 0; visibility: hidden; transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease-out, visibility 0s linear 0.32s; }
+.host-bar.is-on { opacity: 1; visibility: visible; transform: none; transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease-out; }
+.host-bar.is-on.is-leaving { opacity: 0; transition: opacity 0.4s ease-out; }
+.host-bar-inner { max-width: 780px; margin: 0 auto; padding: 14px 16px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 128px; align-content: center; color: #ece9e0; }
+.host-bar-text, .host-bar-head { margin: 0; text-align: left; }
+.host-bar-text { flex: 1 1 100%; min-width: 0; }
+.host-bar-lead { display: block; font-size: var(--fs-sm); line-height: 1.3; text-wrap: balance; color: rgba(236, 233, 224, 0.75); }
+.host-bar-head { display: block; min-width: 0; text-wrap: balance; font-size: 24px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; color: #ece9e0; }
+.host-bar-actions { flex: 1 0 100%; min-width: 0; display: flex; gap: 8px; }
+@media (max-width: 359px) { .host-bar-actions { flex-wrap: wrap; } }
+.bf-root button.host-btn { flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #ece9e0; border-radius: 999px; background: transparent; color: #ece9e0; font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.bf-root button.host-btn--primary { background: var(--gold); border-color: var(--gold); color: var(--navy); font-weight: 700; }
+.bf-root button.host-btn:focus-visible { outline: 3px solid #ece9e0; outline-offset: 2px; }
+@media (min-width: 640px) {
+  .host-bar-inner { padding: 14px 40px; gap: 0 24px; min-height: 96px; flex-wrap: nowrap; }
+  .host-bar-text { flex: 1 1 auto; }
+  .host-bar-head { font-size: 26px; }
+  .host-bar-actions { flex: 0 0 auto; }
+  .bf-root button.host-btn { flex: 0 0 auto; padding: 0 20px; }
+  }
+@media (prefers-reduced-motion: reduce) { .host-bar, .host-bar.is-on { transform: none; transition: opacity 0.2s ease-out; } .host-bar.is-on.is-leaving { transition: opacity 0.2s ease-out; } }
 .contribute-fab {
   position: fixed;
   bottom: max(24px, env(safe-area-inset-bottom, 24px));
@@ -866,7 +891,7 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
 @media print {
   .bf-root { background: #fff; color: #000; }
   .bf-root::before { display: none; }
-  .match-ctrl, .cta-row, .progress .bar, .contribute-fab { display: none; }
+  .match-ctrl, .cta-row, .progress .bar, .contribute-fab, .host-bar { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-root *, .bf-root *::before, .bf-root *::after {
@@ -1075,20 +1100,27 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
               </a>
             )}
           </div>
-          <footer className="site-foot">
-            <div className="site-foot-inner">
-              <div className="site-foot-row">
-                <a href="/" className="bf-brand">
-                  Peyt Spencer
-                </a>
-                <SocialButtons
-                  showAppleMusic
-                  onTap={(platform) => posthog.capture("fund_social_tap", { trip: leg.slug, platform })}
-                />
-              </div>
-            </div>
-          </footer>
         </div>
+        {hostCommunity && !og && (
+          <HostFollowUp
+            trip={leg.slug}
+            community={hostCommunity}
+            suppressed={total > 0}
+          />
+        )}
+        <footer className="site-foot">
+          <div className="site-foot-inner">
+            <div className="site-foot-row">
+              <a href="/" className="bf-brand group">
+                <BrandWordmark />
+              </a>
+              <SocialButtons
+                showAppleMusic
+                onTap={(platform) => posthog.capture("fund_social_tap", { trip: leg.slug, platform })}
+              />
+            </div>
+          </div>
+        </footer>
       </div>
 
       {total > 0 && (
