@@ -187,7 +187,7 @@ const STOPS_KEY = "stops.json";
 const STOP_RADIUS_KM = 100;
 const GEOCODE_UA = "peytspencer.com moments (psdewar2@gmail.com)";
 
-function showLabel(s: { city: string; region: string }) {
+export function showLabel(s: { city: string; region: string }) {
   return s.region ? `${s.city}, ${s.region}` : s.city;
 }
 
@@ -567,6 +567,65 @@ export async function recordDims(entries: Record<string, [number, number]>): Pro
   if (!changed) return false;
   await putJson(DIMS_KEY, current);
   return true;
+}
+
+const TAKEN_KEY = "taken.json";
+const QT_EXT = /\.(mp4|mov|m4v)$/i;
+const MP4_EPOCH_S = 2082844800;
+const APPLE_CREATED = "com.apple.quicktime.creationdate";
+const APPLE_DATE = /\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:?\d\d/;
+
+export async function getVideoTaken(): Promise<Record<string, number>> {
+  const parsed = await getJson(TAKEN_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+}
+
+async function readRange(key: string, start: number, end: number): Promise<Buffer> {
+  const res = await s3!.send(
+    new GetObjectCommand({ Bucket: s3Bucket!, Key: key, Range: `bytes=${start}-${end}` }),
+  );
+  return Buffer.from(await res.Body!.transformToByteArray());
+}
+
+async function probeVideoTaken(key: string, size: number): Promise<number> {
+  for (let off = 0, hops = 0; off < size && hops < 12; hops++) {
+    const head = await readRange(key, off, off + 15);
+    const short = head.readUInt32BE(0);
+    const len = short === 1 ? Number(head.readBigUInt64BE(8)) : short === 0 ? size - off : short;
+    if (len < 8) return 0;
+    if (head.toString("latin1", 4, 8) === "moov") {
+      const moov = await readRange(key, off, off + Math.min(len, 4 << 20) - 1);
+      const text = moov.toString("latin1");
+      const apple = text.includes(APPLE_CREATED) ? text.match(APPLE_DATE) : null;
+      if (apple) return Date.parse(apple[0]) || 0;
+      const at = moov.indexOf("mvhd");
+      if (at < 0) return 0;
+      const secs = moov[at + 4] === 1 ? Number(moov.readBigUInt64BE(at + 8)) : moov.readUInt32BE(at + 8);
+      return secs > MP4_EPOCH_S ? (secs - MP4_EPOCH_S) * 1000 : 0;
+    }
+    off += len;
+  }
+  return 0;
+}
+
+export async function backfillVideoTaken(
+  sources: MomentSource[],
+  known: Record<string, number>,
+  cap: number,
+): Promise<void> {
+  const todo = sources
+    .filter((s) => s.originalKey && QT_EXT.test(s.key) && !(s.key in known))
+    .slice(0, cap);
+  if (!todo.length) return;
+  const found: Record<string, number> = {};
+  await Promise.all(
+    todo.map(async (s) => {
+      try {
+        found[s.key] = await probeVideoTaken(s.originalKey!, s.size);
+      } catch {}
+    }),
+  );
+  await putJson(TAKEN_KEY, { ...(await getVideoTaken()), ...found });
 }
 
 const u16be = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];

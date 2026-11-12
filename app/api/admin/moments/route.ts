@@ -15,6 +15,8 @@ import {
   setOgKey,
   getThumbs,
   getDims,
+  getVideoTaken,
+  backfillVideoTaken,
   sanitizeFilename,
   deleteMomentArtifacts,
   renameMomentArtifacts,
@@ -28,6 +30,7 @@ import {
 
 const URL_TTL = 3600;
 const BACKFILL_CAP = 6;
+const TAKEN_CAP = 30;
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 
 function nameFromKey(key: string) {
@@ -62,12 +65,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [sources, featuredKeys, thumbs, ogKey, dims] = await Promise.all([
+  const [sources, featuredKeys, thumbs, ogKey, dims, taken] = await Promise.all([
     listMomentSources(),
     getFeatured(),
     getThumbs(),
     getOgKey(),
     getDims(),
+    getVideoTaken(),
   ]);
   sources.sort((a, b) => (a.lastModified?.getTime() || 0) - (b.lastModified?.getTime() || 0));
   const keys = sources.map((src) => src.key);
@@ -94,6 +98,7 @@ export async function GET(request: Request) {
         leg: stops[src.key]?.leg,
         hasOriginal: !!src.originalKey,
         dims: dims[src.key],
+        taken: taken[src.key] || undefined,
       };
     }),
   );
@@ -102,6 +107,7 @@ export async function GET(request: Request) {
     .filter((it) => !it.thumb && !VIDEO_EXT.test(it.key))
     .map((it) => it.key);
   if (unthumbed.length) after(() => queueProcessing(unthumbed, BACKFILL_CAP));
+  after(() => backfillVideoTaken(sources, taken, TAKEN_CAP));
 
   return NextResponse.json({ items, featuredKeys, ogKey });
 }

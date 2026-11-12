@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PlayIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, CaretRightIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
 import { uploadFile } from "../../moments/upload";
 
 interface MomentItem {
@@ -17,6 +17,7 @@ interface MomentItem {
   leg?: string;
   hasOriginal: boolean;
   dims?: [number, number];
+  taken?: number;
 }
 
 type State =
@@ -46,9 +47,9 @@ function formatDate(iso: string | null) {
   });
 }
 
-function takenAt(key: string): number | null {
-  const m = key.match(/^drops\/[a-f0-9]{64}-(\d+)\./);
-  return m ? Number(m[1]) : null;
+function takenAt(item: MomentItem): number | null {
+  const m = item.key.match(/^drops\/[a-f0-9]{64}-(\d+)\./);
+  return m ? Number(m[1]) : item.taken ?? null;
 }
 
 function clampIndex(value: number, total: number) {
@@ -77,13 +78,13 @@ interface Section {
 }
 
 function capturedAt(item: MomentItem) {
-  return takenAt(item.key) ?? (item.lastModified ? Date.parse(item.lastModified) : 0);
+  return takenAt(item) ?? (item.lastModified ? Date.parse(item.lastModified) : 0);
 }
 
 function buildSections(items: MomentItem[]): Section[] {
   const byId = new Map<string, Section>();
   for (const it of items) {
-    const id = groupOf(it);
+    const id = groupOf(it) || (VIDEO_EXT.test(it.key) ? "videos" : "");
     const section = byId.get(id) ?? { id, city: it.city ?? "", visit: it.visit, items: [] };
     section.items.push(it);
     byId.set(id, section);
@@ -91,7 +92,8 @@ function buildSections(items: MomentItem[]): Section[] {
   const sections = [...byId.values()];
   for (const s of sections) s.items.sort((a, b) => capturedAt(b) - capturedAt(a));
   const newest = (s: Section) => capturedAt(s.items[0]);
-  return sections.sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : newest(b) - newest(a)));
+  const rank = (s: Section) => (s.city ? 0 : s.id === "" ? 1 : 2);
+  return sections.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));
 }
 
 async function saveCity(key: string, city: string): Promise<Partial<MomentItem>> {
@@ -135,6 +137,8 @@ export default function MomentsAdminPage() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [selected, setSelected] = useState<string[]>([]);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [walk, setWalk] = useState<string[]>([]);
+  const walkRef = useRef<string[]>([]);
   const keysRef = useRef<string[]>([]);
   const savedKeys = useRef<string[]>([]);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
@@ -178,6 +182,7 @@ export default function MomentsAdminPage() {
       setOgKeyState((prev) => (prev === key ? patch.key! : prev));
       setSelected((prev) => prev.map((k) => (k === key ? patch.key! : k)));
       setPreviewKey((prev) => (prev === key ? patch.key! : prev));
+      setWalk((prev) => prev.map((k) => (k === key ? patch.key! : k)));
     }
   }
   function removeItem(key: string) {
@@ -185,7 +190,12 @@ export default function MomentsAdminPage() {
     setFeaturedKeys((prev) => prev.filter((k) => k !== key));
     setOgKeyState((prev) => (prev === key ? null : prev));
     setSelected((prev) => prev.filter((k) => k !== key));
-    setPreviewKey((prev) => (prev === key ? null : prev));
+    setPreviewKey((prev) => {
+      if (prev !== key) return prev;
+      const at = walk.indexOf(key);
+      return walk[at + 1] ?? walk[at - 1] ?? null;
+    });
+    setWalk((prev) => prev.filter((k) => k !== key));
   }
 
   const itemByKey = useMemo(
@@ -196,6 +206,14 @@ export default function MomentsAdminPage() {
     .map((k) => itemByKey.get(k))
     .filter((it): it is MomentItem => Boolean(it));
   const sections = useMemo(() => buildSections(items), [items]);
+  const walkKeys = useMemo(() => sections.flatMap((s) => s.items.map((it) => it.key)), [sections]);
+  useEffect(() => {
+    walkRef.current = walkKeys;
+  }, [walkKeys]);
+  const stepPreview = useCallback(
+    (delta: number) => setPreviewKey((prev) => (prev ? walk[walk.indexOf(prev) + delta] ?? prev : prev)),
+    [walk],
+  );
   const orderByKey = useMemo(
     () => new Map(selected.map((k, i) => [k, i + 1] as const)),
     [selected],
@@ -210,6 +228,9 @@ export default function MomentsAdminPage() {
     [items],
   );
   const previewItem = previewKey ? itemByKey.get(previewKey) : undefined;
+  const previewAt = previewKey ? walk.indexOf(previewKey) : -1;
+  const previewPrev = previewAt > 0 ? itemByKey.get(walk[previewAt - 1]) : undefined;
+  const previewNext = previewAt >= 0 ? itemByKey.get(walk[previewAt + 1]) : undefined;
 
   const [slot, setSlot] = useState<number | null>(null);
   const maxSlot = featuredKeys.length + 1;
@@ -218,7 +239,17 @@ export default function MomentsAdminPage() {
   const toggleSelected = useCallback((key: string) => {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }, []);
-  const openPreview = useCallback((key: string) => setPreviewKey(key), []);
+  function toggleSection(keys: string[]) {
+    setSelected((prev) =>
+      keys.every((k) => prev.includes(k))
+        ? prev.filter((k) => !keys.includes(k))
+        : [...prev, ...keys.filter((k) => !prev.includes(k))],
+    );
+  }
+  const openPreview = useCallback((key: string) => {
+    setWalk(walkRef.current);
+    setPreviewKey(key);
+  }, []);
   const closePreview = useCallback(() => setPreviewKey(null), []);
 
   function saveKeys(nextKeys: string[]) {
@@ -271,6 +302,19 @@ export default function MomentsAdminPage() {
     return true;
   }
 
+  async function deleteSelected() {
+    if (!window.confirm(`Delete ${selected.length} file${selected.length === 1 ? "" : "s"} forever?`)) return;
+    for (const key of selected) {
+      try {
+        await deleteFile(key);
+        removeItem(key);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "Delete failed");
+        return;
+      }
+    }
+  }
+
   async function setOg(key: string) {
     const next = ogKey === key ? null : key;
     const prev = ogKey;
@@ -308,6 +352,11 @@ export default function MomentsAdminPage() {
       {state.kind === "ready" && (
         <div className="space-y-6">
           <AdminUpload onDone={() => load(false)} />
+          <datalist id="moment-cities">
+            {cityLabels.map((label) => (
+              <option key={label} value={label} />
+            ))}
+          </datalist>
           {featuredItems.length > 0 && (
             <SlideshowReorder
               items={featuredItems}
@@ -331,14 +380,21 @@ export default function MomentsAdminPage() {
                         : "text-amber-600 dark:text-amber-400"
                     }`}
                   >
-                    {section.city || "Unlabeled"}
+                    {section.city || (section.id === "videos" ? "Unlabeled videos" : "Unlabeled photos")}
                   </span>
                   {section.visit && (
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">
                       {formatVisit(section.visit)}
                     </span>
                   )}
-                  <span className="ml-auto text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.items.map((it) => it.key))}
+                    className="-my-3 ml-auto py-3 text-xs text-neutral-500 transition-colors hover:text-[#d4a553] dark:text-neutral-400"
+                  >
+                    {section.items.every((it) => orderByKey.has(it.key)) ? "Deselect all" : "Select all"}
+                  </button>
+                  <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
                     {section.items.length}
                   </span>
                 </h2>
@@ -352,6 +408,7 @@ export default function MomentsAdminPage() {
                       item={item}
                       order={orderByKey.get(item.key) ?? 0}
                       slotPos={slotByKey.get(item.key) ?? 0}
+                      selecting={selected.length > 0}
                       onToggle={toggleSelected}
                       onOpen={openPreview}
                     />
@@ -365,16 +422,19 @@ export default function MomentsAdminPage() {
               count={selected.length}
               slot={shownSlot}
               maxSlot={maxSlot}
-              cityLabels={cityLabels}
               onSlotChange={setSlot}
               onAdd={addSelected}
               onSetCity={setCityForSelected}
+              onDelete={deleteSelected}
               onClear={() => setSelected([])}
             />
           )}
           {previewItem && (
             <PreviewOverlay
+              onStep={stepPreview}
               item={previewItem}
+              prev={previewPrev}
+              next={previewNext}
               order={orderByKey.get(previewItem.key) ?? 0}
               isOg={ogKey === previewItem.key}
               onToggle={toggleSelected}
@@ -394,12 +454,14 @@ const PickerCell = memo(function PickerCell({
   item,
   order,
   slotPos,
+  selecting,
   onToggle,
   onOpen,
 }: {
   item: MomentItem;
   order: number;
   slotPos: number;
+  selecting: boolean;
   onToggle: (key: string) => void;
   onOpen: (key: string) => void;
 }) {
@@ -423,63 +485,66 @@ const PickerCell = memo(function PickerCell({
   );
 
   return (
-    <button
-      type="button"
-      aria-pressed={order > 0}
-      aria-label={`Select ${filename(item.key)}`}
-      onPointerDown={(e) => {
-        held.current = false;
-        cancel();
-        hold.current = {
-          x: e.clientX,
-          y: e.clientY,
-          timer: window.setTimeout(() => {
-            hold.current = null;
-            held.current = true;
-            onOpen(item.key);
-          }, HOLD_MS),
-        };
-      }}
-      onPointerMove={(e) => {
-        if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > HOLD_SLOP) {
-          cancel();
-        }
-      }}
-      onPointerUp={cancel}
-      onPointerLeave={cancel}
-      onPointerCancel={cancel}
-      onContextMenu={(e) => e.preventDefault()}
-      onClick={() => {
-        if (held.current) {
+    <div className="group relative aspect-square w-full select-none overflow-hidden bg-neutral-100 dark:bg-neutral-900 [-webkit-touch-callout:none] [-webkit-user-select:none]">
+      <button
+        type="button"
+        aria-label={`Open ${filename(item.key)}`}
+        onPointerDown={(e) => {
           held.current = false;
-          return;
-        }
-        onToggle(item.key);
-      }}
-      className="relative block aspect-square w-full select-none overflow-hidden bg-neutral-100 dark:bg-neutral-900 [-webkit-touch-callout:none] [-webkit-user-select:none]"
-    >
-      {isVideo && !cellSrc && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-800 dark:bg-neutral-800">
-          <PlayIcon size={22} weight="fill" className="text-white/70" />
-        </span>
-      )}
-      {cellSrc && (
-        <img
-          src={cellSrc}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
-        />
-      )}
+          cancel();
+          if (e.pointerType === "mouse") return;
+          hold.current = {
+            x: e.clientX,
+            y: e.clientY,
+            timer: window.setTimeout(() => {
+              hold.current = null;
+              held.current = true;
+              onToggle(item.key);
+            }, HOLD_MS),
+          };
+        }}
+        onPointerMove={(e) => {
+          if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > HOLD_SLOP) {
+            cancel();
+          }
+        }}
+        onPointerUp={cancel}
+        onPointerLeave={cancel}
+        onPointerCancel={cancel}
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={() => {
+          if (held.current) {
+            held.current = false;
+            return;
+          }
+          if (selecting) onToggle(item.key);
+          else onOpen(item.key);
+        }}
+        className="absolute inset-0 block h-full w-full"
+      >
+        {isVideo && !cellSrc && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-800 dark:bg-neutral-800">
+            <PlayIcon size={22} weight="fill" className="text-white/70" />
+          </span>
+        )}
+        {cellSrc && (
+          <img
+            src={cellSrc}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
+          />
+        )}
+        {isVideo && item.thumb && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <PlayIcon size={22} weight="fill" className="text-white/70 drop-shadow" />
+          </span>
+        )}
+      </button>
       {order > 0 && (
         <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#d4a553]" />
-      )}
-      {order > 0 && (
-        <span className="pointer-events-none absolute top-1 left-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d4a553] px-1 text-[11px] font-bold tabular-nums text-[#0a0a0a]">
-          {order}
-        </span>
       )}
       {slotPos > 0 && order === 0 && (
         <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-white/70" />
@@ -489,12 +554,28 @@ const PickerCell = memo(function PickerCell({
           #{slotPos}
         </span>
       )}
-      {isVideo && item.thumb && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <PlayIcon size={22} weight="fill" className="text-white/70 drop-shadow" />
+      <button
+        type="button"
+        aria-pressed={order > 0}
+        aria-label={`Select ${filename(item.key)}`}
+        onClick={() => onToggle(item.key)}
+        className={`absolute top-0 left-0 flex h-11 w-11 items-start justify-start p-1 ${
+          order > 0 || selecting
+            ? ""
+            : "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+        }`}
+      >
+        <span
+          className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums ${
+            order > 0
+              ? "bg-[#d4a553] text-[#0a0a0a]"
+              : "border-2 border-white/90 bg-black/25 shadow-sm"
+          }`}
+        >
+          {order > 0 ? order : ""}
         </span>
-      )}
-    </button>
+      </button>
+    </div>
   );
 });
 
@@ -502,116 +583,219 @@ function SelectionBar({
   count,
   slot,
   maxSlot,
-  cityLabels,
   onSlotChange,
   onAdd,
   onSetCity,
+  onDelete,
   onClear,
 }: {
   count: number;
   slot: number;
   maxSlot: number;
-  cityLabels: string[];
   onSlotChange: (slot: number) => void;
   onAdd: () => void;
   onSetCity: (city: string) => Promise<boolean>;
+  onDelete: () => Promise<void>;
   onClear: () => void;
 }) {
   const [slotDraft, setSlotDraft] = useState<string | null>(null);
+  const [cityOpen, setCityOpen] = useState(false);
   const [cityDraft, setCityDraft] = useState("");
   const [working, setWorking] = useState(false);
   const city = cityDraft.trim();
+  const action =
+    "inline-flex shrink-0 items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-all hover:border-[#d4a553] hover:text-[#b8893a] active:scale-95 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:text-[#d4a553]";
 
   async function applyCity() {
     if (!city) return;
     setWorking(true);
     const ok = await onSetCity(city);
     setWorking(false);
-    if (ok) setCityDraft("");
+    if (ok) {
+      setCityDraft("");
+      setCityOpen(false);
+    }
+  }
+
+  async function remove() {
+    setWorking(true);
+    await onDelete();
+    setWorking(false);
   }
 
   return (
     <div
       style={{ bottom: "max(0px, var(--player-h, 0px))" }}
-      className="fixed inset-x-0 z-40 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95"
+      className="fixed inset-x-0 z-40 border-t border-neutral-200 bg-white/95 px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95"
     >
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAdd}
-          className="inline-flex items-center rounded-full bg-gradient-to-r from-[#d4a553] to-[#e0b860] px-4 py-2 text-sm font-medium text-[#0a0a0a] shadow-sm transition-all active:scale-95"
-        >
-          Add {count} to slideshow
-        </button>
-        <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-          at
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={maxSlot}
-            value={slotDraft ?? slot}
-            aria-label="Slideshow position"
-            onChange={(e) => {
-              setSlotDraft(e.target.value);
-              const n = parseInt(e.target.value, 10);
-              if (Number.isFinite(n)) onSlotChange(clampIndex(n, maxSlot));
-            }}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={() => setSlotDraft(null)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-            }}
-            className="w-14 rounded border border-neutral-300 bg-transparent px-1.5 py-1.5 text-right text-base tabular-nums text-neutral-700 dark:border-neutral-700 dark:text-neutral-200 sm:text-sm"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={onClear}
-          className="ml-auto inline-flex items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all hover:border-[#d4a553] hover:text-[#d4a553] active:scale-95 dark:border-neutral-700 dark:text-neutral-300"
-        >
-          Clear
-        </button>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            applyCity();
-          }}
-          className="flex w-full items-center gap-2"
-        >
-          <input
-            type="text"
-            list="moment-cities"
-            value={cityDraft}
-            onChange={(e) => setCityDraft(e.target.value)}
-            placeholder="City, ST"
-            aria-label="City for selected"
-            autoComplete="off"
-            className="min-w-0 flex-1 rounded border border-neutral-300 bg-transparent px-2 py-1.5 text-base text-neutral-700 dark:border-neutral-700 dark:text-neutral-200 sm:text-sm"
-          />
-          <datalist id="moment-cities">
-            {cityLabels.map((label) => (
-              <option key={label} value={label} />
-            ))}
-          </datalist>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex shrink-0 items-center gap-1">
           <button
-            type="submit"
-            disabled={!city || working}
-            className="inline-flex shrink-0 items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all hover:border-[#d4a553] hover:text-[#d4a553] active:scale-95 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300"
+            type="button"
+            onClick={onClear}
+            aria-label="Clear selection"
+            className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
           >
-            {working ? "Saving..." : "Set city"}
+            <XIcon size={18} />
           </button>
-        </form>
+          <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+            {count} selected
+          </span>
+        </div>
+        <button
+          type="button"
+          disabled={working}
+          onClick={remove}
+          className={`${action} ml-auto !border-red-300 !text-red-600 sm:order-last sm:ml-0 dark:!border-red-400/50 dark:!text-red-300`}
+        >
+          Delete
+        </button>
+        {cityOpen ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              applyCity();
+            }}
+            className="flex min-w-0 basis-full items-center gap-2 sm:ml-auto sm:basis-auto sm:flex-1 sm:max-w-xl"
+          >
+            <input
+              type="text"
+              list="moment-cities"
+              value={cityDraft}
+              onChange={(e) => setCityDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setCityOpen(false);
+              }}
+              placeholder="City, ST"
+              aria-label="City for selected"
+              autoComplete="off"
+              autoFocus
+              className="min-w-0 flex-1 rounded-full border border-neutral-300 bg-transparent px-3.5 py-2 text-base text-neutral-800 focus:border-[#d4a553] focus:outline-none dark:border-neutral-700 dark:text-neutral-100 sm:text-sm"
+            />
+            <button type="submit" disabled={!city || working} className={action}>
+              {working ? "Saving..." : "Save"}
+            </button>
+            <button type="button" onClick={() => setCityOpen(false)} className={action}>
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <div className="flex min-w-0 basis-full items-center gap-2 sm:ml-auto sm:basis-auto">
+            <div className="flex shrink-0 items-center rounded-full bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a] shadow-sm">
+              <button
+                type="button"
+                onClick={onAdd}
+                className="py-2 pl-4 pr-2 text-sm font-medium transition-transform active:scale-95"
+              >
+                Add to slideshow at
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={maxSlot}
+                value={slotDraft ?? slot}
+                aria-label="Slideshow position"
+                onChange={(e) => {
+                  setSlotDraft(e.target.value);
+                  const n = parseInt(e.target.value, 10);
+                  if (Number.isFinite(n)) onSlotChange(clampIndex(n, maxSlot));
+                }}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={() => setSlotDraft(null)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="mr-1.5 w-12 rounded-full bg-white/60 py-1 text-center text-base font-semibold tabular-nums focus:bg-white focus:outline-none sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </div>
+            <button type="button" onClick={() => setCityOpen(true)} className={action}>
+              Set city
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+function StageVideo({
+  item,
+  active,
+  ratio,
+  onInfo,
+}: {
+  item: MomentItem;
+  active: boolean;
+  ratio: number | null;
+  onInfo: (key: string, info: { w: number; h: number; duration: number }) => void;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.src = item.url;
+    return () => {
+      el.pause();
+      el.removeAttribute("src");
+      el.load();
+    };
+  }, [item.url]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !active) return;
+    let live = true;
+    const stopListening = () => {
+      window.removeEventListener("pointerup", unmute, true);
+      window.removeEventListener("keydown", unmute, true);
+    };
+    const unmute = () => {
+      el.muted = false;
+      stopListening();
+    };
+    el.muted = false;
+    el.play().catch((err: DOMException) => {
+      if (!live || err.name !== "NotAllowedError") return;
+      el.muted = true;
+      window.addEventListener("pointerup", unmute, true);
+      window.addEventListener("keydown", unmute, true);
+      el.play().catch(() => {});
+    });
+    return () => {
+      live = false;
+      stopListening();
+      el.pause();
+      el.currentTime = 0;
+    };
+  }, [active, item.url]);
+  return (
+    <video
+      ref={ref}
+      poster={item.thumb}
+      controls
+      playsInline
+      preload="auto"
+      onLoadedMetadata={(e) =>
+        onInfo(item.key, {
+          w: e.currentTarget.videoWidth,
+          h: e.currentTarget.videoHeight,
+          duration: e.currentTarget.duration,
+        })
+      }
+      onClick={(e) => e.stopPropagation()}
+      className={`${active ? "" : "hidden"} ${ratio ? "" : "h-full w-full object-contain"}`}
+      style={ratio ? { aspectRatio: ratio, width: `min(100cqw, calc(100cqh * ${ratio}))` } : undefined}
+    />
+  );
+}
+
 function PreviewOverlay({
   item,
+  prev,
+  next,
   order,
   isOg,
   onToggle,
@@ -619,8 +803,11 @@ function PreviewOverlay({
   onUpdate,
   onRemove,
   onClose,
+  onStep,
 }: {
   item: MomentItem;
+  prev?: MomentItem;
+  next?: MomentItem;
   order: number;
   isOg: boolean;
   onToggle: (key: string) => void;
@@ -628,12 +815,25 @@ function PreviewOverlay({
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
   onRemove: (key: string) => void;
   onClose: () => void;
+  onStep: (delta: number) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [videoInfo, setVideoInfo] = useState<{ w: number; h: number; duration: number } | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoInfos, setVideoInfos] = useState<Record<string, { w: number; h: number; duration: number }>>({});
+  const videoInfo = videoInfos[item.key];
+  const recordInfo = useCallback(
+    (key: string, info: { w: number; h: number; duration: number }) =>
+      setVideoInfos((prevInfos) => ({ ...prevInfos, [key]: info })),
+    [],
+  );
   const isVideo = VIDEO_EXT.test(item.key);
-  const taken = takenAt(item.key);
+  const stageVideos = (isVideo && !videoInfo ? [item] : [prev, item, next]).filter(
+    (v): v is MomentItem => Boolean(v) && VIDEO_EXT.test(v!.key),
+  );
+  const ratioOf = (key: string) => {
+    const i = videoInfos[key];
+    return i && i.w ? i.w / i.h : null;
+  };
+  const taken = takenAt(item);
   const dims = item.dims ?? (videoInfo && videoInfo.w ? [videoInfo.w, videoInfo.h] : null);
   const duration =
     isVideo && videoInfo && Number.isFinite(videoInfo.duration)
@@ -643,26 +843,30 @@ function PreviewOverlay({
     taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : `Uploaded ${formatDate(item.lastModified)}`,
     dims ? `${dims[0]}×${dims[1]}` : "",
     duration,
-    item.city ? [item.city, item.visit ? formatVisit(item.visit) : ""].filter(Boolean).join(" ") : "No city",
   ].filter(Boolean);
+  const [cityFor, setCityFor] = useState<string | null>(null);
+  const editingCity = cityFor === item.key;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || document.fullscreenElement) return;
+      if (e.target instanceof HTMLInputElement) return;
       if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        e.stopPropagation();
+        onStep(e.key === "ArrowLeft" ? -1 : 1);
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose, onStep]);
 
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    el.play().catch(() => {
-      el.muted = true;
-      el.play().catch(() => {});
-    });
-    return () => el.pause();
-  }, []);
+    for (const n of [prev, next]) {
+      if (n && !VIDEO_EXT.test(n.key)) new Image().src = n.large ?? n.thumb ?? n.url;
+    }
+  }, [prev, next]);
 
   async function rename() {
     const name = window.prompt("Rename to:", bareName(item.key));
@@ -677,6 +881,18 @@ function PreviewOverlay({
     }
   }
 
+  async function saveItemCity(city: string) {
+    setBusy(true);
+    try {
+      onUpdate(item.key, await saveCity(item.key, city.trim()));
+      setCityFor(null);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not save city");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     if (!window.confirm("Delete this file forever?")) return;
     setBusy(true);
@@ -685,6 +901,7 @@ function PreviewOverlay({
       onRemove(item.key);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
       setBusy(false);
     }
   }
@@ -697,29 +914,39 @@ function PreviewOverlay({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex flex-col bg-black/90"
+      className="fixed inset-0 z-50 !mt-0 flex flex-col bg-black/90"
     >
-      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
-        {isVideo ? (
-          <video
-            ref={videoRef}
-            src={item.url}
-            poster={item.thumb}
-            autoPlay
-            controls
-            playsInline
-            preload="auto"
-            onLoadedMetadata={(e) =>
-              setVideoInfo({
-                w: e.currentTarget.videoWidth,
-                h: e.currentTarget.videoHeight,
-                duration: e.currentTarget.duration,
-              })
-            }
-            onClick={(e) => e.stopPropagation()}
-            className="h-full w-full object-contain"
-          />
-        ) : (
+      <div className="relative flex min-h-0 flex-1 items-center justify-center p-2" style={{ containerType: "size" }}>
+        {prev && (
+          <button
+            type="button"
+            aria-label="Previous"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStep(-1);
+            }}
+            className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/90 transition-colors hover:bg-black/70"
+          >
+            <CaretLeftIcon size={22} weight="bold" />
+          </button>
+        )}
+        {next && (
+          <button
+            type="button"
+            aria-label="Next"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStep(1);
+            }}
+            className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/90 transition-colors hover:bg-black/70"
+          >
+            <CaretRightIcon size={22} weight="bold" />
+          </button>
+        )}
+        {stageVideos.map((v) => (
+          <StageVideo key={v.key} item={v} active={v.key === item.key} ratio={ratioOf(v.key)} onInfo={recordInfo} />
+        ))}
+        {!isVideo && (
           <img
             src={item.large ?? item.thumb ?? item.url}
             alt=""
@@ -730,9 +957,56 @@ function PreviewOverlay({
       </div>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="space-y-3 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="space-y-3 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:order-first sm:pb-3"
       >
-        <p className="text-xs tabular-nums text-white/70">{meta.join(" · ")}</p>
+        <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums text-white/60">
+          {editingCity ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveItemCity(new FormData(e.currentTarget).get("city")?.toString() ?? "");
+              }}
+              className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto"
+            >
+              <input
+                name="city"
+                type="text"
+                list="moment-cities"
+                defaultValue={item.city ?? ""}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setCityFor(null);
+                }}
+                placeholder="City, ST"
+                aria-label="City"
+                autoComplete="off"
+                autoFocus
+                className="min-w-0 flex-1 rounded-full border border-white/30 bg-white/5 px-3 py-1.5 text-base text-white placeholder:text-white/40 focus:border-[#d4a553] focus:outline-none sm:w-56 sm:flex-none sm:text-sm"
+              />
+              <button type="submit" disabled={busy} className={`${pill} !py-1.5`}>
+                Save
+              </button>
+              <button type="button" onClick={() => setCityFor(null)} className={`${pill} !py-1.5`}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCityFor(item.key)}
+              className={`rounded-full px-2.5 py-1 text-sm font-medium transition-colors ${
+                item.city
+                  ? "-ml-2.5 text-white/90 hover:bg-white/10"
+                  : "border border-dashed border-amber-300/70 text-amber-300 hover:bg-amber-300/10"
+              }`}
+            >
+              {item.city || "Add city"}
+            </button>
+          )}
+          {!editingCity && item.visit && <span>{formatVisit(item.visit)}</span>}
+          {meta.map((m) => (
+            <span key={m}>{m}</span>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -766,8 +1040,8 @@ function PreviewOverlay({
           >
             Delete
           </button>
-          <button type="button" onClick={onClose} className={`${pill} ml-auto`}>
-            Close
+          <button type="button" onClick={onClose} aria-label="Close" className={`${pill} ml-auto !px-2.5`}>
+            <XIcon size={20} />
           </button>
         </div>
       </div>
