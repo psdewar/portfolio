@@ -9,7 +9,7 @@ import {
 import { createPortal, flushSync } from "react-dom";
 import type { RsvpShow } from "../lib/rsvp-show";
 import CityList from "./CityList";
-import { IntroInline, IntroModal } from "./IntroVideo";
+import { IntroInline, IntroModal, track } from "./IntroVideo";
 import { useIntroAutoOpen } from "../hooks/useIntroAutoOpen";
 import { captureUtm } from "../lib/utm";
 import {
@@ -58,6 +58,21 @@ export default function RSVPShell({
   const { autoOpen, clearIntro } = useIntroAutoOpen();
   // Intro video, only for ?intro=1 links (email/text landings); nothing renders without it.
   const [intro, setIntro] = useState(autoOpen && !initialSlug);
+  const [replayed, setReplayed] = useState(false);
+  const replayIntro = () => {
+    track("rsvp_intro_replay");
+    // Mount the <video> inside the click task, then start it unmuted while the tap's
+    // user activation is live (Safari/iOS refuse unmuted play() after it lapses).
+    flushSync(() => {
+      setReplayed(true);
+      setIntro(true);
+    });
+    const el = document.querySelector("video");
+    if (el) {
+      el.muted = false;
+      el.play().catch(() => {});
+    }
+  };
   const closeIntro = () => {
     setIntro(false);
     clearIntro();
@@ -208,21 +223,21 @@ export default function RSVPShell({
   return (
     <PosterHostContext.Provider value={host}>
       {mobilePoster}
-      {intro && !isSplit && <IntroModal onClose={closeIntro} />}
-      <div className={`rsvp-root fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible ${railBleed}`}>
+      {intro && !isSplit && <IntroModal onClose={closeIntro} withSound={replayed} />}
+      <div className={`rsvp-root split:[--header-h:96px] split:!pt-24 fixed inset-x-0 top-[var(--header-h,65px)] bottom-0 overflow-hidden split:relative split:top-0 split:bottom-auto split:flex-1 split:overflow-visible ${railBleed}`}>
         <ZoneGrain />
         {toast}
-        <div className="relative h-full flex min-w-0 split:flex-row-reverse split:h-auto split:min-h-[calc(100dvh-var(--header-h,65px))] split:mx-auto split:max-w-7xl split:px-8">
+        <div className="relative h-full flex min-w-0 split:flex-row-reverse split:h-auto [--lx:max(0px,calc((100vw-80rem)/2))] split:[--lx:calc(max(0px,calc((100vw-80rem)/2))+max(2rem,calc(3rem-max(0px,(100vw-80rem)/2))))] split:min-h-[calc(100dvh-var(--header-h,65px))] split:mx-auto split:max-w-7xl split:pr-8 split:pl-[max(2rem,calc(3rem-max(0px,(100vw-80rem)/2)))]">
           {posterShow && (
             <div
               data-list-poster
               className="hidden split:block split:sticky split:top-[var(--header-h,65px)] split:self-start h-full split:h-[calc(100dvh-var(--header-h,65px))] flex-1 min-w-0 overflow-hidden"
             >
               <ShowPoster key={posterShow.slug} show={posterShow} fill />
-              {isSplit && intro && <IntroInline onClose={closeIntro} />}
+              {isSplit && intro && <IntroInline onClose={closeIntro} withSound={replayed} />}
             </div>
           )}
-          <div className="flex-1 split:flex-none split:w-[calc(28rem+clamp(1.5rem,3vw,3rem))] min-w-0 h-full overflow-y-auto split:h-auto split:overflow-visible [container-type:inline-size]">
+          <div className="flex-1 split:flex-none split:w-[calc(28rem+clamp(1.5rem,3vw,3rem)+2.5rem+var(--lx))] split:-ml-[var(--lx)] min-w-0 h-full overflow-y-auto split:h-auto split:overflow-visible [container-type:inline-size]">
             <div
               className="mx-auto flex min-h-full w-full max-w-3xl flex-col split:block split:max-w-none min-w-0 pt-0 split:pb-[max(2rem,var(--player-h,0px))]"
             >
@@ -230,6 +245,7 @@ export default function RSVPShell({
               <CityList
                 shows={shows}
                 noIntro={noIntro}
+                onReplayIntro={!intro ? replayIntro : undefined}
                 onSelect={handleSelect}
                 onHover={setHovered}
               />

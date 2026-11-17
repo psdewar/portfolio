@@ -15,7 +15,7 @@ const TONE_CLASS = {
   video: "text-white hover:opacity-70 drop-shadow-lg",
 };
 
-export function MenuBrand({ open, onToggle }: MenuControl) {
+export function MenuBrand({ open, onToggle, tone = "solid" }: MenuControl & { tone?: "solid" | "page" }) {
   return (
     <button
       type="button"
@@ -23,7 +23,11 @@ export function MenuBrand({ open, onToggle }: MenuControl) {
       onClick={onToggle}
       aria-label={open ? "Close menu" : "Open menu"}
       aria-expanded={open}
-      className="group flex h-14 shrink-0 items-center gap-2 pl-2 pr-4 font-bebas text-[26px] leading-none tracking-tight whitespace-nowrap transition-colors bg-black text-white hover:bg-neutral-800"
+      className={`group flex h-14 shrink-0 items-center gap-2 pl-2 pr-4 font-bebas text-[26px] leading-none tracking-tight whitespace-nowrap transition-colors ${
+        tone === "page"
+          ? "bg-transparent text-[color:var(--z-fg)] hover:opacity-70"
+          : "bg-black text-white hover:bg-neutral-800"
+      }`}
     >
       <span className="grid h-8 w-8 place-items-center">
         {open ? <XIcon size={20} weight="bold" /> : <ListIcon size={20} weight="bold" />}

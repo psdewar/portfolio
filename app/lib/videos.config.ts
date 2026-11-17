@@ -71,9 +71,10 @@ export const ENERGY_VIDEO_IDS: VideoId[] = [
 // Intro video on /rsvp (?intro=1 landings). Files live on the assets VPS in /var/www/assets/videos.
 export const RSVP_INTRO = {
   id: "rsvp-intro",
-  src: "https://assets.peytspencer.com/videos/rsvp-intro-v2.mp4",
-  poster: "https://assets.peytspencer.com/videos/rsvp-intro-first-v2.jpg", // first video frame, shown before playback so there's no black flash
+  src: "https://assets.peytspencer.com/videos/rsvp-intro-v4.mp4",
+  poster: "https://assets.peytspencer.com/videos/rsvp-intro-first-v4.jpg", // first video frame, shown before playback so there's no black flash
   captions: undefined as string | undefined, // optional .vtt URL (current cut has burned-in captions)
   aspect: "9 / 16",
+  duration: 32, // seconds, shown on the /rsvp replay button; update with src
   ogSocal: "https://assets.peytspencer.com/videos/rsvp-intro-og-socal.jpg", // link-preview frame for ?intro=1&utm_campaign=socal texts (1080x1920)
 };

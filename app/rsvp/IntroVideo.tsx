@@ -12,7 +12,7 @@ import { useEscape } from "../hooks/useEscape";
 const MILESTONES = [25, 50, 75] as const;
 
 // Fire-and-forget: tracking must never interrupt playback.
-function track(event: string, props: Record<string, unknown>) {
+export function track(event: string, props: Record<string, unknown> = {}) {
   try {
     posthog.capture(event, {
       video: RSVP_INTRO.id,
@@ -27,13 +27,17 @@ function track(event: string, props: Record<string, unknown>) {
 function IntroVideoEl({
   onEnd,
   className,
+  withSound = false,
+  fill = false,
 }: {
   onEnd: () => void;
   className: string;
+  withSound?: boolean;
+  fill?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fired = useRef(new Set<number>());
-  const [hintShown, setHintShown] = useState(true); // pill hides for good after the first unmute
+  const [hintShown, setHintShown] = useState(!withSound); // pill hides for good after the first unmute
   const [blocked, setBlocked] = useState(false); // autoplay refused (Low Power Mode, in-app browsers)
 
   // Each milestone (0 = play) fires once per open.
@@ -47,8 +51,21 @@ function IntroVideoEl({
     const el = videoRef.current;
     if (el) {
       // Arriving by link has no user gesture, so autoplay has to start muted.
-      el.muted = true;
-      el.play().catch(() => setBlocked(true));
+      // A replay follows a click, so it may start with sound.
+      const playMuted = () => {
+        el.muted = true;
+        setHintShown(true);
+        el.play().catch(() => setBlocked(true));
+      };
+      if (withSound) {
+        el.muted = false;
+        // AbortError = interrupted by a pause/reload (StrictMode remount), not a policy refusal.
+        el.play().catch((e) => {
+          if (e?.name !== "AbortError") playMuted();
+        });
+      } else {
+        playMuted();
+      }
     }
     // Some browsers resolve play() yet stay paused; treat that as blocked too.
     const check = window.setTimeout(() => {
@@ -61,7 +78,7 @@ function IntroVideoEl({
   }, []);
 
   return (
-    <div className="relative flex h-full max-w-full items-center justify-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
+    <div className={`relative flex h-full max-w-full items-center justify-center cursor-pointer ${fill ? "w-full" : ""}`} onClick={(e) => e.stopPropagation()}>
       <video
         ref={videoRef}
         src={RSVP_INTRO.src}
@@ -122,7 +139,13 @@ function IntroVideoEl({
 
 // Phones: fullscreen overlay. Portaled to body because the list sits inside a stacking context
 // that the site header paints over.
-export function IntroModal({ onClose }: { onClose: () => void }) {
+export function IntroModal({
+  onClose,
+  withSound,
+}: {
+  onClose: () => void;
+  withSound?: boolean;
+}) {
   useScrollLock();
   useEscape(onClose);
 
@@ -134,39 +157,128 @@ export function IntroModal({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, []);
 
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ id: -1, startY: 0, lastY: 0, lastT: 0, v: 0, active: false });
+  const suppressClick = useRef(false);
+
+  const setDrag = (dy: number) => {
+    const vh = window.innerHeight;
+    if (sheetRef.current) sheetRef.current.style.transform = `translateY(${dy}px)`;
+    if (backdropRef.current)
+      backdropRef.current.style.opacity = String(1 - Math.min(Math.max(dy, 0) / vh, 1) * 0.9);
+  };
+  const animateTo = (dy: number, opacity: number, done?: () => void) => {
+    const sheet = sheetRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!sheet || reduce) {
+      setDrag(dy);
+      done?.();
+      return;
+    }
+    sheet.style.transition = "transform 220ms ease-out";
+    if (backdropRef.current) {
+      backdropRef.current.style.transition = "opacity 220ms ease-out";
+      backdropRef.current.style.opacity = String(opacity);
+    }
+    sheet.style.transform = `translateY(${dy}px)`;
+    window.setTimeout(() => {
+      sheet.style.transition = "";
+      if (backdropRef.current) backdropRef.current.style.transition = "";
+      done?.();
+    }, 230);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch" || drag.current.id !== -1) return;
+    drag.current = { id: e.pointerId, startY: e.clientY, lastY: e.clientY, lastT: e.timeStamp, v: 0, active: false };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (e.pointerId !== d.id) return;
+    const dy = e.clientY - d.startY;
+    if (!d.active) {
+      if (Math.abs(dy) < 10) return;
+      d.active = true;
+      suppressClick.current = true;
+    }
+    const dt = e.timeStamp - d.lastT;
+    if (dt > 0) d.v = (e.clientY - d.lastY) / dt;
+    d.lastY = e.clientY;
+    d.lastT = e.timeStamp;
+    setDrag(dy > 0 ? dy : dy * 0.15); // upward drags are resisted
+  };
+  const onPointerEnd = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (e.pointerId !== d.id) return;
+    drag.current = { ...d, id: -1, active: false };
+    if (!d.active) return;
+    // Let the click that follows a drag pass, then re-arm.
+    window.setTimeout(() => (suppressClick.current = false), 0);
+    const dy = e.clientY - d.startY;
+    const cancelled = e.type === "pointercancel";
+    if (!cancelled && (dy > window.innerHeight * 0.25 || d.v > 0.5)) {
+      animateTo(window.innerHeight, 0, onClose);
+    } else {
+      animateTo(0, 1);
+    }
+  };
+
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-black p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Intro video"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Intro video">
+      <div ref={backdropRef} className="absolute inset-0 bg-black" />
+      <div
+        ref={sheetRef}
+        className="absolute inset-0 flex items-center justify-center touch-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onClickCapture={(e) => {
+          // A drag must not also toggle mute.
+          if (suppressClick.current) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
+      >
+        <IntroVideoEl
+          onEnd={onClose}
+          withSound={withSound}
+          fill
+          className="h-full w-full bg-black object-contain"
+        />
+      </div>
       <button
         type="button"
         aria-label="Close video"
         onClick={onClose}
-        className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 text-white/90 hover:text-white"
+        className="absolute z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white/90 hover:text-white"
+        style={{
+          top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
+        }}
       >
         <XIcon size={24} weight="bold" />
       </button>
-      <div className="flex min-h-0 max-h-[calc(100dvh-5.5rem)] w-full justify-center">
-        <IntroVideoEl
-          onEnd={onClose}
-          className="max-h-full max-w-full rounded-lg bg-black object-contain"
-        />
-      </div>
     </div>,
     document.body,
   );
 }
 
 // Desktop: covers the poster in the right column; the poster stays mounted underneath.
-export function IntroInline({ onClose }: { onClose: () => void }) {
+export function IntroInline({
+  onClose,
+  withSound,
+}: {
+  onClose: () => void;
+  withSound?: boolean;
+}) {
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
       <IntroVideoEl
         onEnd={onClose}
+        withSound={withSound}
         className="max-h-full max-w-full bg-black object-contain"
       />
       <button

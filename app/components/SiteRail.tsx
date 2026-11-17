@@ -15,12 +15,17 @@ export function SiteRail() {
   const scopeRef = useRef<HTMLDivElement>(null);
   const { menuOpen, menuPanelRef, menuControl, closeMenuOnLink } = useRailMenu(scopeRef);
   if (!hasSiteRail(pathname)) return null;
+  const pageTone = pathname === "/rsvp";
 
   return (
     <div ref={scopeRef} className={`hidden ${LIVE_DESKTOP_FLEX}`}>
       {reservesRailHeader(pathname) && <div aria-hidden className="w-full shrink-0" style={{ height: MENU_HEADER_PX }} />}
-      <div className="fixed left-0 top-0 z-40">
-        <MenuBrand {...menuControl} />
+      {/* /rsvp: the brand sits on the page background; rsvp-root supplies the scheme tokens. */}
+      <div
+        className={`${pageTone ? "absolute rsvp-root" : "fixed"} left-0 top-0 z-40`}
+        style={pageTone ? { background: "transparent" } : undefined}
+      >
+        <MenuBrand {...menuControl} tone={pageTone ? "page" : "solid"} />
       </div>
       <MenuRailPanel
         open={menuOpen}
