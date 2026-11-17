@@ -27,8 +27,7 @@ const LIVE_STRIP_WIDE_PX = 960;
 const LIVE_STRIP_MAX_SHOWS = 4;
 // Menu rows are the whole site nav; the row for the page you are on is marked, not hidden.
 export const MENU_NAV_ITEMS = navItems;
-// Nav rows plus the external "Book a guest verse" row.
-export const MENU_ROW_COUNT = MENU_NAV_ITEMS.length + 1;
+export const MENU_ROW_COUNT = MENU_NAV_ITEMS.length;
 const CHAT_RAIL_MIN_PX = 280;
 const RAIL_MAX_PX = 400;
 const RAIL_PCT = 0.24;

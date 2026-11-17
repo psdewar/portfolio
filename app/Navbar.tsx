@@ -2,14 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, StarIcon, FileTextIcon, type Icon } from "@phosphor-icons/react";
+import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, FileTextIcon, type Icon } from "@phosphor-icons/react";
 import { ArrowIcon } from "./ArrowIcon";
-import { Social, SOCIAL_LINKS } from "./components/Social";
+import posthog from "posthog-js";
+import { Social } from "./components/Social";
+import SocialButtons from "./components/SocialButtons";
 import { useSupporterStatus, useSupporterTier } from "./hooks/useSupporterStatus";
 import { SUPPORTER_TIERS } from "./data/supporter-tiers";
 import { LIVE_DESKTOP_HIDDEN, MENU_HEADER_PX } from "./live/live-breakpoint";
 import { hidesDesktopHeader, isFundPath, isLivePath, reservesRailHeader } from "./lib/route-checks";
-import { FEATURE_LINK } from "./lib/socials";
 import BrandWordmark from "./components/BrandWordmark";
 
 export const navItems = [
@@ -42,7 +43,6 @@ const HIRE_LINKS = [
 ];
 
 const DRAWER_ICON_GUTTER = "pl-[calc(1rem-9px)] sm:pl-[calc(1.5rem-9px)]";
-const DRAWER_SOCIAL_GUTTER = "pl-[calc(1rem-11px)] sm:pl-[calc(1.5rem-11px)]";
 
 export function Navbar() {
   const headerRef = useRef<HTMLElement>(null);
@@ -52,7 +52,6 @@ export function Navbar() {
   const tier = useSupporterTier();
   const tierDef = SUPPORTER_TIERS.find((t) => t.name === tier);
   const pathname = usePathname() ?? "/";
-  const isMusicPage = pathname === "/listen";
   const isHirePage = pathname === "/hire";
   const isFundPage = isFundPath(pathname);
   const isShopPage = pathname === "/shop" || pathname.startsWith("/shop/");
@@ -212,17 +211,6 @@ export function Navbar() {
                   </Link>
                 );
               })}
-              {isMusicPage && (
-                <Link
-                  href={FEATURE_LINK.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-h-11 flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  {FEATURE_LINK.label}
-                  <ArrowIcon />
-                </Link>
-              )}
             </div>
           </nav>
 
@@ -329,37 +317,15 @@ export function Navbar() {
                   <ArrowIcon />
                 </a>
               ))}
-            {isMusicPage && (
-              <a
-                href={FEATURE_LINK.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMenuOpen(false)}
-                style={{ "--row": FEATURE_LINK.color } as React.CSSProperties}
-                className={`group flex h-14 items-center gap-2 pr-4 sm:pr-6 ${DRAWER_ICON_GUTTER} text-[17px] font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)] text-gray-600 dark:text-gray-400 hover:text-[var(--row)] hover:bg-gray-100 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800/60`}
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center">
-                  <StarIcon size={22} />
-                </span>
-                <span className="min-w-0 truncate">{FEATURE_LINK.label}</span>
-                <ArrowIcon />
-              </a>
-            )}
           </nav>
-          <div className={`flex items-center border-t border-gray-200 dark:border-gray-800 pr-4 sm:pr-6 ${DRAWER_SOCIAL_GUTTER}`}>
-            {SOCIAL_LINKS.map(({ href, label, icon: Icon, color }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={label}
-                style={{ "--row": color } as React.CSSProperties}
-                className="grid h-11 w-11 shrink-0 place-items-center text-gray-600 dark:text-gray-400 hover:text-[var(--row)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--row)]"
-              >
-                <Icon size={22} />
-              </a>
-            ))}
+          <div className="soc-nav border-t border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-3">
+            <SocialButtons
+              showAppleMusic
+              onTap={(platform) => {
+                posthog.capture("nav_social_tap", { platform, surface: "drawer" });
+                setMenuOpen(false);
+              }}
+            />
           </div>
         </div>
       </div>

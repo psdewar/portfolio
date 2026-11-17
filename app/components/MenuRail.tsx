@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type RefObject } from "react";
-import { ArrowUpRightIcon, BroadcastIcon, type IconWeight } from "@phosphor-icons/react";
-import { FEATURE_LINK } from "../lib/socials";
+import { BroadcastIcon, type IconWeight } from "@phosphor-icons/react";
 import { NAV_ICON, NAV_COLOR } from "../Navbar";
+import posthog from "posthog-js";
 import BrandWordmark from "./BrandWordmark";
+import SocialButtons from "./SocialButtons";
 import { MenuButton, type MenuControl } from "../live/MenuButton";
 import {
   RAIL_ROW_COMPACT_HEIGHT_PX,
@@ -27,7 +28,6 @@ export function RailRow({
   color,
   href,
   compact = false,
-  external = false,
   active = false,
 }: {
   icon: RailIcon;
@@ -35,7 +35,6 @@ export function RailRow({
   color: string;
   href: string;
   compact?: boolean;
-  external?: boolean;
   active?: boolean;
 }) {
   const className = "group relative block shrink-0 h-[var(--rail-row)]";
@@ -62,13 +61,6 @@ export function RailRow({
       </span>
     </>
   );
-  if (external) {
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`${label} (opens in a new tab)`} className={className} style={style}>
-        {content}
-      </a>
-    );
-  }
   return (
     <Link href={href} aria-label={label} aria-current={active ? "page" : undefined} className={className} style={style}>
       {content}
@@ -207,15 +199,12 @@ export function MenuRailPanel({
               active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
             />
           ))}
-          <RailRow
-            icon={ArrowUpRightIcon}
-            label={FEATURE_LINK.label}
-            color={FEATURE_LINK.color}
-            href={FEATURE_LINK.href}
-            compact={railCompact}
-            external
-          />
         </nav>
+        <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-800 p-3">
+          <div className="soc-fill h-[208px]">
+            <SocialButtons showAppleMusic onTap={(platform) => posthog.capture("nav_social_tap", { platform, surface: "rail" })} />
+          </div>
+        </div>
       </div>
     </div>
     </>
