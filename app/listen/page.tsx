@@ -339,6 +339,9 @@ export default function Page() {
             <StayConnected onClose={() => setShowStayConnected(false)} />
           </section>
         )}
+        <section className="soc-form col-span-2 md:col-span-full order-[25] p-4 lg:hidden" style={{ background: FORM_SURFACE }}>
+          <SocialButtons showAppleMusic onTap={(platform) => posthog.capture("listen_social_tap", { platform })} />
+        </section>
       </div>
       {stayConnectedVisible && (
         <aside className="hidden lg:block [contain:size]">

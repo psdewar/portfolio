@@ -4,9 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { HandHeartIcon, HeadphonesIcon, TShirtIcon, BroadcastIcon, TicketIcon, FileTextIcon, type Icon } from "@phosphor-icons/react";
 import { ArrowIcon } from "./ArrowIcon";
-import posthog from "posthog-js";
 import { Social } from "./components/Social";
-import SocialButtons from "./components/SocialButtons";
 import { useSupporterStatus, useSupporterTier } from "./hooks/useSupporterStatus";
 import { SUPPORTER_TIERS } from "./data/supporter-tiers";
 import { LIVE_DESKTOP_HIDDEN, MENU_HEADER_PX } from "./live/live-breakpoint";
@@ -318,15 +316,6 @@ export function Navbar() {
                 </a>
               ))}
           </nav>
-          <div className="soc-nav border-t border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-3">
-            <SocialButtons
-              showAppleMusic
-              onTap={(platform) => {
-                posthog.capture("nav_social_tap", { platform, surface: "drawer" });
-                setMenuOpen(false);
-              }}
-            />
-          </div>
         </div>
       </div>
     </header>

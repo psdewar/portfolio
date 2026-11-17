@@ -26,8 +26,8 @@
 .soc-fill .soc .soc-btn .tx { font-size: min(1rem, 7.5cqw); }
 @container (max-height: 150px) { .soc-fill .soc { display: none; } }
 @media (prefers-color-scheme: dark) {
-  html:not([data-scheme="light"]) .soc-fill .soc .soc-btn, html:not([data-scheme="light"]) .soc-nav .soc .soc-btn { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
-  html:not([data-scheme="light"]) .soc-fill .soc .soc-btn:hover, html:not([data-scheme="light"]) .soc-nav .soc .soc-btn:hover { background: rgba(255,255,255,0.12); }
+  html:not([data-scheme="light"]) .soc-fill .soc .soc-btn, html:not([data-scheme="light"]) .soc-form .soc .soc-btn { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+  html:not([data-scheme="light"]) .soc-fill .soc .soc-btn:hover, html:not([data-scheme="light"]) .soc-form .soc .soc-btn:hover { background: rgba(255,255,255,0.12); }
 }
-html[data-scheme="dark"] .soc-fill .soc .soc-btn, html[data-scheme="dark"] .soc-nav .soc .soc-btn { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
-html[data-scheme="dark"] .soc-fill .soc .soc-btn:hover, html[data-scheme="dark"] .soc-nav .soc .soc-btn:hover { background: rgba(255,255,255,0.12); }
+html[data-scheme="dark"] .soc-fill .soc .soc-btn, html[data-scheme="dark"] .soc-form .soc .soc-btn { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+html[data-scheme="dark"] .soc-fill .soc .soc-btn:hover, html[data-scheme="dark"] .soc-form .soc .soc-btn:hover { background: rgba(255,255,255,0.12); }

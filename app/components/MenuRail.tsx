@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type RefObject } from "react";
 import { BroadcastIcon, type IconWeight } from "@phosphor-icons/react";
 import { NAV_ICON, NAV_COLOR } from "../Navbar";
-import posthog from "posthog-js";
 import BrandWordmark from "./BrandWordmark";
-import SocialButtons from "./SocialButtons";
 import { MenuButton, type MenuControl } from "../live/MenuButton";
 import {
   RAIL_ROW_COMPACT_HEIGHT_PX,
@@ -200,11 +198,6 @@ export function MenuRailPanel({
             />
           ))}
         </nav>
-        <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-800 p-3">
-          <div className="soc-fill h-[208px]">
-            <SocialButtons showAppleMusic onTap={(platform) => posthog.capture("nav_social_tap", { platform, surface: "rail" })} />
-          </div>
-        </div>
       </div>
     </div>
     </>
