@@ -13,14 +13,10 @@ import {
   logDevError,
   logDevWarning,
   generateMockAudioBuffer,
+  fetchVps,
 } from "../../shared/audio-utils";
 import { isSupporterTrack } from "../../../data/supporter-config";
 import { verifySupporterToken } from "../../../../lib/session";
-
-// VPS URL for audio files
-const VPS_AUDIO_BASE_URL = process.env.VPS_AUDIO_URL || "https://assets.peytspencer.com/audio";
-const CF_ACCESS_CLIENT_ID = process.env.CF_ACCESS_CLIENT_ID || "";
-const CF_ACCESS_CLIENT_SECRET = process.env.CF_ACCESS_CLIENT_SECRET || "";
 
 // Helper to simulate network delay in development
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -97,18 +93,14 @@ export async function GET(
     }
 
     // Stream the VPS body through; forward Range so the browser can seek.
-    const vpsUrl = `${VPS_AUDIO_BASE_URL}/${trackId}.mp3`;
-    const vpsHeaders: HeadersInit = {};
-    if (CF_ACCESS_CLIENT_ID && CF_ACCESS_CLIENT_SECRET) {
-      vpsHeaders["CF-Access-Client-Id"] = CF_ACCESS_CLIENT_ID;
-      vpsHeaders["CF-Access-Client-Secret"] = CF_ACCESS_CLIENT_SECRET;
-    }
+    const vpsPath = `${trackId}.mp3`;
+    const vpsHeaders: Record<string, string> = {};
     const incomingRange = request.headers.get("range");
     if (incomingRange) vpsHeaders["Range"] = incomingRange;
 
-    const response = await fetch(vpsUrl, { headers: vpsHeaders });
+    const response = await fetchVps(vpsPath, vpsHeaders);
     if (!response.ok && response.status !== 206) {
-      console.error(`VPS fetch failed: ${response.status} for ${vpsUrl}`);
+      console.error(`VPS fetch failed: ${response.status} for ${vpsPath}`);
       return new NextResponse("Track not found", { status: 404 });
     }
 

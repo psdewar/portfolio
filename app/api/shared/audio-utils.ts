@@ -11,6 +11,20 @@ export const ALLOWED_ORIGINS = [
   "https://peytspencer.vercel.app",
 ];
 
+const VPS_AUDIO_BASE_URL = process.env.VPS_AUDIO_URL || "https://assets.peytspencer.com/audio";
+
+export function fetchVps(path: string, headers: HeadersInit = {}): Promise<Response> {
+  const id = process.env.CF_ACCESS_CLIENT_ID;
+  const secret = process.env.CF_ACCESS_CLIENT_SECRET;
+  const access: Record<string, string> =
+    id && secret ? { "CF-Access-Client-Id": id, "CF-Access-Client-Secret": secret } : {};
+  return fetch(`${VPS_AUDIO_BASE_URL}/${path}`, { headers: { ...access, ...headers } });
+}
+
+export function isVpsAsset(trackId: string): boolean {
+  return DIGITAL_ASSETS[trackId]?.blobPrefix === "vps";
+}
+
 export function checkStreamRateLimit(ip: string): boolean {
   return checkRateLimit(ip, "stream").allowed;
 }

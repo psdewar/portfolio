@@ -1,4 +1,5 @@
 import patienceLyrics from "../../data/lyrics/patience.json";
+import bestFootForwardLyrics from "../../data/lyrics/best-foot-forward.json";
 
 export type LyricLine = { start: number; end: number; text: string; isCTA?: boolean };
 
@@ -7,6 +8,7 @@ export const LYRIC_LOOKAHEAD = 0.3;
 
 const LYRICS_DATA: Record<string, LyricLine[]> = {
   patience: patienceLyrics as LyricLine[],
+  "best-foot-forward": bestFootForwardLyrics as LyricLine[],
 };
 
 export const getLyrics = (trackId: string): LyricLine[] | undefined => LYRICS_DATA[trackId];

@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       await sendDownloadEmail({
         to,
         productName: "Singles & 16s (2025)",
+        title: "Singles & 16s (2025)",
         downloadUrl: "https://peytspencer.com/download?session_id=test_123",
       });
       break;

@@ -9,6 +9,7 @@ import {
   FC,
   ReactNode,
 } from "react";
+import posthog from "posthog-js";
 import { getDevToolsState } from "./DevToolsContext";
 
 export interface Track {
@@ -38,7 +39,7 @@ interface AudioContextType extends AudioState {
   stop: () => void;
   toggle: () => void;
   seekTo: (time: number) => void;
-  loadTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
+  loadTrack: (track: Track, autoPlay?: boolean, arrival?: boolean) => Promise<void>;
   loadPlaylist: (tracks: Track[], startIndex?: number) => void;
   setPlaylist: (tracks: Track[]) => void;
   nextTrack: () => void;
@@ -95,6 +96,28 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const pendingReload = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const isTransitioning = useRef(false);
+  const session = useRef({ id: null as string | null, started: false, arrival: false, seconds: 0, furthest: 0, last: 0, completed: false });
+
+  const flushListen = useCallback(
+    (beacon = false) => {
+      const s = session.current;
+      const seconds = Math.round(s.seconds);
+      if (audio && s.id && seconds > 0) {
+        const duration = audio.duration || 0;
+        const percent = duration > 0 ? Math.min(100, Math.round((s.furthest / duration) * 100)) : 0;
+        posthog.capture(
+          "song_listen",
+          { track: s.id, seconds, percent, completed: s.completed },
+          beacon ? { transport: "sendBeacon" } : undefined,
+        );
+      }
+      s.seconds = 0;
+      s.furthest = 0;
+      s.completed = false;
+      s.last = audio?.currentTime ?? 0;
+    },
+    [audio],
+  );
 
   // Playback is a bare <audio> element on purpose. Routing it through Web Audio
   // (createMediaElementSource) for the visualizer left Safari silently "playing"
@@ -116,6 +139,12 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handlePlaying = () => {
+      const s = session.current;
+      s.last = audio.currentTime;
+      if (s.id && !s.started) {
+        s.started = true;
+        posthog.capture("song_play", { track: s.id, autoplay: s.arrival });
+      }
       setState((prev) => ({ ...prev, isPlaying: true, isLoading: false }));
       cancelAnimationFrame(animationId);
       animationId = requestAnimationFrame(tick);
@@ -135,7 +164,28 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       cancelAnimationFrame(animationId);
     };
 
+    const handleTimeUpdate = () => {
+      const s = session.current;
+      const delta = audio.currentTime - s.last;
+      if (delta > 0 && delta <= 1.5) s.seconds += delta;
+      s.last = audio.currentTime;
+      s.furthest = Math.max(s.furthest, audio.currentTime);
+    };
+
+    const handleSeeked = () => {
+      session.current.last = audio.currentTime;
+    };
+
+    const handleHide = () => {
+      if (document.visibilityState === "hidden") flushListen(true);
+    };
+
+    const handlePageHide = () => flushListen(true);
+
     const handleEnded = () => {
+      session.current.furthest = audio.duration || session.current.furthest;
+      session.current.completed = true;
+      flushListen();
       setState((prev) => ({ ...prev, isPlaying: false, isLoading: false }));
       cancelAnimationFrame(animationId);
     };
@@ -172,6 +222,10 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     audio.addEventListener("waiting", handleWaiting);
     audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("seeked", handleSeeked);
+    document.addEventListener("visibilitychange", handleHide);
+    window.addEventListener("pagehide", handlePageHide);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("canplay", handleCanPlay);
     audio.addEventListener("progress", handleProgress);
@@ -187,12 +241,16 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       audio.removeEventListener("waiting", handleWaiting);
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("seeked", handleSeeked);
+      document.removeEventListener("visibilitychange", handleHide);
+      window.removeEventListener("pagehide", handlePageHide);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("progress", handleProgress);
       audio.removeEventListener("error", handleError);
     };
-  }, [audio]);
+  }, [audio, flushListen]);
 
   const play = useCallback(async () => {
     if (!audio || !audio.src) return;
@@ -204,7 +262,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await audio.play();
     } catch (err) {
-      console.warn("Playback prevented:", err);
+      if ((err as DOMException)?.name !== "NotAllowedError") console.warn("Playback prevented:", err);
+      session.current.arrival = false;
       isTransitioning.current = false;
       setState((prev) => ({ ...prev, isPlaying: false, isLoading: false, loadingTrack: null }));
     }
@@ -221,6 +280,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const stop = useCallback(() => {
     if (!audio) return;
     audio.pause();
+    flushListen();
+    session.current.id = null;
     audio.removeAttribute("src");
     audio.load();
     setState((prev) => ({
@@ -232,7 +293,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
       currentTime: 0,
       buffered: 0,
     }));
-  }, [audio]);
+  }, [audio, flushListen]);
 
   const toggle = useCallback(() => {
     if (!audio) return;
@@ -256,7 +317,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const getLyricTime = useCallback(() => audio?.currentTime ?? 0, [audio]);
 
   const loadTrack = useCallback(
-    async (track: Track, autoPlay = false) => {
+    async (track: Track, autoPlay = false, arrival = false) => {
       if (!audio) return;
 
       if (state.currentTrack?.id === track.id) {
@@ -266,6 +327,8 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
 
+      flushListen();
+      session.current = { id: track.id, started: false, arrival, seconds: 0, furthest: 0, last: 0, completed: false };
       pendingSeek.current = null;
       if (autoPlay) isTransitioning.current = true;
       audio.src = buildAudioUrl(track.id);
@@ -286,7 +349,7 @@ export const AudioProvider: FC<{ children: ReactNode }> = ({ children }) => {
         await play();
       }
     },
-    [audio, state.currentTrack?.id, play]
+    [audio, state.currentTrack?.id, play, flushListen]
   );
 
   const loadPlaylist = useCallback(

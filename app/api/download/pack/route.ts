@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const VPS_BASE_URL = process.env.VPS_AUDIO_URL || "https://assets.peytspencer.com/audio";
-const CF_ACCESS_CLIENT_ID = process.env.CF_ACCESS_CLIENT_ID || "";
-const CF_ACCESS_CLIENT_SECRET = process.env.CF_ACCESS_CLIENT_SECRET || "";
+import { fetchVps } from "../../shared/audio-utils";
 
 const ALLOWED_FILES: Record<string, { filename: string; contentType: string }> = {
   "singles-16s-2025": {
@@ -24,19 +21,11 @@ export async function GET(request: NextRequest) {
     return new NextResponse("File not found", { status: 404 });
   }
 
-  const vpsUrl = `${VPS_BASE_URL}/${fileConfig.filename}`;
-  const headers: HeadersInit = {};
-
-  if (CF_ACCESS_CLIENT_ID && CF_ACCESS_CLIENT_SECRET) {
-    headers["CF-Access-Client-Id"] = CF_ACCESS_CLIENT_ID;
-    headers["CF-Access-Client-Secret"] = CF_ACCESS_CLIENT_SECRET;
-  }
-
   try {
-    const response = await fetch(vpsUrl, { headers });
+    const response = await fetchVps(fileConfig.filename);
 
     if (!response.ok) {
-      console.error(`VPS fetch failed: ${response.status} for ${vpsUrl}`);
+      console.error(`VPS fetch failed: ${response.status} for ${fileConfig.filename}`);
       return new NextResponse("File not found", { status: 404 });
     }
 

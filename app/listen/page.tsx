@@ -63,7 +63,13 @@ const BASE_TRACKS: TrackCard[] = singles.filter(Boolean).map((s) => {
   };
 });
 
+const trackCardFromData = (id: string): TrackCard => {
+  const track = TRACK_DATA.find((t) => t.id === id)!;
+  return { id, title: track.title, src: track.thumbnail };
+};
+
 const EXTRA_TRACKS: TrackCard[] = [
+  trackCardFromData("best-foot-forward"),
   {
     id: "mula-freestyle",
     title: "Mula Freestyle",
@@ -71,24 +77,17 @@ const EXTRA_TRACKS: TrackCard[] = [
   },
 ];
 
-const SUPPORTER_TRACKS: TrackCard[] = SUPPORTER_CONFIG.earlyAccess.trackIds.map((id) => {
-  const track = TRACK_DATA.find((t) => t.id === id)!;
-  return { id, title: track.title, src: track.thumbnail };
-});
+const SUPPORTER_TRACKS: TrackCard[] = SUPPORTER_CONFIG.earlyAccess.trackIds.map(trackCardFromData);
 
 const ARTWORK_PENDING = new Set(
   TRACK_DATA.filter((t) => t.artworkPending).map((t) => t.id),
 );
 const WELCOME_PACK_IDS = SUPPORTER_EXCLUSIVE_TRACKS;
 
-const UNSORTED_TRACKS: TrackCard[] = [...SUPPORTER_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS];
-const BEST_FOOT_FORWARD_TRACK = UNSORTED_TRACKS.find((t) => t.id === "best-foot-forward");
-const ALL_TRACKS: TrackCard[] = BEST_FOOT_FORWARD_TRACK
-  ? UNSORTED_TRACKS.filter((t) => t !== BEST_FOOT_FORWARD_TRACK).flatMap((t) =>
-      t.id === "mula-freestyle" ? [BEST_FOOT_FORWARD_TRACK, t] : [t],
-    )
-  : UNSORTED_TRACKS;
-const ALL_VISIBLE_TRACKS: TrackCard[] = ALL_TRACKS.filter((t) => !t.hidden);
+const UNSORTED_TRACKS: TrackCard[] = [...SUPPORTER_TRACKS, ...EXTRA_TRACKS, ...BASE_TRACKS].filter(
+  (t, i, all) => all.findIndex((o) => o.id === t.id) === i,
+);
+const ALL_VISIBLE_TRACKS: TrackCard[] = UNSORTED_TRACKS.filter((t) => !t.hidden);
 
 const PLAYABLE_TRACK_IDS = new Set(
   TRACK_DATA.filter((t) => (t.source ?? "hosted") === "hosted").map((t) => t.id),

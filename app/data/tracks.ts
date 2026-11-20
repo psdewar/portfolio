@@ -32,6 +32,7 @@ export interface TrackData {
   thumbnail: string;
   downloadUrl?: string;
   streamUrl?: string;
+  geniusUrl?: string;
   streamingLinks?: StreamingLink[];
   duration?: number;
   releaseDate?: string;
@@ -48,16 +49,6 @@ export type TrackSource = "hosted" | "stream-only";
 // Note: You'll need to add actual MP3 files to /public/audio/ or use external URLs
 export const TRACK_DATA: TrackData[] = [
   // Supporter-exclusive tracks (Welcome Pack)
-  {
-    id: "best-foot-forward",
-    title: "Best Foot Forward",
-    artist: "Peyt Spencer",
-    audioUrl: "/api/audio/best-foot-forward",
-    thumbnail: "/images/covers/best-foot-forward.jpg",
-    duration: 134,
-    releaseDate: "2026-09-16",
-    label: "Lyrist Records",
-  },
   {
     id: "see-this-through",
     title: "See This Through",
@@ -92,6 +83,18 @@ export const TRACK_DATA: TrackData[] = [
     artworkPending: true,
   },
   // Public tracks
+  {
+    id: "best-foot-forward",
+    title: "Best Foot Forward",
+    artist: "Peyt Spencer",
+    audioUrl: "/api/audio/best-foot-forward",
+    thumbnail: "/images/covers/best-foot-forward.jpg",
+    duration: 134,
+    releaseDate: "2026-11-20",
+    label: "Lyrist Records",
+    streamUrl: "https://distrokid.com/hyperfollow/peytspencer/best-foot-forward-2",
+    geniusUrl: "https://genius.com/Peyt-spencer-best-foot-forward-lyrics",
+  },
   {
     id: "patience",
     title: "Patience",

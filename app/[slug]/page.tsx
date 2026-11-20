@@ -1,3 +1,5 @@
+import path from "node:path";
+import sharp from "sharp";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { TRACK_DATA } from "../data/tracks";
@@ -8,6 +10,14 @@ export const dynamicParams = false;
 
 export function generateStaticParams() {
   return (singles as string[]).map((slug) => ({ slug }));
+}
+
+const REMOTE_COVER_SIZE = 800;
+
+async function coverSize(thumbnail: string) {
+  if (!thumbnail.startsWith("/")) return { width: REMOTE_COVER_SIZE, height: REMOTE_COVER_SIZE };
+  const { width, height } = await sharp(path.join(process.cwd(), "public", thumbnail)).metadata();
+  return { width, height };
 }
 
 export async function generateMetadata({
@@ -23,6 +33,7 @@ export async function generateMetadata({
   const description = `Listen to ${track.title} by ${track.artist}`;
   const url = `https://peytspencer.com/${slug}`;
   const image = `https://peytspencer.com/api/og/${slug}`;
+  const { width, height } = await coverSize(track.thumbnail);
 
   return {
     title,
@@ -36,7 +47,7 @@ export async function generateMetadata({
       type: "music.song",
       ...(track.duration ? { duration: track.duration } : {}),
       musicians: ["https://peytspencer.com/#artist"],
-      images: [{ url: image, width: 800, height: 800, alt: `${track.title} cover` }],
+      images: [{ url: image, width, height, alt: `${track.title} cover` }],
     },
     twitter: {
       // 'summary' is square; 'summary_large_image' would crop the 1:1 album art.

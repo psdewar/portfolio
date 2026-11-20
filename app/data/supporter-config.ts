@@ -4,7 +4,7 @@ export const SUPPORTER_CONFIG = {
   earlyAccess: {
     name: "Early Access",
     description: "New songs, yours first",
-    trackIds: ["best-foot-forward", "crg-freestyle", "so-good", "see-this-through"] as string[],
+    trackIds: ["crg-freestyle", "so-good", "see-this-through"] as string[],
   },
 };
 

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { openSupport, payButton } from "./helpers";
 
-const SUPPORTER_TRACK_IDS = ["best-foot-forward", "crg-freestyle", "so-good", "see-this-through"];
+const SUPPORTER_TRACK_IDS = ["crg-freestyle", "so-good", "see-this-through"];
 const PUBLIC_TRACK_ID = "patience";
 const STORY_PHOTO_ALT = "Peyt with a local family in Veraguas, Panama";
 

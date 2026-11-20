@@ -22,6 +22,8 @@ import { isSupporterTrack } from "app/data/supporter-config";
 import { useSupporterStatus } from "app/hooks/useSupporterStatus";
 import { useScrollLock } from "app/hooks/useScrollLock";
 import SupportModal from "app/components/SupportModal";
+import DownloadButton from "app/components/DownloadSheet";
+import { SINGLE_DOWNLOAD_NET_CENTS } from "app/data/single-downloads";
 import { getLyrics, getCurrentLyric } from "app/lib/lyrics";
 
 const PLATFORM_ICONS: Partial<Record<StreamingPlatform, string>> = {
@@ -93,6 +95,7 @@ export default function SingleOverlay({
   const trackData = TRACK_DATA.find((t) => t.id === trackId);
   const isCurrent = currentTrack?.id === trackId;
   const playing = isCurrent && isPlaying;
+  const started = isCurrent && currentTime >= 3;
   const releaseYear = trackData?.releaseDate?.slice(0, 4);
 
   const isSupporterOnly = isSupporterTrack(trackId);
@@ -104,6 +107,7 @@ export default function SingleOverlay({
       : "playable";
 
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const downloadNetCents = SINGLE_DOWNLOAD_NET_CENTS[trackId];
   const previewTrack =
     state === "supporterGated" && trackData
       ? { title: trackData.title, src: `/audio/${trackId}-preview.mp3` }
@@ -471,10 +475,20 @@ export default function SingleOverlay({
                   {isCurrent && duration > 0 ? formatTime(currentTime || 0) : "0:00"}
                 </span>
                 {trackData?.label && (
-                  <span className="inline-flex items-center gap-1 min-w-0">
-                    <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
-                    <span className="truncate">
-                      <span className="tabular-nums">{releaseYear}</span> {trackData.label}
+                  <span className="grid min-w-0">
+                    <span
+                      className={`col-start-1 row-start-1 justify-self-center inline-flex items-center gap-1 min-w-0 transition-opacity duration-300 ${started ? "opacity-0" : "opacity-100"}`}
+                    >
+                      <CopyrightIcon className="w-3 h-3 shrink-0" weight="regular" />
+                      <span className="truncate">
+                        <span className="tabular-nums">{releaseYear}</span> {trackData.label}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden={!started}
+                      className={`col-start-1 row-start-1 justify-self-center inline-flex items-center gap-1 min-w-0 transition-opacity duration-300 ${started ? "opacity-100" : "opacity-0"}`}
+                    >
+                      <span className="truncate">Keeps playing while you browse</span>
                     </span>
                   </span>
                 )}
@@ -540,7 +554,19 @@ export default function SingleOverlay({
             )}
           </button>
           <div className="flex-1 flex items-center px-4 min-w-0 h-12 border-x border-neutral-300 dark:border-neutral-700">
-            {currentLine ? (
+            {currentLine && trackData?.geniusUrl ? (
+              <a
+                href={trackData.geniusUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Read ${trackData.title} lyrics on Genius`}
+                className="flex h-full w-full items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-inset"
+              >
+                <p className="w-full text-left text-[15px] font-medium text-neutral-800 dark:text-white/85 line-clamp-2 leading-snug">
+                  {currentLine}
+                </p>
+              </a>
+            ) : currentLine ? (
               <p className="w-full text-left text-[15px] font-medium text-neutral-800 dark:text-white/85 line-clamp-2 leading-snug">
                 {currentLine}
               </p>
@@ -591,6 +617,10 @@ export default function SingleOverlay({
             <CaretDownIcon className="w-5 h-5" weight="bold" />
           </button>
         </div>
+
+        {downloadNetCents ? (
+          <DownloadButton productId={trackId} netCents={downloadNetCents} />
+        ) : null}
 
         {trackData?.streamingLinks?.length ? (
           <div className="flex flex-col">

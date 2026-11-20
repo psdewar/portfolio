@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPurchaseBySessionId, updatePurchaseEmail, markEmailSent, isKeepalive } from "../../../lib/supabase-admin";
 import { sendDownloadEmail } from "../../../lib/sendgrid";
+import { downloadTitle, downloadSlug } from "../shared/products";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
     const sent = await sendDownloadEmail({
       to: recipientEmail,
       productName: purchase.product_name || "Your music",
+      title: downloadTitle(purchase.downloadable_assets, purchase.product_name || "Your music"),
+      trackSlug: downloadSlug(purchase.downloadable_assets),
       downloadUrl,
     });
 

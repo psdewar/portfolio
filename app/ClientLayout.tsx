@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { PostHogProvider } from "./components/PostHogProvider";
 import { AudioProvider } from "./contexts/AudioContext";
@@ -89,6 +89,7 @@ function OverlayManager() {
   const isSupporter = useSupporterStatus();
 
   const overlayTrackId = searchParams?.get("play") ?? null;
+  const arrivalId = useRef(overlayTrackId ?? TRACK_DATA.find((t) => `/${t.id}` === pathname)?.id ?? null);
   const trackIndex = overlayTrackId ? TRACK_DATA.findIndex((t) => t.id === overlayTrackId) : -1;
   const overlayTrackData = trackIndex >= 0 ? TRACK_DATA[trackIndex] : null;
   const hasPrevNext = TRACK_DATA.length > 1 && trackIndex >= 0;
@@ -124,6 +125,8 @@ function OverlayManager() {
       pause();
       return;
     }
+    const arrival = overlayTrackData.id === arrivalId.current;
+    arrivalId.current = null;
     loadTrack(
       {
         id: overlayTrackData.id,
@@ -134,6 +137,7 @@ function OverlayManager() {
         duration: overlayTrackData.duration,
       },
       true,
+      arrival,
     );
   }, [overlayTrackId, isSupporter, loadTrack, pause]);
 

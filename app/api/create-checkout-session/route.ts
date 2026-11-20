@@ -60,7 +60,15 @@ function buildSessionMetadata(
 
   const sellableType = getSellableType(product);
 
-  const base: Record<string, string> = {
+  const base: Record<string, string> = {};
+
+  if (customMetadata) {
+    Object.entries(customMetadata).forEach(([key, value]) => {
+      if (key !== "checkinId" && typeof value === "string") base[key] = sanitizeInput(value);
+    });
+  }
+
+  Object.assign(base, {
     ...createBaseMetadata(ip),
     sellableType,
     sellableId,
@@ -68,17 +76,13 @@ function buildSessionMetadata(
     productId: product.id,
     productType: product.type,
     productName: product.name,
-  };
+  });
 
   const assets = getDownloadableAssets(product);
   if (assets.length > 0) base.downloadableAssets = assets.join(",");
+  else delete base.downloadableAssets;
 
-  if (customMetadata) {
-    Object.entries(customMetadata).forEach(([key, value]) => {
-      if (key !== "checkinId" && typeof value === "string") base[key] = sanitizeInput(value);
-    });
-    Object.assign(base, checkinMetadata(customMetadata.checkinId));
-  }
+  if (customMetadata) Object.assign(base, checkinMetadata(customMetadata.checkinId));
 
   return base;
 }
@@ -127,7 +131,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const finalAmount = amount || product.basePriceCents;
+    const finalAmount =
+      product.type === "donation" ? amount || product.basePriceCents : product.basePriceCents;
     if (
       typeof finalAmount !== "number" ||
       finalAmount < 50 ||
@@ -193,8 +198,8 @@ export async function POST(request: NextRequest) {
         embeddedRequest.collectPhone = true;
       }
 
-      const { clientSecret } = await createCheckout(embeddedRequest);
-      return NextResponse.json({ clientSecret });
+      const { sessionId, clientSecret } = await createCheckout(embeddedRequest);
+      return NextResponse.json({ sessionId, clientSecret });
     }
 
     // Build Tiger request

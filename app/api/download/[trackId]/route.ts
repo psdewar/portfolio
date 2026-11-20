@@ -18,6 +18,8 @@ import {
   validateOrigin,
   fetchAudioBlob,
   fetchAudioBuffer,
+  fetchVps,
+  isVpsAsset,
   generateMockAudioBuffer,
   formatTrackFilename,
   createDownloadHeaders,
@@ -131,12 +133,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    const audioBlob = await fetchAudioBlob(trackId, fileFormat);
-    if (!audioBlob) {
+    const audioBuffer = await fetchPaidAudio(trackId, fileFormat);
+    if (!audioBuffer) {
       return new NextResponse("Track file not found", { status: 404 });
     }
-
-    const audioBuffer = await fetchAudioBuffer(audioBlob.url);
 
     // Track download count on the Stripe object
     const updatedMetadata = { ...paymentMetadata, [downloadKey]: (currentDownloads + 1).toString() };
@@ -163,6 +163,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     logDevError(error, "Download error");
     return new NextResponse("Internal server error", { status: 500 });
   }
+}
+
+async function fetchPaidAudio(trackId: string, fileFormat: string): Promise<ArrayBuffer | null> {
+  if (isVpsAsset(trackId)) {
+    const response = await fetchVps(`${trackId}.${fileFormat}`);
+    return response.ok ? response.arrayBuffer() : null;
+  }
+  const audioBlob = await fetchAudioBlob(trackId, fileFormat);
+  return audioBlob ? fetchAudioBuffer(audioBlob.url) : null;
 }
 
 async function verifyTrackAccess(

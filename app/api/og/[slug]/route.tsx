@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { TRACK_DATA } from "../../../data/tracks";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
@@ -12,7 +12,7 @@ export async function GET(
   }
 
   try {
-    const upstream = await fetch(track.thumbnail);
+    const upstream = await fetch(new URL(track.thumbnail, request.url));
     if (!upstream.ok) {
       return Response.redirect(new URL("/api/og/listen", "https://peytspencer.com"));
     }

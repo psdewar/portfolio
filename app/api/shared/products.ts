@@ -1,4 +1,6 @@
 import { grossUpCents } from "../../lib/fees";
+import { SINGLE_DOWNLOAD_NET_CENTS } from "../../data/single-downloads";
+import singles from "../../../data/singles.json";
 /**
  * Product Configuration
  *
@@ -359,6 +361,15 @@ export const PRODUCTS: Record<string, Product> = {
   "critical-race-theory": createSingleProduct("critical-race-theory", "Critical Race Theory"),
   "better-days": createSingleProduct("better-days", "Better Days"),
   bahai: createSingleProduct("bahai", "Baha'i"),
+  "best-foot-forward": {
+    ...createSingleProduct(
+      "best-foot-forward",
+      "Peyt Spencer - Best Foot Forward",
+      grossUpCents(SINGLE_DOWNLOAD_NET_CENTS["best-foot-forward"]),
+    ),
+    description: "MP3 file",
+    images: ["https://peytspencer.com/images/covers/best-foot-forward.jpg"],
+  },
   "mula-freestyle": createSingleProduct(
     "mula-freestyle",
     "Mula Freestyle",
@@ -589,6 +600,14 @@ export function isTestProduct(productId: string): boolean {
  */
 export function getTestProductIds(): string[] {
   return Object.keys(PRODUCTS).filter((id) => id.startsWith("test-"));
+}
+
+export function downloadTitle(assets: string[] | null | undefined, fallback: string): string {
+  return (assets?.length === 1 && DIGITAL_ASSETS[assets[0]]?.displayName) || fallback;
+}
+
+export function downloadSlug(assets: string[] | null | undefined): string | undefined {
+  return assets?.length === 1 && singles.includes(assets[0]) ? assets[0] : undefined;
 }
 
 /**

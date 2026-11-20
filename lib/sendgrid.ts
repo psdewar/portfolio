@@ -31,7 +31,7 @@ async function trySend(
   }
 }
 
-function emailWrapper(content: string): string {
+function emailWrapper(content: string, footerPath = ""): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -44,7 +44,7 @@ function emailWrapper(content: string): string {
   <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
     ${content}
     <div style="padding:32px 0 0;">
-      <a href="${SITE_URL}" style="color:#1a1a1a;font-size:16px;text-decoration:none;">peytspencer.com</a>
+      <a href="${SITE_URL}${footerPath}" style="color:#1a1a1a;font-size:16px;text-decoration:none;">peytspencer.com${footerPath}</a>
     </div>
   </div>
 </body>
@@ -383,30 +383,25 @@ export async function sendShowBlast(params: {
 export async function sendDownloadEmail(params: {
   to: string;
   productName: string;
+  title: string;
   downloadUrl: string;
   expiresIn?: string;
+  trackSlug?: string;
 }): Promise<boolean> {
-  const { to, productName, downloadUrl, expiresIn = "30 days" } = params;
-  const listenUrl = `${SITE_URL}/listen`;
+  const { to, productName, title, downloadUrl, expiresIn = "30 days", trackSlug } = params;
 
   return trySend(
     {
       to,
       from: FROM,
-      subject: `${productName} is yours`,
-      text: `${productName} is yours. Download it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.\n\nMore music: ${listenUrl}\n\nPeyt`,
+      subject: productName,
+      text: `${title} is yours. Thank you for buying it straight from me!\n\nDownload it here:\n${downloadUrl}\n\nThis link expires in ${expiresIn}.`,
       html: emailWrapper(`
-      ${goldHeading(`${productName} is yours.`)}
+      ${goldHeading(`${title} is yours. Thank you for buying it straight from me!`)}
 
       <div style="margin-bottom:10px;">${ctaButton("Download", downloadUrl)}</div>
-      <div style="text-align:center;color:#9a9a95;font-size:12px;margin-bottom:28px;">Link expires in ${expiresIn}.</div>
-
-      <div style="border-top:1px solid #ebebeb;padding-top:20px;">
-        <a href="${listenUrl}" style="color:#d4a553;text-decoration:none;font-size:14px;font-weight:500;">Hear the rest of the catalog</a>
-      </div>
-
-      ${signOff()}
-    `),
+      <div style="text-align:center;color:#9a9a95;font-size:12px;">Link expires in ${expiresIn}.</div>
+    `, trackSlug && `/${trackSlug}`),
     },
     "Download",
   );

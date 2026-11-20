@@ -62,6 +62,7 @@ export default function ContributeSheet({
   label,
   onClose,
   onBack,
+  completeLine = "Find me on socials",
   children,
 }: {
   checkout: ReturnType<typeof useContributeCheckout>;
@@ -69,7 +70,8 @@ export default function ContributeSheet({
   label: string;
   onClose: () => void;
   onBack: () => void;
-  children: React.ReactNode;
+  completeLine?: string;
+  children?: React.ReactNode;
 }) {
   const { secret, complete, error, paid } = checkout;
   const paying = !!secret && !complete;
@@ -112,7 +114,7 @@ export default function ContributeSheet({
           <div className="px-6 pb-5 pt-4">
             {complete ? (
               <div className="flex flex-col items-center gap-4 py-2">
-                <p className="text-xl text-neutral-600 dark:text-neutral-300">Find me on socials</p>
+                <p className="text-xl text-neutral-600 dark:text-neutral-300">{completeLine}</p>
                 <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-neutral-200 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white" />
               </div>
             ) : (

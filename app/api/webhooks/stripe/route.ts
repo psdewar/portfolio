@@ -7,6 +7,8 @@ import {
   requiresShipping,
   hasDigitalAssets,
   getDownloadableAssets,
+  downloadTitle,
+  downloadSlug,
   isTestMode,
 } from "../../shared/products";
 import { savePurchase, isKeepalive, decrementInventory, markEmailSent } from "../../../../lib/supabase-admin";
@@ -109,6 +111,8 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     const emailSent = await sendDownloadEmail({
       to: email,
       productName: combinedName,
+      title: downloadTitle(allAssets, combinedName),
+      trackSlug: downloadSlug(allAssets),
       downloadUrl,
     });
 
@@ -278,6 +282,8 @@ async function handleDigitalFulfillment(
     const emailSent = await sendDownloadEmail({
       to: email,
       productName: product.name,
+      title: downloadTitle(assets, product.name),
+      trackSlug: downloadSlug(assets),
       downloadUrl,
     });
 
