@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import posthog from "posthog-js";
 import ContributeSheet, { useContributeCheckout } from "./ContributeSheet";
 import { PAYMENT_OPTIONS_STYLE } from "./PaymentOptions";
@@ -61,14 +61,17 @@ export default function DownloadButton({
   const [error, setError] = useState("");
   const busy = useRef(false);
 
-  const open = async () => {
+  const open = async (via?: string) => {
     if (busy.current) return;
     busy.current = true;
     setCreating(true);
     setError("");
     try {
       setSecret(await createDownloadSecret(productId));
-      posthog.capture("download_checkout_open", { track: productId });
+      posthog.capture(
+        "download_checkout_open",
+        via ? { track: productId, via } : { track: productId },
+      );
     } catch (e) {
       setError(errorMessage(e, CHECKOUT_OPEN_ERROR));
     } finally {
@@ -77,10 +80,18 @@ export default function DownloadButton({
     }
   };
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("download") !== "1") return;
+    open("link");
+    url.searchParams.delete("download");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
   return (
     <>
       <div className="flex flex-col items-center">
-        <button type="button" onClick={open} disabled={creating} className={DOWNLOAD_ROW}>
+        <button type="button" onClick={() => open()} disabled={creating} className={DOWNLOAD_ROW}>
           <span className={DOWNLOAD_CTA}>
             {creating ? (
               <>

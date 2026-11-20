@@ -7,8 +7,10 @@ export default function TrackRedirect({ slug, title, artist }: { slug: string; t
   const target = `/listen?play=${encodeURIComponent(slug)}`;
 
   useEffect(() => {
-    router.replace(target);
-  }, [router, target]);
+    const params = new URLSearchParams(window.location.search);
+    params.set("play", slug);
+    router.replace(`/listen?${params}`);
+  }, [router, slug]);
 
   return (
     <noscript>
