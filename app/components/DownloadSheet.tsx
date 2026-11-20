@@ -8,7 +8,7 @@ import { grossUpCents, formatDollars } from "../lib/fees";
 import { CHECKOUT_OPEN_ERROR, errorMessage, postJson } from "../lib/network-error";
 
 const DOWNLOAD_ROW =
-  "group flex w-full cursor-pointer px-4 py-4 focus:outline-none disabled:cursor-default";
+  "group flex w-full flex-col items-center cursor-pointer px-4 py-4 focus:outline-none disabled:cursor-default";
 const DOWNLOAD_CTA =
   "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-5 py-2 text-center text-[clamp(15px,4.6vw,18px)] font-semibold bg-neutral-900 text-white transition-colors group-hover:bg-neutral-700 group-active:bg-neutral-800 group-disabled:opacity-70 dark:bg-white dark:text-neutral-900 dark:group-hover:bg-neutral-200 dark:group-active:bg-neutral-300 group-focus-visible:ring-2 group-focus-visible:ring-orange-500 group-focus-visible:ring-offset-2 dark:group-focus-visible:ring-offset-neutral-950";
 
@@ -102,6 +102,7 @@ export default function DownloadButton({
               `Download for ${formatDollars(grossUpCents(netCents))} so I receive ${formatDollars(netCents)}`
             )}
           </span>
+          <span className="mt-2 block text-center text-[13px] text-neutral-500 dark:text-white/55">{formatDollars(netCents)} ≈ {netCents * 3} Spotify streams</span>
         </button>
         {error && <p className="px-4 pb-4 text-center text-sm text-red-500">{error}</p>}
       </div>
