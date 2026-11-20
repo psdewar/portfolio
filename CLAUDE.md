@@ -32,7 +32,7 @@ All layouts use fluid sizing — elements fill available space proportionally wi
 
 The player is `fixed bottom-0` and sets `--player-h` on `:root` via a `useEffect` in `GlobalAudioPlayer` when visible. Only `/listen` clears it as a page (`SiteShell clearPlayer` pads `<main>`). Every other page ignores the player: fixed full-screen surfaces (RSVP, live, ticket) run to `bottom-0`, and viewport-height layouts (shop) don't subtract it. The one exception is a pressable the player would cover — a bottom-anchored button, a scroll column that ends in a submit, or a list of rows (RSVP shows, support tracks) — which floats above it with `bottom: max(<baseline>, var(--player-h, 0px))` or pads with `max(<baseline>, var(--player-h, 0px))`. Never hardcode `pb-24` or `bottom-24`.
 
-- Player is suppressed (and `--player-h` removed) on: `/hire`, `/fund/*`, `/support`, `/live` when stream is online, and when `?play=` overlay is open
+- Player is suppressed (and `--player-h` removed) on: `/hire`, `/fund/*`, `/live` when stream is online, and when `?play=` overlay is open
 
 ## Data Conventions
 

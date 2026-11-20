@@ -646,7 +646,7 @@ export function SupporterSection({
           className={`${isModal ? "absolute" : "fixed"} left-1/2 -translate-x-1/2 z-50 min-h-[54px] px-5 sm:px-8 flex items-center justify-center gap-2 rounded-btn text-white text-[20px] font-semibold whitespace-nowrap shadow-lg cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]`}
           style={{
             background: "linear-gradient(to right, #f97316, #ec4899)",
-            bottom: isModal ? "80px" : "max(80px, var(--player-h, 0px))",
+            bottom: isModal ? "80px" : "max(80px, calc(var(--player-h, 0px) + 12px))",
           }}
         >
           <MicrophoneStageIcon className="w-6 h-6" weight="regular" />

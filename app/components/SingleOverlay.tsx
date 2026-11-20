@@ -119,9 +119,13 @@ export default function SingleOverlay({
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [dragX, setDragX] = useState(0);
+  const [dragY, setDragY] = useState(0);
   const [isSnapping, setIsSnapping] = useState(false);
 
   const coverRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragAxis = useRef<"dismiss" | "scroll" | null>(null);
+  const dragScrollStart = useRef(0);
   const isDraggingCover = useRef(false);
   const dragLocked = useRef(false);
   const dragStartX = useRef(0);
@@ -183,6 +187,7 @@ export default function SingleOverlay({
         }
       }
       setDragX(0);
+      setDragY(0);
       setIsSnapping(false);
     }, 350);
   }, []);
@@ -263,6 +268,8 @@ export default function SingleOverlay({
     dragLocked.current = false;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
+    dragAxis.current = null;
+    dragScrollStart.current = cardRef.current?.scrollTop ?? 0;
   };
 
   const onCoverPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -270,11 +277,22 @@ export default function SingleOverlay({
     const dx = e.clientX - dragStartX.current;
     const dy = e.clientY - dragStartY.current;
 
+    if (dragAxis.current === "scroll") {
+      if (cardRef.current) cardRef.current.scrollTop = dragScrollStart.current - dy;
+      return;
+    }
+
+    if (dragAxis.current === "dismiss") {
+      setDragY(Math.max(0, dy));
+      return;
+    }
+
     if (!dragLocked.current) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-      if (Math.abs(dy) >= Math.abs(dx)) {
-        // Vertical — abort and let the browser handle pull-to-refresh / scroll
-        isDraggingCover.current = false;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragLockTimeRef.current = performance.now();
+        dragAxis.current = dy > 0 && dragScrollStart.current <= 0 ? "dismiss" : "scroll";
         return;
       }
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -291,9 +309,26 @@ export default function SingleOverlay({
 
   const onCoverPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingCover.current) return;
-    if (dragLocked.current) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (dragLocked.current || dragAxis.current) e.currentTarget.releasePointerCapture(e.pointerId);
     isDraggingCover.current = false;
     dragLocked.current = false;
+
+    if (dragAxis.current) {
+      const axis = dragAxis.current;
+      dragAxis.current = null;
+      if (axis === "dismiss") {
+        const h = cardRef.current?.clientHeight ?? 600;
+        const elapsed = Math.max(1, performance.now() - dragLockTimeRef.current);
+        if (dragY > h * 0.2 || (dragY / elapsed > 0.3 && dragY > 10)) {
+          setIsSnapping(true);
+          setDragY(window.innerHeight);
+          setTimeout(onClose, 220);
+        } else {
+          snapTo(0, () => setDragY(0));
+        }
+      }
+      return;
+    }
 
     const absX = Math.abs(dragX);
     if (absX < 10) {
@@ -319,20 +354,34 @@ export default function SingleOverlay({
 
   const onCoverPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingCover.current) return;
-    if (dragLocked.current) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (dragLocked.current || dragAxis.current) e.currentTarget.releasePointerCapture(e.pointerId);
     isDraggingCover.current = false;
     dragLocked.current = false;
-    if (dragX !== 0) snapTo(0);
+    dragAxis.current = null;
+    if (dragX !== 0 || dragY !== 0) snapTo(0, () => setDragY(0));
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start bg-black/40 backdrop-blur-xl animate-fade-in overflow-y-auto md:justify-center md:p-4 md:pt-20"
+      style={
+        dragY > 0
+          ? {
+              backgroundColor: `rgba(0, 0, 0, ${0.4 * Math.max(0, 1 - dragY / window.innerHeight)})`,
+              transition: coverTransition === "none" ? "none" : "background-color 300ms ease-out",
+            }
+          : undefined
+      }
       onClick={onClose}
     >
       <div
+        ref={cardRef}
         className="relative w-full max-h-screen overflow-y-auto bg-white dark:bg-neutral-950 md:max-h-[calc(100vh-6rem)] md:max-w-md md:rounded-2xl md:shadow-[0_20px_80px_-20px_rgba(249,115,22,0.3)]"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+          transition: coverTransition,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -349,7 +398,7 @@ export default function SingleOverlay({
         <div
           ref={coverRef}
           className="relative aspect-square w-full overflow-hidden"
-          style={{ touchAction: "pan-y" }}
+          style={{ touchAction: "none" }}
           onPointerDown={onCoverPointerDown}
           onPointerMove={onCoverPointerMove}
           onPointerUp={onCoverPointerUp}

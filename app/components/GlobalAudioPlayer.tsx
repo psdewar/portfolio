@@ -84,6 +84,7 @@ export const GlobalAudioPlayer: React.FC = () => {
     buffered,
     isLoading,
     toggle,
+    pause,
     seekTo,
     formatTime,
     getLyricTime,
@@ -95,18 +96,17 @@ export const GlobalAudioPlayer: React.FC = () => {
 
   const isHirePage = pathname === "/hire";
   const isFundPage = pathname.startsWith("/fund");
-  const isSupportPage = pathname === "/support";
   const isLivePage = pathname === "/live";
   const isOverlayOpen = !!searchParams?.get("play");
   const { live: isStreamLive } = useLiveStatus({ enabled: isLivePage });
+  const isPlayerSuppressedRoute =
+    isHirePage || isFundPage || (isLivePage && isStreamLive);
   const isVisible =
-    !!currentTrack &&
-    !isHirePage &&
-    !isFundPage &&
-    !isSupportPage &&
-    !isOverlayOpen &&
-    !isModalOpen &&
-    !(isLivePage && isStreamLive);
+    !!currentTrack && !isPlayerSuppressedRoute && !isOverlayOpen && !isModalOpen;
+
+  useEffect(() => {
+    if (isPlayerSuppressedRoute && isPlaying) pause();
+  }, [isPlayerSuppressedRoute, isPlaying, pause]);
 
   useEffect(() => {
     if (isVisible) {
