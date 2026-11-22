@@ -8,7 +8,6 @@ import {
   createUploadUrl,
   contentKey,
   objectExists,
-  recordOriginalHint,
   previewKeyFor,
   recordCityFromCoords,
   coordsFrom,
@@ -16,12 +15,19 @@ import {
 
 export async function POST(request: Request) {
   const ip = getClientIP(request);
+  const body = await request.json().catch(() => ({}));
+  const kind = (body as Record<string, unknown>).kind;
   const rateCheck = (await isAdminAuthorized(request))
     ? { allowed: true, resetIn: 0 }
-    : checkRateLimit(ip, "moments-sign", {
-        windowMs: 60 * 60 * 1000,
-        maxRequests: 200,
-      });
+    : kind === "check"
+      ? checkRateLimit(ip, "moments-check", {
+          windowMs: 60 * 60 * 1000,
+          maxRequests: 1000,
+        })
+      : checkRateLimit(ip, "moments-sign", {
+          windowMs: 60 * 60 * 1000,
+          maxRequests: 600,
+        });
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Try again later." },
@@ -39,7 +45,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not configured" }, { status: 503 });
   }
 
-  const body = await request.json().catch(() => ({}));
   const { passcode, filename, contentType, hash } = body as Record<string, string>;
 
   if (!(await isUploadAuthorized(request, passcode))) {
@@ -59,16 +64,20 @@ export async function POST(request: Request) {
       : undefined;
 
   try {
-    if ((body as Record<string, unknown>).kind === "preview") {
+    if (kind === "check") {
+      if (!validHash) return NextResponse.json({ exists: false });
+      const key = contentKey(filename, validHash, captured);
+      return NextResponse.json({ key, exists: await objectExists(key) });
+    }
+    if (kind === "preview") {
       if (!validHash) {
         return NextResponse.json({ error: "Preview requires a hash" }, { status: 400 });
       }
       const originalKey = contentKey(filename, validHash, captured);
       const key = previewKeyFor(originalKey);
-      if ((await objectExists(key)) || (await objectExists(originalKey))) {
+      if (await objectExists(key)) {
         return NextResponse.json({ key, originalKey, exists: true });
       }
-      await recordOriginalHint(originalKey);
       const { url } = await createUploadUrl(filename, "image/jpeg", key, metadata);
       return NextResponse.json({ url, key, originalKey, exists: false });
     }

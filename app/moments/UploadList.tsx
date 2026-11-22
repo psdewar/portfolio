@@ -1,5 +1,6 @@
+import { useRef } from "react";
 import { X, CheckCircle } from "@phosphor-icons/react";
-import type { FileJob } from "./useMomentsUpload";
+import { MEDIA_ACCEPT, type FileJob } from "./useMomentsUpload";
 
 const mono = { fontFamily: '"Space Mono", monospace' } as const;
 const epunda = { fontFamily: "var(--font-epunda)" } as const;
@@ -8,8 +9,11 @@ type UploadState = {
   jobs: FileJob[];
   uploading: boolean;
   failedJobs: FileJob[];
+  deadJobs: FileJob[];
+  retryableJobs: FileJob[];
   doneCount: number;
   subline: string;
+  handleFiles: (files: FileList | null) => Promise<void>;
   runJob: (job: FileJob) => Promise<void>;
   removeJob: (job: FileJob) => void;
   retryAllFailed: () => Promise<void>;
@@ -26,10 +30,34 @@ export default function UploadList({
   gridClass?: string;
   cta?: React.ReactNode;
 }) {
-  const { jobs, uploading, failedJobs, doneCount, subline, runJob, removeJob, retryAllFailed } =
-    upload;
+  const {
+    jobs,
+    uploading,
+    failedJobs,
+    deadJobs,
+    retryableJobs,
+    doneCount,
+    subline,
+    handleFiles,
+    runJob,
+    removeJob,
+    retryAllFailed,
+  } = upload;
+  const repickRef = useRef<HTMLInputElement>(null);
+  const repick = () => repickRef.current?.click();
   return (
     <>
+      <input
+        ref={repickRef}
+        type="file"
+        multiple
+        accept={MEDIA_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
       {(uploading || (doneCount > 0 && failedJobs.length === 0)) && (
         <Banner type="uploading" flat pad={bannerPad}>
           {uploading && (
@@ -41,7 +69,7 @@ export default function UploadList({
           <p className="flex-1 text-sm md:text-base font-medium tabular-nums" style={epunda}>
             {uploading ? (
               <>
-                Keep this page open until complete.
+                Keep this screen open until uploads finish.
                 {subline && (
                   <span className="block text-xs font-normal text-white/60">{subline}</span>
                 )}
@@ -62,16 +90,33 @@ export default function UploadList({
         </Banner>
       )}
       {cta}
-      {failedJobs.length > 0 && (
+      {deadJobs.length > 0 && (
+        <Banner
+          type="failed"
+          flat
+          pad={bannerPad}
+          onClick={repick}
+          ariaLabel={`Pick ${deadJobs.length} files again`}
+        >
+          <span className="min-w-0 text-sm font-normal">
+            Your phone released {deadJobs.length} {deadJobs.length === 1 ? "file" : "files"}. Pick{" "}
+            {deadJobs.length === 1 ? "it" : "them"} again.
+          </span>
+          <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-normal uppercase tracking-wide text-red-600">
+            Pick again
+          </span>
+        </Banner>
+      )}
+      {retryableJobs.length > 0 && (
         <Banner
           type="failed"
           flat
           pad={bannerPad}
           onClick={retryAllFailed}
-          ariaLabel={`Retry ${failedJobs.length} failed uploads`}
+          ariaLabel={`Retry ${retryableJobs.length} failed uploads`}
         >
           <span className="min-w-0 text-sm font-normal">
-            {failedJobs.length} failed{failedJobs[0].error ? `: ${failedJobs[0].error}` : ""}
+            {retryableJobs.length} failed{retryableJobs[0].error ? `: ${retryableJobs[0].error}` : ""}
             {doneCount > 0 ? ` · ${doneCount} done` : ""}
           </span>
           <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-normal uppercase tracking-wide text-red-600">
@@ -85,7 +130,7 @@ export default function UploadList({
           <MomentTile
             key={job.id}
             job={job}
-            onRetry={() => runJob(job)}
+            onRetry={() => (job.dead ? repick() : runJob(job))}
             onRemove={() => removeJob(job)}
           />
         ))}
@@ -186,14 +231,14 @@ function MomentTile({
             style={{ clipPath: `inset(0 0 ${veil}% 0)` }}
           />
         </>
-      ) : (
+      ) : !isError ? (
         <p
           className="absolute inset-x-1 top-1/2 -translate-y-1/2 truncate text-center text-[10px] text-white/70"
           style={mono}
         >
           {job.file.name}
         </p>
-      )}
+      ) : null}
 
       {uploadingNow && pct > 0 && (
         <div
@@ -253,14 +298,14 @@ function MomentTile({
         <button
           type="button"
           onClick={onRetry}
-          aria-label={`Retry ${job.file.name}`}
+          aria-label={`${job.dead ? "Pick again" : "Retry"} ${job.file.name}`}
           className="absolute inset-0 flex items-center justify-center bg-red-600/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
         >
           <span
             className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600"
             style={mono}
           >
-            Retry
+            {job.dead ? "Pick again" : "Retry"}
           </span>
         </button>
       )}

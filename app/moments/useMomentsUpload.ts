@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 import { isNetworkError, networkFetch, NO_CONNECTION } from "../lib/network-error";
-import { uploadFile, uploadOriginal, makePreview, type PreviewResult, type UploadMeta } from "./upload";
+import { uploadFile, makePreview, isDeadFileError, type PreviewResult, type UploadMeta } from "./upload";
+
+export const MEDIA_ACCEPT = "image/*,image/heic,image/heif,video/*";
 
 export type JobStatus = "queued" | "uploading" | "done" | "error";
 
@@ -12,12 +15,12 @@ export type FileJob = {
   thumb?: string;
   duration?: number;
   error?: string;
+  dead?: boolean;
   duplicate?: boolean;
   key?: string;
 };
 
 const SIM_TICK_MS = 100;
-const RETRY_DELAYS_MS = [30_000, 120_000, 300_000];
 const simDuration = (bytes: number) => Math.min(3000, Math.max(1500, 1500 + bytes / 2000));
 
 function simulateUpload(
@@ -45,6 +48,13 @@ function simulateUpload(
   });
 }
 
+const MB = 1024 * 1024;
+const sizeBucket = (bytes: number) =>
+  bytes < MB ? "under_1mb" : bytes < 10 * MB ? "1_10mb" : bytes < 100 * MB ? "10_100mb" : "over_100mb";
+
+const failureReason = (err: unknown) =>
+  isDeadFileError(err) ? "dead_file" : isNetworkError(err) ? "network" : "server";
+
 const failureMessage = (err: unknown) =>
   isNetworkError(err) ? NO_CONNECTION : err instanceof Error ? err.message : "Upload failed";
 
@@ -58,82 +68,8 @@ export function useMomentsUpload(
   const removedIds = useRef(new Set<string>());
   const jobsRef = useRef<FileJob[]>([]);
   jobsRef.current = jobs;
-  const previewBlobs = useRef(new Map<string, Blob>());
-  const pendingOriginals = useRef(new Map<string, { file: File; tries: number; busy: boolean; controller?: AbortController }>());
-  const previewedIds = useRef(new Set<string>());
-  const retryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const passcodeRef = useRef(passcode);
   passcodeRef.current = passcode;
-
-  function stopOriginal(id: string) {
-    pendingOriginals.current.get(id)?.controller?.abort();
-    pendingOriginals.current.delete(id);
-    clearTimeout(retryTimers.current.get(id));
-    retryTimers.current.delete(id);
-  }
-
-  function scheduleOriginal(id: string) {
-    const entry = pendingOriginals.current.get(id);
-    if (!entry) return;
-    clearTimeout(retryTimers.current.get(id));
-    retryTimers.current.set(
-      id,
-      setTimeout(() => attemptOriginal(id, true), RETRY_DELAYS_MS[entry.tries]),
-    );
-  }
-
-  async function attemptOriginal(id: string, timed: boolean) {
-    const entry = pendingOriginals.current.get(id);
-    if (!entry || removedIds.current.has(id)) return;
-    if (entry.busy || document.visibilityState === "hidden") {
-      if (timed) scheduleOriginal(id);
-      return;
-    }
-    entry.busy = true;
-    if (timed) entry.tries++;
-    entry.controller = new AbortController();
-    try {
-      const result = await uploadOriginal(
-        entry.file,
-        { passcode: passcodeRef.current },
-        () => {},
-        entry.controller.signal,
-      );
-      stopOriginal(id);
-      updateJob(id, { status: "done", progress: 100, key: result.key });
-    } catch (err) {
-      entry.busy = false;
-      if (!pendingOriginals.current.has(id) || (err instanceof Error && err.name === "CancelledError")) return;
-      if (!timed) return;
-      if (entry.tries >= RETRY_DELAYS_MS.length) {
-        stopOriginal(id);
-        updateJob(id, { status: "error", error: failureMessage(err) });
-      } else {
-        scheduleOriginal(id);
-      }
-    }
-  }
-
-  useEffect(() => {
-    const retryAll = () => {
-      for (const id of [...pendingOriginals.current.keys()]) attemptOriginal(id, false);
-    };
-    const stopAll = () => {
-      for (const id of [...pendingOriginals.current.keys()]) stopOriginal(id);
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") retryAll();
-    };
-    window.addEventListener("online", retryAll);
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("pagehide", stopAll);
-    return () => {
-      window.removeEventListener("online", retryAll);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("pagehide", stopAll);
-      stopAll();
-    };
-  }, []);
 
   useEffect(
     () => () => {
@@ -144,6 +80,8 @@ export function useMomentsUpload(
 
   const uploading = jobs.some((j) => j.status === "uploading" || j.status === "queued");
   const failedJobs = jobs.filter((j) => j.status === "error");
+  const deadJobs = failedJobs.filter((j) => j.dead);
+  const retryableJobs = failedJobs.filter((j) => !j.dead);
   const doneCount = jobs.filter((j) => j.status === "done").length;
 
   const measured = jobs.filter((j) => j.status !== "error");
@@ -213,7 +151,10 @@ export function useMomentsUpload(
       try {
         const next = await nav.wakeLock!.request("screen");
         if (!active) next.release().catch(() => {});
-        else lock = next;
+        else {
+          lock?.release().catch(() => {});
+          lock = next;
+        }
       } catch {
         lock = null;
       }
@@ -258,8 +199,7 @@ export function useMomentsUpload(
   }
 
   function grantThumb(job: FileJob, made: PreviewResult) {
-    if (job.thumb || removedIds.current.has(job.id) || previewBlobs.current.has(job.id)) return;
-    previewBlobs.current.set(job.id, made.blob);
+    if (job.thumb || removedIds.current.has(job.id)) return;
     updateJob(job.id, {
       thumb: URL.createObjectURL(made.blob),
       duration: made.duration,
@@ -278,6 +218,12 @@ export function useMomentsUpload(
       (f) => !active.has(`${f.name}:${f.size}:${f.lastModified}`),
     );
     if (incoming.length === 0) return;
+
+    const stale = [...deadJobs];
+    for (const file of incoming) {
+      const i = stale.findIndex((j) => j.file.name === file.name && j.file.size === file.size);
+      if (i >= 0) removeJob(stale.splice(i, 1)[0]);
+    }
 
     const newJobs: FileJob[] = incoming.map((file, i) => ({
       id: `${Date.now()}-${i}-${file.name}`,
@@ -313,7 +259,7 @@ export function useMomentsUpload(
     const meta: UploadMeta = { passcode };
     const controller = new AbortController();
     controllers.current.set(job.id, controller);
-    updateJob(job.id, { status: "uploading", progress: 0, error: undefined });
+    updateJob(job.id, { status: "uploading", progress: 0, error: undefined, dead: false });
     let lastPct = -1;
     try {
       const onProgress = (pct: number) => {
@@ -325,24 +271,8 @@ export function useMomentsUpload(
       };
       if (simulate) await simulateUpload(job.file.size, onProgress, controller.signal);
       const result = simulate
-        ? { duplicate: false, key: undefined, originalPending: false }
-        : previewedIds.current.has(job.id)
-          ? await uploadOriginal(job.file, meta, onProgress, controller.signal)
-          : await uploadFile(
-              job.file,
-              meta,
-              onProgress,
-              controller.signal,
-              previewBlobs.current.get(job.id),
-              (made) => grantThumb(job, made),
-            );
-      if (result.originalPending) {
-        previewedIds.current.add(job.id);
-        updateJob(job.id, { key: result.key });
-        pendingOriginals.current.set(job.id, { file: job.file, tries: 0, busy: false });
-        scheduleOriginal(job.id);
-        return;
-      }
+        ? { duplicate: false, key: undefined }
+        : await uploadFile(job.file, meta, onProgress, controller.signal);
       updateJob(job.id, {
         status: "done",
         progress: 100,
@@ -351,7 +281,12 @@ export function useMomentsUpload(
       });
     } catch (err) {
       if (err instanceof Error && err.name === "CancelledError") return;
-      updateJob(job.id, { status: "error", error: failureMessage(err) });
+      updateJob(job.id, { status: "error", error: failureMessage(err), dead: isDeadFileError(err) });
+      posthog.capture("moment_upload_failed", {
+        reason: failureReason(err),
+        size_bucket: sizeBucket(job.file.size),
+        media_type: job.file.type.split("/")[0] || "unknown",
+      });
     } finally {
       controllers.current.delete(job.id);
     }
@@ -361,11 +296,8 @@ export function useMomentsUpload(
     removedIds.current.add(job.id);
     controllers.current.get(job.id)?.abort();
     controllers.current.delete(job.id);
-    previewBlobs.current.delete(job.id);
-    stopOriginal(job.id);
-    const previewed = previewedIds.current.delete(job.id);
     if (job.thumb) URL.revokeObjectURL(job.thumb);
-    if ((job.status === "done" || previewed) && job.key && !job.duplicate) {
+    if (job.status === "done" && job.key && !job.duplicate) {
       networkFetch("/api/moments/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -376,7 +308,7 @@ export function useMomentsUpload(
   }
 
   async function retryAllFailed() {
-    for (const job of failedJobs) await runJob(job);
+    for (const job of retryableJobs) await runJob(job);
   }
 
   const onFirstDoneRef = useRef(onFirstDone);
@@ -392,6 +324,8 @@ export function useMomentsUpload(
     jobs,
     uploading,
     failedJobs,
+    deadJobs,
+    retryableJobs,
     doneCount,
     subline,
     handleFiles,

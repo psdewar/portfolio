@@ -1,10 +1,9 @@
 // Client-side upload for the /moments page. Speaks the S3 API, so the same code
 // works against Cloudflare R2 (prod), MinIO (dev / NAS), or any S3-compatible
-// backend. Uploads are two-tier: a small JPEG preview (downscaled photo or
-// video poster frame) goes to previews/ first so every drop is visible
-// server-side within seconds, then the original uploads untouched at full
-// quality; large ones are sliced into parts via S3/R2 multipart so multi-GB
-// originals survive flaky mobile connections. All transfers share one 6-slot
+// backend. Each original uploads untouched at full quality; large ones are
+// sliced into parts via S3/R2 multipart so multi-GB originals survive flaky
+// mobile connections. Once the original lands, a small JPEG preview (downscaled
+// photo or video poster frame) goes to previews/. All transfers share one 6-slot
 // budget, matching the browser's per-origin connection cap on the HTTP/1.1
 // R2 endpoint.
 //
@@ -25,7 +24,6 @@ export type UploadMeta = {
 export type UploadResult = {
   key: string;
   duplicate?: boolean;
-  originalPending?: boolean;
 };
 
 const SINGLE_PART_MAX = 16 * 1024 * 1024;
@@ -55,6 +53,23 @@ class CancelledError extends PermanentError {
   constructor() {
     super("Upload cancelled");
     this.name = "CancelledError";
+  }
+}
+
+export class DeadFileError extends PermanentError {
+  constructor() {
+    super("Your phone released this file. Pick it again.");
+    this.name = "DeadFileError";
+  }
+}
+
+export const isDeadFileError = (e: unknown) => e instanceof DeadFileError;
+
+async function assertReadable(blob: Blob) {
+  try {
+    await blob.slice(0, 1).arrayBuffer();
+  } catch {
+    throw new DeadFileError();
   }
 }
 
@@ -105,6 +120,7 @@ async function captureMeta(
       captured: capturedMs,
     };
   } catch {
+    await assertReadable(file);
     return undefined;
   }
 }
@@ -121,7 +137,7 @@ async function getGps(file: File): Promise<{ lat: number; lng: number } | null> 
   }
 }
 
-async function fingerprint(file: File): Promise<Fingerprint | undefined> {
+async function fingerprint(file: File): Promise<Fingerprint> {
   const capture = await captureMeta(file);
   if (capture) return capture;
   try {
@@ -143,7 +159,8 @@ async function fingerprint(file: File): Promise<Fingerprint | undefined> {
     }
     return { hash: await sha256Hex(bytes) };
   } catch {
-    return undefined;
+    await assertReadable(file);
+    throw new DeadFileError();
   }
 }
 
@@ -201,9 +218,11 @@ async function videoPoster(file: File): Promise<PreviewResult | null> {
     const ready = await new Promise<boolean>((resolve) => {
       let settled = false;
       let frames = 0;
+      const timer = setTimeout(() => done(false), PREVIEW_TIMEOUT_MS);
       const done = (ok: boolean) => {
         if (!settled) {
           settled = true;
+          clearTimeout(timer);
           resolve(ok);
         }
       };
@@ -248,7 +267,7 @@ async function videoPoster(file: File): Promise<PreviewResult | null> {
   }
 }
 
-export async function makePreview(file: File): Promise<PreviewResult | null> {
+async function buildPreview(file: File): Promise<PreviewResult | null> {
   const attempt = (p: Promise<PreviewResult | null>) =>
     Promise.race([p.catch(() => null), sleep(PREVIEW_TIMEOUT_MS).then(() => null)]);
   if (RAW_IMAGE.test(file.type)) return attempt(imagePreview(file));
@@ -262,18 +281,26 @@ export async function makePreview(file: File): Promise<PreviewResult | null> {
   return null;
 }
 
+let previewQueue: Promise<unknown> = Promise.resolve();
+const previewCache = new WeakMap<File, Promise<PreviewResult | null>>();
+
+export function makePreview(file: File): Promise<PreviewResult | null> {
+  const cached = previewCache.get(file);
+  if (cached) return cached;
+  const run = previewQueue.then(() => buildPreview(file));
+  previewQueue = run.catch(() => {});
+  previewCache.set(file, run);
+  return run;
+}
+
 async function uploadPreview(
   file: File,
-  fp: Fingerprint | undefined,
+  fp: Fingerprint,
   meta: UploadMeta,
   signal?: AbortSignal,
-  provided?: Blob,
-  onMade?: (made: PreviewResult) => void,
-): Promise<string | null> {
-  if (!fp?.hash) return null;
-  const made = provided ? { blob: provided } : await makePreview(file);
-  if (!made) return null;
-  if (!provided) onMade?.(made);
+): Promise<void> {
+  const made = await makePreview(file);
+  if (!made) return;
   const blob = made.blob;
   const res = await networkFetch("/api/moments/sign", {
     method: "POST",
@@ -286,21 +313,43 @@ async function uploadPreview(
       captured: fp.captured,
     }),
   });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { url?: string; exists?: boolean; originalKey?: string };
-  if (!data.originalKey) return null;
-  if (data.exists) return data.originalKey;
-  if (!data.url) return null;
+  if (!res.ok) return;
+  const data = (await res.json()) as { url?: string; exists?: boolean };
+  if (data.exists || !data.url) return;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       await putWithPermit(data.url, blob, "image/jpeg", () => {}, signal);
-      return data.originalKey;
+      return;
     } catch (err) {
-      if (err instanceof PermanentError) return null;
+      if (err instanceof PermanentError) return;
       if (attempt === 0) await sleep(backoffMs(0));
     }
   }
-  return null;
+}
+
+async function storedKey(
+  file: File,
+  fp: Fingerprint,
+  meta: UploadMeta,
+): Promise<string | null> {
+  try {
+    const res = await networkFetch("/api/moments/sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "check",
+        passcode: meta.passcode,
+        filename: file.name,
+        hash: fp.hash,
+        captured: fp.captured,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { key?: string; exists?: boolean };
+    return data.exists && data.key ? data.key : null;
+  } catch {
+    return null;
+  }
 }
 
 const STORE_KEY = "moments-uploads";
@@ -406,6 +455,9 @@ async function putWithPermit(
   await acquireTransfer();
   try {
     return await putXhr(url, body, contentType, onProgress, signal);
+  } catch (err) {
+    if (err instanceof NetworkError) await assertReadable(body);
+    throw err;
   } finally {
     releaseTransfer();
   }
@@ -658,8 +710,6 @@ export async function uploadFile(
   meta: UploadMeta,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
-  preview?: Blob,
-  onPreview?: (made: PreviewResult) => void,
 ): Promise<UploadResult> {
   if (
     process.env.NODE_ENV !== "production" &&
@@ -671,18 +721,15 @@ export async function uploadFile(
     throw new Error("Simulated failure (remove ?fail to upload for real)");
   }
   const fp = await fingerprint(file);
-  const gps = await getGps(file);
-  const originalKey = await uploadPreview(file, fp, meta, signal, preview, onPreview).catch(
-    () => null,
-  );
-  try {
-    return await sendOriginal(file, fp, gps, meta, onProgress, signal);
-  } catch (err) {
-    if (originalKey && !signal?.aborted) {
-      return { key: originalKey, originalPending: true };
-    }
-    throw err;
+  const existingKey = await storedKey(file, fp, meta);
+  if (existingKey) {
+    onProgress(100);
+    return { key: existingKey, duplicate: true };
   }
+  const gps = await getGps(file);
+  const result = await sendOriginal(file, fp, gps, meta, onProgress, signal);
+  if (!result.duplicate) await uploadPreview(file, fp, meta, signal).catch(() => {});
+  return result;
 }
 
 function sendOriginal(
@@ -695,15 +742,4 @@ function sendOriginal(
 ): Promise<UploadResult> {
   if (file.size <= SINGLE_PART_MAX) return uploadSingle(file, fp, gps, meta, onProgress, signal);
   return uploadMultipart(file, fp, gps, meta, onProgress, signal);
-}
-
-export async function uploadOriginal(
-  file: File,
-  meta: UploadMeta,
-  onProgress: (percent: number) => void,
-  signal?: AbortSignal,
-): Promise<UploadResult> {
-  const fp = await fingerprint(file);
-  const gps = await getGps(file);
-  return sendOriginal(file, fp, gps, meta, onProgress, signal);
 }

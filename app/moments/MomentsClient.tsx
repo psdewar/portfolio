@@ -7,7 +7,7 @@ import MomentsGallery from "./MomentsGallery";
 import SunScheme from "../components/SunScheme";
 import UploadList from "./UploadList";
 import UploadSurface from "./UploadSurface";
-import { useMomentsUpload } from "./useMomentsUpload";
+import { useMomentsUpload, MEDIA_ACCEPT } from "./useMomentsUpload";
 import type { GalleryItem } from "../api/shared/moments";
 
 const parkinsans = { fontFamily: '"Parkinsans", sans-serif' } as const;
@@ -235,7 +235,7 @@ function DropZone({ onFiles }: { onFiles: (files: FileList | null) => void }) {
         ref={inputRef}
         type="file"
         multiple
-        accept="image/*,image/heic,image/heif,video/*"
+        accept={MEDIA_ACCEPT}
         className="hidden"
         onChange={(e) => {
           onFiles(e.target.files);
