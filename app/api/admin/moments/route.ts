@@ -75,8 +75,8 @@ export async function GET(request: Request) {
   ]);
   sources.sort((a, b) => (a.lastModified?.getTime() || 0) - (b.lastModified?.getTime() || 0));
   const keys = sources.map((src) => src.key);
-  const cities = await resolveCities(keys);
-  const stops = await resolveStops(keys, cities);
+  const cities = await resolveCities(keys, taken);
+  const stops = await resolveStops(keys, cities, taken);
 
   const items = await Promise.all(
     sources.map(async (src) => {
@@ -98,7 +98,8 @@ export async function GET(request: Request) {
         leg: stops[src.key]?.leg,
         hasOriginal: !!src.originalKey,
         dims: dims[src.key],
-        taken: taken[src.key] || undefined,
+        taken: taken[src.key]?.t || undefined,
+        duration: taken[src.key]?.d || undefined,
       };
     }),
   );

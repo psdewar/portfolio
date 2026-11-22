@@ -171,6 +171,10 @@ export function capturedAt(key: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+export function captureMs(key: string, taken: Record<string, VideoProbe> = {}): number | null {
+  return capturedAt(key) ?? (taken[key]?.t || null);
+}
+
 export function coordsFrom(body: Record<string, unknown>) {
   const lat = Number(body.lat);
   const lng = Number(body.lng);
@@ -283,9 +287,12 @@ export async function recordCityFromCoords(
 // once: the show whose date matches the capture timestamp embedded in the key
 // (same day or the small hours after) is written back, so the city is derived
 // a single time and saved rather than recomputed per request.
-export async function resolveCities(keys: string[]): Promise<Record<string, string>> {
+export async function resolveCities(
+  keys: string[],
+  taken: Record<string, VideoProbe> = {},
+): Promise<Record<string, string>> {
   const out = await getCities();
-  const need = keys.filter((k) => !out[k] && capturedAt(k) != null);
+  const need = keys.filter((k) => !out[k] && captureMs(k, taken) != null);
   if (need.length === 0) return out;
   let derived = 0;
   try {
@@ -300,7 +307,7 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
       }
     }
     for (const k of need) {
-      const city = days.get(new Date(capturedAt(k)!).toISOString().slice(0, 10));
+      const city = days.get(new Date(captureMs(k, taken)!).toISOString().slice(0, 10));
       if (city) {
         out[k] = city;
         derived++;
@@ -320,6 +327,7 @@ export async function resolveCities(keys: string[]): Promise<Record<string, stri
 export async function resolveStops(
   keys: string[],
   cities: Record<string, string>,
+  taken: Record<string, VideoProbe> = {},
 ): Promise<Record<string, { visit: string; leg?: string }>> {
   const out: Record<string, { visit: string; leg?: string }> = {};
   try {
@@ -351,7 +359,7 @@ export async function resolveStops(
     }
     for (const key of keys) {
       const city = cities[key];
-      const t = capturedAt(key);
+      const t = captureMs(key, taken);
       if (!city) continue;
       const list = clusters.get(city);
       if (!list || list.length === 0) continue;
@@ -575,9 +583,17 @@ const MP4_EPOCH_S = 2082844800;
 const APPLE_CREATED = "com.apple.quicktime.creationdate";
 const APPLE_DATE = /\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:?\d\d/;
 
-export async function getVideoTaken(): Promise<Record<string, number>> {
+export type VideoProbe = { t: number; d?: number };
+
+export async function getVideoTaken(): Promise<Record<string, VideoProbe>> {
   const parsed = await getJson(TAKEN_KEY);
-  return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  if (!parsed || typeof parsed !== "object") return {};
+  const out: Record<string, VideoProbe> = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof v === "number") out[k] = { t: v };
+    else if (v && typeof v === "object") out[k] = v as VideoProbe;
+  }
+  return out;
 }
 
 async function readRange(key: string, start: number, end: number): Promise<Buffer> {
@@ -587,37 +603,43 @@ async function readRange(key: string, start: number, end: number): Promise<Buffe
   return Buffer.from(await res.Body!.transformToByteArray());
 }
 
-async function probeVideoTaken(key: string, size: number): Promise<number> {
+async function probeVideoTaken(key: string, size: number): Promise<VideoProbe> {
   for (let off = 0, hops = 0; off < size && hops < 12; hops++) {
     const head = await readRange(key, off, off + 15);
     const short = head.readUInt32BE(0);
     const len = short === 1 ? Number(head.readBigUInt64BE(8)) : short === 0 ? size - off : short;
-    if (len < 8) return 0;
+    if (len < 8) return { t: 0, d: 0 };
     if (head.toString("latin1", 4, 8) === "moov") {
       const moov = await readRange(key, off, off + Math.min(len, 4 << 20) - 1);
       const text = moov.toString("latin1");
       const apple = text.includes(APPLE_CREATED) ? text.match(APPLE_DATE) : null;
-      if (apple) return Date.parse(apple[0]) || 0;
+      const appleMs = apple ? Date.parse(apple[0]) || 0 : 0;
       const at = moov.indexOf("mvhd");
-      if (at < 0) return 0;
-      const secs = moov[at + 4] === 1 ? Number(moov.readBigUInt64BE(at + 8)) : moov.readUInt32BE(at + 8);
-      return secs > MP4_EPOCH_S ? (secs - MP4_EPOCH_S) * 1000 : 0;
+      if (at < 0) return { t: appleMs, d: 0 };
+      const v1 = moov[at + 4] === 1;
+      const secs = v1 ? Number(moov.readBigUInt64BE(at + 8)) : moov.readUInt32BE(at + 8);
+      const scale = moov.readUInt32BE(at + (v1 ? 24 : 16));
+      const units = v1 ? Number(moov.readBigUInt64BE(at + 28)) : moov.readUInt32BE(at + 20);
+      return {
+        t: appleMs || (secs > MP4_EPOCH_S ? (secs - MP4_EPOCH_S) * 1000 : 0),
+        d: scale ? Math.floor(units / scale) : 0,
+      };
     }
     off += len;
   }
-  return 0;
+  return { t: 0, d: 0 };
 }
 
 export async function backfillVideoTaken(
   sources: MomentSource[],
-  known: Record<string, number>,
+  known: Record<string, VideoProbe>,
   cap: number,
 ): Promise<void> {
   const todo = sources
-    .filter((s) => s.originalKey && QT_EXT.test(s.key) && !(s.key in known))
+    .filter((s) => s.originalKey && QT_EXT.test(s.key) && known[s.key]?.d === undefined)
     .slice(0, cap);
   if (!todo.length) return;
-  const found: Record<string, number> = {};
+  const found: Record<string, VideoProbe> = {};
   await Promise.all(
     todo.map(async (s) => {
       try {

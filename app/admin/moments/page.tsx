@@ -1,7 +1,14 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CaretLeftIcon, CaretRightIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
+import {
+  CameraIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  PlayIcon,
+  UploadSimpleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { uploadFile } from "../../moments/upload";
 
 interface MomentItem {
@@ -18,6 +25,7 @@ interface MomentItem {
   hasOriginal: boolean;
   dims?: [number, number];
   taken?: number;
+  duration?: number;
 }
 
 type State =
@@ -36,15 +44,41 @@ function bareName(key: string) {
   return filename(key).replace(/^\d+-/, "");
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleString(undefined, {
+function formatStamp(ms: number, compact = false) {
+  const parts = new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
-    year: "numeric",
-    hour: "numeric",
+    ...(compact
+      ? { hour: "2-digit", hourCycle: "h23" }
+      : { year: "numeric", hour: "numeric", timeZoneName: "short" }),
     minute: "2-digit",
-  });
+    second: "2-digit",
+  }).formatToParts(ms);
+  const firstTime = parts.findIndex((p) => p.type === "hour");
+  return parts
+    .map((p, i) => (p.type === "literal" && i === firstTime - 1 ? " " : p.value))
+    .join("");
+}
+
+function formatDuration(seconds: number) {
+  const s = Math.floor(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+function Stamp({ item, compact = false }: { item: MomentItem; compact?: boolean }) {
+  const taken = takenAt(item);
+  const ms = taken ?? (item.lastModified ? Date.parse(item.lastModified) : null);
+  if (ms == null) return null;
+  const Icon = taken ? CameraIcon : UploadSimpleIcon;
+  return (
+    <span className="inline-flex items-center gap-[0.3em]">
+      <Icon aria-label={taken ? "Captured" : "Uploaded"} role="img" className="shrink-0" size="1.1em" />
+      {formatStamp(ms, compact)}
+    </span>
+  );
 }
 
 function takenAt(item: MomentItem): number | null {
@@ -66,6 +100,9 @@ function formatVisit(visit: string) {
     day: "numeric",
   });
 }
+
+const HOVER_REVEAL =
+  "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100";
 
 const HOLD_MS = 350;
 const HOLD_SLOP = 8;
@@ -485,7 +522,7 @@ const PickerCell = memo(function PickerCell({
   );
 
   return (
-    <div className="group relative aspect-square w-full select-none overflow-hidden bg-neutral-100 dark:bg-neutral-900 [-webkit-touch-callout:none] [-webkit-user-select:none]">
+    <div className="group relative aspect-square w-full select-none [container-type:inline-size] overflow-hidden bg-neutral-100 dark:bg-neutral-900 [-webkit-touch-callout:none] [-webkit-user-select:none]">
       <button
         type="button"
         aria-label={`Open ${filename(item.key)}`}
@@ -543,15 +580,27 @@ const PickerCell = memo(function PickerCell({
           </span>
         )}
       </button>
+      <span className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-0.5 pb-0.5 pt-4 text-[length:calc(10.4cqw_-_0.4px)] font-semibold leading-tight tabular-nums whitespace-nowrap text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.6)] ${HOVER_REVEAL}`}>
+        <Stamp item={item} compact />
+      </span>
       {order > 0 && (
         <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-[#d4a553]" />
       )}
       {slotPos > 0 && order === 0 && (
         <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-white/70" />
       )}
-      {slotPos > 0 && (
-        <span className="pointer-events-none absolute top-1 right-1 flex h-5 min-w-5 items-center justify-center rounded-md bg-white px-1 text-[11px] font-bold tabular-nums text-[#0a0a0a] shadow-sm">
-          #{slotPos}
+      {(slotPos > 0 || (isVideo && item.duration)) && (
+        <span className="pointer-events-none absolute top-1 right-1 flex flex-col items-end gap-1">
+          {slotPos > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-white px-1 text-[11px] font-bold tabular-nums text-[#0a0a0a] shadow-sm">
+              #{slotPos}
+            </span>
+          )}
+          {isVideo && item.duration ? (
+            <span className="rounded bg-black/60 px-1 text-[10px] font-semibold tabular-nums text-white">
+              {formatDuration(item.duration)}
+            </span>
+          ) : null}
         </span>
       )}
       <button
@@ -562,7 +611,7 @@ const PickerCell = memo(function PickerCell({
         className={`absolute top-0 left-0 flex h-11 w-11 items-start justify-start p-1 ${
           order > 0 || selecting
             ? ""
-            : "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+            : HOVER_REVEAL
         }`}
       >
         <span
@@ -833,14 +882,11 @@ function PreviewOverlay({
     const i = videoInfos[key];
     return i && i.w ? i.w / i.h : null;
   };
-  const taken = takenAt(item);
   const dims = item.dims ?? (videoInfo && videoInfo.w ? [videoInfo.w, videoInfo.h] : null);
-  const duration =
-    isVideo && videoInfo && Number.isFinite(videoInfo.duration)
-      ? `${Math.floor(videoInfo.duration / 60)}:${String(Math.floor(videoInfo.duration % 60)).padStart(2, "0")}`
-      : "";
+  const durationSecs =
+    item.duration ?? (videoInfo && Number.isFinite(videoInfo.duration) ? videoInfo.duration : null);
+  const duration = isVideo && durationSecs != null ? formatDuration(durationSecs) : "";
   const meta = [
-    taken ? `Taken ${formatDate(new Date(taken).toISOString())}` : `Uploaded ${formatDate(item.lastModified)}`,
     dims ? `${dims[0]}×${dims[1]}` : "",
     duration,
   ].filter(Boolean);
@@ -1003,6 +1049,7 @@ function PreviewOverlay({
             </button>
           )}
           {!editingCity && item.visit && <span>{formatVisit(item.visit)}</span>}
+          <Stamp item={item} />
           {meta.map((m) => (
             <span key={m}>{m}</span>
           ))}
