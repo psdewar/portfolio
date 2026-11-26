@@ -77,7 +77,7 @@ export default function AdminShell({
                 </span>
                 <button
                   onClick={() => setDropdownOpen((o) => !o)}
-                  className="text-sm font-semibold tracking-[0.15em] uppercase text-neutral-900 dark:text-white hover:text-[#d4a553] transition-colors"
+                  className="relative text-sm font-semibold tracking-[0.15em] uppercase text-neutral-900 dark:text-white hover:text-[#d4a553] transition-colors before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] sm:before:content-none"
                 >
                   {current.title}
                 </button>
@@ -115,7 +115,7 @@ export default function AdminShell({
                 await fetch("/api/admin-login", { method: "DELETE" });
                 router.refresh();
               }}
-              className="text-sm text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors"
+              className="relative text-sm text-neutral-400 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors before:absolute before:-inset-x-3 before:-inset-y-3 before:content-[''] sm:before:content-none"
             >
               Logout
             </button>

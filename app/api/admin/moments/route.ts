@@ -22,6 +22,9 @@ import {
   renameMomentArtifacts,
   resolveCities,
   resolveStops,
+  getShowOverrides,
+  listConcerts,
+  getPlaces,
   listMomentSources,
   objectExists,
   deleteMoment,
@@ -65,18 +68,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Upload storage is not configured." }, { status: 503 });
   }
 
-  const [sources, featuredKeys, thumbs, ogKey, dims, taken] = await Promise.all([
+  const [sources, featuredKeys, thumbs, ogKey, dims, taken, overrides, concerts, places] = await Promise.all([
     listMomentSources(),
     getFeatured(),
     getThumbs(),
     getOgKey(),
     getDims(),
     getVideoTaken(),
+    getShowOverrides(),
+    listConcerts(),
+    getPlaces(),
   ]);
   sources.sort((a, b) => (a.lastModified?.getTime() || 0) - (b.lastModified?.getTime() || 0));
   const keys = sources.map((src) => src.key);
   const cities = await resolveCities(keys, taken);
-  const stops = await resolveStops(keys, cities, taken);
+  const stops = await resolveStops(keys, cities, taken, overrides);
 
   const items = await Promise.all(
     sources.map(async (src) => {
@@ -95,6 +101,9 @@ export async function GET(request: Request) {
         downloadUrl: await signDownload(src.viewKey, src.key),
         city: cities[src.key],
         visit: stops[src.key]?.visit,
+        show: stops[src.key]?.show,
+        offConcert: stops[src.key]?.offConcert,
+        place: places[src.key],
         leg: stops[src.key]?.leg,
         hasOriginal: !!src.originalKey,
         dims: dims[src.key],
@@ -110,7 +119,7 @@ export async function GET(request: Request) {
   if (unthumbed.length) after(() => queueProcessing(unthumbed, BACKFILL_CAP));
   after(() => backfillVideoTaken(sources, taken, TAKEN_CAP));
 
-  return NextResponse.json({ items, featuredKeys, ogKey });
+  return NextResponse.json({ items, featuredKeys, ogKey, concerts });
 }
 
 export async function DELETE(request: Request) {

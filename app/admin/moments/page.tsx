@@ -10,6 +10,8 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { uploadFile } from "../../moments/upload";
+import { renderSlide } from "./slides";
+import { momentDate } from "../../lib/moment-date";
 
 interface MomentItem {
   key: string;
@@ -21,11 +23,20 @@ interface MomentItem {
   downloadUrl: string;
   city?: string;
   visit?: string;
+  show?: string;
+  offConcert?: boolean;
+  place?: string;
   leg?: string;
   hasOriginal: boolean;
   dims?: [number, number];
   taken?: number;
   duration?: number;
+}
+
+interface Concert {
+  date: string;
+  label: string;
+  venue: string | null;
 }
 
 type State =
@@ -35,6 +46,85 @@ type State =
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const STAGGER_MS = 70;
+
+const VIDEO_MIME: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  ogg: "video/ogg",
+};
+
+async function fetchShareFile(item: MomentItem) {
+  const res = await fetch(item.downloadUrl);
+  if (!res.ok) throw new Error(`Could not load ${filename(item.key)}`);
+  const blob = await res.blob();
+  const name = filename(item.key);
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  const type =
+    blob.type && blob.type !== "application/octet-stream"
+      ? blob.type
+      : (VIDEO_MIME[ext] ?? blob.type);
+  return new File([blob], name, { type });
+}
+
+function useShare(items: MomentItem[]) {
+  const [canShare, setCanShare] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [ready, setReady] = useState<File[] | null>(null);
+  const signature = items.map((it) => `${it.key}:${groupOf(it)}`).join("|");
+
+  useEffect(() => {
+    setCanShare(
+      !!navigator.canShare?.({ files: [new File([], "x.jpg", { type: "image/jpeg" })] }),
+    );
+  }, []);
+
+  useEffect(() => {
+    setReady(null);
+  }, [signature]);
+
+  async function send(files: File[]) {
+    try {
+      await navigator.share({ files });
+      setReady(null);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof DOMException && err.name === "NotAllowedError") {
+        setReady(files);
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async function share() {
+    if (ready) return send(ready);
+    const files: File[] = [];
+    const labeled = labeledKeys(items);
+    try {
+      for (const item of items) {
+        setProgress(`Preparing ${files.length + 1}/${items.length}`);
+        if (VIDEO_EXT.test(item.key)) {
+          files.push(await fetchShareFile(item));
+          continue;
+        }
+        const slide = await renderSlide(
+          item,
+          labeled.has(item.key) ? { city: item.city!, visit: dateOf(item)! } : null,
+        );
+        const name = `slide-${String(files.length + 1).padStart(2, "0")}.jpg`;
+        files.push(new File([slide], name, { type: slide.type }));
+      }
+    } finally {
+      setProgress(null);
+    }
+    await send(files);
+  }
+
+  const label = progress ?? (ready ? "Tap to share" : "Share");
+  return { canShare, label, busy: progress !== null, share };
+}
 
 function filename(key: string) {
   return key.replace(/^drops\//, "");
@@ -90,13 +180,47 @@ function clampIndex(value: number, total: number) {
   return Math.min(Math.max(Math.round(value), 1), total);
 }
 
-function groupOf(item: { city?: string; visit?: string } | undefined) {
-  return item?.city ? `${item.city}|${item.visit ?? ""}` : "";
+function isConcertItem(item: MomentItem | undefined) {
+  return !!item?.city && !!item.show && !item.offConcert;
 }
 
-function formatVisit(visit: string) {
+function dateOf(item: MomentItem | undefined) {
+  return item ? momentDate({ ...item, shot: takenAt(item) }) : undefined;
+}
+
+function groupOf(item: MomentItem | undefined) {
+  if (!item?.city) return "";
+  const kind = isConcertItem(item) ? "c" : `o:${item.place ?? ""}`;
+  return `${item.city}|${dateOf(item) ?? ""}|${kind}`;
+}
+
+function labeledKeys(items: MomentItem[]) {
+  const tagged = new Set<string>();
+  const labeled = new Set<string>();
+  for (const item of items) {
+    if (VIDEO_EXT.test(item.key)) continue;
+    const stop = groupOf(item);
+    if (isConcertItem(item) && dateOf(item) && !tagged.has(stop)) labeled.add(item.key);
+    tagged.add(stop);
+  }
+  return labeled;
+}
+
+const OTHER_CITY = "other";
+const OFF_CONCERT = "none";
+
+const concertKey = (c: Concert) => `${c.label}|${c.date}`;
+
+const concertKeyOf = (item: MomentItem) =>
+  isConcertItem(item) ? `${item.city}|${item.show}` : "";
+
+function concertText(c: Concert) {
+  return [formatVisit(c.date, "short"), c.label, c.venue].filter(Boolean).join(" · ");
+}
+
+function formatVisit(visit: string, month: "long" | "short" = "long") {
   return new Date(`${visit}T12:00:00`).toLocaleDateString(undefined, {
-    month: "long",
+    month,
     day: "numeric",
   });
 }
@@ -104,13 +228,55 @@ function formatVisit(visit: string) {
 const HOVER_REVEAL =
   "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100";
 
+const SELECTION_KEY = "admin-moments-selection";
+
+function readStoredSelection(): string[] {
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(SELECTION_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredSelection(keys: string[]) {
+  try {
+    if (keys.length) window.sessionStorage.setItem(SELECTION_KEY, JSON.stringify(keys));
+    else window.sessionStorage.removeItem(SELECTION_KEY);
+  } catch {}
+}
+
+const OPEN_KEY = "admin-moments-open";
+
+function readOpen(): Record<string, boolean> {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(OPEN_KEY) ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).filter(([, v]) => typeof v === "boolean")) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function writeOpen(open: Record<string, boolean>) {
+  try {
+    if (Object.keys(open).length) window.localStorage.setItem(OPEN_KEY, JSON.stringify(open));
+    else window.localStorage.removeItem(OPEN_KEY);
+  } catch {}
+}
+
+const PICK_LIMIT = 10;
+const PICK_BURST_MS = 5000;
+
 const HOLD_MS = 350;
 const HOLD_SLOP = 8;
 
 interface Section {
   id: string;
   city: string;
-  visit?: string;
+  date?: string;
+  concert: boolean;
+  place?: string;
   items: MomentItem[];
 }
 
@@ -122,7 +288,14 @@ function buildSections(items: MomentItem[]): Section[] {
   const byId = new Map<string, Section>();
   for (const it of items) {
     const id = groupOf(it) || (VIDEO_EXT.test(it.key) ? "videos" : "");
-    const section = byId.get(id) ?? { id, city: it.city ?? "", visit: it.visit, items: [] };
+    const section = byId.get(id) ?? {
+      id,
+      city: it.city ?? "",
+      date: dateOf(it),
+      concert: isConcertItem(it),
+      place: it.place,
+      items: [],
+    };
     section.items.push(it);
     byId.set(id, section);
   }
@@ -130,19 +303,39 @@ function buildSections(items: MomentItem[]): Section[] {
   for (const s of sections) s.items.sort((a, b) => capturedAt(b) - capturedAt(a));
   const newest = (s: Section) => capturedAt(s.items[0]);
   const rank = (s: Section) => (s.city ? 0 : s.id === "" ? 1 : 2);
-  return sections.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));
+  return sections.sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.city ? (b.date ?? "").localeCompare(a.date ?? "") : 0) ||
+      newest(b) - newest(a),
+  );
 }
 
-async function saveCity(key: string, city: string): Promise<Partial<MomentItem>> {
+async function postCity(body: {
+  key: string;
+  city?: string;
+  show?: string;
+  place?: string;
+}): Promise<Partial<MomentItem>> {
   const r = await fetch("/api/admin/moments/city", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, city }),
+    body: JSON.stringify(body),
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || "Could not save city");
-  return { city: d.city || undefined, visit: d.visit || undefined, leg: d.leg || undefined };
+  return {
+    city: d.city || undefined,
+    visit: d.visit || undefined,
+    show: d.show || undefined,
+    offConcert: d.offConcert || undefined,
+    place: d.place || undefined,
+    leg: d.leg || undefined,
+  };
 }
+
+const saveCity = (key: string, city: string, show?: string) => postCity({ key, city, show });
+const savePlace = (key: string, place: string) => postCity({ key, place });
 
 async function deleteFile(key: string) {
   const r = await fetch("/api/admin/moments", {
@@ -167,10 +360,35 @@ async function renameFile(key: string, name: string): Promise<Partial<MomentItem
   return { key: d.key, url: d.url, downloadUrl: d.downloadUrl };
 }
 
+const URL_FIELDS = ["url", "thumb", "large", "downloadUrl"] as const;
+const URL_REFRESH_MS = 1800000;
+
+function sameObject(a: string, b: string) {
+  const x = new URL(a);
+  const y = new URL(b);
+  return x.origin + x.pathname === y.origin + y.pathname;
+}
+
+function mergeStableUrls(prev: MomentItem[], next: MomentItem[]) {
+  const prevByKey = new Map(prev.map((it) => [it.key, it]));
+  return next.map((it) => {
+    const old = prevByKey.get(it.key);
+    if (!old) return it;
+    const merged = { ...it };
+    for (const field of URL_FIELDS) {
+      const before = old[field];
+      const after = it[field];
+      if (before && after && sameObject(before, after)) merged[field] = before;
+    }
+    return merged;
+  });
+}
+
 export default function MomentsAdminPage() {
   const [items, setItems] = useState<MomentItem[]>([]);
   const [featuredKeys, setFeaturedKeys] = useState<string[]>([]);
   const [ogKey, setOgKeyState] = useState<string | null>(null);
+  const [concerts, setConcerts] = useState<Concert[]>([]);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [selected, setSelected] = useState<string[]>([]);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
@@ -180,6 +398,10 @@ export default function MomentsAdminPage() {
   const savedKeys = useRef<string[]>([]);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   const saveSeq = useRef(0);
+  const signedAt = useRef(0);
+  const selectionRestored = useRef(false);
+  const openRestored = useRef(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async (initial: boolean) => {
     try {
@@ -195,9 +417,18 @@ export default function MomentsAdminPage() {
         savedKeys.current = serverKeys;
         setFeaturedKeys(serverKeys);
       }
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const fresh: MomentItem[] = Array.isArray(data.items) ? data.items : [];
+      const expired = Date.now() - signedAt.current > URL_REFRESH_MS;
+      if (expired) signedAt.current = Date.now();
+      setItems((prev) => (expired ? fresh : mergeStableUrls(prev, fresh)));
       setOgKeyState(typeof data.ogKey === "string" ? data.ogKey : null);
-      if (initial) setState({ kind: "ready" });
+      setConcerts(Array.isArray(data.concerts) ? data.concerts : []);
+      if (initial) {
+        const live = new Set(fresh.map((it) => it.key));
+        setSelected(readStoredSelection().filter((k) => live.has(k)));
+        selectionRestored.current = true;
+        setState({ kind: "ready" });
+      }
     } catch (err) {
       if (initial) {
         setState({
@@ -211,6 +442,19 @@ export default function MomentsAdminPage() {
   useEffect(() => {
     load(true);
   }, [load]);
+
+  useEffect(() => {
+    if (selectionRestored.current) writeStoredSelection(selected);
+  }, [selected]);
+
+  useEffect(() => {
+    setOpen(readOpen());
+    openRestored.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (openRestored.current) writeOpen(open);
+  }, [open]);
 
   function updateItem(key: string, patch: Partial<MomentItem>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -239,10 +483,24 @@ export default function MomentsAdminPage() {
     () => new Map(items.map((it) => [it.key, it] as const)),
     [items],
   );
+  const selectedItems = useMemo(
+    () => selected.map((k) => itemByKey.get(k)).filter((it): it is MomentItem => Boolean(it)),
+    [selected, itemByKey],
+  );
+  const labeled = useMemo(() => labeledKeys(selectedItems), [selectedItems]);
   const featuredItems = featuredKeys
     .map((k) => itemByKey.get(k))
     .filter((it): it is MomentItem => Boolean(it));
   const sections = useMemo(() => buildSections(items), [items]);
+  const recentId = sections[0] ? sections[0].id || "unlabeled" : null;
+
+  function toggleOpen(id: string) {
+    setOpen((prev) => ({ ...prev, [id]: !(prev[id] ?? id === recentId) }));
+  }
+  const venueByGroup = useMemo(
+    () => new Map(concerts.filter((c) => c.venue).map((c) => [concertKey(c), c.venue])),
+    [concerts],
+  );
   const walkKeys = useMemo(() => sections.flatMap((s) => s.items.map((it) => it.key)), [sections]);
   useEffect(() => {
     walkRef.current = walkKeys;
@@ -282,6 +540,21 @@ export default function MomentsAdminPage() {
         ? prev.filter((k) => !keys.includes(k))
         : [...prev, ...keys.filter((k) => !prev.includes(k))],
     );
+  }
+  function pickSection(sectionItems: MomentItem[]) {
+    const inSection = new Set(sectionItems.map((it) => it.key));
+    const featured = featuredKeys.filter((k) => inSection.has(k));
+    const ordered = featured.length
+      ? featured.map((k) => itemByKey.get(k)!)
+      : [...sectionItems].sort((a, b) => capturedAt(a) - capturedAt(b));
+    const kept: MomentItem[] = [];
+    for (const it of ordered) {
+      if (selected.includes(it.key)) continue;
+      const t = capturedAt(it);
+      if (kept.some((k) => Math.abs(capturedAt(k) - t) <= PICK_BURST_MS)) continue;
+      kept.push(it);
+    }
+    setSelected((prev) => [...prev, ...kept.slice(0, PICK_LIMIT).map((it) => it.key)]);
   }
   const openPreview = useCallback((key: string) => {
     setWalk(walkRef.current);
@@ -327,10 +600,10 @@ export default function MomentsAdminPage() {
     setSelected([]);
   }
 
-  async function setCityForSelected(city: string) {
+  async function applyToSelected(save: (key: string) => Promise<Partial<MomentItem>>) {
     for (const key of selected) {
       try {
-        updateItem(key, await saveCity(key, city));
+        updateItem(key, await save(key));
       } catch (e) {
         window.alert(e instanceof Error ? e.message : "Could not save city");
         return false;
@@ -338,6 +611,10 @@ export default function MomentsAdminPage() {
     }
     return true;
   }
+
+  const setCityForSelected = (city: string, show?: string) =>
+    applyToSelected((key) => saveCity(key, city, show));
+  const setPlaceForSelected = (place: string) => applyToSelected((key) => savePlace(key, place));
 
   async function deleteSelected() {
     if (!window.confirm(`Delete ${selected.length} file${selected.length === 1 ? "" : "s"} forever?`)) return;
@@ -401,40 +678,82 @@ export default function MomentsAdminPage() {
               onRemove={removeFromSlideshow}
             />
           )}
-          <section className={`-mx-4 sm:mx-0 ${selected.length ? "pb-36" : ""}`}>
+          <section
+            className="-mx-4 sm:mx-0"
+            style={
+              selected.length
+                ? { paddingBottom: "calc(var(--selection-bar-h, 0px) + max(0px, var(--player-h, 0px)) + 1rem)" }
+                : undefined
+            }
+          >
             {sections.length === 0 && (
               <p className="px-4 sm:px-0 text-sm text-neutral-400 dark:text-neutral-500">
                 Nothing uploaded yet.
               </p>
             )}
-            {sections.map((section) => (
-              <div key={section.id || "unlabeled"}>
-                <h2 className="flex items-baseline gap-2 px-4 sm:px-0 pb-1.5 pt-4">
-                  <span
-                    className={`text-sm font-semibold ${
-                      section.city
-                        ? "text-neutral-700 dark:text-neutral-200"
-                        : "text-amber-600 dark:text-amber-400"
-                    }`}
+            {sections.map((section) => {
+              const sectionId = section.id || "unlabeled";
+              const isCollapsed = !(open[sectionId] ?? sectionId === recentId);
+              const pickedCount = section.items.filter((it) => orderByKey.has(it.key)).length;
+              return (
+              <div key={sectionId}>
+                <h2 className="flex items-center gap-2 px-4 sm:px-0 pb-1.5 pt-4">
+                  <button
+                    type="button"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleOpen(sectionId)}
+                    className="-my-3 flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    {section.city || (section.id === "videos" ? "Unlabeled videos" : "Unlabeled photos")}
-                  </span>
-                  {section.visit && (
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {formatVisit(section.visit)}
+                    <CaretRightIcon
+                      size={12}
+                      weight="bold"
+                      className={`shrink-0 text-neutral-400 ${isCollapsed ? "" : "rotate-90"}`}
+                    />
+                    <span
+                      className={`shrink-0 whitespace-nowrap text-sm font-semibold ${
+                        section.city
+                          ? "text-neutral-700 dark:text-neutral-200"
+                          : "text-amber-600 dark:text-amber-400"
+                      }`}
+                    >
+                      {section.city || (section.id === "videos" ? "Unlabeled videos" : "Unlabeled photos")}
                     </span>
+                    {section.date && (
+                      <span className="min-w-0 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                        {[
+                          formatVisit(section.date, "short"),
+                          section.concert
+                            ? venueByGroup.get(`${section.city}|${section.date}`)
+                            : section.place,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </button>
+                  {section.items.length <= PICK_LIMIT ? (
+                    <span aria-hidden className="ml-auto w-11 shrink-0" />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => pickSection(section.items)}
+                      className="-my-3.5 ml-auto w-11 shrink-0 whitespace-nowrap py-3.5 text-center text-xs text-neutral-500 transition-colors hover:text-[#d4a553] dark:text-neutral-400"
+                    >
+                      Pick
+                    </button>
                   )}
                   <button
                     type="button"
                     onClick={() => toggleSection(section.items.map((it) => it.key))}
-                    className="-my-3 ml-auto py-3 text-xs text-neutral-500 transition-colors hover:text-[#d4a553] dark:text-neutral-400"
+                    className="-my-3.5 w-[4.5rem] shrink-0 whitespace-nowrap py-3.5 text-left text-xs text-neutral-500 transition-colors hover:text-[#d4a553] dark:text-neutral-400"
                   >
                     {section.items.every((it) => orderByKey.has(it.key)) ? "Deselect all" : "Select all"}
                   </button>
-                  <span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
-                    {section.items.length}
+                  <span className={`w-8 shrink-0 whitespace-nowrap text-right text-xs tabular-nums ${pickedCount ? "text-[#b8893a] dark:text-[#d4a553]" : "text-neutral-400 dark:text-neutral-500"}`}>
+                    {pickedCount || section.items.length}
                   </span>
                 </h2>
+                {!isCollapsed && (
                 <div
                   className="grid gap-[2px]"
                   style={{ gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))" }}
@@ -446,22 +765,31 @@ export default function MomentsAdminPage() {
                       order={orderByKey.get(item.key) ?? 0}
                       slotPos={slotByKey.get(item.key) ?? 0}
                       selecting={selected.length > 0}
+                      labeled={labeled.has(item.key)}
                       onToggle={toggleSelected}
                       onOpen={openPreview}
                     />
                   ))}
                 </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </section>
           {selected.length > 0 && (
             <SelectionBar
               count={selected.length}
+              shareItems={selectedItems}
+              labeled={labeled}
+              onReorder={setSelected}
+              onOpen={openPreview}
               slot={shownSlot}
               maxSlot={maxSlot}
               onSlotChange={setSlot}
               onAdd={addSelected}
+              concerts={concerts}
               onSetCity={setCityForSelected}
+              onSetPlace={setPlaceForSelected}
               onDelete={deleteSelected}
               onClear={() => setSelected([])}
             />
@@ -476,6 +804,7 @@ export default function MomentsAdminPage() {
               isOg={ogKey === previewItem.key}
               onToggle={toggleSelected}
               onSetOg={setOg}
+              concerts={concerts}
               onUpdate={updateItem}
               onRemove={removeItem}
               onClose={closePreview}
@@ -492,6 +821,7 @@ const PickerCell = memo(function PickerCell({
   order,
   slotPos,
   selecting,
+  labeled,
   onToggle,
   onOpen,
 }: {
@@ -499,6 +829,7 @@ const PickerCell = memo(function PickerCell({
   order: number;
   slotPos: number;
   selecting: boolean;
+  labeled: boolean;
   onToggle: (key: string) => void;
   onOpen: (key: string) => void;
 }) {
@@ -624,26 +955,127 @@ const PickerCell = memo(function PickerCell({
           {order > 0 ? order : ""}
         </span>
       </button>
+      {labeled && (
+        <span
+          title="Gets the city label"
+          className="pointer-events-none absolute top-[9px] left-[28px] h-1.5 w-1.5 rounded-full bg-[#d4a553] ring-1 ring-black/40"
+        />
+      )}
     </div>
   );
 });
 
+function PlaceInput({
+  value,
+  disabled,
+  className,
+  onSave,
+}: {
+  value: string;
+  disabled?: boolean;
+  className: string;
+  onSave: (place: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      maxLength={60}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft.trim() !== value) onSave(draft.trim());
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="Place, optional"
+      aria-label="Place"
+      autoComplete="off"
+      className={className}
+    />
+  );
+}
+
+function ConcertSelect({
+  concerts,
+  value,
+  disabled,
+  className,
+  canOff,
+  onPick,
+  onOff,
+  onOther,
+}: {
+  concerts: Concert[];
+  value: string;
+  disabled?: boolean;
+  className: string;
+  canOff: boolean;
+  onPick: (concert: Concert) => void;
+  onOff: () => void;
+  onOther: () => void;
+}) {
+  return (
+    <select
+      value={value}
+      disabled={disabled}
+      aria-label="Concert"
+      onChange={(e) => {
+        if (e.target.value === OFF_CONCERT) return onOff();
+        if (e.target.value === OTHER_CITY) return onOther();
+        const picked = concerts.find((c) => concertKey(c) === e.target.value);
+        if (picked) onPick(picked);
+      }}
+      className={`min-w-0 max-w-full ${className}`}
+    >
+      <option value="">Concert</option>
+      {concerts.map((c) => (
+        <option key={concertKey(c)} value={concertKey(c)}>
+          {concertText(c)}
+        </option>
+      ))}
+      <option value={OFF_CONCERT} disabled={!canOff}>
+        Not at a concert
+      </option>
+      <option value={OTHER_CITY}>Other city…</option>
+    </select>
+  );
+}
+
 function SelectionBar({
   count,
+  shareItems,
+  labeled,
+  onReorder,
+  onOpen,
+  concerts,
   slot,
   maxSlot,
   onSlotChange,
   onAdd,
   onSetCity,
+  onSetPlace,
   onDelete,
   onClear,
 }: {
   count: number;
+  shareItems: MomentItem[];
+  labeled: Set<string>;
+  onReorder: (keys: string[]) => void;
+  onOpen: (key: string) => void;
+  concerts: Concert[];
   slot: number;
   maxSlot: number;
   onSlotChange: (slot: number) => void;
   onAdd: () => void;
-  onSetCity: (city: string) => Promise<boolean>;
+  onSetCity: (city: string, show?: string) => Promise<boolean>;
+  onSetPlace: (place: string) => Promise<boolean>;
   onDelete: () => Promise<void>;
   onClear: () => void;
 }) {
@@ -651,16 +1083,39 @@ function SelectionBar({
   const [cityOpen, setCityOpen] = useState(false);
   const [cityDraft, setCityDraft] = useState("");
   const [working, setWorking] = useState(false);
+  const share = useShare(shareItems);
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const sync = () => root.style.setProperty("--selection-bar-h", `${el.offsetHeight}px`);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--selection-bar-h");
+    };
+  }, []);
   const city = cityDraft.trim();
+  const placeable = shareItems.every((it) => it.city && !isConcertItem(it));
+  const sharedPlace = shareItems.every((it) => it.place === shareItems[0]?.place)
+    ? (shareItems[0]?.place ?? "")
+    : "";
   const action =
-    "inline-flex shrink-0 items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-all hover:border-[#d4a553] hover:text-[#b8893a] active:scale-95 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:text-[#d4a553]";
+    "relative before:absolute before:-inset-1 before:content-[''] sm:before:content-none inline-flex shrink-0 items-center rounded-full border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-all hover:border-[#d4a553] hover:text-[#b8893a] active:scale-95 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:text-[#d4a553]";
+
+  async function place(label: string, show?: string) {
+    setWorking(true);
+    const ok = await onSetCity(label, show);
+    setWorking(false);
+    return ok;
+  }
 
   async function applyCity() {
     if (!city) return;
-    setWorking(true);
-    const ok = await onSetCity(city);
-    setWorking(false);
-    if (ok) {
+    if (await place(city)) {
       setCityDraft("");
       setCityOpen(false);
     }
@@ -674,16 +1129,18 @@ function SelectionBar({
 
   return (
     <div
+      ref={barRef}
       style={{ bottom: "max(0px, var(--player-h, 0px))" }}
       className="fixed inset-x-0 z-40 border-t border-neutral-200 bg-white/95 px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95"
     >
+      <PostTray items={shareItems} labeled={labeled} onReorder={onReorder} onOpen={onOpen} />
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={onClear}
             aria-label="Clear selection"
-            className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+            className="relative before:absolute before:-inset-1 before:content-[''] sm:before:content-none -ml-2 flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
           >
             <XIcon size={18} />
           </button>
@@ -691,6 +1148,11 @@ function SelectionBar({
             {count} selected
           </span>
         </div>
+        {share.canShare && (
+          <button type="button" disabled={share.busy} onClick={share.share} className={action}>
+            {share.label}
+          </button>
+        )}
         <button
           type="button"
           disabled={working}
@@ -719,7 +1181,7 @@ function SelectionBar({
               aria-label="City for selected"
               autoComplete="off"
               autoFocus
-              className="min-w-0 flex-1 rounded-full border border-neutral-300 bg-transparent px-3.5 py-2 text-base text-neutral-800 focus:border-[#d4a553] focus:outline-none dark:border-neutral-700 dark:text-neutral-100 sm:text-sm"
+              className="min-w-0 flex-1 rounded-full border border-neutral-300 bg-transparent px-3.5 py-2 text-base text-neutral-800 min-h-11 sm:min-h-0 focus:border-[#d4a553] focus:outline-none dark:border-neutral-700 dark:text-neutral-100 sm:text-sm"
             />
             <button type="submit" disabled={!city || working} className={action}>
               {working ? "Saving..." : "Save"}
@@ -734,7 +1196,7 @@ function SelectionBar({
               <button
                 type="button"
                 onClick={onAdd}
-                className="py-2 pl-4 pr-2 text-sm font-medium transition-transform active:scale-95"
+                className="relative before:absolute before:-inset-1 before:content-[''] sm:before:content-none py-2 pl-4 pr-2 text-sm font-medium transition-transform active:scale-95"
               >
                 Add to slideshow at
               </button>
@@ -758,12 +1220,27 @@ function SelectionBar({
                     e.currentTarget.blur();
                   }
                 }}
-                className="mr-1.5 w-12 rounded-full bg-white/60 py-1 text-center text-base font-semibold tabular-nums focus:bg-white focus:outline-none sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="mr-1.5 w-12 rounded-full bg-white/60 py-1 text-center -my-1.5 border-y-[6px] border-transparent bg-clip-padding sm:my-0 sm:border-y-0 sm:bg-clip-border text-base font-semibold tabular-nums focus:bg-white focus:outline-none sm:text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
-            <button type="button" onClick={() => setCityOpen(true)} className={action}>
-              Set city
-            </button>
+            <ConcertSelect
+              concerts={concerts}
+              value=""
+              disabled={working}
+              canOff={shareItems.every((it) => it.city)}
+              onPick={(c) => place(c.label, c.date)}
+              onOff={() => place("", OFF_CONCERT)}
+              onOther={() => setCityOpen(true)}
+              className={`${action} !shrink flex-1 bg-transparent min-h-11 sm:min-h-0`}
+            />
+            {placeable && (
+              <PlaceInput
+                value={sharedPlace}
+                disabled={working}
+                onSave={onSetPlace}
+                className={`${action} !shrink min-w-0 flex-1 bg-transparent !text-base font-normal min-h-11 sm:min-h-0 sm:!text-sm`}
+              />
+            )}
           </div>
         )}
       </div>
@@ -849,6 +1326,7 @@ function PreviewOverlay({
   isOg,
   onToggle,
   onSetOg,
+  concerts,
   onUpdate,
   onRemove,
   onClose,
@@ -861,6 +1339,7 @@ function PreviewOverlay({
   isOg: boolean;
   onToggle: (key: string) => void;
   onSetOg: (key: string) => void;
+  concerts: Concert[];
   onUpdate: (key: string, patch: Partial<MomentItem>) => void;
   onRemove: (key: string) => void;
   onClose: () => void;
@@ -891,7 +1370,9 @@ function PreviewOverlay({
     duration,
   ].filter(Boolean);
   const [cityFor, setCityFor] = useState<string | null>(null);
-  const editingCity = cityFor === item.key;
+  const concertMatch = concerts.some((c) => concertKey(c) === concertKeyOf(item));
+  const editingCity =
+    cityFor === item.key || (!!item.city && !concertMatch && !item.offConcert);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -927,13 +1408,24 @@ function PreviewOverlay({
     }
   }
 
-  async function saveItemCity(city: string) {
+  async function saveItemCity(city: string, show?: string) {
     setBusy(true);
     try {
-      onUpdate(item.key, await saveCity(item.key, city.trim()));
+      onUpdate(item.key, await saveCity(item.key, city.trim(), show));
       setCityFor(null);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Could not save city");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePlaceForItem(place: string) {
+    setBusy(true);
+    try {
+      onUpdate(item.key, await savePlace(item.key, place));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not save place");
     } finally {
       setBusy(false);
     }
@@ -953,7 +1445,7 @@ function PreviewOverlay({
   }
 
   const pill =
-    "inline-flex items-center rounded-full border border-white/30 px-3 py-2 text-sm font-medium text-white/90 transition-all active:scale-95 disabled:opacity-50";
+    "relative before:absolute before:-inset-1 before:content-[''] sm:before:content-none inline-flex items-center rounded-full border border-white/30 px-3 py-2 text-sm font-medium text-white/90 transition-all active:scale-95 disabled:opacity-50";
 
   return (
     <div
@@ -997,7 +1489,7 @@ function PreviewOverlay({
             src={item.large ?? item.thumb ?? item.url}
             alt=""
             decoding="async"
-            className="max-h-full max-w-full object-contain"
+            className="h-full w-full object-contain"
           />
         )}
       </div>
@@ -1006,6 +1498,34 @@ function PreviewOverlay({
         className="space-y-3 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:order-first sm:pb-3"
       >
         <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums text-white/60">
+          <ConcertSelect
+            concerts={concerts}
+            value={
+              cityFor === item.key
+                ? OTHER_CITY
+                : concertMatch
+                  ? concertKeyOf(item)
+                  : item.offConcert
+                    ? OFF_CONCERT
+                    : editingCity
+                      ? OTHER_CITY
+                      : ""
+            }
+            disabled={busy}
+            canOff={!!item.city}
+            onPick={(c) => saveItemCity(c.label, c.date)}
+            onOff={() => saveItemCity("", OFF_CONCERT)}
+            onOther={() => setCityFor(item.key)}
+            className="rounded-full border border-white/30 bg-white/5 px-2.5 py-1 text-sm text-white focus:border-[#d4a553] focus:outline-none min-h-11 sm:min-h-0 [&_option]:text-neutral-900"
+          />
+          {item.city && !concertMatch && (
+            <PlaceInput
+              value={item.place ?? ""}
+              disabled={busy}
+              onSave={savePlaceForItem}
+              className="min-w-0 rounded-full border border-white/30 bg-white/5 px-3 py-1 text-base text-white placeholder:text-white/40 focus:border-[#d4a553] focus:outline-none min-h-11 sm:min-h-0 sm:w-44 sm:text-sm"
+            />
+          )}
           {editingCity ? (
             <form
               onSubmit={(e) => {
@@ -1025,30 +1545,19 @@ function PreviewOverlay({
                 placeholder="City, ST"
                 aria-label="City"
                 autoComplete="off"
-                autoFocus
-                className="min-w-0 flex-1 rounded-full border border-white/30 bg-white/5 px-3 py-1.5 text-base text-white placeholder:text-white/40 focus:border-[#d4a553] focus:outline-none sm:w-56 sm:flex-none sm:text-sm"
+                autoFocus={cityFor === item.key}
+                className="min-w-0 flex-1 rounded-full border border-white/30 bg-white/5 px-3 py-1.5 text-base text-white placeholder:text-white/40 focus:border-[#d4a553] focus:outline-none min-h-11 sm:min-h-0 sm:w-56 sm:flex-none sm:text-sm"
               />
               <button type="submit" disabled={busy} className={`${pill} !py-1.5`}>
                 Save
               </button>
-              <button type="button" onClick={() => setCityFor(null)} className={`${pill} !py-1.5`}>
-                Cancel
-              </button>
+              {(concertMatch || !item.city || item.offConcert) && (
+                <button type="button" onClick={() => setCityFor(null)} className={`${pill} !py-1.5`}>
+                  Cancel
+                </button>
+              )}
             </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCityFor(item.key)}
-              className={`rounded-full px-2.5 py-1 text-sm font-medium transition-colors ${
-                item.city
-                  ? "-ml-2.5 text-white/90 hover:bg-white/10"
-                  : "border border-dashed border-amber-300/70 text-amber-300 hover:bg-amber-300/10"
-              }`}
-            >
-              {item.city || "Add city"}
-            </button>
-          )}
-          {!editingCity && item.visit && <span>{formatVisit(item.visit)}</span>}
+          ) : null}
           <Stamp item={item} />
           {meta.map((m) => (
             <span key={m}>{m}</span>
@@ -1058,7 +1567,7 @@ function PreviewOverlay({
           <button
             type="button"
             onClick={() => onToggle(item.key)}
-            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 ${
+            className={`relative before:absolute before:-inset-1 before:content-[''] sm:before:content-none inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 ${
               order > 0
                 ? "bg-gradient-to-r from-[#d4a553] to-[#e0b860] text-[#0a0a0a]"
                 : "border border-white/30 text-white"
@@ -1096,62 +1605,26 @@ function PreviewOverlay({
   );
 }
 
-function SlideshowReorder({
-  items,
+type DragStart = { kind: "tile"; key: string } | { kind: "group"; group: string };
+
+function useReorderDrag({
+  keys,
   onReorder,
-  onRemove,
+  groupKeyOf,
+  onTap,
 }: {
-  items: MomentItem[];
+  keys: string[];
   onReorder: (keys: string[]) => void;
-  onRemove: (key: string) => void;
+  groupKeyOf: (key: string) => string;
+  onTap?: (key: string) => void;
 }) {
-  const keys = items.map((it) => it.key);
-  const byKey = useMemo(
-    () => new Map(items.map((it) => [it.key, it] as const)),
-    [items],
-  );
-  const groupKeyOf = (k: string) => groupOf(byKey.get(k));
-  type DragStart = { kind: "tile"; key: string } | { kind: "group"; group: string };
   const [drag, setDrag] = useState<(DragStart & { order: string[] }) | null>(null);
   const order = drag ? drag.order : keys;
-
-  const [ready, setReady] = useState(false);
-  const imgSig = items
-    .filter((it) => !VIDEO_EXT.test(it.key))
-    .map((it) => it.thumb ?? it.url)
-    .sort()
-    .join("\n");
-  useEffect(() => {
-    setReady(false);
-    if (!imgSig) {
-      setReady(true);
-      return;
-    }
-    const urls = imgSig.split("\n");
-    let active = true;
-    let loaded = 0;
-    const done = () => {
-      if (active && ++loaded >= urls.length) setReady(true);
-    };
-    for (const u of urls) {
-      const img = new Image();
-      img.onload = done;
-      img.onerror = done;
-      img.src = u;
-    }
-    const fallback = setTimeout(() => {
-      if (active) setReady(true);
-    }, 3000);
-    return () => {
-      active = false;
-      clearTimeout(fallback);
-    };
-  }, [imgSig]);
-
   const press = useRef<{ timer: number; x: number; y: number } | null>(null);
   const blockScroll = useRef<((e: TouchEvent) => void) | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  const origin = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(
     () => () => {
@@ -1191,6 +1664,7 @@ function SlideshowReorder({
   // scroll the strip.
   function startDrag(e: React.PointerEvent, start: DragStart) {
     pointer.current = { x: e.clientX, y: e.clientY };
+    origin.current = { x: e.clientX, y: e.clientY };
     if (e.pointerType === "mouse") {
       e.preventDefault();
       capture(e.pointerId);
@@ -1283,7 +1757,13 @@ function SlideshowReorder({
     clearPress();
     releaseScroll();
     if (!drag) return;
-    if (drag.order.join("|") !== keys.join("|")) onReorder(drag.order);
+    const moved = drag.order.join("|") !== keys.join("|");
+    if (moved) onReorder(drag.order);
+    else if (drag.kind === "tile" && onTap && pointer.current && origin.current) {
+      if (Math.hypot(pointer.current.x - origin.current.x, pointer.current.y - origin.current.y) < 8) {
+        onTap(drag.key);
+      }
+    }
     setDrag(null);
   }
   function moveTo(key: string, pos: number) {
@@ -1298,6 +1778,63 @@ function SlideshowReorder({
   function step(key: string, delta: number) {
     moveTo(key, keys.indexOf(key) + 1 + delta);
   }
+
+  return { drag, order, stripRef, startDrag, dragOver, endDrag, moveTo, step };
+}
+
+function SlideshowReorder({
+  items,
+  onReorder,
+  onRemove,
+}: {
+  items: MomentItem[];
+  onReorder: (keys: string[]) => void;
+  onRemove: (key: string) => void;
+}) {
+  const keys = items.map((it) => it.key);
+  const byKey = useMemo(
+    () => new Map(items.map((it) => [it.key, it] as const)),
+    [items],
+  );
+  const groupKeyOf = (k: string) => groupOf(byKey.get(k));
+  const { drag, order, stripRef, startDrag, dragOver, endDrag, moveTo, step } = useReorderDrag({
+    keys,
+    onReorder,
+    groupKeyOf,
+  });
+
+  const [ready, setReady] = useState(false);
+  const imgSig = items
+    .filter((it) => !VIDEO_EXT.test(it.key))
+    .map((it) => it.thumb ?? it.url)
+    .sort()
+    .join("\n");
+  useEffect(() => {
+    setReady(false);
+    if (!imgSig) {
+      setReady(true);
+      return;
+    }
+    const urls = imgSig.split("\n");
+    let active = true;
+    let loaded = 0;
+    const done = () => {
+      if (active && ++loaded >= urls.length) setReady(true);
+    };
+    for (const u of urls) {
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done;
+      img.src = u;
+    }
+    const fallback = setTimeout(() => {
+      if (active) setReady(true);
+    }, 3000);
+    return () => {
+      active = false;
+      clearTimeout(fallback);
+    };
+  }, [imgSig]);
 
   return (
     <section className="space-y-3">
@@ -1370,7 +1907,7 @@ function SlideshowReorder({
                 onClick={() => onRemove(item.key)}
                 aria-label="Remove from slideshow"
                 title="Remove from slideshow"
-                className="absolute top-1 right-1 inline-flex h-9 w-9 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
+                className="before:absolute before:-inset-1 before:content-[''] sm:before:content-none absolute top-1 right-1 inline-flex h-9 w-9 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-black/55 text-white hover:bg-red-600 transition-colors"
               >
                 <CloseIcon />
               </button>
@@ -1410,6 +1947,72 @@ function SlideshowReorder({
   );
 }
 
+function PostTray({
+  items,
+  labeled,
+  onReorder,
+  onOpen,
+}: {
+  items: MomentItem[];
+  labeled: Set<string>;
+  onReorder: (keys: string[]) => void;
+  onOpen: (key: string) => void;
+}) {
+  const keys = items.map((it) => it.key);
+  const byKey = new Map(items.map((it) => [it.key, it] as const));
+  const { drag, order, stripRef, startDrag, dragOver, endDrag, moveTo } = useReorderDrag({
+    keys,
+    onReorder,
+    groupKeyOf: () => "",
+    onTap: onOpen,
+  });
+  return (
+    <div
+      ref={stripRef}
+      onPointerMove={dragOver}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onLostPointerCapture={endDrag}
+      className={`mx-auto -mt-1 mb-1 flex max-w-7xl select-none gap-3 overflow-x-auto pb-1 pl-3 pt-3 ${drag ? "cursor-grabbing" : ""}`}
+    >
+      {order.map((key, i) => {
+        const item = byKey.get(key);
+        if (!item) return null;
+        return (
+          <div
+            key={key}
+            data-key={key}
+            onPointerDown={(e) => startDrag(e, { kind: "tile", key })}
+            onClick={(e) => {
+              if (!(e.target instanceof HTMLInputElement)) onOpen(key);
+            }}
+            className={`relative h-14 w-14 shrink-0 cursor-grab overflow-visible rounded-lg ${
+              drag?.kind === "tile" && drag.key === key ? "opacity-60 ring-2 ring-[#d4a553]" : ""
+            }`}
+          >
+            <div className="pointer-events-none h-full w-full overflow-hidden rounded-lg bg-neutral-200 dark:bg-neutral-800">
+              <SlideThumb item={item} index={0} ready />
+            </div>
+            {labeled.has(key) && (
+              <span
+                title="Gets the city label"
+                className="pointer-events-none absolute bottom-1 right-1 h-2 w-2 rounded-full bg-[#d4a553] ring-1 ring-black/50"
+              />
+            )}
+            <PositionInput
+              value={i + 1}
+              max={order.length}
+              onCommit={(pos) => moveTo(key, pos)}
+              position="-top-2 -left-2 sm:top-1 sm:left-1"
+              size="h-11 w-11 border-[10px] border-transparent bg-clip-padding sm:h-5 sm:w-7 sm:border-0 sm:bg-clip-border"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SlideThumb({ item, index, ready }: { item: MomentItem; index: number; ready: boolean }) {
   const cls = "h-full w-full object-cover";
   const style = ready
@@ -1431,10 +2034,14 @@ function PositionInput({
   value,
   max,
   onCommit,
+  position = "top-0.5 left-0 sm:top-1 sm:left-1",
+  size = "h-11 w-11 border-x-4 border-b-[10px] border-t-[2px] border-transparent bg-clip-padding sm:h-5 sm:w-7 sm:border-0 sm:bg-clip-border",
 }: {
   value: number;
   max: number;
   onCommit: (pos: number) => void;
+  position?: string;
+  size?: string;
 }) {
   return (
     <input
@@ -1460,7 +2067,7 @@ function PositionInput({
         e.currentTarget.value = String(value);
         if (pos !== value) onCommit(pos);
       }}
-      className="absolute top-1 left-1 h-8 w-9 sm:h-5 sm:w-7 select-text rounded-full bg-[#d4a553] text-center text-xs sm:text-[10px] font-bold tabular-nums text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-white/80"
+      className={`absolute ${position} ${size} select-text rounded-full bg-[#d4a553] text-center text-xs sm:text-[10px] font-bold tabular-nums text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-white/80`}
     />
   );
 }
@@ -1574,7 +2181,10 @@ function AdminUpload({ onDone }: { onDone: () => void }) {
         }),
       );
       if (firstError) setError(firstError);
-      else processChain.then(() => onDone());
+      if (doneFiles > 0) {
+        onDone();
+        processChain.then(() => onDone());
+      }
     } finally {
       setBusy(false);
       setProgress(null);

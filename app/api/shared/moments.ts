@@ -10,7 +10,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { revalidateTag, unstable_cache } from "next/cache";
 import sharp from "sharp";
 import { s3, s3Bucket } from "./s3";
-import { getShows, isShowOnTrip } from "../../lib/shows";
+import { getShows, isShowOnTrip, publicVenueName } from "../../lib/shows";
+import { momentDate } from "../../lib/moment-date";
 
 const FEATURED_KEY = "featured.json";
 
@@ -164,6 +165,54 @@ export async function setCity(key: string, city: string | null): Promise<void> {
   if (city) current[key] = city;
   else delete current[key];
   await putJson(CITIES_KEY, current);
+}
+
+const SHOW_OVERRIDES_KEY = "show-overrides.json";
+export const OFF_CONCERT = "none";
+const PLACES_KEY = "places.json";
+
+export async function getPlaces(): Promise<Record<string, string>> {
+  const parsed = await getJson(PLACES_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+}
+
+export async function setPlace(key: string, place: string | null | undefined): Promise<void> {
+  const value = place?.trim().slice(0, 60);
+  const current = await getPlaces();
+  if (value) current[key] = value;
+  else if (key in current) delete current[key];
+  else return;
+  await putJson(PLACES_KEY, current);
+}
+
+export async function getShowOverrides(): Promise<Record<string, string>> {
+  const parsed = await getJson(SHOW_OVERRIDES_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+}
+
+export async function setShowOverride(key: string, date: string | null): Promise<void> {
+  const current = await getShowOverrides();
+  if (date) current[key] = date;
+  else if (key in current) delete current[key];
+  else return;
+  await putJson(SHOW_OVERRIDES_KEY, current);
+}
+
+export async function listConcerts(): Promise<
+  Array<{ date: string; label: string; venue: string | null }>
+> {
+  const today = new Date().toISOString().slice(0, 10);
+  return (await getShows())
+    .filter((s) => s.city && isShowOnTrip(s) && s.date.slice(0, 10) <= today)
+    .map((s) => {
+      const name = publicVenueName(s);
+      return {
+        date: s.date.slice(0, 10),
+        label: showLabel(s),
+        venue: name && (s.venueLabel || !/^\d/.test(name)) ? name : null,
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function capturedAt(key: string): number | null {
@@ -324,35 +373,51 @@ export async function resolveCities(
 // the cluster's first show date (YYYY-MM-DD); `leg` is the leg of the
 // earliest show in the cluster that has one. A key with no capture time joins
 // its city's only cluster. Same city, different trip, different stop.
+type Stop = { visit: string; show?: string; leg?: string; offConcert?: boolean };
+
+type StopCluster = {
+  start: number;
+  end: number;
+  dates: Array<{ t: number; date: string }>;
+  leg?: string;
+};
+
 export async function resolveStops(
   keys: string[],
   cities: Record<string, string>,
   taken: Record<string, VideoProbe> = {},
-): Promise<Record<string, { visit: string; leg?: string }>> {
-  const out: Record<string, { visit: string; leg?: string }> = {};
+  overrides: Record<string, string> = {},
+): Promise<Record<string, Stop>> {
+  const out: Record<string, Stop> = {};
   try {
     const shows = await getShows();
-    const byLabel = new Map<string, Array<{ t: number; leg?: string | null }>>();
+    const byLabel = new Map<string, Array<{ t: number; date: string; leg?: string | null }>>();
     for (const s of shows) {
       if (!s.city || !isShowOnTrip(s)) continue;
       const t = new Date(s.date).getTime();
       if (!Number.isFinite(t)) continue;
       const label = showLabel(s);
       const list = byLabel.get(label) ?? [];
-      list.push({ t, leg: s.leg });
+      list.push({ t, date: s.date.slice(0, 10), leg: s.leg });
       byLabel.set(label, list);
     }
-    const clusters = new Map<string, Array<{ start: number; end: number; leg?: string }>>();
+    const clusters = new Map<string, StopCluster[]>();
     for (const [label, entries] of byLabel) {
       entries.sort((a, b) => a.t - b.t);
-      const list: Array<{ start: number; end: number; leg?: string }> = [];
+      const list: StopCluster[] = [];
       for (const e of entries) {
         const last = list[list.length - 1];
         if (last && e.t - last.end <= 7 * 86400000) {
           last.end = e.t;
+          last.dates.push({ t: e.t, date: e.date });
           if (!last.leg && e.leg) last.leg = e.leg;
         } else {
-          list.push({ start: e.t, end: e.t, leg: e.leg ?? undefined });
+          list.push({
+            start: e.t,
+            end: e.t,
+            dates: [{ t: e.t, date: e.date }],
+            leg: e.leg ?? undefined,
+          });
         }
       }
       clusters.set(label, list);
@@ -363,14 +428,25 @@ export async function resolveStops(
       if (!city) continue;
       const list = clusters.get(city);
       if (!list || list.length === 0) continue;
+      const pinned = overrides[key];
+      const cluster = pinned ? list.find((c) => c.dates.some((d) => d.date === pinned)) : null;
+      if (pinned && cluster) {
+        out[key] = {
+          visit: new Date(cluster.start).toISOString().slice(0, 10),
+          show: pinned,
+          ...(cluster.leg ? { leg: cluster.leg } : {}),
+        };
+        continue;
+      }
       if (t == null) {
         if (list.length === 1) {
           const c = list[0];
-          out[key] = { visit: new Date(c.start).toISOString().slice(0, 10), ...(c.leg ? { leg: c.leg } : {}) };
+          const visit = new Date(c.start).toISOString().slice(0, 10);
+          out[key] = { visit, show: visit, ...(c.leg ? { leg: c.leg } : {}) };
         }
         continue;
       }
-      let best: { start: number; end: number; leg?: string } | null = null;
+      let best: StopCluster | null = null;
       let bestD = Infinity;
       for (const c of list) {
         const d =
@@ -383,11 +459,19 @@ export async function resolveStops(
         }
       }
       if (best && bestD <= 14 * 86400000) {
+        const nearest = (date: string) => Math.abs(Date.parse(`${date}T23:00:00Z`) - t);
+        const show = best.dates.reduce((a, b) => (nearest(b.date) < nearest(a.date) ? b : a)).date;
         out[key] = {
           visit: new Date(best.start).toISOString().slice(0, 10),
+          show,
           ...(best.leg ? { leg: best.leg } : {}),
         };
       }
+    }
+    for (const key of keys) {
+      if (overrides[key] !== OFF_CONCERT || !out[key]) continue;
+      delete out[key].show;
+      out[key].offConcert = true;
     }
   } catch {}
   return out;
@@ -885,7 +969,10 @@ export async function deleteMomentArtifacts(originalKey: string): Promise<void> 
       s3!.send(new DeleteObjectCommand({ Bucket: s3Bucket!, Key: key })).catch(() => {}),
     ),
   ]);
-  const writes: Promise<void>[] = [];
+  const writes: Promise<void>[] = [
+    setShowOverride(originalKey, null),
+    setPlace(originalKey, null),
+  ];
   if (thumbs[originalKey]) {
     delete thumbs[originalKey];
     writes.push(putJson(THUMBS_KEY, thumbs));
@@ -931,8 +1018,21 @@ export async function renameMomentArtifacts(oldKey: string, newKey: string): Pro
     );
     await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: originHintKey(oldKey) }));
   } catch {}
-  const [thumbs, dims] = await Promise.all([getThumbs(), getDims()]);
+  const [thumbs, dims, overrides, places] = await Promise.all([
+    getThumbs(),
+    getDims(),
+    getShowOverrides(),
+    getPlaces(),
+  ]);
+  if (places[oldKey]) {
+    await setPlace(newKey, places[oldKey]);
+    await setPlace(oldKey, null);
+  }
   const writes: Promise<void>[] = [];
+  if (overrides[oldKey]) {
+    await setShowOverride(newKey, overrides[oldKey]);
+    await setShowOverride(oldKey, null);
+  }
   if (thumbs[oldKey]) {
     thumbs[newKey] = thumbs[oldKey];
     delete thumbs[oldKey];
@@ -963,6 +1063,7 @@ type CoreItem = {
   thumbSizes?: ThumbSize[];
   previewKey?: string;
   city?: string;
+  place?: string;
   visit?: string;
   leg?: string;
   w?: number;
@@ -973,7 +1074,7 @@ const getMomentsVersion = unstable_cache(
   async (): Promise<string> => {
     if (!s3 || !s3Bucket) return "";
     const etags = await Promise.all(
-      [FEATURED_KEY, CITIES_KEY, THUMBS_KEY].map((key) =>
+      [FEATURED_KEY, CITIES_KEY, THUMBS_KEY, SHOW_OVERRIDES_KEY, PLACES_KEY].map((key) =>
         s3!
           .send(new HeadObjectCommand({ Bucket: s3Bucket!, Key: key }))
           .then((res) => res.ETag ?? "")
@@ -989,13 +1090,16 @@ const getMomentsVersion = unstable_cache(
 const getCore = unstable_cache(
   async (leg: string | undefined, _version: string): Promise<CoreItem[]> => {
     const featured = await getFeatured();
-    const [dims, thumbs, previewList, cities] = await Promise.all([
+    const [dims, thumbs, previewList, cities, overrides, places, taken] = await Promise.all([
       getDims(),
       getThumbs(),
       listAll("previews/"),
       resolveCities(featured),
+      getShowOverrides(),
+      getPlaces(),
+      getVideoTaken(),
     ]);
-    const stops = await resolveStops(featured, cities);
+    const stops = await resolveStops(featured, cities, taken, overrides);
     const keys = leg ? rotateToLeg(featured, stops, cities, leg) : featured;
     const previewKeys = new Set(previewList.map((p) => p.key));
 
@@ -1009,7 +1113,18 @@ const getCore = unstable_cache(
         ...(t ? { thumbKey: t.key, thumbSizes: t.sizes } : {}),
         ...(preview ? { previewKey: preview } : {}),
         ...(cities[key] ? { city: cities[key] } : {}),
-        ...(stops[key]?.visit ? { visit: stops[key].visit } : {}),
+        ...(places[key] ? { place: places[key] } : {}),
+        ...(stops[key]?.visit
+          ? {
+              visit: momentDate({
+                city: cities[key],
+                show: stops[key].show,
+                offConcert: stops[key].offConcert,
+                visit: stops[key].visit,
+                shot: captureMs(key, taken),
+              }),
+            }
+          : {}),
         ...(stops[key]?.leg ? { leg: stops[key].leg } : {}),
         ...wh,
       };
@@ -1024,6 +1139,7 @@ export type GalleryItem = {
   src?: string;
   srcSet?: string;
   city?: string;
+  place?: string;
   visit?: string;
   leg?: string;
   w?: number;
@@ -1091,6 +1207,7 @@ export async function getFeaturedGalleryItems(leg?: string): Promise<GalleryItem
         ...(thumb ? { src: thumb } : {}),
         ...(srcSet ? { srcSet } : {}),
         ...(c.city ? { city: c.city } : {}),
+        ...(c.place ? { place: c.place } : {}),
         ...(c.visit ? { visit: c.visit } : {}),
         ...(c.leg ? { leg: c.leg } : {}),
         ...(c.w && c.h ? { w: c.w, h: c.h } : {}),

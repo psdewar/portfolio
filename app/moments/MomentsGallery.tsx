@@ -24,7 +24,7 @@ function fetchView(key: string): Promise<string | null> {
   return p;
 }
 
-const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
+export const VIDEO_EXT = /\.(mp4|mov|m4v|webm|ogg)$/i;
 const SCROLL_SPEED = 0.15;
 const RESUME_DELAY_MS = 5000;
 const START_PAUSE_MS = 1000;
@@ -87,15 +87,15 @@ function MomentsGallery({
   const inView = useRef(false);
   const openedAt = useRef<number | null>(null);
   const groups: Array<{
-    stop?: { city: string; visit?: string };
+    stop?: { city: string; visit?: string; place?: string };
     tiles: Array<{ item: GalleryItem; index: number }>;
   }> = [];
   {
     let lastBoundary = "";
     items.forEach((it, i) => {
-      const boundary = it.city ? `${it.city}|${it.visit ?? ""}` : "";
+      const boundary = it.city ? `${it.city}|${it.visit ?? ""}|${it.place ?? ""}` : "";
       if (groups.length === 0 || (boundary && boundary !== lastBoundary)) {
-        groups.push({ stop: it.city ? { city: it.city, visit: it.visit } : undefined, tiles: [] });
+        groups.push({ stop: it.city ? { city: it.city, visit: it.visit, place: it.place } : undefined, tiles: [] });
         lastBoundary = boundary;
       }
       groups[groups.length - 1].tiles.push({ item: it, index: i });
@@ -393,7 +393,7 @@ function MomentsGallery({
                       className="sticky flex h-[27px] w-fit items-center px-3 pt-[2px]"
                       style={{ left: "calc(50vw - var(--lw, 0px) / 2)" }}
                     >
-                      <Stop city={g.stop.city} visit={g.stop.visit} count={g.tiles.length} />
+                      <Stop city={g.stop.city} place={g.stop.place} visit={g.stop.visit} count={g.tiles.length} />
                     </div>
                   </div>
                 )}
@@ -459,14 +459,14 @@ function MomentsGallery({
 
 export default MomentsGallery;
 
-function Stop({ city, visit, count, position }: { city: string; visit?: string; count: number; position?: number }) {
+export function Stop({ city, place, visit, count, position }: { city: string; place?: string; visit?: string; count: number; position?: number }) {
   return (
     <div
       aria-hidden
       className="flex items-center gap-2 whitespace-nowrap font-bold uppercase tracking-wide"
       style={{ fontFamily: "var(--font-parkinsans), sans-serif", animation: "momentFade .3s ease-out" }}
     >
-      <span className="text-base leading-none text-white">{city}</span>
+      <span className="text-base leading-none text-white">{place ? `${city} · ${place}` : city}</span>
       {visit && <span className="text-base leading-none text-[#b8bec8]">{formatShortDate(visit)}</span>}
       <span className="flex items-center gap-1 text-base leading-none text-white">
         <CameraIcon weight="fill" size={16} className="-translate-y-[0.6px]" />
@@ -575,7 +575,7 @@ function Tile({
   );
 }
 
-function Lightbox({
+export function Lightbox({
   items,
   index,
   group,
@@ -584,7 +584,7 @@ function Lightbox({
 }: {
   items: GalleryItem[];
   index: number;
-  group?: { stop?: { city: string; visit?: string }; tiles: Array<{ index: number }> };
+  group?: { stop?: { city: string; visit?: string; place?: string }; tiles: Array<{ index: number }> };
   onClose: () => void;
   onStep: (dir: 1 | -1) => void;
 }) {
@@ -700,6 +700,7 @@ function Lightbox({
           <div className="pointer-events-none absolute inset-x-0 -bottom-8 flex justify-center">
             <Stop
               city={group.stop.city}
+              place={group.stop.place}
               visit={group.stop.visit}
               count={group.tiles.length}
               position={group.tiles.findIndex((t) => t.index === index) + 1}
