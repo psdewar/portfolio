@@ -424,6 +424,7 @@ export function TripFund({
   leg,
   intro,
   og = false,
+  initialHonorarium,
   nextTrip,
   prevTrip,
   pastNotes,
@@ -434,6 +435,7 @@ export function TripFund({
   leg: FundLeg;
   intro?: ReactNode;
   og?: boolean;
+  initialHonorarium?: string;
   nextTrip?: {
     slug: string;
     destination: string;
@@ -552,7 +554,7 @@ export function TripFund({
   const [lineVals, setLineVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(LINES.map((l) => [l.key, ""])),
   );
-  const [honorarium, setHonorariumVal] = useState("");
+  const [honorarium, setHonorariumVal] = useState(initialHonorarium ?? "");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const lineTotal = LINES.reduce((sum, line) => {
     const n = parseFloat(lineVals[line.key] ?? "");

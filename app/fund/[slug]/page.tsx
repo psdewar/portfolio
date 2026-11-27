@@ -140,6 +140,13 @@ function lastCluster(dates: string[]): string[] {
   return cluster;
 }
 
+// Positive number up to 10000 with at most 2 decimals; anything else is ignored.
+function parseHonorarium(raw: unknown): string | undefined {
+  if (typeof raw !== "string" || !/^\d{1,5}(\.\d{1,2})?$/.test(raw)) return undefined;
+  const n = Number(raw);
+  return n > 0 && n <= 10000 ? raw : undefined;
+}
+
 export default async function Page({
   params,
   searchParams,
@@ -151,6 +158,7 @@ export default async function Page({
     og?: string;
     utm_source?: string;
     utm_content?: string;
+    honorarium?: string;
   }>;
 }) {
   const { slug } = await params;
@@ -371,6 +379,7 @@ export default async function Page({
           leg={{ ...fund, booked }}
           intro={<ArtistIntro tourStops={false} skipVideoIds={["concert-where-i-wanna-be"]} />}
           og={sp?.og === "true"}
+          initialHonorarium={parseHonorarium(sp?.honorarium)}
           nextTrip={tripCard}
           prevTrip={prevTrip}
           pastNotes={pageDone ? legNotes(slug) : undefined}
