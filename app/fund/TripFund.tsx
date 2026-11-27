@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import posthog from "posthog-js";
@@ -45,23 +46,6 @@ const PHONE = process.env.NEXT_PUBLIC_PHONE ?? "";
 function wholeDollars(raw: string): string {
   const n = Math.floor(parseFloat(raw));
   return n >= 1 ? String(Math.min(n, MAX_CARD_DOLLARS)) : "";
-}
-
-function ChevronIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="34"
-      height="34"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
 }
 
 function BookedRow({ booking }: { booking: FundBooked }) {
@@ -298,6 +282,144 @@ function LegIntroVideo({ videoId }: { videoId: string }) {
   );
 }
 
+const WIDE_MEDIA = "(min-width: 1024px) and (min-height: 500px)";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    setMatches(mq.matches);
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
+function IntroReel({ videoId }: { videoId: string }) {
+  const meta = getVideoMetadata(videoId);
+  const wide = useMediaQuery(WIDE_MEDIA);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [state, setState] = useState<"idle" | "playing" | "paused">("idle");
+  const [isMuted, setIsMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const src = wide && meta?.srcLandscape ? meta.srcLandscape : meta?.src;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    setState("idle");
+    setIsMuted(true);
+    setPlaying(false);
+  }, [src]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.intersectionRatio < 0.4 && !video.paused) {
+          video.pause();
+          setState("paused");
+        }
+      },
+      { threshold: [0, 0.4] },
+    );
+    io.observe(video);
+    return () => io.disconnect();
+  }, []);
+
+  if (!meta?.thumbnail || !src) return null;
+
+  const tap = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (state === "playing") {
+      video.pause();
+      setState("paused");
+      return;
+    }
+    if (state === "idle") {
+      video.muted = false;
+      video.currentTime = 0;
+      setIsMuted(false);
+    }
+    setState("playing");
+    video.play().catch(() => setState("paused"));
+  };
+
+  const toggleMute = (e: MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
+  };
+
+  const onEnded = () => {
+    const video = videoRef.current;
+    if (video) video.muted = true;
+    setState("idle");
+    setIsMuted(true);
+    setPlaying(false);
+  };
+
+  const tapLabel = state === "idle" ? "Play with sound" : state === "paused" ? "Play" : "Pause";
+
+  return (
+    <div className="intro-reel">
+      <picture>
+        {meta.thumbnailLandscape && (
+          <source media={WIDE_MEDIA} srcSet={meta.thumbnailLandscape} />
+        )}
+        <img src={meta.thumbnail} alt="" className="intro-reel-media" />
+      </picture>
+      <video
+        ref={videoRef}
+        src={src}
+        className={playing ? "intro-reel-media is-playing" : "intro-reel-media"}
+        muted
+        playsInline
+        preload="none"
+        onPlaying={() => setPlaying(true)}
+        onEnded={onEnded}
+      />
+      <button
+        type="button"
+        className="intro-reel-tap"
+        aria-label={tapLabel}
+        onClick={tap}
+      />
+      {state !== "playing" && (
+        <span className="camp-intro-play intro-reel-paused">
+          <PlayIcon size={28} weight="fill" />
+        </span>
+      )}
+      {state !== "idle" && (
+        <button
+          type="button"
+          className="intro-reel-mute"
+          onClick={toggleMute}
+          aria-label={isMuted ? "Play with sound" : "Mute"}
+        >
+          {isMuted ? (
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function TripFund({
   leg,
   intro,
@@ -432,11 +554,6 @@ export function TripFund({
   );
   const [honorarium, setHonorariumVal] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [introOpen, setIntroOpen] = useState(true);
-  const openIntro = () => {
-    if (!introOpen) posthog.capture("fund_intro_opened", { trip: leg.slug });
-    setIntroOpen(true);
-  };
   const lineTotal = LINES.reduce((sum, line) => {
     const n = parseFloat(lineVals[line.key] ?? "");
     return sum + (isNaN(n) ? 0 : n);
@@ -648,11 +765,6 @@ html { scroll-behavior: smooth; }
 .done summary::-webkit-details-marker { display: none; }
 .done summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .done-summary-text { color: var(--paper); font-weight: 600; font-size: var(--fs-md); }
-.row-hint { display: block; color: var(--ink-dim); font-weight: 400; font-size: var(--fs-sm); margin-top: 2px; }
-.expander { flex: 0 0 auto; margin-left: auto; color: var(--act-text); display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s ease; }
-details[open] .expander { transform: rotate(180deg); }
-.row-hint-open, details[open] .row-hint-closed { display: none; }
-details[open] .row-hint-open { display: block; }
 .stats { display: flex; flex-direction: column; gap: 22px; padding: 30px 0 26px; color: var(--ink-dim); font-size: var(--fs-base); }
 .stat { position: relative; flex: 1 1 0; min-width: 0; }
 .stat--open { z-index: 8; }
@@ -776,18 +888,36 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
   .match-full, .match-chip { width: 52px; }
   .match-input-row { gap: 5px; }
 }
-.intro-row {
-  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; cursor: pointer;
-  padding: 16px 18px; border: 0; border-radius: 12px; background: var(--act-bg);
-  color: var(--paper); font: inherit; font-size: var(--fs-base); line-height: 1.45;
+.intro-card { overflow: visible; }
+.intro-reel {
+  position: relative; width: 100%; aspect-ratio: 9 / 16; max-height: 80svh;
+  background: #000; cursor: pointer; border-radius: 12px; overflow: hidden;
 }
-.intro-face {
-  flex: 0 0 auto; align-self: stretch; width: 76px; min-height: 76px; object-fit: cover;
-  object-position: 50% 30%; margin: -16px 0 -16px -18px; border-radius: 12px 0 0 12px;
+.intro-reel-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+video.intro-reel-media { opacity: 0; }
+video.intro-reel-media.is-playing { opacity: 1; }
+.intro-reel-tap {
+  position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer;
 }
-.intro-row-text { flex: 1 1 auto; min-width: 0; font-weight: 600; }
-.intro-row:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.expander.is-open { transform: rotate(180deg); }
+.intro-reel-paused { z-index: 1; pointer-events: none; }
+.intro-reel-mute {
+  position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; place-items: center;
+  padding: 10px; border: 0; border-radius: 999px; background: rgba(0,0,0,0.5); color: #fff; cursor: pointer;
+}
+@media (min-width: 1024px) and (min-height: 500px) {
+  .intro-reel { aspect-ratio: 16 / 9; max-height: none; }
+}
+.intro-caption { margin: 0 0 12px; color: var(--paper); font-size: var(--fs-base); line-height: 1.45; font-weight: 600; }
+@media (max-width: 1023px), (max-height: 499px) {
+  .intro-card > .intro-reel { width: calc(100% + 32px); margin-inline: -16px; border-radius: 0; max-height: calc(100svh - 48px); }
+  .intro-reel-media { background: #000; }
+  @media (orientation: portrait) {
+    .intro-card > .intro-reel .intro-reel-media { object-fit: cover; }
+  }
+}
+@media (min-width: 640px) and (max-width: 1023px), (min-width: 640px) and (max-height: 499px) {
+  .intro-card > .intro-reel { width: calc(100% + 80px); margin-inline: -40px; }
+}
 .intro-reveal { margin-top: 24px; }
 
 .bf-footer { margin-top: 44px; font-size: var(--fs-base); color: var(--ink-dim); line-height: 1.65; }
@@ -907,9 +1037,6 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
           items={navItems}
           trip={leg.slug}
           frozen={og}
-          onJump={(id) => {
-            if (id === "who") openIntro();
-          }}
         />
         <div className={introVideoId ? "wrap wrap--intro" : "wrap"}>
           {introVideoId && <LegIntroVideo videoId={introVideoId} />}
@@ -1056,33 +1183,13 @@ button.stat-body:focus-visible { outline: 2px solid var(--gold); outline-offset:
           {intro && (
             <section id="who" className="bf-section">
               <div className="section-head">Who you&apos;re funding</div>
-              <button
-                type="button"
-                className="intro-row"
-                onClick={() => (introOpen ? setIntroOpen(false) : openIntro())}
-                aria-expanded={introOpen}
-              >
-                <img
-                  src="/images/home/bio.jpeg"
-                  alt=""
-                  className="intro-face"
-                />
-                <span className="intro-row-text">
+              <div className="intro-card">
+                <p className="intro-caption">
                   Rapper and software engineer from Bellevue, Washington
-                  <span className="row-hint">
-                    {introOpen ? "See less" : "Expand for more info"}
-                  </span>
-                </span>
-                <span
-                  className={introOpen ? "expander is-open" : "expander"}
-                  aria-hidden="true"
-                >
-                  <ChevronIcon />
-                </span>
-              </button>
-              {introOpen && (
-                <div className="intro-reveal space-y-8">{intro}</div>
-              )}
+                </p>
+                <IntroReel videoId="concert-where-i-wanna-be" />
+              </div>
+              <div className="intro-reveal space-y-8">{intro}</div>
             </section>
           )}
         </div>

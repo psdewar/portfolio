@@ -3,22 +3,28 @@ import StoryReadMore from "./StoryReadMore";
 import TourStops from "./TourStops";
 import { getShows, getTourCounts, listableShows } from "../lib/shows";
 import EnergyVideos from "./EnergyVideos";
-import { ENERGY_VIDEO_IDS } from "../lib/videos.config";
+import { ENERGY_VIDEO_IDS, type VideoId } from "../lib/videos.config";
 import { storyParagraphs } from "../data/story";
 
-export default async function ArtistIntro({ tourStops = true }: { tourStops?: boolean }) {
+export default async function ArtistIntro({
+  tourStops = true,
+  skipVideoIds = [],
+}: {
+  tourStops?: boolean;
+  skipVideoIds?: VideoId[];
+}) {
   const tourShows = listableShows(await getShows());
   const paragraphs = storyParagraphs(await getTourCounts());
 
   return (
     <>
       <section>
-        <EnergyVideos title="My Energy" videoIds={ENERGY_VIDEO_IDS} />
+        <EnergyVideos title="My Energy" videoIds={ENERGY_VIDEO_IDS.filter((id) => !skipVideoIds.includes(id))} />
       </section>
 
       <section>
         <h3 className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
-          A single from my set
+          My latest singles
         </h3>
         <SingleCard />
       </section>

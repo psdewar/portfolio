@@ -2,6 +2,8 @@ export interface VideoMetadata {
   src: string;
   instagramUrl?: string;
   thumbnail?: string;
+  srcLandscape?: string;
+  thumbnailLandscape?: string;
   title?: string;
   byline?: string;
   description?: string;
@@ -31,6 +33,13 @@ export const VIDEO_REGISTRY = {
     description: "The Camp Oneness Choir performing True Happiness in Virginia",
   },
 
+  "concert-where-i-wanna-be": {
+    src: "https://assets.peytspencer.com/videos/concert-where-i-wanna-be.mp4",
+    thumbnail: "https://assets.peytspencer.com/videos/concert-where-i-wanna-be-poster.jpg",
+    srcLandscape: "https://assets.peytspencer.com/videos/concert-where-i-wanna-be-wide.mp4",
+    thumbnailLandscape: "https://assets.peytspencer.com/videos/concert-where-i-wanna-be-wide-poster.jpg",
+    title: "Where I Wanna Be",
+  },
   "concert-fulton-md": {
     src: "https://assets.peytspencer.com/videos/concert-fulton-md.mp4",
     thumbnail: "https://assets.peytspencer.com/videos/concert-fulton-md-cover.jpg",
@@ -63,6 +72,7 @@ export const LEG_INTRO_VIDEOS: Record<string, VideoId> = {
 };
 
 export const ENERGY_VIDEO_IDS: VideoId[] = [
+  "concert-where-i-wanna-be",
   "concert-fulton-md",
   "concert-so-gone-mexico",
   "concert-ftgu-intro",

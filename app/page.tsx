@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LiveBanner from "./components/LiveBanner";
 import { useOgMode } from "./lib/useOgMode";
+import { getVideoMetadata } from "./lib/videos.config";
+
+const reel = getVideoMetadata("concert-where-i-wanna-be")!;
+const HERO_CLIPS = [
+  { src: reel.src, poster: reel.thumbnail },
+  { src: "https://assets.peytspencer.com/videos/windstock.mp4", poster: undefined },
+];
 
 export default function Page() {
   const router = useRouter();
@@ -13,7 +20,164 @@ export default function Page() {
   const [isMuted, setIsMuted] = useState(true);
   const [supportAnimating, setSupportAnimating] = useState(false);
   const isOg = useOgMode();
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videos = useRef<(HTMLVideoElement | null)[]>([null, null]);
+  const wraps = useRef<(HTMLDivElement | null)[]>([null, null]);
+  const activeRef = useRef(0);
+  const clipRef = useRef(0);
+  const standbyClip = useRef<number | null>(null);
+  const sliding = useRef(false);
+  const bars = useRef<(HTMLSpanElement | null)[]>([]);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
+  const [activeClip, setActiveClip] = useState(0);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let raf = 0;
+    const tick = () => {
+      const video = videos.current[activeRef.current];
+      const progress =
+        video && video.duration > 0 ? Math.min(video.currentTime / video.duration, 1) : 0;
+      bars.current.forEach((bar, i) => {
+        if (!bar) return;
+        const scale = i === clipRef.current ? (reduced.matches ? 1 : progress) : 0;
+        bar.style.transform = `scaleX(${scale})`;
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const activeVideo = () => videos.current[activeRef.current];
+
+  const setMuted = (muted: boolean) => {
+    videos.current.forEach((v) => {
+      if (v) v.muted = muted;
+    });
+    setIsMuted(muted);
+  };
+
+  const loadClip = (video: HTMLVideoElement, clipIndex: number) => {
+    const clip = HERO_CLIPS[clipIndex];
+    video.preload = "auto";
+    video.poster = clip.poster ?? "";
+    video.src = clip.src;
+    video.load();
+    video.pause();
+  };
+
+  const prepareStandby = () => {
+    const standby = videos.current[1 - activeRef.current];
+    if (!standby || standbyClip.current !== null) return;
+    standbyClip.current = (clipRef.current + 1) % HERO_CLIPS.length;
+    loadClip(standby, standbyClip.current);
+  };
+
+  const placeOffscreen = (wrap: HTMLDivElement, side = 1) => {
+    wrap.style.transition = "none";
+    wrap.style.transform = `translateX(${side * 100}%)`;
+    wrap.style.zIndex = "0";
+  };
+
+  const goTo = (target: number, dir: 1 | -1) => {
+    if (sliding.current || target === clipRef.current) return;
+    const outIndex = activeRef.current;
+    const inIndex = 1 - outIndex;
+    const out = videos.current[outIndex];
+    const incoming = videos.current[inIndex];
+    const outWrap = wraps.current[outIndex];
+    const inWrap = wraps.current[inIndex];
+    if (!out || !incoming || !outWrap || !inWrap) return;
+    sliding.current = true;
+
+    if (standbyClip.current !== target) {
+      standbyClip.current = target;
+      loadClip(incoming, target);
+    }
+    placeOffscreen(inWrap, dir);
+
+    const finish = () => {
+      placeOffscreen(outWrap);
+      standbyClip.current = (target + 1) % HERO_CLIPS.length;
+      loadClip(out, standbyClip.current);
+      sliding.current = false;
+    };
+
+    const start = () => {
+      activeRef.current = inIndex;
+      clipRef.current = target;
+      setActiveClip(target);
+      if (incoming.currentTime > 0) incoming.currentTime = 0;
+      incoming.muted = out.muted;
+      incoming.play().catch(() => {});
+      outWrap.style.zIndex = "1";
+      inWrap.style.zIndex = "2";
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        inWrap.style.transition = "none";
+        inWrap.style.transform = "translateX(0)";
+        finish();
+        return;
+      }
+      void inWrap.offsetWidth;
+      inWrap.style.transition = "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)";
+      inWrap.style.transform = "translateX(0)";
+      let done = false;
+      const end = () => {
+        if (done) return;
+        done = true;
+        inWrap.removeEventListener("transitionend", end);
+        finish();
+      };
+      inWrap.addEventListener("transitionend", end);
+      window.setTimeout(end, 750);
+    };
+
+    if (incoming.readyState >= 3) {
+      start();
+    } else {
+      let started = false;
+      const once = () => {
+        if (started) return;
+        started = true;
+        incoming.removeEventListener("canplay", once);
+        incoming.removeEventListener("playing", once);
+        start();
+      };
+      incoming.addEventListener("canplay", once);
+      incoming.addEventListener("playing", once);
+      incoming.muted = true;
+      incoming.play().catch(() => {});
+    }
+  };
+
+  const playNextClip = () => goTo((clipRef.current + 1) % HERO_CLIPS.length, 1);
+
+  const onPanelPointerDown = (e: React.PointerEvent) => {
+    swipe.current = { x: e.clientX, y: e.clientY };
+    swiped.current = false;
+  };
+
+  const onPanelPointerUp = (e: React.PointerEvent) => {
+    const start = swipe.current;
+    swipe.current = null;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
+    swiped.current = true;
+    const n = HERO_CLIPS.length;
+    if (dx < 0) goTo((clipRef.current + 1) % n, 1);
+    else goTo((clipRef.current - 1 + n) % n, -1);
+  };
+
+  const onPanelClick = () => {
+    if (swiped.current) {
+      swiped.current = false;
+      return;
+    }
+    toggleMute();
+  };
 
   const handleSupportClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window === "undefined") return;
@@ -50,27 +214,19 @@ export default function Page() {
   const imgHandlers = (i: number) => ({
     onMouseEnter: () => {
       setHovered(i);
-      if (i !== 3 && videoRef.current && !isMuted) {
-        videoRef.current.muted = true;
-        setIsMuted(true);
-      }
+      if (i !== 3 && activeVideo() && !isMuted) setMuted(true);
     },
     onMouseLeave: () => setHovered(null),
     onTouchStart: () => {
       setHovered(i);
-      if (i !== 3 && videoRef.current && !isMuted) {
-        videoRef.current.muted = true;
-        setIsMuted(true);
-      }
+      if (i !== 3 && activeVideo() && !isMuted) setMuted(true);
     },
     onTouchEnd: () => setHovered(null),
   });
 
   const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
+    const video = activeVideo();
+    if (video) setMuted(!video.muted);
   };
 
   return (
@@ -109,22 +265,74 @@ export default function Page() {
               <div
                 className="relative row-span-3 sm:row-span-6 overflow-hidden order-3 sm:order-none"
                 {...imgHandlers(3)}
-                onClick={toggleMute}
+                style={{ touchAction: "pan-y" }}
+                onPointerDown={onPanelPointerDown}
+                onPointerUp={onPanelPointerUp}
+                onPointerCancel={() => {
+                  swipe.current = null;
+                }}
+                onClick={onPanelClick}
               >
-                <video
-                  ref={videoRef}
-                  className={`${imgClass(3)} absolute inset-0 w-full h-full object-cover`}
-                  loop
-                  muted
-                  autoPlay
-                  playsInline
-                >
-                  <source
-                    src="https://assets.peytspencer.com/videos/windstock.mp4"
-                    type="video/mp4"
-                  />
-                </video>
+                {[0, 1].map((n) => (
+                  <div
+                    key={n}
+                    ref={(el) => {
+                      wraps.current[n] = el;
+                    }}
+                    className="absolute inset-0"
+                    style={n === 0 ? undefined : { transform: "translateX(100%)" }}
+                  >
+                    <video
+                      ref={(el) => {
+                        videos.current[n] = el;
+                      }}
+                      className={`${imgClass(3)} absolute inset-0 w-full h-full object-cover`}
+                      src={n === 0 ? HERO_CLIPS[0].src : undefined}
+                      poster={n === 0 ? HERO_CLIPS[0].poster : undefined}
+                      preload={n === 0 ? undefined : "none"}
+                      onPlaying={n === 0 ? prepareStandby : undefined}
+                      onEnded={() => {
+                        if (activeRef.current === n) playNextClip();
+                      }}
+                      muted
+                      autoPlay={n === 0}
+                      playsInline
+                    />
+                  </div>
+                ))}
                 <div className={`${overlayClass(3)} panel-overlay`} />
+                <div className="absolute top-[3px] left-4 z-20 flex items-center gap-1">
+                  {HERO_CLIPS.map((clip, i) => (
+                    <button
+                      key={clip.src}
+                      type="button"
+                      aria-label={`Play clip ${i + 1} of ${HERO_CLIPS.length}`}
+                      aria-current={i === activeClip ? "true" : undefined}
+                      className="flex h-6 items-center px-0.5 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goTo(i, i > clipRef.current ? 1 : -1);
+                      }}
+                    >
+                      <span
+                        className="relative block h-1.5 w-7 overflow-hidden rounded-full"
+                        style={{
+                          background: "rgba(255,255,255,.35)",
+                          boxShadow: "0 1px 2px rgba(0,0,0,.5)",
+                        }}
+                      >
+                        <span
+                          ref={(el) => {
+                            bars.current[i] = el;
+                          }}
+                          className="absolute inset-0 origin-left"
+                          style={{ background: "rgba(255,255,255,.95)", transform: "scaleX(0)" }}
+                        />
+                      </span>
+                    </button>
+                  ))}
+                </div>
                 <button
                   className="absolute top-4 right-4 z-20 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors text-white pointer-events-auto"
                   aria-label={isMuted ? "Unmute video" : "Mute video"}

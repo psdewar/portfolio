@@ -27,7 +27,7 @@ export async function generateMetadata({
     ? "Host My All-Ages Rap Concert-Conversation"
     : `All-Ages Rap Concert-Conversation in ${show.city}, ${show.region}`;
   const description =
-    "Tap to hear my energy, play a single from my set, and confirm your interest.";
+    "Tap to hear my energy, play my latest singles, and confirm your interest.";
   const image = `https://peytspencer.com/api/og/rsvp/${slug}`;
 
   return {
@@ -125,8 +125,8 @@ export default async function ConfirmPage({
             </div>
             <p className="text-neutral-500 dark:text-neutral-400 min-w-0">
               {needsLocation
-                ? "Tell me where and when, pick what you can contribute, and drop your contact below. Scroll down for clips of me live, a single from my set, and my story."
-                : "Pick what you can contribute, add your contact, and confirm the date below. Scroll down for clips of me live, a single from my set, and my story."}
+                ? "Tell me where and when, pick what you can contribute, and drop your contact below. Scroll down for clips of me live, my latest singles, and my story."
+                : "Pick what you can contribute, add your contact, and confirm the date below. Scroll down for clips of me live, my latest singles, and my story."}
             </p>
           </div>
         </div>

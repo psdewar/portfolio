@@ -369,7 +369,7 @@ export default async function Page({
         <HashScroll />
         <TripFund
           leg={{ ...fund, booked }}
-          intro={<ArtistIntro tourStops={false} />}
+          intro={<ArtistIntro tourStops={false} skipVideoIds={["concert-where-i-wanna-be"]} />}
           og={sp?.og === "true"}
           nextTrip={tripCard}
           prevTrip={prevTrip}
